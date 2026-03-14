@@ -1,0 +1,9 @@
+{
+  "appId": "com.hyeni.calendar",
+  "appName": "혜니캘린더",
+  "webDir": "dist",
+  "server": {
+    "hostname": "kids-app-alpha.vercel.app",
+    "androidScheme": "https"
+  }
+}

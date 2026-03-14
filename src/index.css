@@ -1,0 +1,53 @@
+:root {
+  font-family: "Noto Sans KR", "Apple SD Gothic Neo", BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1f2937;
+  background: #f7f8fc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100%;
+}
+
+@media (display-mode: standalone) {
+  html, body, #root {
+    min-height: 100vh;
+    height: 100%;
+  }
+}
+
+html {
+  background: #f7f8fc;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at top, rgba(255, 214, 232, 0.8), transparent 38%),
+    linear-gradient(180deg, #fff9fc 0%, #eef4ff 55%, #f6f8ff 100%);
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}

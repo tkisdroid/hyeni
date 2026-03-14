@@ -1,0 +1,39 @@
+package com.hyeni.calendar;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Build;
+import android.util.Log;
+
+public class BootReceiver extends BroadcastReceiver {
+
+    private static final String TAG = "BootReceiver";
+    public static final String ACTION_RESTART_LOCATION_SERVICE = "com.hyeni.calendar.action.RESTART_LOCATION_SERVICE";
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String action = intent != null ? intent.getAction() : null;
+        if (Intent.ACTION_BOOT_COMPLETED.equals(action)
+                || Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action)
+                || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)
+                || Intent.ACTION_USER_UNLOCKED.equals(action)
+                || "android.intent.action.QUICKBOOT_POWERON".equals(action)
+                || ACTION_RESTART_LOCATION_SERVICE.equals(action)) {
+            SharedPreferences prefs = context.getSharedPreferences("hyeni_location_prefs", Context.MODE_PRIVATE);
+            boolean enabled = prefs.getBoolean("serviceEnabled", false);
+            String userId = prefs.getString("userId", null);
+
+            if (enabled && userId != null) {
+                Log.i(TAG, "Restart trigger received (" + action + "), restarting location service");
+                Intent serviceIntent = new Intent(context, LocationService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent);
+                } else {
+                    context.startService(serviceIntent);
+                }
+            }
+        }
+    }
+}
