@@ -30,28 +30,30 @@ function getNativeSetupAction(health) {
     return null;
 }
 
-// Send instant push notification via Edge Function
+// Send instant push notification via Edge Function (with retry)
 async function sendInstantPush({ action, familyId, senderUserId, title, message }) {
     if (!PUSH_FUNCTION_URL || !familyId) return;
+    const payload = JSON.stringify({ action, familyId, senderUserId, title, message });
+    const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY };
     try {
         const session = await getSession();
-        const token = session?.access_token || "";
-        const response = await fetch(PUSH_FUNCTION_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-                "apikey": SUPABASE_KEY,
-            },
-            body: JSON.stringify({ action, familyId, senderUserId, title, message }),
-        });
+        if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+    } catch { /* proceed without auth token */ }
 
-        if (!response.ok) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const response = await fetch(PUSH_FUNCTION_URL, { method: "POST", headers, body: payload, signal: controller.signal });
+            clearTimeout(timeout);
+            if (response.ok) { console.log("[Push] sent:", action); return; }
             const errText = await response.text();
-            console.error("[Push] instant push failed:", response.status, errText);
+            console.error("[Push] failed:", response.status, errText);
+            return;
+        } catch (e) {
+            console.log(`[Push] attempt ${attempt + 1}/3 failed:`, e.message);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
         }
-    } catch (e) {
-        console.log("[Push] instant push failed:", e.message);
     }
 }
 
