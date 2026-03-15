@@ -44,39 +44,44 @@ public final class NotificationHelper {
             }
         }
 
-        Uri defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        Uri cuteSound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.notif_cute);
         AudioAttributes audioAttr = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
 
+        // Delete old channels to apply new sound
+        nm.deleteNotificationChannel(CHANNEL_SCHEDULE);
+        nm.deleteNotificationChannel(CHANNEL_EMERGENCY);
+        nm.deleteNotificationChannel(CHANNEL_KKUK);
+
         NotificationChannel schedule = new NotificationChannel(
-                CHANNEL_SCHEDULE, "일정 알림", NotificationManager.IMPORTANCE_MAX);
+                CHANNEL_SCHEDULE, "일정 알림", NotificationManager.IMPORTANCE_HIGH);
         schedule.setDescription("일정 시작 전 알림");
         schedule.enableVibration(true);
-        schedule.setVibrationPattern(new long[]{0, 300, 200, 300});
-        schedule.setSound(defaultSound, audioAttr);
+        schedule.setVibrationPattern(new long[]{0, 100, 60, 100});
+        schedule.setSound(cuteSound, audioAttr);
         schedule.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
         schedule.setShowBadge(true);
         nm.createNotificationChannel(schedule);
 
         NotificationChannel emergency = new NotificationChannel(
-                CHANNEL_EMERGENCY, "긴급 알림", NotificationManager.IMPORTANCE_MAX);
+                CHANNEL_EMERGENCY, "긴급 알림", NotificationManager.IMPORTANCE_HIGH);
         emergency.setDescription("긴급 알림 (미도착, 안전 등)");
         emergency.enableVibration(true);
-        emergency.setVibrationPattern(new long[]{0, 500, 200, 500, 200, 500});
-        emergency.setSound(defaultSound, audioAttr);
+        emergency.setVibrationPattern(new long[]{0, 100, 60, 100});
+        emergency.setSound(cuteSound, audioAttr);
         emergency.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
         emergency.setShowBadge(true);
         emergency.setBypassDnd(true);
         nm.createNotificationChannel(emergency);
 
         NotificationChannel kkuk = new NotificationChannel(
-                CHANNEL_KKUK, "꾹 알림", NotificationManager.IMPORTANCE_MAX);
+                CHANNEL_KKUK, "꾹 알림", NotificationManager.IMPORTANCE_HIGH);
         kkuk.setDescription("꾹 긴급 핑");
         kkuk.enableVibration(true);
-        kkuk.setVibrationPattern(new long[]{0, 400, 200, 400});
-        kkuk.setSound(defaultSound, audioAttr);
+        kkuk.setVibrationPattern(new long[]{0, 100, 60, 100});
+        kkuk.setSound(cuteSound, audioAttr);
         kkuk.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
         kkuk.setShowBadge(true);
         kkuk.setBypassDnd(true);
@@ -146,10 +151,7 @@ public final class NotificationHelper {
                 break;
         }
 
-        boolean urgent = "emergency".equals(channel) || "kkuk".equals(channel);
-        long[] vibration = urgent
-                ? new long[]{0, 500, 200, 500, 200, 500}
-                : new long[]{0, 300, 200, 300};
+        long[] vibration = new long[]{0, 100, 60, 100};
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)

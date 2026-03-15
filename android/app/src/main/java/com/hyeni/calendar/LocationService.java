@@ -975,18 +975,21 @@ public class LocationService extends Service {
             locationChannel.setDescription("아이 위치를 부모님께 공유합니다");
             manager.createNotificationChannel(locationChannel);
 
+            // Delete and recreate alert channel to apply new sound
+            manager.deleteNotificationChannel(ALERT_CHANNEL_ID);
+            android.net.Uri cuteSound = android.net.Uri.parse(
+                "android.resource://" + getPackageName() + "/" + R.raw.notif_cute);
             NotificationChannel alertChannel = new NotificationChannel(
-                ALERT_CHANNEL_ID, "일정 알림", NotificationManager.IMPORTANCE_MAX);
-            alertChannel.setDescription("일정 알림 + 안전 알림 (미도착, 이탈 등)");
+                ALERT_CHANNEL_ID, "일정 알림", NotificationManager.IMPORTANCE_HIGH);
+            alertChannel.setDescription("일정 알림 + 안전 알림");
             alertChannel.enableVibration(true);
-            alertChannel.setVibrationPattern(new long[]{0, 500, 200, 500, 200, 500});
+            alertChannel.setVibrationPattern(new long[]{0, 100, 60, 100});
             alertChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             alertChannel.setBypassDnd(true);
             alertChannel.setShowBadge(true);
-            alertChannel.setSound(
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+            alertChannel.setSound(cuteSound,
                 new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             );
