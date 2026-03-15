@@ -1313,38 +1313,35 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 // Memo Section with send, replies, read indicator
 // ─────────────────────────────────────────────────────────────────────────────
 function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode }) {
-    const [replyText, setReplyText] = useState("");
+    const [inputText, setInputText] = useState("");
 
-    const handleReply = () => {
-        if (!replyText.trim() || !onReplySubmit) return;
-        onReplySubmit(replyText.trim());
-        setReplyText("");
+    const handleSend = () => {
+        if (!inputText.trim()) return;
+        const text = inputText.trim();
+        setInputText("");
+        // Always ensure memo placeholder exists (enables reply system)
+        if (!memoValue?.trim()) {
+            onMemoChange("💬");
+            setTimeout(() => { if (onMemoBlur) onMemoBlur(); }, 50);
+        }
+        // Save as reply (works as chat message)
+        if (onReplySubmit) onReplySubmit(text);
     };
 
     const othersRead = (readBy || []).filter(id => id !== myUserId).length > 0;
+    const hasMessages = (replies && replies.length > 0);
 
     return (
         <div style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
             {/* Header */}
             <div style={{ padding: "12px 16px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>💬 오늘의 메모</div>
-                {memoValue && othersRead && <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>}
+                {hasMessages && othersRead && <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>}
             </div>
 
             {/* Chat area */}
             <div style={{ padding: "12px 16px", minHeight: 60 }}>
-                {/* Existing memo as a message bubble */}
-                {memoValue?.trim() && (
-                    <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "flex-start" }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 14, background: isParentMode ? "#DBEAFE" : "#FCE7F3", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{isParentMode ? "👩" : "🐰"}</div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ background: "#F3F4F6", borderRadius: "4px 16px 16px 16px", padding: "10px 14px", fontSize: 14, color: "#374151", lineHeight: 1.6, fontFamily: FF }}>{memoValue}</div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Replies as chat bubbles */}
-                {replies && replies.length > 0 && replies.map(r => {
+                {hasMessages ? replies.map(r => {
                     const isMe = r.user_id === myUserId;
                     return (
                         <div key={r.id} style={{ display: "flex", gap: 8, marginBottom: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-start" }}>
@@ -1357,35 +1354,23 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
                             </div>
                         </div>
                     );
-                })}
-
-                {/* Empty state */}
-                {!memoValue?.trim() && (!replies || replies.length === 0) && (
+                }) : (
                     <div style={{ textAlign: "center", padding: "12px 0", color: "#D1D5DB", fontSize: 13 }}>{isParentMode ? "메모를 남겨보세요" : "오늘 하루 어땠어? 🐰"}</div>
                 )}
             </div>
 
-            {/* Unified input bar - memo (first message) or reply */}
+            {/* Input bar */}
             <div style={{ padding: "10px 12px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, alignItems: "center", background: "#FAFAFA" }}>
                 <input
                     type="text"
-                    placeholder={memoValue?.trim() ? (isParentMode ? "답글 입력..." : "답글 보내기~ 🐰") : (isParentMode ? "오늘의 메모를 남겨보세요..." : "오늘 하루 이야기해줘~ 🐰")}
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                    onKeyDown={e => {
-                        if (e.key === "Enter" && replyText.trim()) {
-                            if (memoValue?.trim()) { handleReply(); }
-                            else { onMemoChange(replyText.trim()); setReplyText(""); setTimeout(() => { if (onMemoBlur) onMemoBlur(); if (onMemoSend) onMemoSend(); }, 100); }
-                        }
-                    }}
+                    placeholder={isParentMode ? "메시지를 입력하세요..." : "여기에 써봐~ 🐰"}
+                    value={inputText}
+                    onChange={e => setInputText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") handleSend(); }}
                     style={{ flex: 1, border: "1.5px solid #E5E7EB", borderRadius: 20, padding: "10px 16px", fontSize: 16, fontFamily: FF, outline: "none", background: "white", boxSizing: "border-box" }}
                 />
-                <button onClick={() => {
-                    if (!replyText.trim()) return;
-                    if (memoValue?.trim()) { handleReply(); }
-                    else { onMemoChange(replyText.trim()); setReplyText(""); setTimeout(() => { if (onMemoBlur) onMemoBlur(); if (onMemoSend) onMemoSend(); }, 100); }
-                }}
-                    style={{ width: 40, height: 40, borderRadius: 20, background: replyText.trim() ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                <button onClick={handleSend}
+                    style={{ width: 40, height: 40, borderRadius: 20, background: inputText.trim() ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
                     ↑
                 </button>
             </div>
