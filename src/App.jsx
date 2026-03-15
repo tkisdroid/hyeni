@@ -1365,30 +1365,30 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
                 )}
             </div>
 
-            {/* Input bar */}
+            {/* Unified input bar - memo (first message) or reply */}
             <div style={{ padding: "10px 12px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, alignItems: "center", background: "#FAFAFA" }}>
                 <input
                     type="text"
-                    placeholder={isParentMode ? "메시지를 입력하세요..." : "여기에 써봐~ 🐰"}
+                    placeholder={memoValue?.trim() ? (isParentMode ? "답글 입력..." : "답글 보내기~ 🐰") : (isParentMode ? "오늘의 메모를 남겨보세요..." : "오늘 하루 이야기해줘~ 🐰")}
                     value={replyText}
                     onChange={e => setReplyText(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { if (replyText.trim()) handleReply(); else if (onMemoSend) onMemoSend(); } }}
+                    onKeyDown={e => {
+                        if (e.key === "Enter" && replyText.trim()) {
+                            if (memoValue?.trim()) { handleReply(); }
+                            else { onMemoChange(replyText.trim()); setReplyText(""); setTimeout(() => { if (onMemoBlur) onMemoBlur(); if (onMemoSend) onMemoSend(); }, 100); }
+                        }
+                    }}
                     style={{ flex: 1, border: "1.5px solid #E5E7EB", borderRadius: 20, padding: "10px 16px", fontSize: 16, fontFamily: FF, outline: "none", background: "white", boxSizing: "border-box" }}
                 />
-                <button onClick={() => { if (replyText.trim()) handleReply(); else if (memoValue?.trim() && onMemoSend) onMemoSend(); }}
-                    style={{ width: 40, height: 40, borderRadius: 20, background: (replyText.trim() || memoValue?.trim()) ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                <button onClick={() => {
+                    if (!replyText.trim()) return;
+                    if (memoValue?.trim()) { handleReply(); }
+                    else { onMemoChange(replyText.trim()); setReplyText(""); setTimeout(() => { if (onMemoBlur) onMemoBlur(); if (onMemoSend) onMemoSend(); }, 100); }
+                }}
+                    style={{ width: 40, height: 40, borderRadius: 20, background: replyText.trim() ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
                     ↑
                 </button>
             </div>
-
-            {/* Memo textarea (hidden style - integrated as first message input) */}
-            {!memoValue?.trim() && (
-                <div style={{ padding: "0 12px 12px" }}>
-                    <textarea rows={2} placeholder={isParentMode ? "오늘의 메모를 남겨봐요..." : "오늘 하루 이야기해줘~ 🐰"}
-                        style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: "10px 14px", resize: "none", fontSize: 15, color: "#374151", fontFamily: FF, outline: "none", lineHeight: 1.6, boxSizing: "border-box", background: "white" }}
-                        value={memoValue || ""} onChange={e => onMemoChange(e.target.value)} onBlur={() => onMemoBlur && onMemoBlur()} />
-                </div>
-            )}
         </div>
     );
 }
