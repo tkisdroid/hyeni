@@ -215,7 +215,7 @@ async function sendFcmToFamily(
 
   if (!tokens?.length) return 0;
 
-  const isUrgent = type === "kkuk" || type === "parent_alert";
+  const isUrgent = type === "kkuk" || type === "parent_alert" || type === "new_memo";
   let sent = 0;
   const expiredIds: string[] = [];
 
@@ -225,7 +225,7 @@ async function sendFcmToFamily(
       t.fcm_token,
       title,
       body,
-      { type, familyId },
+      { type, familyId, ...(isUrgent ? { urgent: "true" } : {}) },
       isUrgent
     );
     if (result === "sent") {

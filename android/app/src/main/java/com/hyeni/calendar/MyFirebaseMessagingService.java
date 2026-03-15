@@ -83,6 +83,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         boolean isUrgent = "kkuk".equals(type)
             || "parent_alert".equals(type)
             || "emergency".equals(type)
+            || "new_memo".equals(type)
             || "true".equalsIgnoreCase(data.get("urgent"));
 
         // Wake screen for ALL notification types — child must see every notification
