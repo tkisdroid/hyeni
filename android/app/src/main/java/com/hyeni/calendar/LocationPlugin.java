@@ -38,11 +38,16 @@ public class LocationPlugin extends Plugin {
         String supabaseUrl = call.getString("supabaseUrl");
         String supabaseKey = call.getString("supabaseKey");
         String accessToken = call.getString("accessToken", "");
+        String role = call.getString("role", "child");
 
         if (userId == null || familyId == null) {
             call.reject("userId and familyId are required");
             return;
         }
+
+        // Save role to SharedPreferences for LocationService
+        getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putString("role", role).apply();
 
         // Check fine location permission first
         if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION)

@@ -998,9 +998,14 @@ public class LocationService extends Service {
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
+        String role = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("role", "child");
+        String statusText = "parent".equals(role)
+            ? "아이와 함께하고 있어요 💕"
+            : "부모님이 함께하고 있어요 💕";
+
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("혜니캘린더")
-            .setContentText("위치 공유 + 일정 알림 활성화 중 📍")
+            .setContentText(statusText)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .setContentIntent(pendingIntent)

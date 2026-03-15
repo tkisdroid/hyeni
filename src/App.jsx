@@ -56,7 +56,7 @@ async function sendInstantPush({ action, familyId, senderUserId, title, message 
 }
 
 // Native background location (Capacitor plugin)
-async function startNativeLocationService(userId, familyId, accessToken) {
+async function startNativeLocationService(userId, familyId, accessToken, role) {
     try {
         const { Capacitor } = await import("@capacitor/core");
         if (Capacitor.isNativePlatform()) {
@@ -66,7 +66,8 @@ async function startNativeLocationService(userId, familyId, accessToken) {
                 userId, familyId,
                 supabaseUrl: SUPABASE_URL,
                 supabaseKey: SUPABASE_KEY,
-                accessToken: accessToken || ""
+                accessToken: accessToken || "",
+                role: role || "child"
             });
             console.log("[Native] Background location service started");
             return true;
@@ -2612,7 +2613,7 @@ export default function KidsScheduler() {
         // Try to start native background service (APK only)
         getSession().then(session => {
             const token = session?.access_token || "";
-            startNativeLocationService(authUser.id, familyId, token).then(started => {
+            startNativeLocationService(authUser.id, familyId, token, myRole).then(started => {
                 if (started) {
                     console.log("[GPS] Native service running, web GPS as supplement");
                 }
