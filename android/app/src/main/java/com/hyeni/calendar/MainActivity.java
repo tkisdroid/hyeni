@@ -7,6 +7,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.WindowManager;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
@@ -22,6 +24,14 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SpeechPlugin.class);
         registerPlugin(NotificationPlugin.class);
         super.onCreate(savedInstanceState);
+
+        // Allow WebView to access microphone (for getUserMedia)
+        getBridge().getWebView().setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                request.grant(request.getResources());
+            }
+        });
 
         handlePushLaunch(getIntent());
         handleRemoteListen(getIntent());
