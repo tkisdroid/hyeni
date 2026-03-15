@@ -268,7 +268,7 @@ export async function fetchChildLocations(familyId) {
 // ── Realtime subscription ───────────────────────────────────────────────────
 
 export function subscribeFamily(familyId, callbacks) {
-  const { onEventsChange, onAcademiesChange, onMemosChange, onLocationChange, onKkuk } = callbacks;
+  const { onEventsChange, onAcademiesChange, onMemosChange, onMemoRepliesChange, onLocationChange, onKkuk } = callbacks;
   let retryCount = 0;
   const MAX_RETRIES = 10;
   const BASE_DELAY_MS = 2000;
@@ -300,6 +300,14 @@ export function subscribeFamily(familyId, callbacks) {
       filter: `family_id=eq.${familyId}`,
     }, (payload) => {
       onMemosChange(payload.eventType, payload.new, payload.old);
+    })
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "memo_replies",
+      filter: `family_id=eq.${familyId}`,
+    }, (payload) => {
+      if (onMemoRepliesChange) onMemoRepliesChange(payload.new);
     })
     .on("broadcast", { event: "child_location" }, (payload) => {
       if (onLocationChange) onLocationChange(payload.payload);

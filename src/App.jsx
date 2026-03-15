@@ -2544,6 +2544,14 @@ export default function KidsScheduler() {
                     // Native notification (wakes screen on Android)
                     showKkukNotification(senderLabel);
                 }
+            },
+            onMemoRepliesChange: (newRow) => {
+                if (!newRow || newRow.user_id === authUser?.id) return;
+                // New reply from other user — add to state if viewing same date
+                setMemoReplies(prev => {
+                    if (prev.some(r => r.id === newRow.id)) return prev;
+                    return [...prev, { id: newRow.id, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at }];
+                });
             }
         });
 
