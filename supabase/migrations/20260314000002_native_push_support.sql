@@ -41,7 +41,8 @@ CREATE INDEX IF NOT EXISTS idx_pending_notifications_lookup
 
 ALTER TABLE pending_notifications ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION get_pending_notifications(p_family_id uuid)
+DROP FUNCTION IF EXISTS get_pending_notifications(uuid);
+CREATE FUNCTION get_pending_notifications(p_family_id uuid)
 RETURNS TABLE (
   id uuid,
   title text,

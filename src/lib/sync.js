@@ -76,6 +76,7 @@ function rowToAcademy(row) {
     color: cat.color,
     bg: cat.bg,
     location: row.location,
+    schedule: row.schedule,
   };
 }
 
@@ -87,6 +88,7 @@ function academyToRow(ac, familyId) {
     emoji: ac.emoji,
     category: ac.category,
     location: ac.location || null,
+    schedule: ac.schedule || null,
   };
 }
 

@@ -710,13 +710,14 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
     const [showForm, setShowForm] = useState(false);
     const [showMap, setShowMap] = useState(false);
     const [editIdx, setEditIdx] = useState(null);
-    const [form, setForm] = useState({ name: "", category: "school", emoji: "📚", location: null });
+    const [form, setForm] = useState({ name: "", category: "school", emoji: "📚", location: null, schedule: null });
+    const DAYS_LABEL = ["일", "월", "화", "수", "목", "금", "토"];
 
     const openNew = (preset = null) => {
-        setForm(preset ? { name: preset.label, category: preset.category, emoji: preset.emoji, location: null } : { name: "", category: "school", emoji: "📚", location: null });
+        setForm(preset ? { name: preset.label, category: preset.category, emoji: preset.emoji, location: null, schedule: null } : { name: "", category: "school", emoji: "📚", location: null, schedule: null });
         setEditIdx(null); setShowForm(true);
     };
-    const openEdit = (idx) => { setForm({ ...list[idx] }); setEditIdx(idx); setShowForm(true); };
+    const openEdit = (idx) => { setForm({ ...list[idx], schedule: list[idx].schedule || null }); setEditIdx(idx); setShowForm(true); };
     const saveForm = () => {
         if (!form.name.trim()) return;
         const cat = CATEGORIES.find(c => c.id === form.category);
@@ -735,7 +736,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
 
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "white", display: "flex", flexDirection: "column", fontFamily: FF }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 12 }}>
                 <button onClick={() => { onSave(list); onClose(); }} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 저장</button>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "#374151" }}>🏫 학원 목록 관리</div>
             </div>
@@ -794,6 +795,34 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                                 </button>
                             )}
                         </div>
+                        {/* Schedule (days + time) */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>📅 수업 요일 & 시간</label>
+                            <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                                {DAYS_LABEL.map((d, i) => {
+                                    const active = form.schedule?.days?.includes(i);
+                                    return (
+                                        <button key={i} onClick={() => {
+                                            const days = form.schedule?.days || [];
+                                            const newDays = active ? days.filter(x => x !== i) : [...days, i].sort();
+                                            setForm(p => ({ ...p, schedule: { ...(p.schedule || { startTime: "15:00", endTime: "16:00" }), days: newDays } }));
+                                        }}
+                                            style={{ flex: 1, padding: "8px 0", borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: FF, border: active ? "2px solid #E879A0" : "2px solid #F3F4F6", background: active ? "#FFF0F7" : "#FAFAFA", color: active ? "#E879A0" : i === 0 ? "#F87171" : i === 6 ? "#60A5FA" : "#6B7280", transition: "all 0.15s" }}>
+                                            {d}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {form.schedule?.days?.length > 0 && (
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <input type="time" value={form.schedule?.startTime || "15:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, startTime: e.target.value } }))}
+                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none" }} />
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: "#9CA3AF" }}>~</span>
+                                    <input type="time" value={form.schedule?.endTime || "16:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, endTime: e.target.value } }))}
+                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none" }} />
+                                </div>
+                            )}
+                        </div>
                         <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={saveForm} style={{ flex: 1, padding: "13px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
                             <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "13px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
@@ -819,6 +848,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                                 <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{CATEGORIES.find(c => c.id === a.category)?.label}</div>
                                 {a.location && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>📍 {a.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
                                 {!a.location && <div style={{ fontSize: 11, color: "#F59E0B", marginTop: 2 }}>📍 위치 미등록</div>}
+                                {a.schedule?.days?.length > 0 && <div style={{ fontSize: 11, color: "#E879A0", fontWeight: 700, marginTop: 3 }}>📅 {a.schedule.days.map(d => DAYS_LABEL[d]).join(", ")} {a.schedule.startTime}~{a.schedule.endTime}</div>}
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openEdit(i)} style={{ background: "rgba(255,255,255,0.8)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
@@ -2010,7 +2040,7 @@ function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose }
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Header */}
-            <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                 <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 14, padding: "10px 16px", cursor: "pointer", fontWeight: 800, fontSize: 14, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>← 돌아가기</button>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "#1D4ED8" }}>📍 지금 우리 아이는?</div>
             </div>
@@ -3331,9 +3361,40 @@ export default function KidsScheduler() {
                         // Existing item — check for updates
                         finalList.push(a);
                         const old = oldMap.get(a.id);
-                        if (old && (old.name !== a.name || old.emoji !== a.emoji || old.category !== a.category || JSON.stringify(old.location) !== JSON.stringify(a.location))) {
-                            try { await updateAcademy(a.id, { name: a.name, emoji: a.emoji, category: a.category, location: a.location || null }); } catch (e) { console.error("[academy] update error:", e); }
+                        if (old && (old.name !== a.name || old.emoji !== a.emoji || old.category !== a.category || JSON.stringify(old.location) !== JSON.stringify(a.location) || JSON.stringify(old.schedule) !== JSON.stringify(a.schedule))) {
+                            try { await updateAcademy(a.id, { name: a.name, emoji: a.emoji, category: a.category, location: a.location || null, schedule: a.schedule || null }); } catch (e) { console.error("[academy] update error:", e); }
                         }
+                    }
+                }
+
+                // Auto-generate events for academies with schedule (4 weeks ahead)
+                if (familyId && authUser) {
+                    const today = new Date();
+                    const newEvents = {};
+                    for (const ac of finalList) {
+                        if (!ac.schedule?.days?.length || !ac.schedule.startTime) continue;
+                        const cat = CATEGORIES.find(c => c.id === ac.category);
+                        for (let d = 0; d < 28; d++) {
+                            const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + d);
+                            if (!ac.schedule.days.includes(date.getDay())) continue;
+                            const dk = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+                            const existing = events[dk] || [];
+                            const alreadyExists = existing.some(e => e.title === ac.name && e.time === ac.schedule.startTime);
+                            if (alreadyExists) continue;
+                            const ev = { id: generateUUID(), title: ac.name, time: ac.schedule.startTime, category: ac.category, emoji: ac.emoji, color: cat?.color || "#A78BFA", bg: cat?.bg || "#EDE9FE", memo: ac.schedule.endTime ? `~${ac.schedule.endTime}` : "", location: ac.location || null, notifOverride: null };
+                            if (!newEvents[dk]) newEvents[dk] = [];
+                            newEvents[dk].push(ev);
+                            try { await insertEvent(ev, familyId, dk, authUser.id); } catch (e) { console.error("[academy-event]", e); }
+                        }
+                    }
+                    if (Object.keys(newEvents).length > 0) {
+                        setEvents(prev => {
+                            const updated = { ...prev };
+                            for (const [dk, evs] of Object.entries(newEvents)) {
+                                updated[dk] = [...(updated[dk] || []), ...evs].sort((a, b) => a.time.localeCompare(b.time));
+                            }
+                            return updated;
+                        });
                     }
                 }
 
