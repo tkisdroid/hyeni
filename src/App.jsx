@@ -30,25 +30,16 @@ function getNativeSetupAction(health) {
     return null;
 }
 
-// Send instant push notification via Edge Function (with retry)
+// Send instant push notification via Supabase Functions SDK (with retry)
 async function sendInstantPush({ action, familyId, senderUserId, title, message }) {
-    if (!PUSH_FUNCTION_URL || !familyId) return;
-    const payload = JSON.stringify({ action, familyId, senderUserId, title, message });
-    const headers = { "Content-Type": "application/json", "apikey": SUPABASE_KEY };
-    try {
-        const session = await getSession();
-        if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
-    } catch { /* proceed without auth token */ }
+    if (!familyId) return;
+    const body = { action, familyId, senderUserId, title, message };
 
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 10000);
-            const response = await fetch(PUSH_FUNCTION_URL, { method: "POST", headers, body: payload, signal: controller.signal });
-            clearTimeout(timeout);
-            if (response.ok) { console.log("[Push] sent:", action); return; }
-            const errText = await response.text();
-            console.error("[Push] failed:", response.status, errText);
+            const { data, error } = await supabase.functions.invoke("push-notify", { body });
+            if (!error) { console.log("[Push] sent:", action, data); return; }
+            console.error("[Push] invoke error:", error.message);
             return;
         } catch (e) {
             console.log(`[Push] attempt ${attempt + 1}/3 failed:`, e.message);
