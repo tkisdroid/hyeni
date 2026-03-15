@@ -36,35 +36,60 @@ async function sendInstantPush({ action, familyId, senderUserId, title, message 
     const payload = JSON.stringify({ action, familyId, senderUserId, title, message });
     const url = PUSH_FUNCTION_URL;
     if (!url) return;
+    const session = await getSession().catch(() => null);
+    const token = session?.access_token || "";
 
-    // Method 1: sendBeacon (most reliable in WebView)
-    try {
-        if (navigator.sendBeacon) {
-            const sent = navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
-            if (sent) { console.log("[Push] sent via beacon:", action); return; }
-        }
-    } catch (e) { console.log("[Push] beacon failed:", e.message); }
-
-    // Method 2: XMLHttpRequest (works in some WebViews where fetch doesn't)
+    // Method 1: XMLHttpRequest with auth headers
     try {
         await new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("POST", url, true);
             xhr.setRequestHeader("Content-Type", "application/json");
-            xhr.setRequestHeader("apikey", SUPABASE_KEY);
+            if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
             xhr.timeout = 10000;
-            xhr.onload = () => { console.log("[Push] sent via XHR:", action, xhr.status); resolve(); };
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    console.log("[Push] sent via XHR:", action, xhr.status);
+                    resolve();
+                    return;
+                }
+                reject(new Error(`XHR ${xhr.status}: ${xhr.responseText || "push failed"}`));
+            };
             xhr.onerror = () => reject(new Error("XHR error"));
             xhr.ontimeout = () => reject(new Error("XHR timeout"));
             xhr.send(payload);
         });
+        return;
     } catch (e) {
         console.log("[Push] XHR failed:", e.message);
-        // Method 3: fetch as last resort
+        // Method 2: fetch with auth headers
         try {
-            await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY }, body: payload });
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+                },
+                body: payload,
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            }
             console.log("[Push] sent via fetch:", action);
-        } catch (e2) { console.log("[Push] all methods failed:", e2.message); }
+            return;
+        } catch (e2) {
+            console.log("[Push] fetch failed:", e2.message);
+        }
+    }
+
+    // Method 3: best-effort beacon fallback for app background/unload
+    try {
+        if (navigator.sendBeacon) {
+            const sent = navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
+            console.log("[Push] beacon fallback:", action, sent ? "queued" : "failed");
+        }
+    } catch (e) {
+        console.log("[Push] all methods failed:", e.message);
     }
 }
 
@@ -2318,19 +2343,13 @@ export default function KidsScheduler() {
                 // Flush DB save
                 if (memoSaveTimer.current) { clearTimeout(memoSaveTimer.current); memoSaveTimer.current = null; }
                 upsertMemo(familyId, dateKey, memoLastValue.current).catch(() => {});
-                // Use sendBeacon for reliability when app is closing
-                const payload = JSON.stringify({
+                sendInstantPush({
                     action: "new_memo",
                     familyId,
                     senderUserId: authUser.id,
                     title: `📒 ${myRole === "parent" ? "부모님" : "아이"}이 메모를 남겼어요`,
                     message: memoLastValue.current.length > 50 ? memoLastValue.current.substring(0, 50) + "..." : memoLastValue.current,
                 });
-                if (navigator.sendBeacon && PUSH_FUNCTION_URL) {
-                    navigator.sendBeacon(PUSH_FUNCTION_URL, new Blob([payload], { type: "application/json" }));
-                } else {
-                    sendInstantPush({ action: "new_memo", familyId, senderUserId: authUser.id, title: `📒 메모`, message: memoLastValue.current });
-                }
             }
         };
         document.addEventListener("visibilitychange", handleVisibility);
