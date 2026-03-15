@@ -1337,17 +1337,17 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
 
             {/* Reply Input */}
             {memoValue?.trim() && (
-                <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
                     <input
                         type="text"
-                        placeholder="답글 남기기..."
+                        placeholder={isParentMode ? "답글 남기기..." : "답글 보내기~ 🐰"}
                         value={replyText}
                         onChange={e => setReplyText(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") handleReply(); }}
-                        style={{ flex: 1, border: "1.5px solid #FDE68A", borderRadius: 12, padding: "6px 10px", fontSize: 12, fontFamily: FF, outline: "none", background: "white" }}
+                        style={{ flex: 1, border: "2px solid #FDE68A", borderRadius: 14, padding: "10px 14px", fontSize: 16, fontFamily: FF, outline: "none", background: "white", boxSizing: "border-box" }}
                     />
                     <button onClick={handleReply} disabled={!replyText.trim()}
-                        style={{ background: "#F59E0B", color: "white", border: "none", borderRadius: 10, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: replyText.trim() ? "pointer" : "default", opacity: replyText.trim() ? 1 : 0.5, fontFamily: FF }}>
+                        style={{ background: "#F59E0B", color: "white", border: "none", borderRadius: 14, padding: "10px 16px", fontSize: 14, fontWeight: 700, cursor: replyText.trim() ? "pointer" : "default", opacity: replyText.trim() ? 1 : 0.5, fontFamily: FF, flexShrink: 0 }}>
                         전송
                     </button>
                 </div>
@@ -3758,10 +3758,19 @@ export default function KidsScheduler() {
                             }, 500);
                         }}
                         onMemoBlur={() => {
-                            // Auto-save on blur (no push - that's for send button now)
                             if (memoDirty.current && familyId && memoLastValue.current.trim()) {
+                                memoDirty.current = false;
                                 if (memoSaveTimer.current) { clearTimeout(memoSaveTimer.current); memoSaveTimer.current = null; }
                                 upsertMemo(familyId, dateKey, memoLastValue.current).catch(err => console.error("[memo save]", err));
+                                if (authUser) {
+                                    sendInstantPush({
+                                        action: "new_memo",
+                                        familyId,
+                                        senderUserId: authUser.id,
+                                        title: `📒 ${myRole === "parent" ? "부모님" : "아이"}이 메모를 남겼어요`,
+                                        message: memoLastValue.current.length > 50 ? memoLastValue.current.substring(0, 50) + "..." : memoLastValue.current,
+                                    });
+                                }
                             }
                         }}
                         onMemoSend={() => {
