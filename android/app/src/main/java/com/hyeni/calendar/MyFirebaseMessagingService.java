@@ -80,15 +80,23 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (title == null) title = "혜니캘린더";
         if (body == null) body = "";
 
+        // Skip if this notification was sent by me
+        String senderUserId = data.get("senderUserId");
+        if (senderUserId != null && !senderUserId.isEmpty()) {
+            String myUserId = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("userId", "");
+            if (senderUserId.equals(myUserId)) {
+                Log.i(TAG, "Skipping self-notification for: " + type);
+                return;
+            }
+        }
+
         boolean isUrgent = "kkuk".equals(type)
             || "parent_alert".equals(type)
             || "emergency".equals(type)
             || "new_memo".equals(type)
             || "true".equalsIgnoreCase(data.get("urgent"));
 
-        // Wake screen for ALL notification types — child must see every notification
         wakeScreen();
-
         showNotification(title, body, isUrgent);
     }
 

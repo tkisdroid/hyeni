@@ -231,7 +231,7 @@ async function sendFcmToFamily(
       t.fcm_token,
       title,
       body,
-      { type, familyId, ...(isUrgent ? { urgent: "true" } : {}) },
+      { type, familyId, senderUserId: senderUserId || "", ...(isUrgent ? { urgent: "true" } : {}) },
       isUrgent
     );
     if (result === "sent") {
