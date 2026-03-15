@@ -30,21 +30,41 @@ function getNativeSetupAction(health) {
     return null;
 }
 
-// Send instant push notification via Supabase Functions SDK (with retry)
+// Send instant push notification via Edge Function
 async function sendInstantPush({ action, familyId, senderUserId, title, message }) {
     if (!familyId) return;
-    const body = { action, familyId, senderUserId, title, message };
+    const payload = JSON.stringify({ action, familyId, senderUserId, title, message });
+    const url = PUSH_FUNCTION_URL;
+    if (!url) return;
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-            const { data, error } = await supabase.functions.invoke("push-notify", { body });
-            if (!error) { console.log("[Push] sent:", action, data); return; }
-            console.error("[Push] invoke error:", error.message);
-            return;
-        } catch (e) {
-            console.log(`[Push] attempt ${attempt + 1}/3 failed:`, e.message);
-            if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    // Method 1: sendBeacon (most reliable in WebView)
+    try {
+        if (navigator.sendBeacon) {
+            const sent = navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
+            if (sent) { console.log("[Push] sent via beacon:", action); return; }
         }
+    } catch (e) { console.log("[Push] beacon failed:", e.message); }
+
+    // Method 2: XMLHttpRequest (works in some WebViews where fetch doesn't)
+    try {
+        await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", url, true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.setRequestHeader("apikey", SUPABASE_KEY);
+            xhr.timeout = 10000;
+            xhr.onload = () => { console.log("[Push] sent via XHR:", action, xhr.status); resolve(); };
+            xhr.onerror = () => reject(new Error("XHR error"));
+            xhr.ontimeout = () => reject(new Error("XHR timeout"));
+            xhr.send(payload);
+        });
+    } catch (e) {
+        console.log("[Push] XHR failed:", e.message);
+        // Method 3: fetch as last resort
+        try {
+            await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY }, body: payload });
+            console.log("[Push] sent via fetch:", action);
+        } catch (e2) { console.log("[Push] all methods failed:", e2.message); }
     }
 }
 
@@ -2584,14 +2604,11 @@ export default function KidsScheduler() {
                     return;
                 }
                 if (!newRow?.date_key) return;
-                // Don't overwrite if user is currently editing this date's memo
+                // Never overwrite the currently viewed date's memo (user may be editing)
+                if (newRow.date_key === dateKeyRef.current) return;
                 setMemos(prev => {
-                    const currentVal = prev[newRow.date_key] || "";
-                    const newVal = newRow.content || "";
-                    // Skip if local content is longer (user is typing)
-                    if (currentVal.length > newVal.length && newVal.length <= 2) return prev;
                     const updated = { ...prev };
-                    updated[newRow.date_key] = newVal;
+                    updated[newRow.date_key] = newRow.content || "";
                     cacheMemos(updated);
                     return updated;
                 });
