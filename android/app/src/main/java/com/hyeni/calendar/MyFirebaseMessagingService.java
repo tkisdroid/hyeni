@@ -95,9 +95,15 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             Log.i(TAG, "Remote listen request - launching app");
             wakeScreen();
             Intent launchIntent = new Intent(this, MainActivity.class);
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            launchIntent.putExtra("fromPush", true);
             launchIntent.putExtra("remoteListen", true);
-            startActivity(launchIntent);
+            try {
+                startActivity(launchIntent);
+            } catch (Exception launchError) {
+                Log.w(TAG, "Direct remote listen launch failed", launchError);
+            }
+            showRemoteListenLauncher();
             return;
         }
 
@@ -132,30 +138,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         android.net.Uri cuteSound = android.net.Uri.parse(
             "android.resource://" + getPackageName() + "/" + R.raw.notif_cute);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager nm = getSystemService(NotificationManager.class);
-            // Delete old channel to force recreate with new sound
-            if (nm != null) {
-                NotificationChannel existing = nm.getNotificationChannel(channelId);
-                if (existing != null) {
-                    nm.deleteNotificationChannel(channelId);
-                }
-
-                NotificationChannel channel = new NotificationChannel(
-                    channelId, "혜니 알림", NotificationManager.IMPORTANCE_HIGH);
-                channel.enableVibration(true);
-                channel.setBypassDnd(true);
-                channel.setVibrationPattern(new long[]{0, 150, 80, 150});
-                channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
-                channel.setShowBadge(true);
-                channel.setSound(cuteSound,
-                    new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build());
-                nm.createNotificationChannel(channel);
-            }
-        }
+        ensureAlertChannel(channelId, cuteSound);
 
         Intent contentIntent = new Intent(this, MainActivity.class);
         contentIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -184,6 +167,69 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setFullScreenIntent(fullScreenPendingIntent, true)
+            .setWhen(System.currentTimeMillis());
+
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) {
+            nm.notify(currentNotifId, builder.build());
+        }
+    }
+
+    private void ensureAlertChannel(String channelId, android.net.Uri cuteSound) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            // Delete old channel to force recreate with new sound
+            if (nm != null) {
+                NotificationChannel existing = nm.getNotificationChannel(channelId);
+                if (existing != null) {
+                    nm.deleteNotificationChannel(channelId);
+                }
+
+                NotificationChannel channel = new NotificationChannel(
+                    channelId, "혜니 알림", NotificationManager.IMPORTANCE_HIGH);
+                channel.enableVibration(true);
+                channel.setBypassDnd(true);
+                channel.setVibrationPattern(new long[]{0, 150, 80, 150});
+                channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                channel.setShowBadge(true);
+                channel.setSound(cuteSound,
+                    new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build());
+                nm.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private void showRemoteListenLauncher() {
+        String channelId = ALERT_CHANNEL_ID;
+        int currentNotifId = notifId.getAndIncrement();
+        android.net.Uri cuteSound = android.net.Uri.parse(
+            "android.resource://" + getPackageName() + "/" + R.raw.notif_cute);
+        ensureAlertChannel(channelId, cuteSound);
+
+        Intent launchIntent = new Intent(this, MainActivity.class);
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        launchIntent.putExtra("fromPush", true);
+        launchIntent.putExtra("remoteListen", true);
+        PendingIntent launchPendingIntent = PendingIntent.getActivity(
+            this, currentNotifId, launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle("안전 확인 연결 중")
+            .setContentText("주변 소리 연결을 시작합니다.")
+            .setStyle(new NotificationCompat.BigTextStyle().bigText("주변 소리 연결을 시작합니다."))
+            .setAutoCancel(true)
+            .setContentIntent(launchPendingIntent)
+            .setSound(cuteSound)
+            .setVibrate(new long[]{0, 150, 80, 150})
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setFullScreenIntent(launchPendingIntent, true)
             .setWhen(System.currentTimeMillis());
 
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);

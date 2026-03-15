@@ -52,10 +52,22 @@ public class MainActivity extends BridgeActivity {
         if (intent == null || !intent.getBooleanExtra("remoteListen", false)) return;
         intent.removeExtra("remoteListen"); // consume once
         Log.i("MainActivity", "Remote listen intent - will inject JS flag");
-        // Wait for WebView to be ready, then set a flag the web app can check
+        injectRemoteListenFlag(1000);
+        injectRemoteListenFlag(3000);
+        injectRemoteListenFlag(6000);
+        injectRemoteListenFlag(10000);
+    }
+
+    private void injectRemoteListenFlag(long delayMs) {
+        if (getBridge() == null || getBridge().getWebView() == null) {
+            return;
+        }
         getBridge().getWebView().postDelayed(() -> {
+            if (getBridge() == null || getBridge().getWebView() == null) {
+                return;
+            }
             getBridge().getWebView().evaluateJavascript("window.__REMOTE_LISTEN_REQUESTED = true;", null);
-        }, 2000);
+        }, delayMs);
     }
 
     private void handlePushLaunch(Intent intent) {

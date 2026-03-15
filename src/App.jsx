@@ -93,6 +93,97 @@ async function sendInstantPush({ action, familyId, senderUserId, title, message 
     }
 }
 
+const REMOTE_AUDIO_CHUNK_MS = 2000;
+const REMOTE_AUDIO_DEFAULT_DURATION_SEC = 30;
+const REMOTE_AUDIO_MIME_TYPES = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+];
+
+function getRemoteAudioMimeType() {
+    if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
+    return REMOTE_AUDIO_MIME_TYPES.find(type => MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function stopRemoteAudioCapture() {
+    if (window._remoteRecorderStopTimer) {
+        clearTimeout(window._remoteRecorderStopTimer);
+        window._remoteRecorderStopTimer = null;
+    }
+    if (window._remoteRecorder?.state === "recording") {
+        try { window._remoteRecorder.stop(); } catch { /* ignore */ }
+    }
+    if (window._remoteStream) {
+        try { window._remoteStream.getTracks().forEach(track => track.stop()); } catch { /* ignore */ }
+    }
+    window._remoteRecorder = null;
+    window._remoteStream = null;
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const result = typeof reader.result === "string" ? reader.result.split(",")[1] : "";
+            if (!result) {
+                reject(new Error("Failed to encode audio chunk"));
+                return;
+            }
+            resolve(result);
+        };
+        reader.onerror = () => reject(reader.error || new Error("FileReader error"));
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAULT_DURATION_SEC) {
+    if (!channel) throw new Error("Realtime channel unavailable");
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Audio capture unavailable");
+    if (typeof MediaRecorder === "undefined") throw new Error("MediaRecorder unavailable");
+
+    stopRemoteAudioCapture();
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = getRemoteAudioMimeType();
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    const maxDurationMs = Math.max(5, durationSec || REMOTE_AUDIO_DEFAULT_DURATION_SEC) * 1000;
+
+    recorder.ondataavailable = async (event) => {
+        if (!event.data?.size) return;
+        try {
+            const base64 = await blobToBase64(event.data);
+            channel.send({
+                type: "broadcast",
+                event: "audio_chunk",
+                payload: {
+                    data: base64,
+                    mimeType: event.data.type || mimeType || "audio/webm",
+                }
+            });
+        } catch (error) {
+            console.error("[Audio] Failed to encode/send chunk:", error);
+        }
+    };
+
+    recorder.onstop = () => {
+        if (window._remoteStream === stream) {
+            try { stream.getTracks().forEach(track => track.stop()); } catch { /* ignore */ }
+            window._remoteStream = null;
+        }
+        if (window._remoteRecorder === recorder) {
+            window._remoteRecorder = null;
+        }
+    };
+
+    recorder.start(REMOTE_AUDIO_CHUNK_MS);
+    window._remoteRecorder = recorder;
+    window._remoteStream = stream;
+    window._remoteRecorderStopTimer = setTimeout(() => stopRemoteAudioCapture(), maxDurationMs);
+    return true;
+}
+
 // Native background location (Capacitor plugin)
 async function startNativeLocationService(userId, familyId, accessToken, role) {
     try {
@@ -1762,12 +1853,12 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
 // Audio Recorder (ambient sound for safety)
 // ─────────────────────────────────────────────────────────────────────────────
 // Remote Ambient Audio Listener (Parent sends command → Child records → streams back)
-function AmbientAudioRecorder({ channel, familyId: recFamilyId, onClose }) {
+function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, onClose }) {
     const [status, setStatus] = useState("idle"); // idle, waiting, listening
     const [duration, setDuration] = useState(0);
-    const [audioChunks, setAudioChunks] = useState([]);
+    const [, setAudioChunks] = useState([]);
     const timerRef = useRef(null);
-    const audioCtxRef = useRef(null);
+    const playbackRef = useRef(Promise.resolve());
 
     const startListening = () => {
         if (!channel) return;
@@ -1777,7 +1868,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, onClose }) {
         // 1. Broadcast for when child app is already open
         channel.send({ type: "broadcast", event: "remote_listen_start", payload: { duration: 30 } });
         // 2. FCM push to wake up child app if closed
-        sendInstantPush({ action: "remote_listen", familyId: recFamilyId || "", senderUserId: "", title: "", message: "" });
+        sendInstantPush({ action: "remote_listen", familyId: recFamilyId || "", senderUserId: senderUserId || "", title: "", message: "" });
         timerRef.current = setTimeout(() => stopListening(), 35000);
     };
 
@@ -1788,18 +1879,37 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, onClose }) {
     };
 
     // Play received audio chunk
-    const playChunk = useCallback(async (base64) => {
-        try {
-            if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-            const binary = atob(base64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const audioBuffer = await audioCtxRef.current.decodeAudioData(bytes.buffer);
-            const source = audioCtxRef.current.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioCtxRef.current.destination);
-            source.start();
-        } catch (e) { console.log("[Audio] chunk play error:", e.message); }
+    const playChunk = useCallback((base64, mimeType) => {
+        playbackRef.current = playbackRef.current
+            .catch(() => {})
+            .then(async () => {
+                try {
+                    const binary = atob(base64);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    const blob = new Blob([bytes], { type: mimeType || "audio/webm" });
+                    const url = URL.createObjectURL(blob);
+                    const audio = new Audio(url);
+                    await new Promise((resolve, reject) => {
+                        const cleanup = () => {
+                            audio.onended = null;
+                            audio.onerror = null;
+                            URL.revokeObjectURL(url);
+                        };
+                        audio.onended = () => { cleanup(); resolve(); };
+                        audio.onerror = () => { cleanup(); reject(new Error("audio playback failed")); };
+                        const playPromise = audio.play();
+                        if (playPromise?.catch) {
+                            playPromise.catch((error) => {
+                                cleanup();
+                                reject(error);
+                            });
+                        }
+                    });
+                } catch (e) {
+                    console.log("[Audio] chunk play error:", e.message);
+                }
+            });
     }, []);
 
     // Listen for audio chunks via custom event from Realtime
@@ -1808,7 +1918,8 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, onClose }) {
             if (status === "idle") return;
             setStatus("listening");
             setDuration(d => d + 2);
-            playChunk(e.detail.data);
+            setAudioChunks(prev => [...prev, e.detail]);
+            playChunk(e.detail.data, e.detail.mimeType);
         };
         window.addEventListener("remote-audio-chunk", handleChunk);
         return () => window.removeEventListener("remote-audio-chunk", handleChunk);
@@ -1835,7 +1946,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, onClose }) {
                     </div>
                 )}
                 {status === "waiting" && (
-                    <div style={{ marginBottom: 16, fontSize: 12, color: "#F59E0B", fontWeight: 700 }}>아이 앱이 열려있어야 합니다</div>
+                    <div style={{ marginBottom: 16, fontSize: 12, color: "#F59E0B", fontWeight: 700 }}>아이 기기를 깨우고 연결 중입니다. 몇 초 걸릴 수 있어요.</div>
                 )}
                 <div style={{ display: "flex", gap: 10 }}>
                     {status === "idle" && (
@@ -2682,32 +2793,11 @@ export default function KidsScheduler() {
                 if (isParent) return; // only child responds
                 console.log("[Audio] Remote listen request received");
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
-                    const maxDuration = (payload.duration || 30) * 1000;
-                    recorder.ondataavailable = async (e) => {
-                        if (e.data.size > 0 && realtimeChannel.current) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                                const base64 = reader.result.split(",")[1];
-                                realtimeChannel.current.send({ type: "broadcast", event: "audio_chunk", payload: { data: base64 } });
-                            };
-                            reader.readAsDataURL(e.data);
-                        }
-                    };
-                    recorder.start(2000); // 2 second chunks
-                    setTimeout(() => {
-                        if (recorder.state === "recording") recorder.stop();
-                        stream.getTracks().forEach(t => t.stop());
-                    }, maxDuration);
-                    // Store ref for early stop
-                    window._remoteRecorder = recorder;
-                    window._remoteStream = stream;
+                    await startRemoteAudioCapture(realtimeChannel.current, payload.duration || REMOTE_AUDIO_DEFAULT_DURATION_SEC);
                 } catch (e) { console.error("[Audio] Remote recording failed:", e); }
             },
             onRemoteListenStop: () => {
-                if (window._remoteRecorder?.state === "recording") window._remoteRecorder.stop();
-                if (window._remoteStream) window._remoteStream.getTracks().forEach(t => t.stop());
+                stopRemoteAudioCapture();
             },
             onAudioChunk: (payload) => {
                 // Parent receives audio chunk - handled by AmbientAudioRecorder component
@@ -2722,40 +2812,26 @@ export default function KidsScheduler() {
 
     // ── Child: check if launched via FCM remote_listen ──
     useEffect(() => {
-        if (isParent || !familyId || !realtimeChannel.current) return;
+        if (isParent || !familyId) return;
         const checkFlag = () => {
-            if (window.__REMOTE_LISTEN_REQUESTED) {
+            if (window.__REMOTE_LISTEN_REQUESTED && realtimeChannel.current) {
                 window.__REMOTE_LISTEN_REQUESTED = false;
                 console.log("[Audio] Auto-starting remote listen from FCM launch");
-                // Trigger the same handler as broadcast
-                const handler = realtimeChannel.current?._callbacks?.onRemoteListenStart;
-                // Fallback: directly start recording
                 (async () => {
                     try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
-                        recorder.ondataavailable = async (e) => {
-                            if (e.data.size > 0 && realtimeChannel.current) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                    const base64 = reader.result.split(",")[1];
-                                    realtimeChannel.current.send({ type: "broadcast", event: "audio_chunk", payload: { data: base64 } });
-                                };
-                                reader.readAsDataURL(e.data);
-                            }
-                        };
-                        recorder.start(2000);
-                        setTimeout(() => { if (recorder.state === "recording") recorder.stop(); stream.getTracks().forEach(t => t.stop()); }, 30000);
-                        window._remoteRecorder = recorder;
-                        window._remoteStream = stream;
+                        await startRemoteAudioCapture(realtimeChannel.current, REMOTE_AUDIO_DEFAULT_DURATION_SEC);
                     } catch (e) { console.error("[Audio] Auto remote recording failed:", e); }
                 })();
             }
         };
-        // Check immediately and again after 3s (WebView JS injection delay)
+        // Keep polling for a short window because FCM → app launch → WebView boot timing varies.
         checkFlag();
-        const timer = setTimeout(checkFlag, 3000);
-        return () => clearTimeout(timer);
+        const interval = setInterval(checkFlag, 1000);
+        const timer = setTimeout(() => clearInterval(interval), 15000);
+        return () => {
+            clearInterval(interval);
+            clearTimeout(timer);
+        };
     }, [isParent, familyId]);
 
     // ── Polling fallback: refetch every 30s in case Realtime misses changes ──
@@ -4276,6 +4352,7 @@ export default function KidsScheduler() {
             {isRecordingAudio && <AmbientAudioRecorder
                 channel={realtimeChannel.current}
                 familyId={familyId}
+                senderUserId={authUser?.id}
                 onClose={() => setIsRecordingAudio(false)}
             />}
 
