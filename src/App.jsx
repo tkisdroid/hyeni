@@ -1319,12 +1319,6 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
         if (!inputText.trim()) return;
         const text = inputText.trim();
         setInputText("");
-        // Always ensure memo placeholder exists (enables reply system)
-        if (!memoValue?.trim()) {
-            onMemoChange("💬");
-            setTimeout(() => { if (onMemoBlur) onMemoBlur(); }, 50);
-        }
-        // Save as reply (works as chat message)
         if (onReplySubmit) onReplySubmit(text);
     };
 
@@ -3850,9 +3844,15 @@ export default function KidsScheduler() {
                         memoReplies={memoReplies}
                         onReplySubmit={content => {
                             if (!familyId || !authUser) return;
-                            insertMemoReply(familyId, dateKey, authUser.id, myRole, content)
+                            // Optimistic update - show immediately
+                            const optimisticReply = { id: "temp-" + Date.now(), user_id: authUser.id, user_role: myRole, content, created_at: new Date().toISOString() };
+                            setMemoReplies(prev => [...(prev || []), optimisticReply]);
+                            // Ensure memo exists first, then insert reply
+                            const ensureMemo = memos[dateKey]?.trim() ? Promise.resolve() : upsertMemo(familyId, dateKey, "💬");
+                            ensureMemo.then(() => insertMemoReply(familyId, dateKey, authUser.id, myRole, content))
                                 .then(() => fetchMemoReplies(familyId, dateKey).then(setMemoReplies))
                                 .catch(err => console.error("[reply]", err));
+                            if (!memos[dateKey]?.trim()) setMemos(prev => ({ ...prev, [dateKey]: "💬" }));
                             sendInstantPush({
                                 action: "new_memo",
                                 familyId,
