@@ -315,6 +315,15 @@ export function subscribeFamily(familyId, callbacks) {
     .on("broadcast", { event: "kkuk" }, (payload) => {
       if (onKkuk) onKkuk(payload.payload);
     })
+    .on("broadcast", { event: "remote_listen_start" }, (payload) => {
+      if (callbacks.onRemoteListenStart) callbacks.onRemoteListenStart(payload.payload);
+    })
+    .on("broadcast", { event: "remote_listen_stop" }, (payload) => {
+      if (callbacks.onRemoteListenStop) callbacks.onRemoteListenStop(payload.payload);
+    })
+    .on("broadcast", { event: "audio_chunk" }, (payload) => {
+      if (callbacks.onAudioChunk) callbacks.onAudioChunk(payload.payload);
+    })
     .subscribe((status) => {
       if (status === "SUBSCRIBED") {
         console.log("[Realtime] Subscribed to family:", familyId);

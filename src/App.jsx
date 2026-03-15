@@ -1761,94 +1761,99 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Audio Recorder (ambient sound for safety)
 // ─────────────────────────────────────────────────────────────────────────────
-function AmbientAudioRecorder({ onRecorded, onClose }) {
-    const [recording, setRecording] = useState(false);
+// Remote Ambient Audio Listener (Parent sends command → Child records → streams back)
+function AmbientAudioRecorder({ channel, onClose }) {
+    const [status, setStatus] = useState("idle"); // idle, waiting, listening
     const [duration, setDuration] = useState(0);
-    const [audioUrl, setAudioUrl] = useState(null);
-    const recRef = useRef(null);
-    const chunksRef = useRef([]);
+    const [audioChunks, setAudioChunks] = useState([]);
     const timerRef = useRef(null);
+    const audioCtxRef = useRef(null);
 
-    const startRecording = async () => {
-        if (!navigator.mediaDevices?.getUserMedia) { console.warn("[Audio] mediaDevices not available"); return; }
+    const startListening = () => {
+        if (!channel) return;
+        setStatus("waiting");
+        setDuration(0);
+        setAudioChunks([]);
+        channel.send({ type: "broadcast", event: "remote_listen_start", payload: { duration: 30 } });
+        // Auto-stop after 35 seconds (30 + buffer)
+        timerRef.current = setTimeout(() => stopListening(), 35000);
+    };
+
+    const stopListening = () => {
+        if (channel) channel.send({ type: "broadcast", event: "remote_listen_stop", payload: {} });
+        setStatus("idle");
+        if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    };
+
+    // Play received audio chunk
+    const playChunk = useCallback(async (base64) => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const RecorderClass = typeof MediaRecorder !== "undefined" ? MediaRecorder : null;
-            if (!RecorderClass) { stream.getTracks().forEach(t => t.stop()); console.warn("[Audio] MediaRecorder not available"); return; }
-            const recorder = new RecorderClass(stream, { mimeType: "audio/webm;codecs=opus" });
-            chunksRef.current = [];
-            recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-            recorder.onstop = () => {
-                const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-                const url = URL.createObjectURL(blob);
-                setAudioUrl(url);
-                stream.getTracks().forEach(t => t.stop());
-                if (onRecorded) onRecorded(blob, url);
-            };
-            recRef.current = recorder;
-            recorder.start(1000);
-            setRecording(true);
-            setDuration(0);
-            timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
-            // Auto-stop after 60 seconds
-            setTimeout(() => { if (recRef.current?.state === "recording") stopRecording(); }, 60000);
-        } catch (e) {
-            console.error("[Audio] permission denied:", e);
-        }
-    };
+            if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const audioBuffer = await audioCtxRef.current.decodeAudioData(bytes.buffer);
+            const source = audioCtxRef.current.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioCtxRef.current.destination);
+            source.start();
+        } catch (e) { console.log("[Audio] chunk play error:", e.message); }
+    }, []);
 
-    const stopRecording = () => {
-        if (recRef.current?.state === "recording") recRef.current.stop();
-        setRecording(false);
-        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    };
+    // Listen for audio chunks via custom event from Realtime
+    useEffect(() => {
+        const handleChunk = (e) => {
+            if (status === "idle") return;
+            setStatus("listening");
+            setDuration(d => d + 2);
+            playChunk(e.detail.data);
+        };
+        window.addEventListener("remote-audio-chunk", handleChunk);
+        return () => window.removeEventListener("remote-audio-chunk", handleChunk);
+    }, [status, playChunk]);
 
-    useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
+    useEffect(() => { return () => { if (timerRef.current) clearTimeout(timerRef.current); }; }, []);
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, fontFamily: FF }}
-            onClick={e => { if (e.target === e.currentTarget && !recording) onClose(); }}>
+            onClick={e => { if (e.target === e.currentTarget && status === "idle") onClose(); }}>
             <div style={{ background: "white", borderRadius: 28, padding: "24px 20px", width: "90%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", textAlign: "center" }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>{recording ? "🎙️" : audioUrl ? "🔊" : "🎤"}</div>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>{status === "listening" ? "🔊" : status === "waiting" ? "📡" : "🎤"}</div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: "#374151", marginBottom: 8 }}>
-                    {recording ? "주변 소리 녹음 중..." : audioUrl ? "녹음 완료" : "주변 소리 듣기"}
+                    {status === "listening" ? "아이 주변 소리 듣는 중..." : status === "waiting" ? "아이 기기 연결 중..." : "주변 소리 듣기"}
                 </div>
-                {recording && (
-                    <div style={{ fontSize: 32, fontWeight: 900, color: "#DC2626", marginBottom: 16 }}>
-                        {String(Math.floor(duration / 60)).padStart(2, "0")}:{String(duration % 60).padStart(2, "0")}
-                        <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#DC2626", display: "inline-block", marginLeft: 8, animation: "pulse 1s infinite" }} />
+                <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
+                    {status === "idle" ? "아이 기기의 마이크를 원격으로 켜서 주변 소리를 들을 수 있어요" : `${duration}초 수신 중`}
+                </div>
+                {status === "listening" && (
+                    <div style={{ marginBottom: 16 }}>
+                        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 3 }}>
+                            {[...Array(5)].map((_, i) => <div key={i} style={{ width: 4, height: 12 + Math.random() * 20, background: "#DC2626", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
+                        </div>
                     </div>
                 )}
-                {audioUrl && !recording && (
-                    <div style={{ marginBottom: 16 }}>
-                        <audio src={audioUrl} controls style={{ width: "100%", borderRadius: 12 }} />
-                    </div>
+                {status === "waiting" && (
+                    <div style={{ marginBottom: 16, fontSize: 12, color: "#F59E0B", fontWeight: 700 }}>아이 앱이 열려있어야 합니다</div>
                 )}
                 <div style={{ display: "flex", gap: 10 }}>
-                    {!recording && !audioUrl && (
-                        <button onClick={startRecording}
+                    {status === "idle" && (
+                        <button onClick={startListening}
                             style={{ flex: 1, padding: "14px", background: "linear-gradient(135deg, #DC2626, #B91C1C)", color: "white", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
-                            🎙️ 녹음 시작
+                            🎙️ 듣기 시작
                         </button>
                     )}
-                    {recording && (
-                        <button onClick={stopRecording}
+                    {(status === "listening" || status === "waiting") && (
+                        <button onClick={stopListening}
                             style={{ flex: 1, padding: "14px", background: "#374151", color: "white", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
-                            ⏹️ 녹음 중지
+                            ⏹️ 중지
                         </button>
                     )}
-                    {audioUrl && !recording && (
-                        <button onClick={() => { setAudioUrl(null); startRecording(); }}
-                            style={{ flex: 1, padding: "14px", background: "#EDE9FE", color: "#7C3AED", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
-                            🔄 다시 녹음
-                        </button>
-                    )}
-                    <button onClick={() => { if (recording) stopRecording(); onClose(); }}
+                    <button onClick={() => { stopListening(); onClose(); }}
                         style={{ padding: "14px 20px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
                         닫기
                     </button>
                 </div>
-                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 12 }}>최대 60초 녹음 · 아이의 안전을 위해 사용해주세요</div>
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 12 }}>최대 30초 · 아이의 안전을 위해 사용해주세요</div>
             </div>
         </div>
     );
@@ -2663,14 +2668,50 @@ export default function KidsScheduler() {
             },
             onMemoRepliesChange: (newRow) => {
                 if (!newRow) return;
-                // Skip own replies (already shown via optimistic update)
                 if (newRow.user_id === authUser?.id) return;
-                // Only add if it's for the currently viewed date
                 if (newRow.date_key !== dateKeyRef.current) return;
                 setMemoReplies(prev => {
                     if (prev.some(r => r.id === newRow.id)) return prev;
                     return [...prev, { id: newRow.id, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at }];
                 });
+            },
+            // Child: remote listen - parent requests mic recording
+            onRemoteListenStart: async (payload) => {
+                if (isParent) return; // only child responds
+                console.log("[Audio] Remote listen request received");
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+                    const maxDuration = (payload.duration || 30) * 1000;
+                    recorder.ondataavailable = async (e) => {
+                        if (e.data.size > 0 && realtimeChannel.current) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const base64 = reader.result.split(",")[1];
+                                realtimeChannel.current.send({ type: "broadcast", event: "audio_chunk", payload: { data: base64 } });
+                            };
+                            reader.readAsDataURL(e.data);
+                        }
+                    };
+                    recorder.start(2000); // 2 second chunks
+                    setTimeout(() => {
+                        if (recorder.state === "recording") recorder.stop();
+                        stream.getTracks().forEach(t => t.stop());
+                    }, maxDuration);
+                    // Store ref for early stop
+                    window._remoteRecorder = recorder;
+                    window._remoteStream = stream;
+                } catch (e) { console.error("[Audio] Remote recording failed:", e); }
+            },
+            onRemoteListenStop: () => {
+                if (window._remoteRecorder?.state === "recording") window._remoteRecorder.stop();
+                if (window._remoteStream) window._remoteStream.getTracks().forEach(t => t.stop());
+            },
+            onAudioChunk: (payload) => {
+                // Parent receives audio chunk - handled by AmbientAudioRecorder component
+                if (!isParent) return;
+                // Dispatch custom event for the recorder component to pick up
+                window.dispatchEvent(new CustomEvent("remote-audio-chunk", { detail: payload }));
             }
         });
 
@@ -4193,9 +4234,7 @@ export default function KidsScheduler() {
 
             {/* ── Audio Recorder Modal (학부모 전용) ── */}
             {isRecordingAudio && <AmbientAudioRecorder
-                onRecorded={(blob, _url) => {
-                    console.log("[Audio] recorded", blob.size, "bytes");
-                }}
+                channel={realtimeChannel.current}
                 onClose={() => setIsRecordingAudio(false)}
             />}
 
