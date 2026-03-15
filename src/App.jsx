@@ -1314,14 +1314,6 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 // ─────────────────────────────────────────────────────────────────────────────
 function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode }) {
     const [replyText, setReplyText] = useState("");
-    const [sent, setSent] = useState(false);
-    const othersRead = (readBy || []).filter(id => id !== myUserId).length > 0;
-
-    const handleSend = () => {
-        if (onMemoSend) onMemoSend();
-        setSent(true);
-        setTimeout(() => setSent(false), 2000);
-    };
 
     const handleReply = () => {
         if (!replyText.trim() || !onReplySubmit) return;
@@ -1329,58 +1321,72 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
         setReplyText("");
     };
 
+    const othersRead = (readBy || []).filter(id => id !== myUserId).length > 0;
+
     return (
-        <div style={{ marginTop: 18, background: "#FFFBEB", borderRadius: 20, padding: 14, border: "2px dashed #FCD34D" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B" }}>📒 오늘의 메모</div>
-                {memoValue && othersRead && (
-                    <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 확인됨</div>
-                )}
-            </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
-                <textarea rows={2} placeholder={isParentMode ? "오늘 하루 메모를 남겨봐요..." : "오늘 하루 어땠어? 🐰"} style={{ flex: 1, border: "none", background: "transparent", resize: "none", fontSize: isParentMode ? 13 : 15, color: "#374151", fontFamily: FF, outline: "none", lineHeight: 1.6, boxSizing: "border-box" }}
-                    value={memoValue} onChange={e => onMemoChange(e.target.value)} onBlur={() => onMemoBlur && onMemoBlur()} />
-                {memoValue?.trim() && (
-                    <button onClick={handleSend}
-                        style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", padding: 4, opacity: sent ? 0.5 : 1 }}
-                        title="전송">
-                        {sent ? "✅" : "📩"}
-                    </button>
-                )}
+        <div style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
+            {/* Header */}
+            <div style={{ padding: "12px 16px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>💬 오늘의 메모</div>
+                {memoValue && othersRead && <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>}
             </div>
 
-            {/* Replies */}
-            {replies && replies.length > 0 && (
-                <div style={{ marginTop: 10, borderTop: "1px solid #FDE68A", paddingTop: 8 }}>
-                    {replies.map(r => (
-                        <div key={r.id} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "flex-start" }}>
-                            <span style={{ fontSize: 14, flexShrink: 0 }}>{r.user_role === "parent" ? "👨‍👩‍👧" : "🐰"}</span>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.5, background: "white", borderRadius: 10, padding: "6px 10px" }}>{r.content}</div>
-                                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 2 }}>
+            {/* Chat area */}
+            <div style={{ padding: "12px 16px", minHeight: 60 }}>
+                {/* Existing memo as a message bubble */}
+                {memoValue?.trim() && (
+                    <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "flex-start" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 14, background: isParentMode ? "#DBEAFE" : "#FCE7F3", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{isParentMode ? "👩" : "🐰"}</div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ background: "#F3F4F6", borderRadius: "4px 16px 16px 16px", padding: "10px 14px", fontSize: 14, color: "#374151", lineHeight: 1.6, fontFamily: FF }}>{memoValue}</div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Replies as chat bubbles */}
+                {replies && replies.length > 0 && replies.map(r => {
+                    const isMe = r.user_id === myUserId;
+                    return (
+                        <div key={r.id} style={{ display: "flex", gap: 8, marginBottom: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-start" }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 14, background: r.user_role === "parent" ? "#DBEAFE" : "#FCE7F3", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{r.user_role === "parent" ? "👩" : "🐰"}</div>
+                            <div style={{ maxWidth: "75%" }}>
+                                <div style={{ background: isMe ? "#E879A0" : "#F3F4F6", color: isMe ? "white" : "#374151", borderRadius: isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px", padding: "10px 14px", fontSize: 14, lineHeight: 1.5, fontFamily: FF }}>{r.content}</div>
+                                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 3, textAlign: isMe ? "right" : "left" }}>
                                     {new Date(r.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                                 </div>
                             </div>
                         </div>
-                    ))}
-                </div>
-            )}
+                    );
+                })}
 
-            {/* Reply Input */}
-            {memoValue?.trim() && (
-                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-                    <input
-                        type="text"
-                        placeholder={isParentMode ? "답글 남기기..." : "답글 보내기~ 🐰"}
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") handleReply(); }}
-                        style={{ flex: 1, border: "2px solid #FDE68A", borderRadius: 14, padding: "10px 14px", fontSize: 16, fontFamily: FF, outline: "none", background: "white", boxSizing: "border-box" }}
-                    />
-                    <button onClick={handleReply} disabled={!replyText.trim()}
-                        style={{ background: "#F59E0B", color: "white", border: "none", borderRadius: 14, padding: "10px 16px", fontSize: 14, fontWeight: 700, cursor: replyText.trim() ? "pointer" : "default", opacity: replyText.trim() ? 1 : 0.5, fontFamily: FF, flexShrink: 0 }}>
-                        전송
-                    </button>
+                {/* Empty state */}
+                {!memoValue?.trim() && (!replies || replies.length === 0) && (
+                    <div style={{ textAlign: "center", padding: "12px 0", color: "#D1D5DB", fontSize: 13 }}>{isParentMode ? "메모를 남겨보세요" : "오늘 하루 어땠어? 🐰"}</div>
+                )}
+            </div>
+
+            {/* Input bar */}
+            <div style={{ padding: "10px 12px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, alignItems: "center", background: "#FAFAFA" }}>
+                <input
+                    type="text"
+                    placeholder={isParentMode ? "메시지를 입력하세요..." : "여기에 써봐~ 🐰"}
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { if (replyText.trim()) handleReply(); else if (onMemoSend) onMemoSend(); } }}
+                    style={{ flex: 1, border: "1.5px solid #E5E7EB", borderRadius: 20, padding: "10px 16px", fontSize: 16, fontFamily: FF, outline: "none", background: "white", boxSizing: "border-box" }}
+                />
+                <button onClick={() => { if (replyText.trim()) handleReply(); else if (memoValue?.trim() && onMemoSend) onMemoSend(); }}
+                    style={{ width: 40, height: 40, borderRadius: 20, background: (replyText.trim() || memoValue?.trim()) ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                    ↑
+                </button>
+            </div>
+
+            {/* Memo textarea (hidden style - integrated as first message input) */}
+            {!memoValue?.trim() && (
+                <div style={{ padding: "0 12px 12px" }}>
+                    <textarea rows={2} placeholder={isParentMode ? "오늘의 메모를 남겨봐요..." : "오늘 하루 이야기해줘~ 🐰"}
+                        style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: "10px 14px", resize: "none", fontSize: 15, color: "#374151", fontFamily: FF, outline: "none", lineHeight: 1.6, boxSizing: "border-box", background: "white" }}
+                        value={memoValue || ""} onChange={e => onMemoChange(e.target.value)} onBlur={() => onMemoBlur && onMemoBlur()} />
                 </div>
             )}
         </div>
@@ -1395,10 +1401,13 @@ function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrive
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
     if (events.length === 0) return (
-        <div style={{ textAlign: "center", padding: "40px 0", fontFamily: FF }}>
-            <div style={{ fontSize: 56, marginBottom: 12 }}>{isParentMode ? "🌙" : "🎉"}</div>
-            <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "#D1D5DB" : "#F9A8D4" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
-            <div style={{ fontSize: isParentMode ? 13 : 14, color: "#E5E7EB", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
+        <div style={{ fontFamily: FF }}>
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <div style={{ fontSize: 56, marginBottom: 12 }}>{isParentMode ? "🌙" : "🎉"}</div>
+                <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "#D1D5DB" : "#F9A8D4" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
+                <div style={{ fontSize: isParentMode ? 13 : 14, color: "#E5E7EB", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
+            </div>
+            <MemoSection memoValue={memoValue} onMemoChange={onMemoChange} onMemoBlur={onMemoBlur} onMemoSend={onMemoSend} replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} />
         </div>
     );
 
