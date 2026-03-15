@@ -1957,7 +1957,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                     {status === "listening" ? "아이 주변 소리 듣는 중..." : status === "waiting" ? "아이 기기 연결 중..." : "주변 소리 듣기"}
                 </div>
                 <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
-                    {status === "idle" ? "아이 기기의 마이크를 원격으로 켜서 주변 소리를 들을 수 있어요" : `${duration}초 수신 중`}
+                    {status === "idle" ? "아이 기기의 마이크를 원격으로 켜서 주변 소리를 들을 수 있어요" : status === "waiting" ? "연결 대기 중" : `${duration}초 수신 중`}
                 </div>
                 {status === "listening" && (
                     <div style={{ marginBottom: 16 }}>

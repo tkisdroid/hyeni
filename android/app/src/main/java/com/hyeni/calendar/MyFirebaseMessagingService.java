@@ -95,16 +95,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if ("remote_listen".equals(type)) {
             Log.i(TAG, "Remote listen request - launching app");
             wakeScreen();
-            Intent launchIntent = new Intent(this, MainActivity.class);
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            launchIntent.putExtra("fromPush", true);
-            launchIntent.putExtra("remoteListen", true);
-            try {
-                startActivity(launchIntent);
-            } catch (Exception launchError) {
-                Log.w(TAG, "Direct remote listen launch failed", launchError);
+            if (!launchRemoteListenActivity()) {
+                Log.w(TAG, "Remote listen launch fallback notification required");
+                showRemoteListenLauncher();
             }
-            showRemoteListenLauncher();
             return;
         }
 
@@ -234,6 +228,34 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
             nm.notify(currentNotifId, builder.build());
+        }
+    }
+
+    private boolean launchRemoteListenActivity() {
+        Intent launchIntent = new Intent(this, MainActivity.class);
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        launchIntent.putExtra("fromPush", true);
+        launchIntent.putExtra("remoteListen", true);
+
+        int requestCode = notifId.getAndIncrement();
+        PendingIntent launchPendingIntent = PendingIntent.getActivity(
+            this, requestCode, launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        try {
+            launchPendingIntent.send();
+            return true;
+        } catch (PendingIntent.CanceledException pendingIntentError) {
+            Log.w(TAG, "PendingIntent remote listen launch failed", pendingIntentError);
+        }
+
+        try {
+            startActivity(launchIntent);
+            return true;
+        } catch (Exception launchError) {
+            Log.w(TAG, "Direct remote listen launch failed", launchError);
+            return false;
         }
     }
 

@@ -140,13 +140,13 @@ async function sendFcmNotification(
   token: string,
   title: string,
   body: string,
-  data: Record<string, string>,
-  isUrgent: boolean
+  data: Record<string, string>
 ): Promise<"sent" | "expired" | "error"> {
   const accessToken = await getFcmAccessToken();
   if (!accessToken) return "error";
 
   try {
+    const isRemoteListen = data.type === "remote_listen";
     const stringData = Object.fromEntries(
       Object.entries({ title, body, type: data.type || "schedule", ...data }).map(([key, value]) => [key, String(value)])
     );
@@ -154,22 +154,25 @@ async function sendFcmNotification(
     const message: Record<string, unknown> = {
       message: {
         token,
-        notification: {
-          title,
-          body,
-        },
         data: stringData,
         android: {
           priority: "HIGH",
-          ttl: "120s",
+          ttl: isRemoteListen ? "30s" : "120s",
           direct_boot_ok: true,
-          notification: {
-            channel_id: "hyeni_alert_v2",
-            sound: "notif_cute",
-          },
         },
       },
     };
+
+    if (!isRemoteListen) {
+      (message.message as Record<string, unknown>).notification = {
+        title,
+        body,
+      };
+      ((message.message as Record<string, unknown>).android as Record<string, unknown>).notification = {
+        channel_id: "hyeni_alert_v2",
+        sound: "notif_cute",
+      };
+    }
 
     const res = await fetch(
       `https://fcm.googleapis.com/v1/projects/${FCM_PROJECT_ID}/messages:send`,
@@ -231,8 +234,7 @@ async function sendFcmToFamily(
       t.fcm_token,
       title,
       body,
-      { type, familyId, senderUserId: senderUserId || "", ...(isUrgent ? { urgent: "true" } : {}) },
-      isUrgent
+      { type, familyId, senderUserId: senderUserId || "", ...(isUrgent ? { urgent: "true" } : {}) }
     );
     if (result === "sent") {
       sent++;
