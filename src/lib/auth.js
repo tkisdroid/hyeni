@@ -27,19 +27,14 @@ function isNative() {
 }
 
 export async function kakaoLogin() {
-  // Both web and native: redirect within current window
-  // Native uses allowNavigation to keep OAuth domains in WebView
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  // App loads from Vercel directly, so standard OAuth redirect works
+  const { error } = await supabase.auth.signInWithOAuth({
     provider: "kakao",
     options: {
       redirectTo: window.location.origin,
-      skipBrowserRedirect: true,
     },
   });
   if (error) throw error;
-  if (data?.url) {
-    window.location.href = data.url;
-  }
 }
 
 // ── Anonymous login (child) ─────────────────────────────────────────────────
