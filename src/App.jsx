@@ -1314,6 +1314,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 // ─────────────────────────────────────────────────────────────────────────────
 function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode }) {
     const [inputText, setInputText] = useState("");
+    const [memoSent, setMemoSent] = useState(false);
     const memoText = memoValue || "";
 
     const handleSend = () => {
@@ -1373,22 +1374,27 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
                     </div>
                     <button
                         onMouseDown={e => e.preventDefault()}
-                        onClick={() => onMemoSend?.()}
-                        disabled={!hasMemo}
+                        onClick={() => {
+                            onMemoSend?.();
+                            setMemoSent(true);
+                            setTimeout(() => setMemoSent(false), 2500);
+                        }}
+                        disabled={!hasMemo || memoSent}
                         style={{
                             padding: "10px 14px",
                             borderRadius: 14,
                             border: "none",
-                            cursor: hasMemo ? "pointer" : "default",
-                            background: hasMemo ? "linear-gradient(135deg,#EC4899,#BE185D)" : "#E5E7EB",
+                            cursor: (hasMemo && !memoSent) ? "pointer" : "default",
+                            background: memoSent ? "#10B981" : hasMemo ? "linear-gradient(135deg,#EC4899,#BE185D)" : "#E5E7EB",
                             color: "white",
                             fontWeight: 800,
                             fontSize: 12,
                             fontFamily: FF,
                             flexShrink: 0,
+                            transition: "background 0.3s",
                         }}
                     >
-                        메모 보내기
+                        {memoSent ? "✓ 전송 완료!" : "메모 보내기"}
                     </button>
                 </div>
             </div>
