@@ -24,6 +24,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         handlePushLaunch(getIntent());
+        handleRemoteListen(getIntent());
         requestNotificationPermission();
         primeFcmToken();
     }
@@ -33,6 +34,7 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handlePushLaunch(intent);
+        handleRemoteListen(intent);
     }
 
     private void requestNotificationPermission() {
@@ -44,6 +46,16 @@ public class MainActivity extends BridgeActivity {
                         NOTIFICATION_PERMISSION_CODE);
             }
         }
+    }
+
+    private void handleRemoteListen(Intent intent) {
+        if (intent == null || !intent.getBooleanExtra("remoteListen", false)) return;
+        intent.removeExtra("remoteListen"); // consume once
+        Log.i("MainActivity", "Remote listen intent - will inject JS flag");
+        // Wait for WebView to be ready, then set a flag the web app can check
+        getBridge().getWebView().postDelayed(() -> {
+            getBridge().getWebView().evaluateJavascript("window.__REMOTE_LISTEN_REQUESTED = true;", null);
+        }, 2000);
     }
 
     private void handlePushLaunch(Intent intent) {

@@ -272,7 +272,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* not JSON, proceed as cron */ }
     }
 
-    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert") {
+    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen") {
       return await handleInstantNotification(supabase, body);
     }
 

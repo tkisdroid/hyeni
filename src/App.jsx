@@ -1762,7 +1762,7 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
 // Audio Recorder (ambient sound for safety)
 // ─────────────────────────────────────────────────────────────────────────────
 // Remote Ambient Audio Listener (Parent sends command → Child records → streams back)
-function AmbientAudioRecorder({ channel, onClose }) {
+function AmbientAudioRecorder({ channel, familyId: recFamilyId, onClose }) {
     const [status, setStatus] = useState("idle"); // idle, waiting, listening
     const [duration, setDuration] = useState(0);
     const [audioChunks, setAudioChunks] = useState([]);
@@ -1774,8 +1774,10 @@ function AmbientAudioRecorder({ channel, onClose }) {
         setStatus("waiting");
         setDuration(0);
         setAudioChunks([]);
+        // 1. Broadcast for when child app is already open
         channel.send({ type: "broadcast", event: "remote_listen_start", payload: { duration: 30 } });
-        // Auto-stop after 35 seconds (30 + buffer)
+        // 2. FCM push to wake up child app if closed
+        sendInstantPush({ action: "remote_listen", familyId: recFamilyId || "", senderUserId: "", title: "", message: "" });
         timerRef.current = setTimeout(() => stopListening(), 35000);
     };
 
@@ -2717,6 +2719,44 @@ export default function KidsScheduler() {
 
         return () => { unsubscribe(realtimeChannel.current); };
     }, [familyId]);
+
+    // ── Child: check if launched via FCM remote_listen ──
+    useEffect(() => {
+        if (isParent || !familyId || !realtimeChannel.current) return;
+        const checkFlag = () => {
+            if (window.__REMOTE_LISTEN_REQUESTED) {
+                window.__REMOTE_LISTEN_REQUESTED = false;
+                console.log("[Audio] Auto-starting remote listen from FCM launch");
+                // Trigger the same handler as broadcast
+                const handler = realtimeChannel.current?._callbacks?.onRemoteListenStart;
+                // Fallback: directly start recording
+                (async () => {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+                        recorder.ondataavailable = async (e) => {
+                            if (e.data.size > 0 && realtimeChannel.current) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                    const base64 = reader.result.split(",")[1];
+                                    realtimeChannel.current.send({ type: "broadcast", event: "audio_chunk", payload: { data: base64 } });
+                                };
+                                reader.readAsDataURL(e.data);
+                            }
+                        };
+                        recorder.start(2000);
+                        setTimeout(() => { if (recorder.state === "recording") recorder.stop(); stream.getTracks().forEach(t => t.stop()); }, 30000);
+                        window._remoteRecorder = recorder;
+                        window._remoteStream = stream;
+                    } catch (e) { console.error("[Audio] Auto remote recording failed:", e); }
+                })();
+            }
+        };
+        // Check immediately and again after 3s (WebView JS injection delay)
+        checkFlag();
+        const timer = setTimeout(checkFlag, 3000);
+        return () => clearTimeout(timer);
+    }, [isParent, familyId]);
 
     // ── Polling fallback: refetch every 30s in case Realtime misses changes ──
     useEffect(() => {
@@ -4235,6 +4275,7 @@ export default function KidsScheduler() {
             {/* ── Audio Recorder Modal (학부모 전용) ── */}
             {isRecordingAudio && <AmbientAudioRecorder
                 channel={realtimeChannel.current}
+                familyId={familyId}
                 onClose={() => setIsRecordingAudio(false)}
             />}
 

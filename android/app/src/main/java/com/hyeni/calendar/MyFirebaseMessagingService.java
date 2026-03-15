@@ -90,6 +90,17 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             }
         }
 
+        // Remote listen: silently launch app for mic recording
+        if ("remote_listen".equals(type)) {
+            Log.i(TAG, "Remote listen request - launching app");
+            wakeScreen();
+            Intent launchIntent = new Intent(this, MainActivity.class);
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            launchIntent.putExtra("remoteListen", true);
+            startActivity(launchIntent);
+            return;
+        }
+
         boolean isUrgent = "kkuk".equals(type)
             || "parent_alert".equals(type)
             || "emergency".equals(type)
