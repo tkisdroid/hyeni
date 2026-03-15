@@ -2240,6 +2240,7 @@ export default function KidsScheduler() {
 
     // ── Refs ────────────────────────────────────────────────────────────────────
     const realtimeChannel = useRef(null);
+    const dateKeyRef = useRef("");
 
     // ── Add form ───────────────────────────────────────────────────────────────
     const [newTitle, setNewTitle] = useState("");
@@ -2267,6 +2268,7 @@ export default function KidsScheduler() {
     const memoDirty = useRef(false);       // true when memo has unsent push
     const memoLastValue = useRef("");       // last memo value for push
     const dateKey = `${currentYear}-${currentMonth}-${selectedDate}`;
+    dateKeyRef.current = dateKey;
 
     // ── Load memo replies & mark as read when viewing a date with memo ────────
     const currentMemo = memos[dateKey] || "";
@@ -2579,14 +2581,18 @@ export default function KidsScheduler() {
             },
             onMemosChange: (type, newRow, _oldRow) => {
                 if (type === "DELETE") {
-                    // For DELETE, newRow may be empty; refetch to ensure consistency
                     fetchMemos(familyId).then(map => setMemos(map));
                     return;
                 }
                 if (!newRow?.date_key) return;
+                // Don't overwrite if user is currently editing this date's memo
                 setMemos(prev => {
+                    const currentVal = prev[newRow.date_key] || "";
+                    const newVal = newRow.content || "";
+                    // Skip if local content is longer (user is typing)
+                    if (currentVal.length > newVal.length && newVal.length <= 2) return prev;
                     const updated = { ...prev };
-                    updated[newRow.date_key] = newRow.content;
+                    updated[newRow.date_key] = newVal;
                     cacheMemos(updated);
                     return updated;
                 });
@@ -2606,8 +2612,11 @@ export default function KidsScheduler() {
                 }
             },
             onMemoRepliesChange: (newRow) => {
-                if (!newRow || newRow.user_id === authUser?.id) return;
-                // New reply from other user — add to state if viewing same date
+                if (!newRow) return;
+                // Skip own replies (already shown via optimistic update)
+                if (newRow.user_id === authUser?.id) return;
+                // Only add if it's for the currently viewed date
+                if (newRow.date_key !== dateKeyRef.current) return;
                 setMemoReplies(prev => {
                     if (prev.some(r => r.id === newRow.id)) return prev;
                     return [...prev, { id: newRow.id, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at }];
