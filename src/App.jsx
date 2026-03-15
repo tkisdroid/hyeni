@@ -138,11 +138,32 @@ function blobToBase64(blob) {
     });
 }
 
+async function waitForRealtimeChannelReady(channel, timeoutMs = 20000) {
+    if (!channel) throw new Error("Realtime channel unavailable");
+    if (channel.state === "joined") return;
+
+    await new Promise((resolve, reject) => {
+        const startedAt = Date.now();
+        const timer = setInterval(() => {
+            if (channel.state === "joined") {
+                clearInterval(timer);
+                resolve();
+                return;
+            }
+            if (Date.now() - startedAt >= timeoutMs) {
+                clearInterval(timer);
+                reject(new Error("Realtime channel join timeout"));
+            }
+        }, 300);
+    });
+}
+
 async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAULT_DURATION_SEC) {
     if (!channel) throw new Error("Realtime channel unavailable");
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("Audio capture unavailable");
     if (typeof MediaRecorder === "undefined") throw new Error("MediaRecorder unavailable");
 
+    await waitForRealtimeChannelReady(channel);
     stopRemoteAudioCapture();
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -2827,7 +2848,7 @@ export default function KidsScheduler() {
         // Keep polling for a short window because FCM → app launch → WebView boot timing varies.
         checkFlag();
         const interval = setInterval(checkFlag, 1000);
-        const timer = setTimeout(() => clearInterval(interval), 15000);
+        const timer = setTimeout(() => clearInterval(interval), 30000);
         return () => {
             clearInterval(interval);
             clearTimeout(timer);

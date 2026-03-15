@@ -23,6 +23,7 @@ self.addEventListener("push", (e) => {
   }
 
   const { title, body, data } = payload;
+  if (data?.type === "remote_listen") return;
   const isUrgent = data?.type === "kkuk" || data?.type === "parent_alert";
 
   e.waitUntil(

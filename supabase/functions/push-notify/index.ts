@@ -291,16 +291,20 @@ async function handleInstantNotification(
 ) {
   const familyId = body.familyId as string;
   const senderUserId = body.senderUserId as string;
+  const action = body.action as string;
   const title = body.title as string || "새 알림";
   const message = body.message as string || "";
+  const isRemoteListen = action === "remote_listen";
 
   if (!familyId) return jsonResponse({ error: "familyId required" }, 400);
 
   // ── Web Push (VAPID) ────────────────────────────────────────────────
-  const { data: subs } = await supabase
-    .from("push_subscriptions")
-    .select("id, endpoint, subscription, user_id")
-    .eq("family_id", familyId);
+  const { data: subs } = isRemoteListen
+    ? { data: [] as Array<{ id: string; endpoint: string; subscription: unknown; user_id: string }> }
+    : await supabase
+        .from("push_subscriptions")
+        .select("id, endpoint, subscription, user_id")
+        .eq("family_id", familyId);
 
   const payload: PushPayload = {
     title,
@@ -341,18 +345,20 @@ async function handleInstantNotification(
     senderUserId,
     title,
     message,
-    body.action as string
+    action
   );
 
-  // Also queue for Android native polling (fallback)
-  const { error: pendingErr } = await supabase.from("pending_notifications").insert({
-    family_id: familyId,
-    title,
-    body: message,
-  });
+  if (!isRemoteListen) {
+    // Also queue for Android native polling (fallback)
+    const { error: pendingErr } = await supabase.from("pending_notifications").insert({
+      family_id: familyId,
+      title,
+      body: message,
+    });
 
-  if (pendingErr) {
-    console.error("Failed to queue pending notification:", pendingErr);
+    if (pendingErr) {
+      console.error("Failed to queue pending notification:", pendingErr);
+    }
   }
 
   return jsonResponse({ webSent, fcmSent, total: (subs?.length || 0) });

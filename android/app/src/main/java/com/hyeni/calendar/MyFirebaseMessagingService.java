@@ -45,6 +45,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String PREFS_NAME = "hyeni_location_prefs";
     private static final String ALERT_CHANNEL_ID = "hyeni_alert_v2";
     private static final String SCHEDULE_CHANNEL_ID = "hyeni_schedule_v2";
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen";
     private static final AtomicInteger notifId = new AtomicInteger(5000);
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -203,11 +204,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     private void showRemoteListenLauncher() {
-        String channelId = ALERT_CHANNEL_ID;
+        String channelId = REMOTE_LISTEN_CHANNEL_ID;
         int currentNotifId = notifId.getAndIncrement();
-        android.net.Uri cuteSound = android.net.Uri.parse(
-            "android.resource://" + getPackageName() + "/" + R.raw.notif_cute);
-        ensureAlertChannel(channelId, cuteSound);
+        ensureSilentChannel(channelId);
 
         Intent launchIntent = new Intent(this, MainActivity.class);
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -224,8 +223,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             .setStyle(new NotificationCompat.BigTextStyle().bigText("주변 소리 연결을 시작합니다."))
             .setAutoCancel(true)
             .setContentIntent(launchPendingIntent)
-            .setSound(cuteSound)
-            .setVibrate(new long[]{0, 150, 80, 150})
+            .setSilent(true)
+            .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -235,6 +234,27 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
             nm.notify(currentNotifId, builder.build());
+        }
+    }
+
+    private void ensureSilentChannel(String channelId) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) {
+                NotificationChannel existing = nm.getNotificationChannel(channelId);
+                if (existing != null) {
+                    nm.deleteNotificationChannel(channelId);
+                }
+
+                NotificationChannel channel = new NotificationChannel(
+                    channelId, "원격 듣기 연결", NotificationManager.IMPORTANCE_HIGH);
+                channel.enableVibration(false);
+                channel.setBypassDnd(false);
+                channel.setSound(null, null);
+                channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+                channel.setShowBadge(false);
+                nm.createNotificationChannel(channel);
+            }
         }
     }
 
