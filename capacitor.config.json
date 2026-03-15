@@ -4,6 +4,10 @@
   "webDir": "dist",
   "server": {
     "url": "https://kids-app-alpha.vercel.app",
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "*.supabase.co",
+      "*.kakao.com"
+    ]
   }
 }

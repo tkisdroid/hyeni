@@ -686,11 +686,11 @@ function ChildPairInput({ userId, onPaired }) {
             <BunnyMascot size={70} />
             <div style={{ fontSize: 24, fontWeight: 900, color: "#E879A0", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
             <div style={{ fontSize: 14, color: "#6B7280", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 0, width: "100%", maxWidth: 320, marginBottom: 8 }}>
-                <div style={{ padding: "16px 0 16px 16px", fontSize: 20, fontFamily: "monospace", fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", borderRadius: "20px 0 0 20px", border: "2px solid #F3F4F6", borderRight: "none", lineHeight: "1.2" }}>KID-</div>
+            <div style={{ position: "relative", width: "100%", maxWidth: 320, marginBottom: 8 }}>
+                <div style={{ position: "absolute", left: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 20, fontFamily: "monospace", fontWeight: 700, color: "#E879A0", pointerEvents: "none", zIndex: 1 }}>KID-</div>
                 <input value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
                     placeholder="XXXXXXXX" maxLength={8}
-                    style={{ flex: 1, padding: "16px 16px 16px 4px", border: "2px solid #F3F4F6", borderLeft: "none", borderRadius: "0 20px 20px 0", fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "#374151", background: "white" }} />
+                    style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid #F3E8F0", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "#374151", background: "white", boxShadow: "0 2px 8px rgba(232,121,160,0.1)" }} />
             </div>
             {error && <div style={{ fontSize: 13, color: "#EF4444", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
             <button onClick={handleJoin} disabled={busy}
@@ -1281,7 +1281,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 // ─────────────────────────────────────────────────────────────────────────────
 // Memo Section with send, replies, read indicator
 // ─────────────────────────────────────────────────────────────────────────────
-function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId }) {
+function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode }) {
     const [replyText, setReplyText] = useState("");
     const [sent, setSent] = useState(false);
     const othersRead = (readBy || []).filter(id => id !== myUserId).length > 0;
@@ -1307,7 +1307,7 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
                 )}
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
-                <textarea rows={2} placeholder="오늘 하루 메모를 남겨봐요..." style={{ flex: 1, border: "none", background: "transparent", resize: "none", fontSize: 13, color: "#374151", fontFamily: FF, outline: "none", lineHeight: 1.6, boxSizing: "border-box" }}
+                <textarea rows={2} placeholder={isParentMode ? "오늘 하루 메모를 남겨봐요..." : "오늘 하루 어땠어? 🐰"} style={{ flex: 1, border: "none", background: "transparent", resize: "none", fontSize: isParentMode ? 13 : 15, color: "#374151", fontFamily: FF, outline: "none", lineHeight: 1.6, boxSizing: "border-box" }}
                     value={memoValue} onChange={e => onMemoChange(e.target.value)} onBlur={() => onMemoBlur && onMemoBlur()} />
                 {memoValue?.trim() && (
                     <button onClick={handleSend}
@@ -1365,9 +1365,9 @@ function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrive
 
     if (events.length === 0) return (
         <div style={{ textAlign: "center", padding: "40px 0", fontFamily: FF }}>
-            <div style={{ fontSize: 56, marginBottom: 12 }}>🌙</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#D1D5DB" }}>아직 일정이 없어요</div>
-            <div style={{ fontSize: 13, color: "#E5E7EB", marginTop: 4 }}>위에서 추가해 보세요!</div>
+            <div style={{ fontSize: 56, marginBottom: 12 }}>{isParentMode ? "🌙" : "🎉"}</div>
+            <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "#D1D5DB" : "#F9A8D4" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
+            <div style={{ fontSize: isParentMode ? 13 : 14, color: "#E5E7EB", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
         </div>
     );
 
@@ -1395,6 +1395,7 @@ function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrive
                     const isCurrent = nowMin >= evMin - 10 && nowMin <= evMin + 60;
                     const arrived = arrivedSet.has(ev.id);
                     const emergency = ev.location && !arrived && firedEmergencies.has(ev.id);
+                    const friendlyTime = isParentMode ? ev.time : `${h >= 12 ? "오후" : "오전"} ${h > 12 ? h - 12 : h === 0 ? 12 : h}:${String(m).padStart(2, "0")}`;
 
                     const dist = childPos && ev.location
                         ? haversineM(childPos.lat, childPos.lng, ev.location.lat, ev.location.lng)
@@ -1434,9 +1435,12 @@ function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrive
                                         color: isCurrent ? "white" : ev.color,
                                         padding: isParentMode ? "4px 12px" : "6px 14px", borderRadius: 12, fontSize: isParentMode ? 13 : 15, fontWeight: 800
                                     }}>
-                                        {ev.time}
+                                        {friendlyTime}
                                     </div>
-                                    {isCurrent && <span style={{ fontSize: isParentMode ? 11 : 13, fontWeight: 700, color: ev.color, animation: "pulse 1.5s infinite" }}>지금!</span>}
+                                    {isCurrent && (isParentMode
+                                        ? <span style={{ fontSize: 11, fontWeight: 700, color: ev.color, animation: "pulse 1.5s infinite" }}>지금!</span>
+                                        : <span style={{ fontSize: 13, fontWeight: 800, color: "white", background: ev.color, padding: "3px 10px", borderRadius: 10, animation: "pulse 1.5s infinite" }}>지금 갈 시간! 🏃</span>
+                                    )}
                                     {arrived && <span style={{ fontSize: isParentMode ? 11 : 13, fontWeight: 700, color: "#059669" }}>✅ 도착</span>}
                                     {emergency && isParentMode && <span style={{ fontSize: 11, fontWeight: 800, color: "#DC2626", animation: "pulse 1s infinite" }}>🚨 미도착</span>}
                                 </div>
@@ -1517,6 +1521,7 @@ function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrive
                 onReplySubmit={onReplySubmit}
                 readBy={memoReadBy}
                 myUserId={myUserId}
+                isParentMode={isParentMode}
             />
         </div>
     );
@@ -1916,7 +1921,7 @@ function ChildCallButtons({ phones }) {
     if (!hasMom && !hasDad) return null;
     const btnSt = { width: 56, height: 56, borderRadius: "50%", border: "none", fontSize: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 20px rgba(0,0,0,0.25)", transition: "all 0.2s" };
     return (
-        <div style={{ position: "fixed", bottom: 90, right: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, zIndex: 200 }}>
+        <div style={{ position: "fixed", bottom: 100, right: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, zIndex: 200 }}>
             {expanded && hasMom && (
                 <a href={`tel:${cleanNumber(phones.mom)}`} style={{ textDecoration: "none", animation: "kkukFadeIn 0.2s ease" }}>
                     <div style={{ ...btnSt, background: "linear-gradient(135deg,#F9A8D4,#E879A0)" }}>👩</div>
@@ -2164,6 +2169,8 @@ export default function KidsScheduler() {
     const [newMemo, setNewMemo] = useState("");
     const [newLocation, setNewLocation] = useState(null);
     const [selectedPreset, setSelectedPreset] = useState(null);
+    const [weeklyRepeat, setWeeklyRepeat] = useState(false);
+    const [repeatWeeks, setRepeatWeeks] = useState(4);
 
     // 프리셋별 마지막 시간/위치를 기존 이벤트에서 찾기
     const findLastEventByTitle = (title) => {
@@ -3121,39 +3128,63 @@ export default function KidsScheduler() {
         await handleVoiceResult(parsed, transcript);
     };
 
+    // ── dateKey helper: add N days to a dateKey string ─────────────────────────
+    const addDaysToDateKey = (dk, days) => {
+        const [y, m, d] = dk.split("-").map(Number);
+        const date = new Date(y, m, d + days);
+        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    };
+
     // ── Add event (manual) ─────────────────────────────────────────────────────
     const addEvent = async () => {
         const title = newTitle.trim() || (selectedPreset ? selectedPreset.label : "");
         if (!title) { showNotif("일정 이름을 입력해 줘요! 🐰", "error"); return; }
         const cat = CATEGORIES.find(c => c.id === newCategory);
         const emoji = selectedPreset ? selectedPreset.emoji : cat.emoji;
-        const ev = { id: generateUUID(), title, time: newTime, category: newCategory, emoji, color: cat.color, bg: cat.bg, memo: newMemo.trim(), location: newLocation, notifOverride: null };
+
+        const totalWeeks = weeklyRepeat ? repeatWeeks : 1;
+        const allEvents = [];
+        for (let w = 0; w < totalWeeks; w++) {
+            const dk = w === 0 ? dateKey : addDaysToDateKey(dateKey, w * 7);
+            allEvents.push({ ev: { id: generateUUID(), title, time: newTime, category: newCategory, emoji, color: cat.color, bg: cat.bg, memo: newMemo.trim(), location: newLocation, notifOverride: null }, dateKey: dk });
+        }
 
         // Optimistic local update
-        setEvents(prev => ({ ...prev, [dateKey]: [...(prev[dateKey] || []), ev].sort((a, b) => a.time.localeCompare(b.time)) }));
-        setNewTitle(""); setNewTime("09:00"); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null);
-        setShowAddModal(false); showNotif("✨ 일정이 추가됐어요!");
+        setEvents(prev => {
+            const updated = { ...prev };
+            for (const { ev, dateKey: dk } of allEvents) {
+                updated[dk] = [...(updated[dk] || []), ev].sort((a, b) => a.time.localeCompare(b.time));
+            }
+            return updated;
+        });
+        setNewTitle(""); setNewTime("09:00"); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4);
+        setShowAddModal(false);
+        showNotif(weeklyRepeat ? `✨ ${totalWeeks}주 반복 일정이 추가됐어요!` : "✨ 일정이 추가됐어요!");
         setBounce(true); setTimeout(() => setBounce(false), 800);
 
         // Persist to Supabase (Realtime will sync to other device)
         if (familyId && authUser) {
             try {
-                await insertEvent(ev, familyId, dateKey, authUser.id);
-                // Send instant push notification to family members
+                for (const { ev, dateKey: dk } of allEvents) {
+                    await insertEvent(ev, familyId, dk, authUser.id);
+                }
                 sendInstantPush({
                     action: "new_event",
                     familyId,
                     senderUserId: authUser.id,
-                    title: `📅 새 일정: ${ev.emoji} ${title}`,
-                    message: `${dateKey.replace(/-/g, "/")} ${ev.time}에 "${title}" 일정이 추가됐어요`,
+                    title: `📅 새 일정: ${emoji} ${title}`,
+                    message: weeklyRepeat
+                        ? `${dateKey.replace(/-/g, "/")}부터 매주 ${totalWeeks}주간 "${title}" 일정이 추가됐어요`
+                        : `${dateKey.replace(/-/g, "/")} ${newTime}에 "${title}" 일정이 추가됐어요`,
                 });
             } catch (err) {
                 console.error("[addEvent] Supabase error:", err);
-                // Rollback optimistic update
                 setEvents(prev => {
                     const updated = { ...prev };
-                    updated[dateKey] = (updated[dateKey] || []).filter(e => e.id !== ev.id);
-                    if (updated[dateKey].length === 0) delete updated[dateKey];
+                    for (const { ev, dateKey: dk } of allEvents) {
+                        updated[dk] = (updated[dk] || []).filter(e => e.id !== ev.id);
+                        if (updated[dk].length === 0) delete updated[dk];
+                    }
                     return updated;
                 });
                 showNotif("서버 저장에 실패했어요. 다시 시도해주세요", "error");
@@ -3313,7 +3344,7 @@ export default function KidsScheduler() {
     );
 
     return (
-        <div style={{ minHeight: "100dvh", background: "linear-gradient(135deg,#FFF0F7 0%,#E8F4FD 50%,#FFF8E7 100%)", fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)", position: "relative", overflow: "hidden", width: "100%", boxSizing: "border-box" }}>
+        <div style={{ minHeight: "100dvh", background: "linear-gradient(135deg,#FFF0F7 0%,#E8F4FD 50%,#FFF8E7 100%)", fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 28px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)", position: "relative", overflow: "hidden", width: "100%", boxSizing: "border-box" }}>
             <style>{`
         *,*::before,*::after{box-sizing:border-box}
         html,body,#root{margin:0;padding:0;width:100%;min-height:100vh}
@@ -3627,7 +3658,7 @@ export default function KidsScheduler() {
                     <button key={v} onClick={() => setActiveView(v)}
                         style={{
                             padding: isParent ? "7px 14px" : "10px 16px", borderRadius: isParent ? 12 : 16, border: "none", cursor: "pointer", fontWeight: 700, fontSize: isParent ? 11 : 13, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0,
-                            background: activeView === v ? "linear-gradient(135deg,#E879A0,#BE185D)" : "white", color: activeView === v ? "white" : "#9CA3AF",
+                            background: activeView === v ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#F9FAFB", color: activeView === v ? "white" : "#6B7280",
                             boxShadow: activeView === v ? "0 3px 12px rgba(232,121,160,0.3)" : "0 1px 4px rgba(0,0,0,0.06)"
                         }}>
                         {l}
@@ -3656,8 +3687,8 @@ export default function KidsScheduler() {
                                         aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 14, cursor: "pointer", transition: "all 0.15s",
                                         background: isSel ? "#E879A0" : isToday ? "#FFF0F7" : "transparent", border: isToday && !isSel ? "2px solid #F9A8D4" : "2px solid transparent"
                                     }}>
-                                    <span style={{ fontSize: 14, fontWeight: isSel ? 800 : 500, color: isSel ? "white" : isSun ? "#F87171" : isSat ? "#60A5FA" : "#374151" }}>{day}</span>
-                                    {dayEvs.length > 0 && <div style={{ display: "flex", gap: 2, marginTop: 2 }}>{dayEvs.slice(0, 3).map(e => <div key={e.id} style={{ width: 5, height: 5, borderRadius: "50%", background: isSel ? "rgba(255,255,255,0.8)" : e.color }} />)}</div>}
+                                    <span style={{ fontSize: 16, fontWeight: isSel ? 800 : 600, color: isSel ? "white" : isSun ? "#F87171" : isSat ? "#60A5FA" : "#374151" }}>{day}</span>
+                                    {dayEvs.length > 0 && <div style={{ display: "flex", gap: 3, marginTop: 2 }}>{dayEvs.slice(0, 3).map(e => <div key={e.id} style={{ width: 6, height: 6, borderRadius: "50%", background: isSel ? "rgba(255,255,255,0.8)" : e.color }} />)}</div>}
                                 </div>
                             );
                         })}
@@ -3695,7 +3726,7 @@ export default function KidsScheduler() {
                         {listening ? "🎤 듣는 중..." : "🎤 음성으로 일정등록"}
                     </button>
                     <button onClick={() => setShowAddModal(true)}
-                        style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", border: "none", fontSize: 22, cursor: "pointer", boxShadow: "0 3px 12px rgba(124,58,237,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
+                        style={{ minWidth: isParent ? 44 : 56, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", border: "none", fontSize: isParent ? 22 : 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 3px 12px rgba(124,58,237,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FF, gap: 2, padding: isParent ? 0 : "0 12px" }}>{isParent ? "+" : "✏️ 추가"}</button>
                 </div>
 
                 {/* Day Timetable */}
@@ -3845,9 +3876,32 @@ export default function KidsScheduler() {
                                 )}
                             </div>
                         )}
-                        <div style={{ marginBottom: 4 }}><label style={labelSt}>📝 메모 (선택)</label><input style={inputSt} placeholder="준비물, 장소 등..." value={newMemo} onChange={e => setNewMemo(e.target.value)} /></div>
-                        <button onClick={addEvent} style={primBtn}>🐰 일정 추가하기!</button>
-                        <button onClick={() => { setShowAddModal(false); setNewTitle(""); setNewLocation(null); setSelectedPreset(null); }} style={secBtn}>취소</button>
+                        <div style={{ marginBottom: 14 }}><label style={labelSt}>📝 메모 (선택)</label><input style={inputSt} placeholder="준비물, 장소 등..." value={newMemo} onChange={e => setNewMemo(e.target.value)} /></div>
+                        <div style={{ marginBottom: 14 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                                <label style={{ ...labelSt, marginBottom: 0, flex: 1 }}>🔁 매주 같은 날에 반복</label>
+                                <div onClick={() => setWeeklyRepeat(p => !p)} style={{ width: 52, height: 30, borderRadius: 15, background: weeklyRepeat ? "#E879A0" : "#E5E7EB", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
+                                    <div style={{ width: 24, height: 24, borderRadius: 12, background: "white", position: "absolute", top: 3, left: weeklyRepeat ? 25 : 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }} />
+                                </div>
+                            </div>
+                            {weeklyRepeat && (
+                                <>
+                                    <div style={{ display: "flex", gap: 6, animation: "kkukFadeIn 0.2s ease", marginBottom: 8 }}>
+                                        {[{ w: 4, label: "📅 1개월" }, { w: 8, label: "📅 2개월" }, { w: 12, label: "📅 3개월" }].map(({ w, label }) => (
+                                            <button key={w} onClick={() => setRepeatWeeks(w)}
+                                                style={{ flex: 1, padding: "8px 0", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, border: repeatWeeks === w ? "2px solid #E879A0" : "2px solid #F3F4F6", background: repeatWeeks === w ? "#FFF0F7" : "#F9FAFB", color: repeatWeeks === w ? "#E879A0" : "#6B7280", transition: "all 0.15s" }}>
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600, textAlign: "center" }}>
+                                        {(() => { const [y, m, d] = dateKey.split("-").map(Number); const end = new Date(y, m, d + (repeatWeeks - 1) * 7); return `${m + 1}/${d} ~ ${end.getMonth() + 1}/${end.getDate()} 매주 ${["일","월","화","수","목","금","토"][new Date(y, m, d).getDay()]}요일`; })()}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        <button onClick={addEvent} style={primBtn}>{weeklyRepeat ? `🐰 앞으로 ${repeatWeeks === 4 ? "1개월" : repeatWeeks === 8 ? "2개월" : "3개월"}간 매주 추가!` : "🐰 일정 추가하기!"}</button>
+                        <button onClick={() => { setShowAddModal(false); setNewTitle(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }} style={secBtn}>취소</button>
                     </div>
                 </div>
             )}
