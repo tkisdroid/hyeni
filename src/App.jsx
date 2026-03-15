@@ -624,11 +624,13 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onClose }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onClose }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
     const MAX_CHILDREN = 2;
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState("");
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
@@ -658,16 +660,29 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                     <div style={{ marginBottom: 16 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7280", marginBottom: 10 }}>연동된 아이 ({children.length}/{MAX_CHILDREN})</div>
                         {children.map((child, i) => (
-                            <div key={child.user_id || i} style={{ display: "flex", alignItems: "center", gap: 12, background: "#F0FDF4", borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: "1.5px solid #BBF7D0" }}>
-                                <div style={{ fontSize: 28 }}>{child.emoji || "🐰"}</div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46" }}>{child.name}</div>
-                                    <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>아이 {i + 1}</div>
+                            <div key={child.user_id || i} style={{ background: "#F0FDF4", borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: "1.5px solid #BBF7D0" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    <div style={{ fontSize: 28 }}>{child.emoji || "🐰"}</div>
+                                    <div style={{ flex: 1 }}>
+                                        {editingId === child.user_id ? (
+                                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                                <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
+                                                    style={{ flex: 1, padding: "6px 10px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 15, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }} />
+                                                <button onClick={() => { if (editName.trim() && onRename) { onRename(child.user_id, editName.trim()); } setEditingId(null); }}
+                                                    style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>확인</button>
+                                            </div>
+                                        ) : (
+                                            <div onClick={() => { setEditingId(child.user_id); setEditName(child.name); }} style={{ cursor: "pointer" }}>
+                                                <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46" }}>{child.name} <span style={{ fontSize: 11, color: "#9CA3AF" }}>✏️</span></div>
+                                            </div>
+                                        )}
+                                        <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 기기 {i + 1}</div>
+                                    </div>
+                                    <button onClick={() => { if (window.confirm(`${child.name} 연동을 해제할까요?`)) onUnpair(child.user_id); }}
+                                        style={{ fontSize: 11, padding: "6px 12px", borderRadius: 10, background: "#FEE2E2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
+                                        해제
+                                    </button>
                                 </div>
-                                <button onClick={() => { if (window.confirm(`${child.name} 연동을 해제할까요?`)) onUnpair(child.user_id); }}
-                                    style={{ fontSize: 11, padding: "6px 12px", borderRadius: 10, background: "#FEE2E2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
-                                    연동 해제
-                                </button>
                             </div>
                         ))}
                     </div>
@@ -4108,6 +4123,14 @@ export default function KidsScheduler() {
                             if (fam) setFamilyInfo(fam);
                             showNotif("연동이 해제됐어요");
                         } catch (err) { console.error("[unpair]", err); showNotif("해제 실패", "error"); }
+                    }}
+                    onRename={async (userId, newName) => {
+                        try {
+                            await supabase.from("family_members").update({ name: newName }).eq("family_id", familyId).eq("user_id", userId);
+                            const fam = await getMyFamily(authUser.id);
+                            if (fam) setFamilyInfo(fam);
+                            showNotif(`이름이 "${newName}"으로 변경됐어요`);
+                        } catch (err) { console.error("[rename]", err); showNotif("이름 변경 실패", "error"); }
                     }}
                     onClose={() => setShowPairing(false)} />
             )}
