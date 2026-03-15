@@ -9,7 +9,6 @@ lerna-debug.log*
 
 node_modules
 dist
-.env
 dist-ssr
 *.local
 
@@ -26,8 +25,31 @@ dist-ssr
 
 .vercel
 
+# Secrets
+.env
+
 # Firebase Admin SDK keys (secrets)
 *-firebase-adminsdk-*.json
 
 # Supabase temp
 supabase/.temp
+
+# OS files
+Thumbs.db
+
+# Ralph generated files
+.ralph/.call_count
+.ralph/.last_reset
+.ralph/.exit_signals
+.ralph/status.json
+.ralph/.ralph_session
+.ralph/.ralph_session_history
+.ralph/.claude_session_id
+.ralph/.response_analysis
+.ralph/.circuit_breaker_state
+.ralph/.circuit_breaker_history
+.ralph/logs/*
+!.ralph/logs/.gitkeep
+.ralph/docs/generated/*
+!.ralph/docs/generated/.gitkeep
+.ralph_backup_*

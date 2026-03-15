@@ -4,6 +4,12 @@
   "webDir": "dist",
   "server": {
     "hostname": "kids-app-alpha.vercel.app",
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "*.supabase.co",
+      "kauth.kakao.com",
+      "accounts.kakao.com",
+      "*.kakao.com"
+    ]
   }
 }

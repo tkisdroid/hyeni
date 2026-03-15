@@ -133,20 +133,20 @@ export async function unsubscribeFromPush() {
 
 // ── Native notification helper (Android Capacitor) ──────────────────────────
 let nativeNotifPlugin = null;
-async function getNativeNotifPlugin() {
+function getNativeNotifPlugin() {
   if (nativeNotifPlugin) return nativeNotifPlugin;
   try {
-    const { Capacitor, registerPlugin } = await import("@capacitor/core");
-    if (Capacitor.isNativePlatform()) {
-      nativeNotifPlugin = registerPlugin("NativeNotification");
+    const cap = window.Capacitor;
+    if (cap?.isNativePlatform?.()) {
+      nativeNotifPlugin = cap.registerPlugin("NativeNotification");
       return nativeNotifPlugin;
     }
-  } catch {}
+  } catch { /* native not available */ }
   return null;
 }
 
 export async function getNativeNotificationHealth() {
-  const native = await getNativeNotifPlugin();
+  const native = getNativeNotifPlugin();
   if (!native) return null;
 
   try {
@@ -158,7 +158,7 @@ export async function getNativeNotificationHealth() {
 }
 
 export async function openNativeNotificationSettings(target = "notifications") {
-  const native = await getNativeNotifPlugin();
+  const native = getNativeNotifPlugin();
   if (!native) return false;
 
   try {
@@ -185,7 +185,7 @@ async function showNotification(title, body, tag, data) {
   const silent = !!data?.silent;
 
   // Try native Android notification first (heads-up + screen wake)
-  const native = await getNativeNotifPlugin();
+  const native = getNativeNotifPlugin();
   if (native) {
     try {
       const channel = data?.kkuk ? "kkuk" : (data?.urgent ? "emergency" : (silent ? "silent" : "schedule"));
@@ -406,7 +406,7 @@ function buildAlarmPayloads(events, notifSettings, role) {
 
 // ── Native AlarmManager scheduling (persistent, works when app is killed) ───
 export async function scheduleNativeAlarms(events, notifSettings, role) {
-  const native = await getNativeNotifPlugin();
+  const native = getNativeNotifPlugin();
   if (!native) return;
 
   const notifications = buildAlarmPayloads(events, notifSettings, role);
@@ -427,8 +427,8 @@ export async function clearAllScheduled() {
   scheduledTimers.clear();
 
   // Also cancel native alarms
-  const native = await getNativeNotifPlugin();
+  const native = getNativeNotifPlugin();
   if (native) {
-    try { await native.cancelScheduledNotifications(); } catch {}
+    try { await native.cancelScheduledNotifications(); } catch { /* cancel failed, ignore */ }
   }
 }

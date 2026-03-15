@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { kakaoLogin, anonymousLogin, getSession, getUser, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
+import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
 import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, addSticker, fetchStickersForDate, fetchStickerSummary, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
@@ -85,17 +85,13 @@ async function stopNativeLocationService() {
             await BackgroundLocation.stopService();
             console.log("[Native] Background location service stopped");
         }
-    } catch (e) { /* web mode */ }
+    } catch { /* web mode */ }
 }
 
 function rememberParentPairingIntent() {
     if (typeof window !== "undefined") {
         window.sessionStorage.setItem(PARENT_PAIRING_INTENT_KEY, "1");
     }
-}
-
-function hasParentPairingIntent() {
-    return typeof window !== "undefined" && window.sessionStorage.getItem(PARENT_PAIRING_INTENT_KEY) === "1";
 }
 
 function clearParentPairingIntent() {
@@ -257,10 +253,8 @@ function haversineM(la1, lo1, la2, lo2) {
 const getDIM = (y, m) => new Date(y, m + 1, 0).getDate();
 const getFD = (y, m) => new Date(y, m, 1).getDay();
 const fmtT = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-const randCode = () => "KID-" + Math.random().toString(36).substr(2, 6).toUpperCase();
 
 // Kakao Maps
-let kakaoLoad = false;
 let kakaoReady = null; // shared promise
 function loadKakaoMap(appKey) {
     if (kakaoReady) return kakaoReady;
@@ -322,8 +316,8 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
     const mapRef = useRef(), mapObj = useRef(), markerRef = useRef();
     const [pos, setPos] = useState(defaultCenter);
     const [address, setAddress] = useState(initial?.address || "");
-    const [loading, setLoading] = useState(true);
-    const [err, setErr] = useState("");
+    const [loading, setLoading] = useState(!!KAKAO_APP_KEY);
+    const [err, setErr] = useState(KAKAO_APP_KEY ? "" : "카카오 앱 키가 설정되지 않았어요. (.env 파일 확인)");
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
 
@@ -337,7 +331,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
     }, []);
 
     useEffect(() => {
-        if (!KAKAO_APP_KEY) { setErr("카카오 앱 키가 설정되지 않았어요. (.env 파일 확인)"); setLoading(false); return; }
+        if (!KAKAO_APP_KEY) return;
         loadKakaoMap(KAKAO_APP_KEY).then(() => {
             setLoading(false);
             if (!mapRef.current) return;
@@ -502,7 +496,7 @@ function RoleSetupModal({ onSelect, loading }) {
 
     // Mark as visited on first render
     useEffect(() => {
-        try { localStorage.setItem("hyeni-has-visited", "1"); } catch {}
+        try { localStorage.setItem("hyeni-has-visited", "1"); } catch { /* intentionally empty */ }
     }, []);
 
     const handleParent = async () => {
@@ -591,7 +585,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId, onUnpair, onClose }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onClose }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
@@ -879,6 +873,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
             { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
         );
         watchIdRef.current = wid;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsTracking(true);
         return () => {
             navigator.geolocation.clearWatch(wid);
@@ -1005,6 +1000,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         });
         myMarkerRef.current = myOverlay;
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setRouteInfo({ loading: true });
         lastRoutePosRef.current = { ...startPos };
 
@@ -1070,30 +1066,6 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 
         return () => { cancelled = true; };
     }, [mapReady, ev]);
-
-    const openKakaoNavi = () => {
-        // Try to open Kakao Map native app first (works on Android/iOS)
-        const kakaoAppUrl = `kakaomap://route?sp=${currentPos?.lat || ""},${currentPos?.lng || ""}&ep=${ev.location.lat},${ev.location.lng}&by=FOOT`;
-        const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(ev.title)},${ev.location.lat},${ev.location.lng}`;
-        // Try app scheme, fallback to web
-        const w = window.open(kakaoAppUrl, "_blank");
-        setTimeout(() => {
-            try {
-                if (!w || w.closed) window.open(webUrl, "_blank");
-            } catch { window.open(webUrl, "_blank"); }
-        }, 500);
-    };
-
-    const openNaverNavi = () => {
-        const url = `nmap://route/walk?dlat=${ev.location.lat}&dlng=${ev.location.lng}&dname=${encodeURIComponent(ev.title)}${currentPos ? `&slat=${currentPos.lat}&slng=${currentPos.lng}&sname=현재위치` : ""}&appname=com.hyeni.calendar`;
-        const webUrl = `https://map.naver.com/v5/directions/-/-/-/walk?c=${ev.location.lng},${ev.location.lat},15,0,0,0,dh`;
-        const w = window.open(url, "_blank");
-        setTimeout(() => {
-            try {
-                if (!w || w.closed) window.open(webUrl, "_blank");
-            } catch { window.open(webUrl, "_blank"); }
-        }, 500);
-    };
 
     const recenterMap = () => {
         if (!mapInst.current || !currentPos) return;
@@ -1387,7 +1359,7 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
 // ─────────────────────────────────────────────────────────────────────────────
 // Day Timetable (kid-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
-function DayTimetable({ events, dateLabel, childPos, mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode }) {
+function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode }) {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -1554,7 +1526,6 @@ function DayTimetable({ events, dateLabel, childPos, mapReady, arrivedSet, fired
 // Sticker Book Modal
 // ─────────────────────────────────────────────────────────────────────────────
 function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
-    const stickerIcons = { early: "🌟", on_time: "⭐", completed: "✅" };
     const stickerLabels = { early: "일찍 도착", on_time: "정시 도착", completed: "완료" };
     const totalCount = summary?.total_count || 0;
     const earlyCount = summary?.early_count || 0;
@@ -1803,8 +1774,6 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
             overlay.setMap(mapObj.current);
             markersRef.current.push(overlay);
 
-            // Click handler via event delegation
-            const el = overlay.getContent ? null : undefined;
         });
 
         // Fit bounds if multiple points
@@ -2117,7 +2086,7 @@ export default function KidsScheduler() {
         try {
             if (myRole) localStorage.setItem("hyeni-my-role", myRole);
             else localStorage.removeItem("hyeni-my-role");
-        } catch {}
+        } catch { /* ignored */ }
     }, [myRole]);
 
     const isParent = familyInfo?.myRole === "parent" || myRole === "parent";
@@ -2125,7 +2094,7 @@ export default function KidsScheduler() {
     const familyId = familyInfo?.familyId;
     const pairCode = familyInfo?.pairCode || "";
     const pairedChildren = familyInfo?.members?.filter(m => m.role === "child") || [];
-    const pairedDevice = pairedChildren[0] || null; // 첫 번째 아이 (하위호환)
+    const _pairedDevice = pairedChildren[0] || null; // 첫 번째 아이 (하위호환)
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
     const [academies, setAcademies] = useState(() => getCachedAcademies());
@@ -2137,7 +2106,7 @@ export default function KidsScheduler() {
     const [memos, setMemos] = useState(() => getCachedMemos());
     const [memoReplies, setMemoReplies] = useState([]);
     const [memoReadBy, setMemoReadBy] = useState([]);
-    const [globalNotif, setGlobalNotif] = useState(DEFAULT_NOTIF);
+    const [globalNotif, _setGlobalNotif] = useState(DEFAULT_NOTIF);
     const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
     const [showPhoneSettings, setShowPhoneSettings] = useState(false);
     const [showParentSetup, setShowParentSetup] = useState(false);
@@ -2146,7 +2115,6 @@ export default function KidsScheduler() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [showChildTracker, setShowChildTracker] = useState(false);
-    const [showNotifSettings, setShowNotifSettings] = useState(false);
     const [listening, setListening] = useState(false);
     const [notification, setNotification] = useState(null);
     const [alerts, setAlerts] = useState([]);
@@ -2174,8 +2142,6 @@ export default function KidsScheduler() {
     const [departedAlerts, setDepartedAlerts] = useState(new Set());
     // ── Audio recording ─────────────────────────────────────────────────────────
     const [isRecordingAudio, setIsRecordingAudio] = useState(false);
-    const mediaRecorderRef = useRef(null);
-    const audioChunksRef = useRef([]);
 
     // ── Voice ──────────────────────────────────────────────────────────────────
     const [voicePreview, setVoicePreview] = useState(null);
@@ -2459,10 +2425,10 @@ export default function KidsScheduler() {
                                         await BackgroundLocation.updateToken({ accessToken: session.access_token });
                                     }
                                 }
-                            } catch {}
+                            } catch { /* ignored */ }
                         }
                     }
-                } catch {}
+                } catch { /* ignored */ }
             }
         };
         document.addEventListener("visibilitychange", handleVisibility);
@@ -2525,7 +2491,7 @@ export default function KidsScheduler() {
                     return updated;
                 });
             },
-            onMemosChange: (type, newRow, oldRow) => {
+            onMemosChange: (type, newRow, _oldRow) => {
                 if (type === "DELETE") {
                     // For DELETE, newRow may be empty; refetch to ensure consistency
                     fetchMemos(familyId).then(map => setMemos(map));
@@ -2980,7 +2946,7 @@ export default function KidsScheduler() {
     // ── AI settings toggle ───────────────────────────────────────────────────
     const toggleAiEnabled = (val) => {
         setAiEnabled(val);
-        try { localStorage.setItem("hyeni-ai-enabled", val ? "true" : "false"); } catch {}
+        try { localStorage.setItem("hyeni-ai-enabled", val ? "true" : "false"); } catch { /* ignored */ }
     };
 
     // ── Process AI/regex result → create event or add memo ────────────────────
@@ -3118,7 +3084,7 @@ export default function KidsScheduler() {
                 }
                 if (!transcript) { showNotif("음성을 인식하지 못했어요", "error"); return; }
             }
-        } catch (e) { /* not native */ }
+        } catch { /* not native */ }
 
         // Fallback: Web Speech API (Chrome browser)
         if (!transcript) {
@@ -3706,7 +3672,7 @@ export default function KidsScheduler() {
                             {academies.map((ac, i) => (
                                 <button key={i} onClick={() => {
                                     const cat = CATEGORIES.find(c => c.id === ac.category);
-                                    const ev = { id: Date.now(), title: ac.name, time: "15:00", category: ac.category, emoji: ac.emoji || cat.emoji, color: ac.color || cat.color, bg: ac.bg || cat.bg, memo: "", location: ac.location || null, notifOverride: null };
+                                    const _ev = { id: Date.now(), title: ac.name, time: "15:00", category: ac.category, emoji: ac.emoji || cat.emoji, color: ac.color || cat.color, bg: ac.bg || cat.bg, memo: "", location: ac.location || null, notifOverride: null };
                                     setNewTitle(ac.name); setNewCategory(ac.category); setNewLocation(ac.location || null);
                                     setShowAddModal(true);
                                 }}
@@ -3973,7 +3939,7 @@ export default function KidsScheduler() {
 
             {/* ── Audio Recorder Modal (학부모 전용) ── */}
             {isRecordingAudio && <AmbientAudioRecorder
-                onRecorded={(blob, url) => {
+                onRecorded={(blob, _url) => {
                     console.log("[Audio] recorded", blob.size, "bytes");
                 }}
                 onClose={() => setIsRecordingAudio(false)}

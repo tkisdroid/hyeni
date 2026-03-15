@@ -22,14 +22,24 @@ function generatePairCode() {
 }
 
 // ── Kakao OAuth login (parent) ──────────────────────────────────────────────
+function isNative() {
+  return typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
+}
+
 export async function kakaoLogin() {
-  const { error } = await supabase.auth.signInWithOAuth({
+  // Both web and native: redirect within current window
+  // Native uses allowNavigation to keep OAuth domains in WebView
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "kakao",
     options: {
       redirectTo: window.location.origin,
+      skipBrowserRedirect: true,
     },
   });
   if (error) throw error;
+  if (data?.url) {
+    window.location.href = data.url;
+  }
 }
 
 // ── Anonymous login (child) ─────────────────────────────────────────────────

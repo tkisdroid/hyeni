@@ -7,7 +7,7 @@ const LS_MEMOS = "hyeni-memos";
 
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
-  catch { return fallback; }
+  catch { /* parse failed, ignore */ return fallback; }
 }
 function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 
@@ -318,7 +318,7 @@ export function subscribeFamily(familyId, callbacks) {
           console.log(`[Realtime] Reconnecting in ${delay}ms (attempt ${retryCount}/${MAX_RETRIES})`);
           retryTimer = setTimeout(() => {
             if (disposed) return;
-            try { channel.subscribe(); } catch {}
+            try { channel.subscribe(); } catch { /* ignored */ }
           }, delay);
         } else {
           console.error("[Realtime] Max retries reached. Realtime disabled until page reload.");

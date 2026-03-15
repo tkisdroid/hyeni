@@ -24,8 +24,6 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         handlePushLaunch(getIntent());
-
-        // Request POST_NOTIFICATIONS permission on Android 13+ (API 33+)
         requestNotificationPermission();
         primeFcmToken();
     }

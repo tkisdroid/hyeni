@@ -30,7 +30,7 @@ class ErrorBoundary extends Component {
             <summary style={{ cursor: "pointer", fontWeight: 700 }}>상세 오류 정보</summary>
             <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 8 }}>{stack}{componentStack}</pre>
           </details>
-          <button onClick={() => { try { localStorage.clear(); } catch {} window.location.reload(); }}
+          <button onClick={() => { try { localStorage.clear(); } catch { /* clear failed, ignore */ } window.location.reload(); }}
             style={{ padding: "12px 24px", background: "#E879A0", color: "white", border: "none", borderRadius: 16, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
             초기화 후 다시 시작
           </button>
