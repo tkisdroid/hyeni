@@ -94,12 +94,15 @@ public class LocationPlugin extends Plugin {
     }
 
     private void launchService(String userId, String familyId, String supabaseUrl, String supabaseKey, String accessToken) {
+        String role = getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("role", "child");
         Intent intent = new Intent(getContext(), LocationService.class);
         intent.putExtra("userId", userId);
         intent.putExtra("familyId", familyId);
         intent.putExtra("supabaseUrl", supabaseUrl);
         intent.putExtra("supabaseKey", supabaseKey);
         intent.putExtra("accessToken", accessToken);
+        intent.putExtra("role", role);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getContext().startForegroundService(intent);

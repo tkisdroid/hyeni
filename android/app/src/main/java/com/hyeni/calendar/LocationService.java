@@ -147,15 +147,17 @@ public class LocationService extends Service {
                 supabaseUrl = intent.getStringExtra("supabaseUrl");
                 supabaseKey = intent.getStringExtra("supabaseKey");
                 accessToken = intent.getStringExtra("accessToken");
+                String role = intent.getStringExtra("role");
 
-                prefs.edit()
+                SharedPreferences.Editor editor = prefs.edit()
                     .putString("userId", userId)
                     .putString("familyId", familyId)
                     .putString("supabaseUrl", supabaseUrl)
                     .putString("supabaseKey", supabaseKey)
                     .putString("accessToken", accessToken)
-                    .putBoolean("serviceEnabled", true)
-                    .apply();
+                    .putBoolean("serviceEnabled", true);
+                if (role != null) editor.putString("role", role);
+                editor.apply();
             }
 
             if ("STOP".equals(intent.getAction())) {

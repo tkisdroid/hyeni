@@ -154,23 +154,18 @@ async function sendFcmNotification(
     const message: Record<string, unknown> = {
       message: {
         token,
-        // notification field ensures system tray display even when app is killed
         notification: {
           title,
           body,
         },
-        // data field for in-app handling when app is in foreground
         data: stringData,
         android: {
           priority: "HIGH",
           ttl: "120s",
           direct_boot_ok: true,
           notification: {
-            channel_id: isUrgent ? "hyeni_alert_v2" : "hyeni_schedule_v2",
-            default_sound: true,
-            default_vibrate_timings: true,
-            notification_priority: "PRIORITY_MAX",
-            visibility: "PUBLIC",
+            channel_id: "hyeni_alert_v2",
+            sound: "notif_cute",
           },
         },
       },
@@ -226,7 +221,7 @@ async function sendFcmToFamily(
 
   if (!tokens?.length) return 0;
 
-  const isUrgent = type === "kkuk" || type === "parent_alert" || type === "new_memo";
+  const isUrgent = true; // all notifications are urgent for guaranteed delivery
   let sent = 0;
   const expiredIds: string[] = [];
 

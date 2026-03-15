@@ -107,39 +107,33 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     private void showNotification(String title, String body, boolean isUrgent) {
-        String channelId = isUrgent ? ALERT_CHANNEL_ID : SCHEDULE_CHANNEL_ID;
+        String channelId = ALERT_CHANNEL_ID; // always use alert channel
         int currentNotifId = notifId.getAndIncrement();
+
+        android.net.Uri cuteSound = android.net.Uri.parse(
+            "android.resource://" + getPackageName() + "/" + R.raw.notif_cute);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = getSystemService(NotificationManager.class);
-            if (nm != null && nm.getNotificationChannel(channelId) == null) {
-                int importance = isUrgent
-                    ? NotificationManager.IMPORTANCE_MAX
-                    : NotificationManager.IMPORTANCE_MAX;
+            // Delete old channel to force recreate with new sound
+            if (nm != null) {
+                NotificationChannel existing = nm.getNotificationChannel(channelId);
+                if (existing != null) {
+                    nm.deleteNotificationChannel(channelId);
+                }
 
                 NotificationChannel channel = new NotificationChannel(
-                    channelId,
-                    isUrgent ? "긴급 알림" : "일정 알림",
-                    importance
-                );
-
+                    channelId, "혜니 알림", NotificationManager.IMPORTANCE_HIGH);
                 channel.enableVibration(true);
-                if (isUrgent) {
-                    channel.setBypassDnd(true);
-                    channel.setVibrationPattern(new long[]{0, 300, 100, 300, 100, 500});
-                } else {
-                    channel.setVibrationPattern(new long[]{0, 200, 100, 200});
-                }
+                channel.setBypassDnd(true);
+                channel.setVibrationPattern(new long[]{0, 150, 80, 150});
                 channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
                 channel.setShowBadge(true);
-
-                channel.setSound(
-                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+                channel.setSound(cuteSound,
                     new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .build()
-                );
-
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build());
                 nm.createNotificationChannel(channel);
             }
         }
@@ -149,41 +143,29 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         contentIntent.putExtra("fromPush", true);
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this, currentNotifId, contentIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Intent fullScreenIntent = new Intent(this, PushAlertActivity.class);
         fullScreenIntent.putExtra("title", title);
         fullScreenIntent.putExtra("body", body);
         PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
             this, currentNotifId + 10_000, fullScreenIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
-            .setAutoCancel(true)
+            .setAutoCancel(false)
             .setContentIntent(pendingIntent)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .setCategory(isUrgent
-                ? NotificationCompat.CATEGORY_ALARM
-                : NotificationCompat.CATEGORY_ALARM)
+            .setSound(cuteSound)
+            .setVibrate(new long[]{0, 150, 80, 150})
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(isUrgent
-                ? NotificationCompat.PRIORITY_MAX
-                : NotificationCompat.PRIORITY_MAX)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
             .setWhen(System.currentTimeMillis());
-
-        // Full screen intent for ALL notifications — ensures heads-up display on lock screen
-        builder.setFullScreenIntent(fullScreenPendingIntent, true);
-        if (isUrgent) {
-            builder.setVibrate(new long[]{0, 300, 100, 300, 100, 500});
-        } else {
-            builder.setVibrate(new long[]{0, 200, 100, 200});
-        }
 
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
