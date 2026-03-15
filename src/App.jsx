@@ -1314,6 +1314,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 // ─────────────────────────────────────────────────────────────────────────────
 function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode }) {
     const [inputText, setInputText] = useState("");
+    const memoText = memoValue || "";
 
     const handleSend = () => {
         if (!inputText.trim()) return;
@@ -1324,6 +1325,7 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
 
     const othersRead = (readBy || []).filter(id => id !== myUserId).length > 0;
     const hasMessages = (replies && replies.length > 0);
+    const hasMemo = memoText.trim().length > 0;
 
     return (
         <div style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
@@ -1331,6 +1333,64 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
             <div style={{ padding: "12px 16px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>💬 오늘의 메모</div>
                 {hasMessages && othersRead && <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>}
+            </div>
+
+            {/* Daily memo body */}
+            <div style={{ padding: "14px 16px", background: "#FFF7FB", borderBottom: "1px solid #F3F4F6" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#BE185D", marginBottom: 8 }}>
+                    {isParentMode ? "아이에게 남기는 메모" : "부모님께 남기는 메모"}
+                </div>
+                <textarea
+                    value={memoText}
+                    onChange={e => onMemoChange?.(e.target.value)}
+                    onBlur={() => onMemoBlur?.()}
+                    onKeyDown={e => {
+                        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                            e.preventDefault();
+                            onMemoSend?.();
+                        }
+                    }}
+                    placeholder={isParentMode ? "오늘 꼭 전하고 싶은 내용을 남겨주세요..." : "오늘 있었던 일이나 전하고 싶은 말을 적어봐~ 🐰"}
+                    style={{
+                        width: "100%",
+                        minHeight: 88,
+                        resize: "vertical",
+                        border: "1.5px solid #FBCFE8",
+                        borderRadius: 16,
+                        padding: "12px 14px",
+                        fontSize: 14,
+                        lineHeight: 1.6,
+                        fontFamily: FF,
+                        outline: "none",
+                        background: "white",
+                        boxSizing: "border-box",
+                        color: "#374151",
+                    }}
+                />
+                <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ fontSize: 11, color: hasMemo ? "#6B7280" : "#9CA3AF" }}>
+                        {hasMemo ? "이 메모가 상대방 화면에 바로 보여요." : "메모를 보내면 상대방에게 푸시 알림이 갑니다."}
+                    </div>
+                    <button
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => onMemoSend?.()}
+                        disabled={!hasMemo}
+                        style={{
+                            padding: "10px 14px",
+                            borderRadius: 14,
+                            border: "none",
+                            cursor: hasMemo ? "pointer" : "default",
+                            background: hasMemo ? "linear-gradient(135deg,#EC4899,#BE185D)" : "#E5E7EB",
+                            color: "white",
+                            fontWeight: 800,
+                            fontSize: 12,
+                            fontFamily: FF,
+                            flexShrink: 0,
+                        }}
+                    >
+                        메모 보내기
+                    </button>
+                </div>
             </div>
 
             {/* Chat area */}
@@ -1357,7 +1417,7 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
             <div style={{ padding: "10px 12px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, alignItems: "center", background: "#FAFAFA" }}>
                 <input
                     type="text"
-                    placeholder={isParentMode ? "메시지를 입력하세요..." : "여기에 써봐~ 🐰"}
+                    placeholder={isParentMode ? "답글을 입력하세요..." : "답글을 남겨봐~ 🐰"}
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") handleSend(); }}
