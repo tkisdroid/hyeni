@@ -452,7 +452,7 @@ function MapZoomControls({ mapObj, style }) {
     };
     const btnSt = { width: 48, height: 48, borderRadius: 14, border: "none", fontSize: 24, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(0,0,0,0.15)", fontFamily: FF };
     return (
-        <div style={{ position: "absolute", bottom: 16, right: 12, display: "flex", flexDirection: "column", gap: 8, zIndex: 10, ...style }}>
+        <div style={{ position: "absolute", bottom: 16, left: 12, display: "flex", flexDirection: "column", gap: 8, zIndex: 10, ...style }}>
             <button onClick={() => zoom(-1)} style={{ ...btnSt, background: "white", color: "#E879A0" }}>+</button>
             <button onClick={() => zoom(1)} style={{ ...btnSt, background: "white", color: "#9CA3AF" }}>−</button>
         </div>
@@ -1387,7 +1387,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 
                 {/* Heading compass indicator (top-right) */}
                 {heading != null && (
-                    <div style={{ position: "absolute", right: 14, top: 14, zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <div style={{ position: "absolute", left: 14, top: 14, zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center" }}>
                         <div style={{
                             width: 48, height: 48, borderRadius: "50%", background: "white",
                             boxShadow: "0 2px 12px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center",
@@ -1413,12 +1413,12 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                     </button>
                     <button onClick={recenterMap} title="내 위치"
                         style={{
-                            minWidth: 44, height: 44, borderRadius: 14, padding: "0 14px",
+                            minWidth: 56, height: 56, borderRadius: 16, padding: "0 16px",
                             background: centered ? "linear-gradient(135deg, #EC4899, #F472B6)" : "white",
                             border: centered ? "none" : "2px solid #F9A8D4",
                             cursor: "pointer", boxShadow: centered ? "0 4px 14px rgba(236,72,153,0.4)" : "0 2px 8px rgba(0,0,0,0.15)",
                             display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                            fontSize: 12, fontWeight: 800, color: centered ? "white" : "#EC4899", fontFamily: FF,
+                            fontSize: 14, fontWeight: 800, color: centered ? "white" : "#EC4899", fontFamily: FF,
                             transition: "all 0.2s ease"
                         }}>
                         🐰 내 위치
