@@ -270,7 +270,7 @@ export function scheduleNotifications(events, notifSettings, role) {
     const [h, m] = ev.time.split(":").map(Number);
     const eventTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
     const settings = ev.notifOverride || notifSettings;
-    const minutesList = settings.minutesBefore || [10];
+    const minutesList = settings.minutesBefore || [15, 5];
 
     // Skip if this role's notifications are disabled
     if (isParentRole && !settings.parentEnabled) continue;
@@ -384,7 +384,7 @@ function buildAlarmPayloads(events, notifSettings, role) {
     const [h, m] = ev.time.split(":").map(Number);
     const eventTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
     const settings = ev.notifOverride || notifSettings;
-    const minutesList = settings.minutesBefore || [10];
+    const minutesList = settings.minutesBefore || [15, 5];
 
     if (isParentRole && !settings.parentEnabled) continue;
     if (!isParentRole && !settings.childEnabled) continue;

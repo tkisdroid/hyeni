@@ -63,7 +63,7 @@ function rowsToEventMap(rows) {
     const dk = row.date_key;
     if (!map[dk]) map[dk] = [];
     map[dk].push(rowToEvent(row));
-    map[dk].sort((a, b) => a.time.localeCompare(b.time));
+    map[dk].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
   }
   return map;
 }

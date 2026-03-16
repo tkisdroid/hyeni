@@ -173,12 +173,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private void ensureAlertChannel(String channelId, android.net.Uri cuteSound) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = getSystemService(NotificationManager.class);
-            // Delete old channel to force recreate with new sound
             if (nm != null) {
+                // 기존 채널이 있으면 재사용 (사용자 설정 유지)
                 NotificationChannel existing = nm.getNotificationChannel(channelId);
-                if (existing != null) {
-                    nm.deleteNotificationChannel(channelId);
-                }
+                if (existing != null) return;
 
                 NotificationChannel channel = new NotificationChannel(
                     channelId, "혜니 알림", NotificationManager.IMPORTANCE_HIGH);

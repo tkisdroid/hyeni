@@ -599,7 +599,7 @@ public class LocationService extends Service {
                 // Get current time in KST
                 Calendar kst = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"));
                 int year = kst.get(Calendar.YEAR);
-                int month = kst.get(Calendar.MONTH); // 0-based
+                int month = kst.get(Calendar.MONTH) + 1; // Calendar.MONTH is 0-based, convert to 1-based
                 int day = kst.get(Calendar.DAY_OF_MONTH);
                 int nowHour = kst.get(Calendar.HOUR_OF_DAY);
                 int nowMin = kst.get(Calendar.MINUTE);
@@ -647,8 +647,14 @@ public class LocationService extends Service {
 
                     String[] parts = time.split(":");
                     if (parts.length < 2) continue;
-                    int evHour = Integer.parseInt(parts[0]);
-                    int evMin = Integer.parseInt(parts[1]);
+                    int evHour, evMin;
+                    try {
+                        evHour = Integer.parseInt(parts[0].trim());
+                        evMin = Integer.parseInt(parts[1].trim());
+                    } catch (NumberFormatException nfe) {
+                        Log.w(TAG, "Invalid time format: " + time);
+                        continue;
+                    }
                     int evTotalMin = evHour * 60 + evMin;
 
                     // Check 15 minutes before — friendly message

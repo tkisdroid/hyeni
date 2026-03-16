@@ -1,7 +1,6 @@
 import { supabase } from "./supabase.js";
 
 const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
-console.log("[auth] KAKAO_REST_KEY loaded:", KAKAO_REST_KEY);
 
 // ── Helper: Safe UUID generator ───────────────────────────────────────────────
 export function generateUUID() {
@@ -39,7 +38,8 @@ export async function kakaoLogin() {
 
 // ── Anonymous login (child) ─────────────────────────────────────────────────
 export async function anonymousLogin() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) console.warn("[anonymousLogin] getSession failed:", sessionError);
   if (session) return session.user;
 
   const { data, error } = await supabase.auth.signInAnonymously();
@@ -65,12 +65,13 @@ export async function logout() {
 
 // ── Setup family (parent, after login) ──────────────────────────────────────
 export async function setupFamily(userId, parentName) {
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("families")
     .select("id, pair_code")
     .eq("parent_id", userId)
     .limit(1)
     .maybeSingle();
+  if (existingError) console.warn("[setupFamily] existing family query failed:", existingError);
 
   if (existing) {
     const { error: memberError } = await supabase
@@ -103,6 +104,7 @@ export async function setupFamily(userId, parentName) {
 
 // ── Join family (child, via pair code) ──────────────────────────────────────
 export async function joinFamily(pairCode, userId, childName) {
+  if (!pairCode || typeof pairCode !== "string") throw new Error("연동 코드를 입력해주세요");
   const { data, error } = await supabase.rpc("join_family", {
     p_pair_code: pairCode.toUpperCase().trim(),
     p_user_id: userId,
@@ -115,13 +117,17 @@ export async function joinFamily(pairCode, userId, childName) {
 
 // ── Join family as second parent (via pair code) ────────────────────────────
 export async function joinFamilyAsParent(pairCode, userId, parentName) {
-  const { data, error } = await supabase.rpc("join_family_as_parent", {
-    p_pair_code: pairCode.toUpperCase().trim(),
-    p_user_id: userId,
-    p_name: parentName || "부모",
-  });
-  if (error) throw error;
-  return data;
+  if (!pairCode || typeof pairCode !== "string") throw new Error("연동 코드를 입력해주세요");
+  // join_family RPC를 사용하고, 이후 역할을 parent로 업데이트
+  const familyId = await joinFamily(pairCode, userId, parentName || "부모");
+  if (familyId) {
+    await supabase
+      .from("family_members")
+      .update({ role: "parent" })
+      .eq("family_id", familyId)
+      .eq("user_id", userId);
+  }
+  return familyId;
 }
 
 // ── Get family info for current user ────────────────────────────────────────
@@ -170,11 +176,12 @@ export async function getMyFamily(userId) {
     };
   }
 
-  const { data: family } = await supabase
+  const { data: family, error: familyError } = await supabase
     .from("families")
     .select("id, pair_code, parent_name, mom_phone, dad_phone")
     .eq("id", membership.family_id)
     .single();
+  if (familyError) console.warn("[getMyFamily] family query failed:", familyError);
 
   let finalPairCode = family?.pair_code || "";
   if (!finalPairCode && membership.role === "parent") {
@@ -223,12 +230,13 @@ export async function getParentPhones(familyId) {
 
 // ── Unpair (parent removes child, or child leaves) ──────────────────────────
 export async function unpairChild(familyId, childUserId) {
-  await supabase
+  const { error } = await supabase
     .from("family_members")
     .delete()
     .eq("family_id", familyId)
     .eq("user_id", childUserId)
     .eq("role", "child");
+  if (error) throw error;
 }
 
 // ── Auth state listener ─────────────────────────────────────────────────────

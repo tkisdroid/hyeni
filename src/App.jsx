@@ -2848,11 +2848,11 @@ export default function KidsScheduler() {
                     let updated = [...prev];
                     if (type === "INSERT" && newRow) {
                         const cat = CAT_COLORS[newRow.category] || CAT_COLORS.other;
-                        const ac = { id: newRow.id, name: newRow.name, emoji: newRow.emoji, category: newRow.category, color: cat.color, bg: cat.bg, location: newRow.location };
+                        const ac = { id: newRow.id, name: newRow.name, emoji: newRow.emoji, category: newRow.category, color: cat.color, bg: cat.bg, location: newRow.location, schedule: newRow.schedule || null };
                         if (!updated.find(a => a.id === ac.id)) updated.push(ac);
                     } else if (type === "UPDATE" && newRow) {
                         const cat = CAT_COLORS[newRow.category] || CAT_COLORS.other;
-                        updated = updated.map(a => a.id === newRow.id ? { ...a, name: newRow.name, emoji: newRow.emoji, category: newRow.category, color: cat.color, bg: cat.bg, location: newRow.location } : a);
+                        updated = updated.map(a => a.id === newRow.id ? { ...a, name: newRow.name, emoji: newRow.emoji, category: newRow.category, color: cat.color, bg: cat.bg, location: newRow.location, schedule: newRow.schedule || null } : a);
                     } else if (type === "DELETE" && oldRow) {
                         updated = updated.filter(a => a.id !== oldRow.id);
                     }
@@ -3483,7 +3483,7 @@ export default function KidsScheduler() {
             if (familyId && authUser) {
                 try {
                     await updateEvent(targetId, { memo: newMemoVal });
-                    await upsertMemo(targetId, dateKey, newMemoVal, familyId);
+                    await upsertMemo(familyId, dateKey, newMemoVal);
                 } catch (err) { console.error("[voiceMemo] save error:", err); }
             }
 
