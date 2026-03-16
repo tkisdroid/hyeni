@@ -389,7 +389,7 @@ function escHtml(str) {
 }
 
 const ARRIVAL_R = 50; // metres (geo-fence radius)
-const DEPARTURE_TIMEOUT_MS = 90_000; // 1.5 minutes outside = departure alert
+const DEPARTURE_TIMEOUT_MS = 60_000; // 1 minute outside = departure alert (GPS 오류 방지)
 const DEFAULT_NOTIF = { childEnabled: true, parentEnabled: true, minutesBefore: [15, 5] };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3008,10 +3008,13 @@ export default function KidsScheduler() {
                 const dist = haversineM(childPos.lat, childPos.lng, ev.location.lat, ev.location.lng);
                 const inside = dist <= ARRIVAL_R;
 
-                // ── Arrival detection ──
+                // ── Arrival detection (only 30min before ~ event time) ──
                 if (inside && !arrivedSet.has(ev.id)) {
                     const [h, m] = ev.time.split(":").map(Number);
-                    const diff = Math.round((now.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime()) / 60000);
+                    const evTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
+                    const diff = Math.round((now.getTime() - evTime) / 60000);
+                    // Only check arrival from 30min before to event time (diff: -30 ~ 5)
+                    if (diff < -30 || diff > 5) return;
                     const isEarly = diff < -1;
                     const isOnTime = diff >= -1 && diff <= 5;
                     const msg = isEarly ? `${Math.abs(diff)}분 일찍 도착` : isOnTime ? "정시 도착" : `${diff}분 늦게 도착`;
@@ -3128,13 +3131,19 @@ export default function KidsScheduler() {
                 if (!ev.location || arrivedSet.has(ev.id) || firedEmergencies.has(ev.id)) return;
                 const [h, m] = ev.time.split(":").map(Number);
                 const minsUntil = (new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime() - now.getTime()) / 60000;
-                if (minsUntil <= 5 && minsUntil > -1) {
+                // 일정 시작 시간에 미도착 시에만 긴급 알림 (시작 시간 ~ 시작 후 3분)
+                if (minsUntil <= 0 && minsUntil > -3) {
                     setFiredEmergencies(prev => new Set([...prev, ev.id]));
                     if (isParent) {
                         const shortAddr = (ev.location.address || "").split(" ").slice(0, 4).join(" ");
                         setEmergencies(prev => [...prev, { id: Date.now() + Math.random(), emoji: ev.emoji, title: ev.title, time: ev.time, location: shortAddr, eventId: ev.id }]);
-                        addAlert(`🚨 긴급! ${ev.emoji} ${ev.title} 5분 후인데 아직 미도착!`, "emergency");
+                        addAlert(`🚨 긴급! ${ev.emoji} ${ev.title} 시간인데 아직 미도착!`, "emergency");
                         showEmergencyNotification(ev);
+                        sendInstantPush({
+                            action: "new_event", familyId, senderUserId: authUser?.id,
+                            title: `🚨 미도착 긴급 알림`,
+                            message: `${ev.emoji} ${ev.title} 시간인데 아직 도착하지 않았어요!`,
+                        });
                     }
                 }
             });
