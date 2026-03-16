@@ -318,6 +318,26 @@ export function scheduleNotifications(events, notifSettings, role) {
       }, startDelay);
       scheduledTimers.set(startKey, timerId);
     }
+
+    // 종료 알림: 부모에게만, endTime이 있을 때
+    if (isParentRole && ev.endTime) {
+      const [eh, em] = ev.endTime.split(":").map(Number);
+      const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), eh, em);
+      const endDelay = endTime.getTime() - now.getTime();
+      if (endDelay > 0 && endDelay < 24 * 60 * 60000) {
+        const endKey = `${ev.id}-end`;
+        const timerId = setTimeout(() => {
+          showNotification(
+            `${ev.emoji} ${ev.title}`,
+            `${ev.emoji} ${ev.title} 수업이 끝났어요`,
+            `hyeni-${ev.id}-end`,
+            { eventId: ev.id, silent: true }
+          );
+          scheduledTimers.delete(endKey);
+        }, endDelay);
+        scheduledTimers.set(endKey, timerId);
+      }
+    }
   }
 
   console.log(`[Push] ${scheduledTimers.size} local notifications scheduled (role: ${role})`);
@@ -399,6 +419,23 @@ function buildAlarmPayloads(events, notifSettings, role) {
         wakeScreen: !isParentRole,
         fullScreen: false,
       });
+    }
+
+    // 종료 알림: 부모에게만, endTime이 있을 때
+    if (isParentRole && ev.endTime) {
+      const [eh, em] = ev.endTime.split(":").map(Number);
+      const endAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), eh, em).getTime();
+      if (endAt > now.getTime()) {
+        notifications.push({
+          id: `${ev.id}-end`,
+          at: endAt,
+          title: `${ev.emoji} ${ev.title}`,
+          body: `${ev.emoji} ${ev.title} 수업이 끝났어요`,
+          channel: "schedule",
+          wakeScreen: false,
+          fullScreen: false,
+        });
+      }
     }
   }
 

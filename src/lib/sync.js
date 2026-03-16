@@ -34,6 +34,7 @@ function rowToEvent(row) {
     memo: row.memo || "",
     location: row.location,
     notifOverride: row.notif_override,
+    endTime: row.end_time || null,
   };
 }
 
@@ -51,6 +52,7 @@ function eventToRow(ev, familyId, dateKey, userId) {
     memo: ev.memo || "",
     location: ev.location || null,
     notif_override: ev.notifOverride || null,
+    end_time: ev.endTime || null,
     created_by: userId,
   };
 }
@@ -158,6 +160,7 @@ export async function updateEvent(eventId, fields) {
   const dbFields = {};
   for (const [k, v] of Object.entries(fields)) {
     if (k === "notifOverride") dbFields.notif_override = v;
+    else if (k === "endTime") dbFields.end_time = v;
     else dbFields[k] = v;
   }
   const { error } = await supabase
