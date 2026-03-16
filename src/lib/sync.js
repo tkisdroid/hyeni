@@ -256,6 +256,37 @@ export async function saveChildLocation(userId, familyId, lat, lng) {
   if (error) console.error("[saveChildLocation]", error);
 }
 
+export async function saveLocationHistory(userId, familyId, lat, lng) {
+  const { error } = await supabase
+    .from("location_history")
+    .insert({ user_id: userId, family_id: familyId, lat, lng });
+  if (error) console.error("[saveLocationHistory]", error);
+}
+
+export async function fetchTodayLocationHistory(familyId) {
+  const { data: members } = await supabase
+    .from("family_members")
+    .select("user_id")
+    .eq("family_id", familyId)
+    .eq("role", "child");
+  const childUserIds = (members || []).map(m => m.user_id);
+  if (!childUserIds.length) return [];
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const { data, error } = await supabase
+    .from("location_history")
+    .select("lat, lng, recorded_at")
+    .eq("family_id", familyId)
+    .in("user_id", childUserIds)
+    .gte("recorded_at", todayStart.toISOString())
+    .order("recorded_at", { ascending: true });
+
+  if (error) { console.error("[fetchTodayLocationHistory]", error); return []; }
+  return data || [];
+}
+
 export async function fetchChildLocations(familyId) {
   // Step 1: get user_ids that are role='child' in this family
   const { data: members } = await supabase

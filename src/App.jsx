@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
-import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, addSticker, fetchStickersForDate, fetchStickerSummary, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
+import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import "./App.css";
@@ -2219,76 +2219,128 @@ function ChildCallButtons({ phones }) {
     );
 }
 
-function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose }) {
+function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose, locationTrail = [] }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const myMarkerRef = useRef();
+    const trailPolyRef = useRef(null);
+    const expectedPolyRef = useRef(null);
+    const eventMarkersRef = useRef([]);
+    const [selectedEvent, setSelectedEvent] = useState(null);
 
-    const locEvents = Object.values(events).flat().filter(e => e.location);
     const center = childPos || { lat: 37.5665, lng: 126.9780 };
 
-    // 가장 가까운 다음 일정 찾기
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-    const todayEvents = (events[todayKey] || []).filter(e => e.location);
-    const nextEvent = todayEvents.find(e => {
+    const todayLocEvents = (events[todayKey] || []).filter(e => e.location).sort((a, b) => a.time.localeCompare(b.time));
+    const nextEvent = todayLocEvents.find(e => {
         const [h, m] = e.time.split(":").map(Number);
         return h * 60 + m > nowMin;
     });
-
     const distToNext = childPos && nextEvent?.location
         ? haversineM(childPos.lat, childPos.lng, nextEvent.location.lat, nextEvent.location.lng)
         : null;
 
-    useEffect(() => {
-        if (!mapReady || !mapRef.current) return;
+    // 오늘 총 이동거리 (실제 이동경로 합산)
+    const totalDistM = locationTrail.reduce((sum, pt, i) => {
+        if (i === 0) return 0;
+        return sum + haversineM(locationTrail[i - 1].lat, locationTrail[i - 1].lng, pt.lat, pt.lng);
+    }, 0);
 
-        if (!mapObj.current) {
-            mapObj.current = new window.kakao.maps.Map(mapRef.current, {
-                center: new window.kakao.maps.LatLng(center.lat, center.lng),
-                level: 4
+    // Effect 1: 지도 초기화 (최초 1회)
+    useEffect(() => {
+        if (!mapReady || !mapRef.current || mapObj.current) return;
+        mapObj.current = new window.kakao.maps.Map(mapRef.current, {
+            center: new window.kakao.maps.LatLng(center.lat, center.lng),
+            level: 4
+        });
+    }, [mapReady]);
+
+    // Effect 2: 아이 현재위치 마커
+    useEffect(() => {
+        if (!mapObj.current) return;
+        if (myMarkerRef.current) myMarkerRef.current.setMap(null);
+        if (!childPos) return;
+        const overlay = new window.kakao.maps.CustomOverlay({
+            position: new window.kakao.maps.LatLng(childPos.lat, childPos.lng),
+            content: `<div style="display:flex;flex-direction:column;align-items:center">
+                <div style="width:24px;height:24px;background:#3B82F6;border:4px solid white;border-radius:50%;box-shadow:0 0 0 8px rgba(59,130,246,0.2),0 3px 12px rgba(59,130,246,0.4)"></div>
+                <div style="margin-top:4px;background:#3B82F6;color:white;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.15)">우리 아이</div>
+            </div>`,
+            yAnchor: 1.6, xAnchor: 0.5
+        });
+        overlay.setMap(mapObj.current);
+        myMarkerRef.current = overlay;
+        mapObj.current.setCenter(new window.kakao.maps.LatLng(childPos.lat, childPos.lng));
+    }, [childPos]);
+
+    // Effect 3: 이동경로 + 예상경로 + 일정 마커 (locationTrail/events 변경 시 재드로우)
+    useEffect(() => {
+        if (!mapObj.current) return;
+
+        // 기존 폴리라인/마커 제거
+        if (trailPolyRef.current) { trailPolyRef.current.setMap(null); trailPolyRef.current = null; }
+        if (expectedPolyRef.current) { expectedPolyRef.current.setMap(null); expectedPolyRef.current = null; }
+        eventMarkersRef.current.forEach(m => m.setMap(null));
+        eventMarkersRef.current = [];
+
+        // 실제 이동경로 (파란 실선)
+        if (locationTrail.length >= 2) {
+            const path = locationTrail.map(pt => new window.kakao.maps.LatLng(pt.lat, pt.lng));
+            trailPolyRef.current = new window.kakao.maps.Polyline({
+                map: mapObj.current, path,
+                strokeWeight: 5, strokeColor: "#3B82F6",
+                strokeOpacity: 0.8, strokeStyle: "solid"
             });
         }
 
-        // 아이 위치 마커 (큰 파란 점 + 펄스)
-        if (myMarkerRef.current) myMarkerRef.current.setMap(null);
-        if (childPos) {
+        // 예상 이동경로: 오늘 일정 장소들을 시간순으로 연결 (회색 점선)
+        if (todayLocEvents.length >= 2) {
+            const path = todayLocEvents.map(e => new window.kakao.maps.LatLng(e.location.lat, e.location.lng));
+            expectedPolyRef.current = new window.kakao.maps.Polyline({
+                map: mapObj.current, path,
+                strokeWeight: 3, strokeColor: "#9CA3AF",
+                strokeOpacity: 0.7, strokeStyle: "shortdash"
+            });
+        }
+
+        // 일정 마커 (클릭 가능)
+        todayLocEvents.forEach(ev => {
+            const arrived = arrivedSet.has(ev.id);
+            const bg = arrived ? "#059669" : ev.color;
+            const el = document.createElement("div");
+            el.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer";
+            el.innerHTML = `<div style="background:${bg};color:white;padding:5px 10px;border-radius:12px;font-size:11px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,0.18);white-space:nowrap;font-family:'Noto Sans KR',sans-serif">${escHtml(ev.emoji)} ${escHtml(ev.title)}${arrived ? " ✅" : ""}</div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${bg}"></div>`;
+            el.addEventListener("click", () => setSelectedEvent(prev => prev?.id === ev.id ? null : ev));
             const overlay = new window.kakao.maps.CustomOverlay({
-                position: new window.kakao.maps.LatLng(childPos.lat, childPos.lng),
-                content: `<div style="display:flex;flex-direction:column;align-items:center">
-                    <div style="width:24px;height:24px;background:#3B82F6;border:4px solid white;border-radius:50%;box-shadow:0 0 0 8px rgba(59,130,246,0.2),0 3px 12px rgba(59,130,246,0.4)"></div>
-                    <div style="margin-top:4px;background:#3B82F6;color:white;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.15)">우리 아이</div>
-                </div>`,
-                yAnchor: 1.6, xAnchor: 0.5
+                position: new window.kakao.maps.LatLng(ev.location.lat, ev.location.lng),
+                content: el, yAnchor: 1.3, xAnchor: 0.5
             });
             overlay.setMap(mapObj.current);
-            myMarkerRef.current = overlay;
-            mapObj.current.setCenter(new window.kakao.maps.LatLng(childPos.lat, childPos.lng));
-        }
-
-        // 학원/일정 마커들
-        locEvents.forEach(ev => {
-            const pos = new window.kakao.maps.LatLng(ev.location.lat, ev.location.lng);
-            const arrived = arrivedSet.has(ev.id);
-            const o = new window.kakao.maps.CustomOverlay({
-                position: pos,
-                content: `<div style="display:flex;flex-direction:column;align-items:center">
-                    <div style="background:${arrived ? '#059669' : ev.color};color:white;padding:5px 10px;border-radius:12px;font-size:11px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,0.15);white-space:nowrap;font-family:'Noto Sans KR',sans-serif">${escHtml(ev.emoji)} ${escHtml(ev.title)}${arrived ? ' ✅' : ''}</div>
-                    <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${arrived ? '#059669' : ev.color}"></div>
-                </div>`,
-                yAnchor: 1.3, xAnchor: 0.5
-            });
-            o.setMap(mapObj.current);
+            eventMarkersRef.current.push(overlay);
         });
-    }, [mapReady, childPos, events, arrivedSet]);
+    }, [locationTrail, todayLocEvents, arrivedSet]);
+
+    const distLabel = (m) => m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Header */}
             <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                 <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 14, padding: "10px 16px", cursor: "pointer", fontWeight: 800, fontSize: 14, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>← 돌아가기</button>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#1D4ED8" }}>📍 지금 우리 아이는?</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#1D4ED8", flex: 1 }}>📍 지금 우리 아이는?</div>
+                {/* 범례 */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <div style={{ width: 20, height: 3, background: "#3B82F6", borderRadius: 2 }} />
+                        <span style={{ fontSize: 10, color: "#6B7280" }}>이동</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <div style={{ width: 20, height: 3, background: "#9CA3AF", borderRadius: 2, borderTop: "2px dashed #9CA3AF" }} />
+                        <span style={{ fontSize: 10, color: "#6B7280" }}>예상</span>
+                    </div>
+                </div>
             </div>
 
             {/* Map */}
@@ -2308,11 +2360,25 @@ function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose }
             </div>
 
             {/* Bottom info */}
-            <div style={{ padding: "16px 20px", flexShrink: 0 }}>
+            <div style={{ padding: "12px 16px 16px", flexShrink: 0 }}>
+                {/* 클릭한 장소 상세 */}
+                {selectedEvent && (
+                    <div style={{ background: "white", borderRadius: 16, padding: "12px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 12, background: selectedEvent.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{selectedEvent.emoji}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{selectedEvent.title}</div>
+                            <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>⏰ {selectedEvent.time} · 📍 {selectedEvent.location.address?.split(" ").slice(0, 3).join(" ")}</div>
+                            {arrivedSet.has(selectedEvent.id) && <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, marginTop: 2 }}>✅ 도착 완료</div>}
+                            {childPos && <div style={{ fontSize: 11, color: selectedEvent.color, fontWeight: 700, marginTop: 2 }}>현재위치에서 {distLabel(haversineM(childPos.lat, childPos.lng, selectedEvent.location.lat, selectedEvent.location.lng))}</div>}
+                        </div>
+                        <button onClick={() => setSelectedEvent(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#9CA3AF", padding: "0 4px" }}>×</button>
+                    </div>
+                )}
+
                 {childPos ? (
-                    <div style={{ background: "white", borderRadius: 20, padding: "16px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
+                    <div style={{ background: "white", borderRadius: 20, padding: "14px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: nextEvent ? 12 : 0 }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 14, background: "#DBEAFE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📍</div>
+                            <div style={{ width: 40, height: 40, borderRadius: 12, background: "#DBEAFE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>📍</div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 14, fontWeight: 800, color: "#1F2937" }}>위치 확인됨</div>
                                 <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
@@ -2321,7 +2387,14 @@ function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose }
                                         : `위도 ${childPos.lat.toFixed(4)}, 경도 ${childPos.lng.toFixed(4)}`}
                                 </div>
                             </div>
-                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 0 4px rgba(34,197,94,0.2)" }} />
+                            {/* 오늘 총 이동거리 */}
+                            {totalDistM > 0 && (
+                                <div style={{ background: "#EFF6FF", borderRadius: 12, padding: "6px 10px", textAlign: "center", flexShrink: 0 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 800, color: "#3B82F6" }}>{distLabel(totalDistM)}</div>
+                                    <div style={{ fontSize: 9, color: "#93C5FD", marginTop: 1 }}>오늘 이동</div>
+                                </div>
+                            )}
+                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 0 4px rgba(34,197,94,0.2)", flexShrink: 0 }} />
                         </div>
                         {nextEvent && (
                             <div style={{ background: nextEvent.bg, borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -2332,7 +2405,7 @@ function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose }
                                 </div>
                                 {distToNext !== null && (
                                     <div style={{ fontSize: 12, fontWeight: 800, color: nextEvent.color, flexShrink: 0 }}>
-                                        {distToNext < 1000 ? `${Math.round(distToNext)}m` : `${(distToNext / 1000).toFixed(1)}km`}
+                                        {distLabel(distToNext)}
                                     </div>
                                 )}
                             </div>
@@ -2413,6 +2486,7 @@ export default function KidsScheduler() {
     const [firedNotifs, setFiredNotifs] = useState(new Set());
     const [firedEmergencies, setFiredEmergencies] = useState(new Set());
     const [childPos, setChildPos] = useState(null);
+    const [locationTrail, setLocationTrail] = useState([]); // 오늘 아이 이동경로
     const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
     const [nativeNotifHealth, setNativeNotifHealth] = useState(null);
     // ── Stickers ────────────────────────────────────────────────────────────────
@@ -2932,6 +3006,7 @@ export default function KidsScheduler() {
         if (myRole !== "child" || !authUser?.id || !familyId) return;
         let wid = null;
         let iv = null;
+        let lastHistorySave = 0;
 
         // Try to start native background service (APK only)
         getSession().then(session => {
@@ -2957,6 +3032,10 @@ export default function KidsScheduler() {
                     if (now - lastSave >= 10000) {
                         lastSave = now;
                         saveChildLocation(authUser.id, familyId, newPos.lat, newPos.lng);
+                    }
+                    if (now - lastHistorySave >= 60000) {
+                        lastHistorySave = now;
+                        saveLocationHistory(authUser.id, familyId, newPos.lat, newPos.lng);
                     }
                 },
                 (err) => {
@@ -2990,6 +3069,20 @@ export default function KidsScheduler() {
         const iv = setInterval(load, 10000); // poll every 10s
         return () => { cancelled = true; clearInterval(iv); };
     }, [myRole, familyId]);
+
+    // ── Parent: fetch today's location trail ─────────────────────────────────────
+    useEffect(() => {
+        if (myRole !== "parent" || !familyId || !showChildTracker) return;
+        let cancelled = false;
+        const load = () => {
+            fetchTodayLocationHistory(familyId).then(rows => {
+                if (!cancelled) setLocationTrail(rows);
+            });
+        };
+        load();
+        const iv = setInterval(load, 30000);
+        return () => { cancelled = true; clearInterval(iv); };
+    }, [myRole, familyId, showChildTracker]);
 
     // ── Load stickers for selected date ─────────────────────────────────────────
     useEffect(() => {
@@ -4347,6 +4440,7 @@ export default function KidsScheduler() {
             {showChildTracker && <ChildTrackerOverlay
                 childPos={childPos} events={events} mapReady={mapReady}
                 arrivedSet={arrivedSet} onClose={() => setShowChildTracker(false)}
+                locationTrail={locationTrail}
             />}
 
             {/* ── Phone Settings Modal (학부모 전용) ── */}
