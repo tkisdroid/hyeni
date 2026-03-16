@@ -1043,6 +1043,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     const [mapType, setMapType] = useState("roadmap"); // "hybrid" or "roadmap"
     const [heading, setHeading] = useState(null); // device compass heading in degrees
     const watchIdRef = useRef(null);
+    const routeInitDoneRef = useRef(false);
 
     // Compute live distance/time
     const currentPos = livePos || childPos;
@@ -1060,6 +1061,12 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     // Start real-time GPS tracking
     useEffect(() => {
         if (!navigator.geolocation) return;
+        // 즉시 현재 위치 획득 (watch 첫 응답 전 빈 상태 방지)
+        navigator.geolocation.getCurrentPosition(
+            (pos) => setLivePos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => {},
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 10000 }
+        );
         const wid = navigator.geolocation.watchPosition(
             (pos) => {
                 const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -1139,24 +1146,28 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         let cancelled = false;
 
         const destLL = new window.kakao.maps.LatLng(ev.location.lat, ev.location.lng);
-        const startPos = currentPos || { lat: ev.location.lat, lng: ev.location.lng };
+
+        // 지도 + 목적지 마커는 한 번만 생성
+        if (!mapInst.current) {
+            mapInst.current = new window.kakao.maps.Map(mapRef.current, {
+                center: destLL, level: 4,
+                mapTypeId: window.kakao.maps.MapTypeId.ROADMAP
+            });
+            new window.kakao.maps.CustomOverlay({
+                map: mapInst.current, position: destLL, yAnchor: 1.4,
+                content: `<div style="display:flex;flex-direction:column;align-items:center">
+                    <div style="background:${ev.color};color:white;padding:8px 14px;border-radius:16px;font-size:13px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-family:'Noto Sans KR',sans-serif">🏁 ${escHtml(ev.title)}</div>
+                    <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid ${ev.color}"></div>
+                </div>`
+            });
+        }
+
+        // 위치가 아직 없거나 이미 초기화 완료면 경로 계산 건너뜀
+        if (!currentPos || routeInitDoneRef.current) return;
+        routeInitDoneRef.current = true;
+
+        const startPos = currentPos;
         const myLL = new window.kakao.maps.LatLng(startPos.lat, startPos.lng);
-
-        mapInst.current = new window.kakao.maps.Map(mapRef.current, {
-            center: destLL, level: 4,
-            mapTypeId: window.kakao.maps.MapTypeId.ROADMAP
-        });
-
-        // Destination marker — flag style
-        new window.kakao.maps.CustomOverlay({
-            map: mapInst.current, position: destLL, yAnchor: 1.4,
-            content: `<div style="display:flex;flex-direction:column;align-items:center">
-                <div style="background:${ev.color};color:white;padding:8px 14px;border-radius:16px;font-size:13px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-family:'Noto Sans KR',sans-serif">🏁 ${escHtml(ev.title)}</div>
-                <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid ${ev.color}"></div>
-            </div>`
-        });
-
-        if (!currentPos) return;
 
         // My location marker (movable) — cute bunny face with heading arrow
         const bunnySvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="56" height="80" viewBox="0 -8 56 80">
@@ -1261,7 +1272,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
             });
 
         return () => { cancelled = true; };
-    }, [mapReady, ev]);
+    }, [mapReady, ev, currentPos]);
 
     const recenterMap = () => {
         if (!mapInst.current || !currentPos) return;
