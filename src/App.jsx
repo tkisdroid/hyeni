@@ -2986,6 +2986,42 @@ export default function KidsScheduler() {
         showNotif("💗 꾹을 보냈어요!");
     }, [familyId, authUser, isParent, kkukCooldown]);
 
+    // ── Android 뒤로가기 버튼 처리 ───────────────────────────────────────────────
+    const backStateRef = useRef({});
+    useEffect(() => {
+        backStateRef.current = {
+            routeEvent, showChildTracker, showMapPicker, showAddModal,
+            showAcademyMgr, showPhoneSettings, showParentSetup, editingLocForEvent,
+            voicePreview, activeView, showPairing, showAlertPanel,
+        };
+    });
+    useEffect(() => {
+        let handle;
+        (async () => {
+            try {
+                const { App: CapApp } = await import("@capacitor/app");
+                handle = await CapApp.addListener("backButton", () => {
+                    const s = backStateRef.current;
+                    if (s.routeEvent)          { setRouteEvent(null);           return; }
+                    if (s.showChildTracker)    { setShowChildTracker(false);    return; }
+                    if (s.showMapPicker)       { setShowMapPicker(false);       return; }
+                    if (s.showAddModal)        { setShowAddModal(false);        return; }
+                    if (s.showAcademyMgr)      { setShowAcademyMgr(false);      return; }
+                    if (s.showAlertPanel)      { setShowAlertPanel(false);      return; }
+                    if (s.showPhoneSettings)   { setShowPhoneSettings(false);   return; }
+                    if (s.showParentSetup)     { setShowParentSetup(false);     return; }
+                    if (s.editingLocForEvent)  { setEditingLocForEvent(null);   return; }
+                    if (s.voicePreview)        { setVoicePreview(null);         return; }
+                    if (s.activeView !== "calendar") { setActiveView("calendar"); return; }
+                    if (s.showPairing)         { setShowPairing(false);         return; }
+                    // 닫을 화면 없으면 앱 최소화 (종료 X)
+                    CapApp.minimizeApp();
+                });
+            } catch (_e) { /* 웹 환경에서는 무시 */ }
+        })();
+        return () => { handle?.remove?.(); };
+    }, []);
+
     // ── Helpers ────────────────────────────────────────────────────────────────
     const showNotif = useCallback((msg, type = "success") => {
         setNotification({ msg, type });
@@ -3187,6 +3223,7 @@ export default function KidsScheduler() {
             return `🐰 ${ev.emoji} ${ev.title} ${mins}분 후에 시작해요!`;
         };
         const check = () => {
+            if (!myRole) return; // 역할 확정 전에는 실행하지 않음
             const now = new Date(); const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
             (events[key] || []).forEach(ev => {
                 const [h, m] = ev.time.split(":").map(Number);

@@ -258,6 +258,7 @@ export function scheduleNotifications(events, notifSettings, role) {
   }
   scheduledTimers.clear();
 
+  if (!role) return; // 역할이 확정되기 전엔 스케줄하지 않음
   if (!isNativePlatform() && getNotifPermission() !== "granted") return;
 
   const isParentRole = role === "parent";
@@ -408,6 +409,7 @@ function buildAlarmPayloads(events, notifSettings, role) {
 export async function scheduleNativeAlarms(events, notifSettings, role) {
   const native = getNativeNotifPlugin();
   if (!native) return;
+  if (!role) return; // 역할이 확정되기 전엔 스케줄하지 않음
 
   const notifications = buildAlarmPayloads(events, notifSettings, role);
 
