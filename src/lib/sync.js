@@ -257,10 +257,21 @@ export async function saveChildLocation(userId, familyId, lat, lng) {
 }
 
 export async function fetchChildLocations(familyId) {
+  // Step 1: get user_ids that are role='child' in this family
+  const { data: members } = await supabase
+    .from("family_members")
+    .select("user_id")
+    .eq("family_id", familyId)
+    .eq("role", "child");
+  const childUserIds = (members || []).map(m => m.user_id);
+  if (!childUserIds.length) return [];
+
+  // Step 2: fetch their locations
   const { data, error } = await supabase
     .from("child_locations")
     .select("user_id, lat, lng, updated_at")
-    .eq("family_id", familyId);
+    .eq("family_id", familyId)
+    .in("user_id", childUserIds);
   if (error) { console.error("[fetchChildLocations]", error); return []; }
   return data || [];
 }

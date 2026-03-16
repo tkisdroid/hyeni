@@ -1159,7 +1159,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         if (!currentPos) return;
 
         // My location marker (movable) — cute bunny face with heading arrow
-        const bunnySvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="56" height="72" viewBox="0 0 56 72">
+        const bunnySvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="56" height="80" viewBox="0 -8 56 80">
           <!-- pulse ring -->
           <circle cx="28" cy="36" r="27" fill="rgba(244,114,182,0.15)" stroke="none"><animate attributeName="r" values="24;28;24" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite"/></circle>
           <!-- left ear -->
@@ -1189,9 +1189,9 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
           <text x="28" y="68" text-anchor="middle" font-size="9" font-weight="800" fill="white" font-family="sans-serif">나</text>
         </svg>`)}`;
         const myOverlay = new window.kakao.maps.CustomOverlay({
-            map: mapInst.current, position: myLL, yAnchor: 0.85,
+            map: mapInst.current, position: myLL, yAnchor: 0.88,
             content: `<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 8px rgba(236,72,153,0.4))">
-                <img src="${bunnySvg}" width="52" height="66" style="display:block" />
+                <img src="${bunnySvg}" width="52" height="74" style="display:block" />
             </div>`
         });
         myMarkerRef.current = myOverlay;
@@ -2979,9 +2979,9 @@ export default function KidsScheduler() {
         if (myRole !== "parent" || !familyId) return;
         let cancelled = false;
         const load = () => {
+            // fetchChildLocations internally filters by family_members.role='child'
             fetchChildLocations(familyId).then(locs => {
                 if (cancelled || !locs.length) return;
-                // use the most recently updated child location
                 const latest = locs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
                 setChildPos({ lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at });
             });
