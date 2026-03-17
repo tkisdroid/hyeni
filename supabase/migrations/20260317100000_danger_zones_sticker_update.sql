@@ -58,3 +58,22 @@ CREATE POLICY "dz_delete_parent" ON danger_zones
   );
 
 GRANT ALL ON danger_zones TO anon, authenticated;
+
+-- ============================================================
+-- 3. rename_family_member RPC (부모가 아이 이름 변경)
+-- ============================================================
+CREATE OR REPLACE FUNCTION rename_family_member(
+  p_family_id uuid,
+  p_user_id uuid,
+  p_new_name text
+) RETURNS void AS $$
+BEGIN
+  -- 호출자가 해당 family의 parent인지 확인
+  IF NOT EXISTS (SELECT 1 FROM families WHERE id = p_family_id AND parent_id = auth.uid()) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+  UPDATE family_members SET name = p_new_name WHERE family_id = p_family_id AND user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION rename_family_member TO authenticated;
