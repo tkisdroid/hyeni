@@ -44,11 +44,14 @@ Deno.serve(async (req) => {
 
     const { year, month, day } = currentDate || {};
     const monthDisplay = month !== undefined ? month + 1 : "?";
+    const DOW_KR = ["일", "월", "화", "수", "목", "금", "토"];
+    const todayDate = (year && month !== undefined && day) ? new Date(year, month, day) : new Date();
+    const todayDow = DOW_KR[todayDate.getDay()];
 
     // ── Voice mode system prompt (single event) ──
     const voiceSystemPrompt = `당신은 어린이 일정관리 앱의 AI 비서입니다. 사용자의 음성 입력을 분석하여 정확한 JSON으로 변환합니다.
 
-현재 날짜: ${year}년 ${monthDisplay}월 ${day}일
+현재 날짜: ${year}년 ${monthDisplay}월 ${day}일 (${todayDow}요일)
 등록된 학원 목록:
 ${academyList || "(없음)"}
 
@@ -71,10 +74,12 @@ ${eventList || "(없음)"}
    - 오늘 일정 중 가장 관련 있는 일정에 메모를 추가
    - 대상 일정을 찾지 못하면 targetEventId를 null로
 
-3. 날짜 파싱:
+3. 날짜 파싱 (현재 ${todayDow}요일 기준):
    - "내일" → 현재 날짜 + 1일
    - "모레" → 현재 날짜 + 2일
+   - "토요일", "일요일" 등 요일명 → 현재 날짜 기준 가장 가까운 미래의 해당 요일 (오늘 포함하지 않음)
    - "다음주 월요일" → 가장 가까운 다음 주 월요일
+   - **중요**: 요일 계산 시 반드시 현재 날짜(${year}/${monthDisplay}/${day} ${todayDow}요일)로부터 정확히 며칠 후인지 계산하라
    - month는 0-based (1월=0, 12월=11)
 
 ## 응답 형식 (JSON만, 다른 텍스트 없이)
@@ -94,7 +99,7 @@ ${eventList || "(없음)"}
     // ── Paste mode system prompt (multi-event extraction) ──
     const pasteSystemPrompt = `당신은 어린이 일정관리 앱의 AI 비서입니다. 부모가 카카오톡 공지, 알림장, 학원 안내문 등을 붙여넣으면 일정 정보를 추출합니다.
 
-현재 날짜: ${year}년 ${monthDisplay}월 ${day}일
+현재 날짜: ${year}년 ${monthDisplay}월 ${day}일 (${todayDow}요일)
 등록된 학원 목록:
 ${academyList || "(없음)"}
 
@@ -109,6 +114,7 @@ ${academyList || "(없음)"}
 5. 등록된 학원명이 텍스트에 포함되어 있으면 academyName 필드에 해당 학원명을 넣어라.
 6. month는 0-based (1월=0, 12월=11)
 7. 준비물이나 추가 정보가 있으면 memo에 넣어라.
+8. 요일명("토요일" 등) → 현재 ${todayDow}요일 기준 가장 가까운 미래의 해당 요일로 계산 (오늘 제외). 반드시 날짜를 정확히 계산하라.
 
 ## 응답 형식 (JSON만)
 
