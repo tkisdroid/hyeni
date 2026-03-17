@@ -2288,7 +2288,7 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // AI Schedule Modal — 음성/이미지/텍스트로 일정 자동 등록
 // ─────────────────────────────────────────────────────────────────────────────
-function AiScheduleModal({ academies, currentDate, familyId, authUser, events, onSave, onClose, startVoiceFn }) {
+function AiScheduleModal({ academies, currentDate, familyId, authUser, events, onSave, onClose, startVoiceFn, onNavigateDate }) {
     const [inputText, setInputText] = useState("");
     const [imageData, setImageData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -2395,7 +2395,16 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         const dk = `${ev.year ?? currentDate.year}-${ev.month ?? currentDate.month}-${ev.day ?? currentDate.day}`;
         onSave(newEv, dk);
         if (familyId && authUser) {
-            try { await insertEvent(newEv, familyId, dk, authUser.id); } catch (err) { console.error("[AiSchedule] save error:", err); }
+            try {
+                await insertEvent(newEv, familyId, dk, authUser.id);
+                const m = (ev.month ?? currentDate.month) + 1;
+                const d = ev.day ?? currentDate.day;
+                sendInstantPush({
+                    action: "new_event", familyId, senderUserId: authUser.id,
+                    title: `🤖 새 일정: ${newEv.emoji} ${ev.title}`,
+                    message: `${m}월 ${d}일 ${newEv.time}에 "${ev.title}" 일정이 추가됐어요 (AI)`,
+                });
+            } catch (err) { console.error("[AiSchedule] save error:", err); }
         }
         setSavedIds(prev => new Set([...prev, idx]));
     };
@@ -2405,6 +2414,12 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         for (let i = 0; i < results.events.length; i++) {
             if (!savedIds.has(i)) await saveOne(results.events[i], i);
         }
+        // 저장 후 모달 닫기 + 첫 번째 일정의 날짜로 이동
+        const first = results.events[0];
+        if (first && onNavigateDate) {
+            onNavigateDate(first.year ?? currentDate.year, first.month ?? currentDate.month, first.day ?? currentDate.day);
+        }
+        onClose();
     };
 
     const btnSt = { width: 64, height: 64, borderRadius: 20, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: FF, fontWeight: 700, fontSize: 10 };
@@ -2484,7 +2499,11 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                                                 {ev.memo && ` · ${ev.memo}`}
                                             </div>
                                         </div>
-                                        <button onClick={() => saveOne(ev, i)} disabled={saved}
+                                        <button onClick={async () => {
+                                            await saveOne(ev, i);
+                                            if (onNavigateDate) onNavigateDate(ev.year ?? currentDate.year, ev.month ?? currentDate.month, ev.day ?? currentDate.day);
+                                            onClose();
+                                        }} disabled={saved}
                                             style={{ padding: "6px 12px", borderRadius: 10, background: saved ? "#D1FAE5" : cat.color, color: saved ? "#065F46" : "white", border: "none", fontSize: 11, fontWeight: 800, cursor: saved ? "default" : "pointer", fontFamily: FF, flexShrink: 0 }}>
                                             {saved ? "✓" : "등록"}
                                         </button>
@@ -5074,6 +5093,7 @@ export default function KidsScheduler() {
                     setEvents(prev => ({ ...prev, [dk]: [...(prev[dk] || []), newEv].sort((a, b) => a.time.localeCompare(b.time)) }));
                     showNotif(`${newEv.emoji} ${newEv.title} 등록 완료!`);
                 }}
+                onNavigateDate={(y, m, d) => { setCurrentYear(y); setCurrentMonth(m); setSelectedDate(d); }}
                 onClose={() => setShowAiSchedule(false)}
             />}
 
