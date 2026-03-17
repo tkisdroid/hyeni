@@ -4692,7 +4692,7 @@ export default function KidsScheduler() {
                             showNotif("푸시 알림이 켜졌어요!");
                             scheduleNotifications(events, globalNotif, myRole);
                             scheduleNativeAlarms(events, globalNotif, myRole);
-                            if (authUser?.id && familyId) {
+                            if (!isNativeApp && authUser?.id && familyId) {
                                 subscribeToPush(authUser.id, familyId);
                             }
                         } else if (result === "denied") {

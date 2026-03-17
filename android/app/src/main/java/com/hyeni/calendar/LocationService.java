@@ -980,52 +980,16 @@ public class LocationService extends Service {
 
     // ── Heads-Up Notification (popup) ───────────────────────────────────────────
     private void showHeadsUpNotification(String title, String body) {
-        // Wake screen for safety-critical alerts
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (pm != null && !pm.isInteractive()) {
-            PowerManager.WakeLock screenWake = pm.newWakeLock(
-                PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
-                "hyeni:alert_wake"
-            );
-            screenWake.acquire(15000);
-        }
-
         int currentAlert = alertCounter.incrementAndGet();
-        Intent openIntent = new Intent(this, MainActivity.class);
-        openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        openIntent.putExtra("fromPush", true);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-            this, currentAlert, openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        NotificationHelper.showNotification(
+            this,
+            title,
+            body,
+            "emergency",
+            true,
+            true,
+            ALERT_NOTIFICATION_BASE + currentAlert
         );
-
-        Intent alertIntent = new Intent(this, PushAlertActivity.class);
-        alertIntent.putExtra("title", title);
-        alertIntent.putExtra("body", body);
-        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
-            this, ALERT_NOTIFICATION_BASE + currentAlert, alertIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .setVibrate(new long[]{0, 500, 200, 500, 200, 500})
-            .setWhen(System.currentTimeMillis())
-            .setFullScreenIntent(fullScreenPendingIntent, true);
-
-        NotificationManager manager = getSystemService(NotificationManager.class);
-        if (manager != null) {
-            manager.notify(ALERT_NOTIFICATION_BASE + currentAlert, builder.build());
-        }
 
         Log.i(TAG, "Heads-up notification: " + title);
     }

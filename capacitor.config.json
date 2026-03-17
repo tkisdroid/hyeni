@@ -3,7 +3,6 @@
   "appName": "혜니캘린더",
   "webDir": "dist",
   "server": {
-    "url": "https://kids-app-alpha.vercel.app",
     "androidScheme": "https",
     "allowNavigation": [
       "*.supabase.co",

@@ -108,6 +108,7 @@ public final class NotificationHelper {
             int notificationId
     ) {
         createChannels(context);
+        Uri cuteSound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.hyeni_notification);
 
         if (wakeScreen) {
             PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
@@ -169,9 +170,12 @@ public final class NotificationHelper {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
                 .setContentIntent(contentPi)
-                .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setVibrate(vibration)
                 .setWhen(System.currentTimeMillis());
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            builder.setSound(cuteSound);
+        }
 
         if (fullScreen || wakeScreen) {
             builder.setFullScreenIntent(fullScreenPi, true);

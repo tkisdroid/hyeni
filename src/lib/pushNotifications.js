@@ -24,6 +24,7 @@ function isNativePlatform() {
 
 // ── Register Service Worker ─────────────────────────────────────────────────
 export async function registerSW() {
+  if (isNativePlatform()) return null;
   if (!("serviceWorker" in navigator)) return null;
   try {
     swRegistration = await navigator.serviceWorker.register("/sw.js");
@@ -70,6 +71,10 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 export async function subscribeToPush(userId, familyId) {
+  if (isNativePlatform()) {
+    console.log("[Push] Skip Web Push subscription on native platform");
+    return null;
+  }
   if (!swRegistration || !VAPID_PUBLIC_KEY) {
     console.warn("[Push] SW not registered or VAPID key missing");
     return null;

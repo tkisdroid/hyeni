@@ -59,6 +59,29 @@ interface PushPayload {
   data: Record<string, unknown>;
 }
 
+async function getNativeRecipientIds(
+  supabase: ReturnType<typeof createClient>,
+  familyId: string
+): Promise<Set<string>> {
+  if (!familyId) return new Set<string>();
+
+  const { data, error } = await supabase
+    .from("fcm_tokens")
+    .select("user_id")
+    .eq("family_id", familyId);
+
+  if (error) {
+    console.error("Failed to load native recipients:", error);
+    return new Set<string>();
+  }
+
+  return new Set(
+    (data || [])
+      .map((row) => row.user_id)
+      .filter((userId): userId is string => typeof userId === "string" && userId.length > 0)
+  );
+}
+
 // ── FCM OAuth2 token cache ──────────────────────────────────────────────────
 let fcmAccessToken: string | null = null;
 let fcmTokenExpiry = 0;
@@ -162,17 +185,6 @@ async function sendFcmNotification(
         },
       },
     };
-
-    if (!isRemoteListen) {
-      (message.message as Record<string, unknown>).notification = {
-        title,
-        body,
-      };
-      ((message.message as Record<string, unknown>).android as Record<string, unknown>).notification = {
-        channel_id: "hyeni_alert_v2",
-        sound: "notif_cute",
-      };
-    }
 
     const res = await fetch(
       `https://fcm.googleapis.com/v1/projects/${FCM_PROJECT_ID}/messages:send`,
@@ -299,6 +311,7 @@ async function handleInstantNotification(
   const isRemoteListen = action === "remote_listen";
 
   if (!familyId) return jsonResponse({ error: "familyId required" }, 400);
+  const nativeRecipientIds = await getNativeRecipientIds(supabase, familyId);
 
   // ── Web Push (VAPID) ────────────────────────────────────────────────
   const { data: subs } = isRemoteListen
@@ -322,6 +335,7 @@ async function handleInstantNotification(
   if (subs?.length) {
     for (const sub of subs) {
       if (sub.user_id === senderUserId) continue;
+      if (sub.user_id && nativeRecipientIds.has(sub.user_id)) continue;
       try {
         await webpush.sendNotification(sub.subscription, JSON.stringify(payload));
         webSent++;
@@ -394,6 +408,7 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
 
   let totalWebSent = 0;
   let totalFcmSent = 0;
+  const nativeRecipientCache = new Map<string, Set<string>>();
   const notifWindows = [
     { key: "15min", minsBefore: 15, title: "🐰 준비 시간!" },
     { key: "5min", minsBefore: 5, title: "🏃 출발!" },
@@ -436,15 +451,22 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
       };
 
       // ── Web Push ──────────────────────────────────────────────────
+      let nativeRecipientIds = nativeRecipientCache.get(event.family_id);
+      if (!nativeRecipientIds) {
+        nativeRecipientIds = await getNativeRecipientIds(supabase, event.family_id);
+        nativeRecipientCache.set(event.family_id, nativeRecipientIds);
+      }
+
       const { data: subs } = await supabase
         .from("push_subscriptions")
-        .select("id, endpoint, subscription")
+        .select("id, endpoint, subscription, user_id")
         .eq("family_id", event.family_id);
 
       const expiredIds: string[] = [];
 
       if (subs?.length) {
         for (const sub of subs) {
+          if (sub.user_id && nativeRecipientIds.has(sub.user_id)) continue;
           try {
             await webpush.sendNotification(sub.subscription, JSON.stringify(payload));
             totalWebSent++;
