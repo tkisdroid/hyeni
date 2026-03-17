@@ -3150,6 +3150,39 @@ export default function KidsScheduler() {
         }
     }, [familyInfo]);
 
+    const handleNativeAuthCallback = useCallback(async (url) => {
+        if (!url || !url.startsWith("hyenicalendar://auth-callback")) {
+            return false;
+        }
+
+        const fragment = url.includes("#")
+            ? url.split("#")[1]
+            : (url.split("?")[1] || "");
+        const params = new URLSearchParams(fragment);
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        const code = params.get("code");
+
+        try {
+            if (accessToken && refreshToken) {
+                await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                });
+                return true;
+            }
+
+            if (code) {
+                await supabase.auth.exchangeCodeForSession(code);
+                return true;
+            }
+        } catch (err) {
+            console.error("[Auth] Native OAuth callback handling failed:", err);
+        }
+
+        return false;
+    }, []);
+
     // ── Deep link handler (카카오 OAuth 콜백 → 앱 복귀) ──────────────────────
     useEffect(() => {
         if (!isNativeApp) return;
@@ -3157,25 +3190,18 @@ export default function KidsScheduler() {
         (async () => {
             try {
                 const { App: CapApp } = await import("@capacitor/app");
-                handle = await CapApp.addListener("appUrlOpen", (event) => {
-                    const url = event.url;
-                    if (url && url.startsWith("hyenicalendar://auth-callback")) {
-                        // URL에서 토큰 파라미터 추출하여 Supabase 세션 설정
-                        const hashPart = url.split("#")[1] || url.split("?")[1] || "";
-                        if (hashPart) {
-                            const params = new URLSearchParams(hashPart);
-                            const accessToken = params.get("access_token");
-                            const refreshToken = params.get("refresh_token");
-                            if (accessToken && refreshToken) {
-                                supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-                            }
-                        }
-                    }
+                const launch = await CapApp.getLaunchUrl();
+                if (launch?.url) {
+                    await handleNativeAuthCallback(launch.url);
+                }
+
+                handle = await CapApp.addListener("appUrlOpen", async (event) => {
+                    await handleNativeAuthCallback(event.url);
                 });
             } catch {}
         })();
         return () => { if (handle) handle.remove(); };
-    }, [isNativeApp]);
+    }, [handleNativeAuthCallback, isNativeApp]);
 
     // ── Register Service Worker for push notifications (웹 전용, 네이티브 앱 제외) ──
     useEffect(() => {

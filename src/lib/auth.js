@@ -1,6 +1,7 @@
 import { supabase } from "./supabase.js";
 
 const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
+const NATIVE_OAUTH_REDIRECT_URL = "hyenicalendar://auth-callback";
 
 // ── Helper: Safe UUID generator ───────────────────────────────────────────────
 export function generateUUID() {
@@ -26,18 +27,28 @@ function isNative() {
 }
 
 export async function kakaoLogin() {
-  // 네이티브 앱: 커스텀 스킴으로 리다이렉트 (크롬→앱 복귀)
-  // 웹 브라우저: 현재 origin으로 리다이렉트
-  const isNative = typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
-  const redirectTo = isNative ? "hyenicalendar://auth-callback" : window.location.origin;
+  const native = isNative();
+  const redirectTo = native ? NATIVE_OAUTH_REDIRECT_URL : window.location.origin;
 
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "kakao",
     options: {
       redirectTo,
+      skipBrowserRedirect: native,
     },
   });
   if (error) throw error;
+
+  if (native) {
+    if (!data?.url) {
+      throw new Error("카카오 로그인 URL을 생성하지 못했습니다.");
+    }
+
+    // Force the OAuth flow to leave the current app screen only temporarily.
+    // The redirect target is the app's custom scheme, so Android should route
+    // back into the native activity rather than staying in Chrome.
+    window.location.assign(data.url);
+  }
 }
 
 // ── Anonymous login (child) ─────────────────────────────────────────────────
