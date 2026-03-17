@@ -963,7 +963,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                         </div>
                         {/* Schedule (days + time) */}
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>📅 수업 요일 & 시간</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>📅 요일 & 시간</label>
                             <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
                                 {DAYS_LABEL.map((d, i) => {
                                     const active = form.schedule?.days?.includes(i);
@@ -4400,8 +4400,33 @@ export default function KidsScheduler() {
                         // Existing item — check for updates
                         finalList.push(a);
                         const old = oldMap.get(a.id);
-                        if (old && (old.name !== a.name || old.emoji !== a.emoji || old.category !== a.category || JSON.stringify(old.location) !== JSON.stringify(a.location) || JSON.stringify(old.schedule) !== JSON.stringify(a.schedule))) {
+                        const changed = old && (old.name !== a.name || old.emoji !== a.emoji || old.category !== a.category || JSON.stringify(old.location) !== JSON.stringify(a.location) || JSON.stringify(old.schedule) !== JSON.stringify(a.schedule));
+                        if (changed) {
                             try { await updateAcademy(a.id, { name: a.name, emoji: a.emoji, category: a.category, location: a.location || null, schedule: a.schedule || null }); } catch (e) { console.error("[academy] update error:", e); }
+                            // 기존 일정도 업데이트 (장소, 이름, 시간, 이모지)
+                            if (familyId) {
+                                const cat = CATEGORIES.find(c => c.id === a.category);
+                                setEvents(prev => {
+                                    const updated = { ...prev };
+                                    for (const [dk, dayEvs] of Object.entries(updated)) {
+                                        const [y, m, d] = dk.split("-").map(Number);
+                                        const evDate = new Date(y, m, d);
+                                        // 미래 일정만 업데이트 (오늘 포함)
+                                        if (evDate.setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) continue;
+                                        updated[dk] = dayEvs.map(ev => {
+                                            if (ev.title === old.name || ev.title === a.name) {
+                                                const newTime = a.schedule?.startTime || ev.time;
+                                                const newEndTime = a.schedule?.endTime || ev.endTime;
+                                                const updatedEv = { ...ev, title: a.name, emoji: a.emoji, location: a.location || ev.location, time: newTime, endTime: newEndTime, color: cat?.color || ev.color, bg: cat?.bg || ev.bg };
+                                                updateEvent(ev.id, { title: a.name, emoji: a.emoji, location: a.location || null, time: newTime, end_time: newEndTime }).catch(e => console.error("[academy-event-update]", e));
+                                                return updatedEv;
+                                            }
+                                            return ev;
+                                        });
+                                    }
+                                    return updated;
+                                });
+                            }
                         }
                     }
                 }
