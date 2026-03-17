@@ -2350,7 +2350,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         setResults(null);
         try {
             const session = await getSession();
-            const token = session?.access_token || "";
+            const token = session?.access_token || SUPABASE_KEY;
             const url = `${SUPABASE_URL}/functions/v1/ai-voice-parse`;
             const todayEvs = (events || []).map(e => ({ id: e.id, title: e.title, time: e.time, memo: e.memo || "" }));
             const resp = await fetch(url, {
