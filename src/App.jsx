@@ -2734,16 +2734,17 @@ function ChildCallButtons({ phones }) {
     );
 }
 
-function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose, locationTrail = [] }) {
+function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapReady, arrivedSet, onClose, locationTrail = [] }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const myMarkerRef = useRef();
+    const childMarkersRef = useRef([]);
     const trailPolyRef = useRef(null);
     const expectedPolyRef = useRef(null);
     const eventMarkersRef = useRef([]);
     const [selectedEvent, setSelectedEvent] = useState(null);
 
-    const center = childPos || { lat: 37.5665, lng: 126.9780 };
+    const center = allChildPositions[0] || childPos || { lat: 37.5665, lng: 126.9780 };
 
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -2772,23 +2773,42 @@ function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose, 
         });
     }, [mapReady]);
 
-    // Effect 2: 아이 현재위치 마커
+    // Effect 2: 아이 현재위치 마커 (다중 아이 지원)
+    const CHILD_COLORS = ["#3B82F6", "#EC4899", "#F59E0B", "#10B981"];
     useEffect(() => {
         if (!mapObj.current) return;
-        if (myMarkerRef.current) myMarkerRef.current.setMap(null);
-        if (!childPos) return;
-        const overlay = new window.kakao.maps.CustomOverlay({
-            position: new window.kakao.maps.LatLng(childPos.lat, childPos.lng),
-            content: `<div style="display:flex;flex-direction:column;align-items:center">
-                <div style="width:24px;height:24px;background:#3B82F6;border:4px solid white;border-radius:50%;box-shadow:0 0 0 8px rgba(59,130,246,0.2),0 3px 12px rgba(59,130,246,0.4)"></div>
-                <div style="margin-top:4px;background:#3B82F6;color:white;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.15)">우리 아이</div>
-            </div>`,
-            yAnchor: 1.6, xAnchor: 0.5
+        // 기존 마커 제거
+        childMarkersRef.current.forEach(m => m.setMap(null));
+        childMarkersRef.current = [];
+        if (myMarkerRef.current) { myMarkerRef.current.setMap(null); myMarkerRef.current = null; }
+
+        const positions = allChildPositions.length > 0 ? allChildPositions : (childPos ? [{ user_id: "default", name: "우리 아이", emoji: "🐰", lat: childPos.lat, lng: childPos.lng, updatedAt: childPos.updatedAt }] : []);
+        if (!positions.length) return;
+
+        const bounds = new window.kakao.maps.LatLngBounds();
+        positions.forEach((child, i) => {
+            const color = CHILD_COLORS[i % CHILD_COLORS.length];
+            const ll = new window.kakao.maps.LatLng(child.lat, child.lng);
+            bounds.extend(ll);
+            const updatedLabel = child.updatedAt ? (() => { const d = new Date(child.updatedAt); return `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`; })() : "";
+            const overlay = new window.kakao.maps.CustomOverlay({
+                position: ll,
+                content: `<div style="display:flex;flex-direction:column;align-items:center">
+                    <div style="width:28px;height:28px;background:${color};border:4px solid white;border-radius:50%;box-shadow:0 0 0 8px ${color}33,0 3px 12px ${color}66;display:flex;align-items:center;justify-content:center;font-size:14px">${escHtml(child.emoji)}</div>
+                    <div style="margin-top:4px;background:${color};color:white;padding:4px 12px;border-radius:10px;font-size:11px;font-weight:800;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap">${escHtml(child.name)}${updatedLabel ? ` · ${updatedLabel}` : ""}</div>
+                </div>`,
+                yAnchor: 1.8, xAnchor: 0.5, zIndex: 10
+            });
+            overlay.setMap(mapObj.current);
+            childMarkersRef.current.push(overlay);
         });
-        overlay.setMap(mapObj.current);
-        myMarkerRef.current = overlay;
-        mapObj.current.setCenter(new window.kakao.maps.LatLng(childPos.lat, childPos.lng));
-    }, [childPos]);
+
+        if (positions.length === 1) {
+            mapObj.current.setCenter(new window.kakao.maps.LatLng(positions[0].lat, positions[0].lng));
+        } else {
+            mapObj.current.setBounds(bounds, 80);
+        }
+    }, [allChildPositions, childPos]);
 
     // Effect 3: 이동경로 + 예상경로 + 일정 마커 (locationTrail/events 변경 시 재드로우)
     useEffect(() => {
@@ -2891,27 +2911,30 @@ function ChildTrackerOverlay({ childPos, events, mapReady, arrivedSet, onClose, 
                     </div>
                 )}
 
-                {childPos ? (
+                {(allChildPositions.length > 0 || childPos) ? (
                     <div style={{ background: "white", borderRadius: 20, padding: "14px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: nextEvent ? 12 : 0 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 12, background: "#DBEAFE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>📍</div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 14, fontWeight: 800, color: "#1F2937" }}>위치 확인됨</div>
-                                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
-                                    {childPos.updatedAt
-                                        ? `마지막 업데이트: ${new Date(childPos.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`
-                                        : `위도 ${childPos.lat.toFixed(4)}, 경도 ${childPos.lng.toFixed(4)}`}
+                        {/* 아이별 위치 상태 */}
+                        {(allChildPositions.length > 0 ? allChildPositions : [{ name: "우리 아이", emoji: "🐰", lat: childPos?.lat, lng: childPos?.lng, updatedAt: childPos?.updatedAt }]).map((child, i) => (
+                            <div key={child.user_id || i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: `${CHILD_COLORS[i % CHILD_COLORS.length]}10`, borderRadius: 14 }}>
+                                <div style={{ width: 36, height: 36, borderRadius: 12, background: CHILD_COLORS[i % CHILD_COLORS.length], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{child.name}</div>
+                                    <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
+                                        {child.updatedAt ? `${new Date(child.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 업데이트` : "위치 수신 중..."}
+                                    </div>
+                                </div>
+                                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 0 4px rgba(34,197,94,0.2)", flexShrink: 0 }} />
+                            </div>
+                        ))}
+                        {/* 오늘 총 이동거리 */}
+                        {totalDistM > 0 && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                <div style={{ background: "#EFF6FF", borderRadius: 12, padding: "6px 12px", textAlign: "center" }}>
+                                    <span style={{ fontSize: 13, fontWeight: 800, color: "#3B82F6" }}>{distLabel(totalDistM)}</span>
+                                    <span style={{ fontSize: 10, color: "#93C5FD", marginLeft: 6 }}>오늘 이동</span>
                                 </div>
                             </div>
-                            {/* 오늘 총 이동거리 */}
-                            {totalDistM > 0 && (
-                                <div style={{ background: "#EFF6FF", borderRadius: 12, padding: "6px 10px", textAlign: "center", flexShrink: 0 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 800, color: "#3B82F6" }}>{distLabel(totalDistM)}</div>
-                                    <div style={{ fontSize: 9, color: "#93C5FD", marginTop: 1 }}>오늘 이동</div>
-                                </div>
-                            )}
-                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 0 4px rgba(34,197,94,0.2)", flexShrink: 0 }} />
-                        </div>
+                        )}
                         {nextEvent && (
                             <div style={{ background: nextEvent.bg, borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
                                 <div style={{ fontSize: 22 }}>{nextEvent.emoji}</div>
@@ -3002,6 +3025,7 @@ export default function KidsScheduler() {
     const [firedNotifs, setFiredNotifs] = useState(new Set());
     const [firedEmergencies, setFiredEmergencies] = useState(new Set());
     const [childPos, setChildPos] = useState(null);
+    const [allChildPositions, setAllChildPositions] = useState([]); // [{user_id, name, emoji, lat, lng, updatedAt}]
     const [locationTrail, setLocationTrail] = useState([]); // 오늘 아이 이동경로
     const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
     const [nativeNotifHealth, setNativeNotifHealth] = useState(null);
@@ -3614,18 +3638,25 @@ export default function KidsScheduler() {
     useEffect(() => {
         if (myRole !== "parent" || !familyId) return;
         let cancelled = false;
+        const children = familyInfo?.members?.filter(m => m.role === "child") || [];
         const load = () => {
-            // fetchChildLocations internally filters by family_members.role='child'
             fetchChildLocations(familyId).then(locs => {
                 if (cancelled || !locs.length) return;
+                // 첫 번째 아이 위치 (기존 호환)
                 const latest = locs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
                 setChildPos({ lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at });
+                // 모든 아이 위치 (다중 마커용)
+                const positions = locs.map(loc => {
+                    const member = children.find(c => c.user_id === loc.user_id);
+                    return { user_id: loc.user_id, name: member?.name || "아이", emoji: member?.emoji || "🐰", lat: loc.lat, lng: loc.lng, updatedAt: loc.updated_at };
+                });
+                setAllChildPositions(positions);
             });
         };
-        load(); // initial fetch
-        const iv = setInterval(load, 10000); // poll every 10s
+        load();
+        const iv = setInterval(load, 10000);
         return () => { cancelled = true; clearInterval(iv); };
-    }, [myRole, familyId]);
+    }, [myRole, familyId, familyInfo]);
 
     // ── Parent: fetch today's location trail ─────────────────────────────────────
     useEffect(() => {
@@ -5054,7 +5085,8 @@ export default function KidsScheduler() {
 
             {/* ── Child Tracker (학부모 전용) ── */}
             {showChildTracker && <ChildTrackerOverlay
-                childPos={childPos} events={events} mapReady={mapReady}
+                childPos={childPos} allChildPositions={allChildPositions}
+                events={events} mapReady={mapReady}
                 arrivedSet={arrivedSet} onClose={() => setShowChildTracker(false)}
                 locationTrail={locationTrail}
             />}
