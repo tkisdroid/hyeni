@@ -199,4 +199,32 @@ public class LocationPlugin extends Plugin {
             .getBoolean("serviceEnabled", false);
         call.resolve(new JSObject().put("running", enabled));
     }
+
+    @PluginMethod
+    public void checkBackgroundLocationPermission(PluginCall call) {
+        boolean fineGranted = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean backgroundGranted = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            backgroundGranted = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+        JSObject result = new JSObject();
+        result.put("fineLocation", fineGranted);
+        result.put("backgroundLocation", backgroundGranted);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void openAppLocationSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.fromParts("package", getContext().getPackageName(), null));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve(new JSObject().put("status", "opened"));
+        } catch (Exception e) {
+            call.reject("Cannot open settings: " + e.getMessage());
+        }
+    }
 }

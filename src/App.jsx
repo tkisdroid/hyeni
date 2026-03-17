@@ -3034,6 +3034,7 @@ export default function KidsScheduler() {
     const [stickerSummary, setStickerSummary] = useState(null);
     const [showStickerBook, setShowStickerBook] = useState(false);
     const [showAiSchedule, setShowAiSchedule] = useState(false);
+    const [bgLocationGranted, setBgLocationGranted] = useState(true); // assume granted until checked
     const [showDangerZones, setShowDangerZones] = useState(false);
     const [dangerZones, setDangerZones] = useState([]);
     const [firedDangerAlerts, setFiredDangerAlerts] = useState(new Set());
@@ -3157,9 +3158,22 @@ export default function KidsScheduler() {
 
         refresh();
 
+        // Check background location permission (child mode)
+        const checkBgLoc = async () => {
+            try {
+                const { Capacitor, registerPlugin } = await import("@capacitor/core");
+                if (!Capacitor.isNativePlatform()) return;
+                const BgLoc = registerPlugin("BackgroundLocation");
+                const result = await BgLoc.checkBackgroundLocationPermission();
+                setBgLocationGranted(result.backgroundLocation === true);
+            } catch { /* web mode */ }
+        };
+        checkBgLoc();
+
         const handleVisibility = () => {
             if (document.visibilityState === "visible") {
                 refresh();
+                checkBgLoc();
             }
         };
 
@@ -4561,6 +4575,30 @@ export default function KidsScheduler() {
 
             <AlertBanner alerts={alerts} onDismiss={id => setAlerts(p => p.filter(a => a.id !== id))} />
             <EmergencyBanner emergencies={emergencies} onDismiss={(id, action) => { setEmergencies(p => p.filter(e => e.id !== id)); if (action === "contact") showNotif("📞 전화 앱을 열어주세요", "child"); }} />
+
+            {/* ── Background location permission banner (child mode) ── */}
+            {isNativeApp && !isParent && !bgLocationGranted && (
+                <div style={{ width: "100%", maxWidth: 420, marginBottom: 8, padding: "14px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FEF2F2, #FEE2E2)", border: "1.5px solid #FECACA", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(239,68,68,0.12)" }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📍</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: "#DC2626" }}>위치 권한을 "항상 허용"으로 바꿔주세요</div>
+                        <div style={{ fontSize: 11, color: "#991B1B", marginTop: 3, lineHeight: 1.45 }}>
+                            앱을 꺼도 위치가 부모님께 전달돼요
+                        </div>
+                    </div>
+                    <button onClick={async () => {
+                        try {
+                            const { Capacitor, registerPlugin } = await import("@capacitor/core");
+                            if (Capacitor.isNativePlatform()) {
+                                const BgLoc = registerPlugin("BackgroundLocation");
+                                await BgLoc.openAppLocationSettings();
+                            }
+                        } catch {}
+                    }} style={{ padding: "9px 13px", borderRadius: 12, background: "#DC2626", color: "white", border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(220,38,38,0.2)" }}>
+                        설정 열기
+                    </button>
+                </div>
+            )}
 
             {/* ── Push notification permission banner ── */}
             {isNativeApp && !isParent && nativeSetupAction && (
