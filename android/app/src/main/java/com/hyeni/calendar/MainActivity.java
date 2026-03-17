@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.WindowManager;
+import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import androidx.core.app.ActivityCompat;
@@ -34,11 +35,16 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NotificationPlugin.class);
         super.onCreate(savedInstanceState);
 
-        // Allow WebView to access microphone (for getUserMedia)
+        // Allow WebView to access microphone (getUserMedia) + geolocation
         getBridge().getWebView().setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(PermissionRequest request) {
                 request.grant(request.getResources());
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                callback.invoke(origin, true, true);
             }
         });
 
