@@ -26,11 +26,15 @@ function isNative() {
 }
 
 export async function kakaoLogin() {
-  // App loads from Vercel directly, so standard OAuth redirect works
+  // 네이티브 앱: 커스텀 스킴으로 리다이렉트 (크롬→앱 복귀)
+  // 웹 브라우저: 현재 origin으로 리다이렉트
+  const isNative = typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
+  const redirectTo = isNative ? "hyenicalendar://auth-callback" : window.location.origin;
+
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "kakao",
     options: {
-      redirectTo: window.location.origin,
+      redirectTo,
     },
   });
   if (error) throw error;

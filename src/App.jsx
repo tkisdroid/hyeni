@@ -3150,6 +3150,33 @@ export default function KidsScheduler() {
         }
     }, [familyInfo]);
 
+    // ── Deep link handler (카카오 OAuth 콜백 → 앱 복귀) ──────────────────────
+    useEffect(() => {
+        if (!isNativeApp) return;
+        let handle;
+        (async () => {
+            try {
+                const { App: CapApp } = await import("@capacitor/app");
+                handle = await CapApp.addListener("appUrlOpen", (event) => {
+                    const url = event.url;
+                    if (url && url.startsWith("hyenicalendar://auth-callback")) {
+                        // URL에서 토큰 파라미터 추출하여 Supabase 세션 설정
+                        const hashPart = url.split("#")[1] || url.split("?")[1] || "";
+                        if (hashPart) {
+                            const params = new URLSearchParams(hashPart);
+                            const accessToken = params.get("access_token");
+                            const refreshToken = params.get("refresh_token");
+                            if (accessToken && refreshToken) {
+                                supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+                            }
+                        }
+                    }
+                });
+            } catch {}
+        })();
+        return () => { if (handle) handle.remove(); };
+    }, [isNativeApp]);
+
     // ── Register Service Worker for push notifications (웹 전용, 네이티브 앱 제외) ──
     useEffect(() => {
         if (isNativeApp) return; // Android APK → FCM 사용, SW 불필요
