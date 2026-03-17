@@ -1735,7 +1735,19 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
 // ─────────────────────────────────────────────────────────────────────────────
 // Day Timetable (kid-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
-function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode }) {
+function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onGiveSticker }) {
+    const [showStickerGive, setShowStickerGive] = useState(false);
+    const [stickerMsg, setStickerMsg] = useState("");
+    const PRAISE_STICKERS = [
+        { emoji: "🌟", title: "최고예요!" },
+        { emoji: "👏", title: "잘했어!" },
+        { emoji: "💪", title: "대단해!" },
+        { emoji: "🎯", title: "정확해요!" },
+        { emoji: "🌈", title: "멋져요!" },
+        { emoji: "💕", title: "사랑해!" },
+        { emoji: "🏆", title: "챔피언!" },
+        { emoji: "✨", title: "빛나는 하루!" },
+    ];
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -1895,6 +1907,39 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                 </div>
             )}
 
+            {/* Parent: Give sticker button + picker */}
+            {isParentMode && onGiveSticker && (
+                <div style={{ marginTop: 16 }}>
+                    {!showStickerGive ? (
+                        <button onClick={() => setShowStickerGive(true)}
+                            style={{ width: "100%", padding: "12px 16px", borderRadius: 16, border: "2px dashed #FCD34D", background: "linear-gradient(135deg, #FFFBEB, #FEF3C7)", cursor: "pointer", fontSize: 14, fontWeight: 800, color: "#F59E0B", fontFamily: FF, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                            🌟 칭찬스티커 주기
+                        </button>
+                    ) : (
+                        <div style={{ background: "linear-gradient(135deg, #FEF3C7, #FDE68A22)", borderRadius: 20, padding: 14, border: "2px solid #FCD34D" }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#F59E0B", marginBottom: 10 }}>🌟 어떤 칭찬을 해줄까요?</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
+                                {PRAISE_STICKERS.map((ps, i) => (
+                                    <button key={i} onClick={() => {
+                                        onGiveSticker(ps.emoji, stickerMsg.trim() || ps.title);
+                                        setShowStickerGive(false);
+                                        setStickerMsg("");
+                                    }}
+                                        style={{ background: "white", border: "1.5px solid #FCD34D", borderRadius: 14, padding: "10px 4px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontFamily: FF }}>
+                                        <span style={{ fontSize: 24 }}>{ps.emoji}</span>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: "#92400E" }}>{ps.title}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <input value={stickerMsg} onChange={e => setStickerMsg(e.target.value)} placeholder="직접 메시지 입력 (선택)"
+                                style={{ width: "100%", padding: "8px 12px", borderRadius: 12, border: "1.5px solid #FCD34D", fontSize: 13, fontFamily: FF, boxSizing: "border-box", outline: "none" }} />
+                            <button onClick={() => { setShowStickerGive(false); setStickerMsg(""); }}
+                                style={{ width: "100%", marginTop: 8, padding: "8px", borderRadius: 12, border: "none", background: "#F3F4F6", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#6B7280" }}>닫기</button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Memo */}
             <MemoSection
                 memoValue={memoValue}
@@ -1915,7 +1960,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
 // Sticker Book Modal
 // ─────────────────────────────────────────────────────────────────────────────
 function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
-    const stickerLabels = { early: "일찍 도착", on_time: "정시 도착", late: "아쉬워요", completed: "완료" };
+    const stickerLabels = { early: "일찍 도착", on_time: "정시 도착", late: "아쉬워요", praise: "부모님 칭찬", completed: "완료" };
     const totalCount = summary?.total_count || 0;
     const earlyCount = summary?.early_count || 0;
     const onTimeCount = summary?.on_time_count || 0;
@@ -1962,9 +2007,9 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 10 }}>
                             {stickers.map((s, i) => (
                                 <div key={s.id || i} style={{
-                                    background: s.sticker_type === "early" ? "#FEF3C7" : s.sticker_type === "late" ? "#F3F4F6" : "#EDE9FE",
+                                    background: s.sticker_type === "early" ? "#FEF3C7" : s.sticker_type === "late" ? "#F3F4F6" : s.sticker_type === "praise" ? "#FFF0F5" : "#EDE9FE",
                                     borderRadius: 16, padding: "12px 8px", textAlign: "center",
-                                    border: `2px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : "#C4B5FD"}`,
+                                    border: `2px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : s.sticker_type === "praise" ? "#F9A8D4" : "#C4B5FD"}`,
                                     opacity: s.sticker_type === "late" ? 0.7 : 1,
                                 }}>
                                     <div style={{ fontSize: 28 }}>{s.emoji}</div>
@@ -4870,6 +4915,18 @@ export default function KidsScheduler() {
                         onDelete={handleDeleteEvent}
                         onEditLoc={id => { setEditingLocForEvent(id); setShowMapPicker(true); }}
                         isParentMode={isParent}
+                        onGiveSticker={isParent ? async (emoji, title) => {
+                            const childMember = familyInfo?.members?.find(m => m.role === "child");
+                            if (!childMember || !familyId) return;
+                            await addSticker(childMember.user_id, familyId, `praise-${Date.now()}`, dateKey, "praise", emoji, title);
+                            showNotif(`${emoji} 칭찬스티커를 보냈어요!`);
+                            sendInstantPush({
+                                action: "new_event", familyId, senderUserId: authUser?.id,
+                                title: `${emoji} 칭찬스티커!`,
+                                message: `부모님이 칭찬스티커를 보냈어요! "${title}"`,
+                            });
+                            setTimeout(() => fetchStickersForDate(familyId, dateKey).then(s => setStickers(s)), 500);
+                        } : null}
                         memoValue={memos[dateKey] || ""}
                         onMemoChange={val => {
                             setMemos(prev => ({ ...prev, [dateKey]: val }));
