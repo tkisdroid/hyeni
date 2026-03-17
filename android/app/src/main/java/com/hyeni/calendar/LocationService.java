@@ -50,8 +50,8 @@ import okhttp3.Response;
 public class LocationService extends Service {
 
     private static final String TAG = "LocationService";
-    private static final String CHANNEL_ID = "hyeni_location_v2";
-    private static final String ALERT_CHANNEL_ID = "hyeni_alert_v2";
+    private static final String CHANNEL_ID = "hyeni_location_v3";
+    private static final String ALERT_CHANNEL_ID = "hyeni_alert_v3";
     private static final int NOTIFICATION_ID = 9001;
     private static final int ALERT_NOTIFICATION_BASE = 10000;
     private static final long NOTIF_POLL_INTERVAL_MS = 15_000;
@@ -1021,7 +1021,7 @@ public class LocationService extends Service {
             // Delete and recreate alert channel to apply new sound
             manager.deleteNotificationChannel(ALERT_CHANNEL_ID);
             android.net.Uri cuteSound = android.net.Uri.parse(
-                "android.resource://" + getPackageName() + "/" + R.raw.notif_cute);
+                "android.resource://" + getPackageName() + "/" + R.raw.hyeni_notification);
             NotificationChannel alertChannel = new NotificationChannel(
                 ALERT_CHANNEL_ID, "일정 알림", NotificationManager.IMPORTANCE_HIGH);
             alertChannel.setDescription("일정 알림 + 안전 알림");

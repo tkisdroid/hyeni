@@ -15,15 +15,18 @@ import androidx.core.app.NotificationCompat;
 
 public final class NotificationHelper {
 
-    public static final String CHANNEL_SCHEDULE = "hyeni_schedule_v2";
-    public static final String CHANNEL_EMERGENCY = "hyeni_alert_v2";
-    public static final String CHANNEL_KKUK = "hyeni_kkuk_v2";
+    public static final String CHANNEL_SCHEDULE = "hyeni_schedule_v3";
+    public static final String CHANNEL_EMERGENCY = "hyeni_alert_v3";
+    public static final String CHANNEL_KKUK = "hyeni_kkuk_v3";
     private static final String[] LEGACY_CHANNELS = {
             "hyeni_schedule",
             "hyeni_emergency",
             "hyeni_kkuk",
             "hyeni_schedule_channel",
-            "hyeni_alert_channel"
+            "hyeni_alert_channel",
+            "hyeni_schedule_v2",
+            "hyeni_alert_v2",
+            "hyeni_kkuk_v2"
     };
 
     private NotificationHelper() {}
@@ -44,7 +47,7 @@ public final class NotificationHelper {
             }
         }
 
-        Uri cuteSound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.notif_cute);
+        Uri cuteSound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.hyeni_notification);
         AudioAttributes audioAttr = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
