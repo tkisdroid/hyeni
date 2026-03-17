@@ -4282,6 +4282,12 @@ export default function KidsScheduler() {
                         🎙️ 주변소리
                     </button>
                 )}
+                {isParent && (
+                    <button onClick={() => showNotif("🎙️ 음성녹음은 유료기능으로 오픈 예정이에요", "success")}
+                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FECACA", color: "#991B1B", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
+                        🎙️ 음성녹음
+                    </button>
+                )}
                 {TABS.map(([v, l]) => (
                     <button key={v} onClick={() => setActiveView(v)}
                         style={{
@@ -4343,6 +4349,11 @@ export default function KidsScheduler() {
                         </div>
                     </div>
                 )}
+
+                {/* 배너 — 추후 광고 배치용 */}
+                <div style={{ width: "100%", maxWidth: 420, background: "linear-gradient(135deg, #FFF0F7, #FCE7F3)", borderRadius: 20, padding: "14px 18px", marginBottom: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#BE185D", fontFamily: FF, border: "1.5px solid #FBCFE8" }}>
+                    혜니캘린더는 아이와 함께 만들어갑니다
+                </div>
 
                 {/* Voice + Add */}
                 <div style={{ width: "100%", maxWidth: 420, display: "flex", gap: 8, marginBottom: 14 }}>
