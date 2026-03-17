@@ -446,6 +446,33 @@ export async function fetchStickerSummary(familyId) {
   return data || [];
 }
 
+// ── Danger Zones ─────────────────────────────────────────────────────────────
+
+export async function fetchDangerZones(familyId) {
+  const { data, error } = await supabase
+    .from("danger_zones")
+    .select("*")
+    .eq("family_id", familyId)
+    .order("created_at");
+  if (error) { console.error("[fetchDangerZones]", error); return []; }
+  return data || [];
+}
+
+export async function saveDangerZone(familyId, zone) {
+  const { data, error } = await supabase
+    .from("danger_zones")
+    .insert({ family_id: familyId, name: zone.name, lat: zone.lat, lng: zone.lng, radius_m: zone.radius_m || 200, zone_type: zone.zone_type || "custom" })
+    .select()
+    .single();
+  if (error) { console.error("[saveDangerZone]", error); throw error; }
+  return data;
+}
+
+export async function deleteDangerZone(id) {
+  const { error } = await supabase.from("danger_zones").delete().eq("id", id);
+  if (error) { console.error("[deleteDangerZone]", error); throw error; }
+}
+
 // ── Parent Alerts (AI monitoring) ────────────────────────────────────────────
 
 export async function fetchParentAlerts(familyId, limit = 20) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
-import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
+import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import "./App.css";
@@ -1913,10 +1913,11 @@ function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrive
 // Sticker Book Modal
 // ─────────────────────────────────────────────────────────────────────────────
 function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
-    const stickerLabels = { early: "일찍 도착", on_time: "정시 도착", completed: "완료" };
+    const stickerLabels = { early: "일찍 도착", on_time: "정시 도착", late: "아쉬워요", completed: "완료" };
     const totalCount = summary?.total_count || 0;
     const earlyCount = summary?.early_count || 0;
     const onTimeCount = summary?.on_time_count || 0;
+    const lateCount = summary?.late_count || 0;
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, fontFamily: FF }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -1940,10 +1941,10 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
                             <div style={{ fontSize: 20, fontWeight: 900, color: "#7C3AED" }}>{onTimeCount}</div>
                             <div style={{ fontSize: 10, color: "#5B21B6", fontWeight: 700 }}>정시 도착</div>
                         </div>
-                        <div style={{ background: "#DBEAFE", borderRadius: 16, padding: "12px 16px", textAlign: "center", flex: 1 }}>
-                            <div style={{ fontSize: 24 }}>🏆</div>
-                            <div style={{ fontSize: 20, fontWeight: 900, color: "#2563EB" }}>{totalCount}</div>
-                            <div style={{ fontSize: 10, color: "#1E40AF", fontWeight: 700 }}>총 스티커</div>
+                        <div style={{ background: "#F3F4F6", borderRadius: 16, padding: "12px 16px", textAlign: "center", flex: 1 }}>
+                            <div style={{ fontSize: 24 }}>😢</div>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: "#9CA3AF" }}>{lateCount}</div>
+                            <div style={{ fontSize: 10, color: "#6B7280", fontWeight: 700 }}>아쉬워요</div>
                         </div>
                     </div>
 
@@ -1959,9 +1960,10 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 10 }}>
                             {stickers.map((s, i) => (
                                 <div key={s.id || i} style={{
-                                    background: s.sticker_type === "early" ? "#FEF3C7" : "#EDE9FE",
+                                    background: s.sticker_type === "early" ? "#FEF3C7" : s.sticker_type === "late" ? "#F3F4F6" : "#EDE9FE",
                                     borderRadius: 16, padding: "12px 8px", textAlign: "center",
-                                    border: `2px solid ${s.sticker_type === "early" ? "#FCD34D" : "#C4B5FD"}`,
+                                    border: `2px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : "#C4B5FD"}`,
+                                    opacity: s.sticker_type === "late" ? 0.7 : 1,
                                 }}>
                                     <div style={{ fontSize: 28 }}>{s.emoji}</div>
                                     <div style={{ fontSize: 10, fontWeight: 700, color: "#374151", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
@@ -2284,6 +2286,322 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Child Tracker Overlay (학부모용 - 아이 실시간 위치)
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Schedule Modal — 텍스트/이미지 붙여넣기로 일정 자동 등록
+// ─────────────────────────────────────────────────────────────────────────────
+function AiScheduleModal({ academies, currentDate, familyId, authUser, events, onSave, onClose }) {
+    const [inputText, setInputText] = useState("");
+    const [imageData, setImageData] = useState(null); // base64 data URI
+    const [loading, setLoading] = useState(false);
+    const [results, setResults] = useState(null); // { events: [...] }
+    const [savedIds, setSavedIds] = useState(new Set());
+
+    const handlePaste = (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (const item of items) {
+            if (item.type.startsWith("image/")) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                const reader = new FileReader();
+                reader.onload = () => setImageData(reader.result);
+                reader.readAsDataURL(file);
+                return;
+            }
+        }
+    };
+
+    const handleImageSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setImageData(reader.result);
+        reader.readAsDataURL(file);
+    };
+
+    const analyze = async () => {
+        if (!inputText.trim() && !imageData) return;
+        setLoading(true);
+        setResults(null);
+        try {
+            const session = await getSession();
+            const token = session?.access_token || "";
+            const url = `${SUPABASE_URL}/functions/v1/ai-voice-parse`;
+            const todayEvs = (events || []).map(e => ({ id: e.id, title: e.title, time: e.time, memo: e.memo || "" }));
+            const resp = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}`, "apikey": SUPABASE_KEY },
+                body: JSON.stringify({
+                    text: inputText.trim() || "이미지에서 일정을 추출해주세요",
+                    image: imageData || undefined,
+                    mode: "paste",
+                    academies: academies.map(a => ({ name: a.name, category: a.category })),
+                    todayEvents: todayEvs,
+                    currentDate,
+                }),
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            if (data.action === "add_events" && data.events?.length > 0) {
+                setResults(data);
+            } else if (data.action === "add_event") {
+                setResults({ action: "add_events", events: [data] });
+            } else {
+                setResults({ action: "unknown", message: data.message || "일정을 찾지 못했어요" });
+            }
+        } catch (err) {
+            console.error("[AiSchedule]", err);
+            setResults({ action: "unknown", message: "AI 분석 실패: " + err.message });
+        } finally { setLoading(false); }
+    };
+
+    const CATS = { school: { emoji: "📚", color: "#E879A0", bg: "#FFF0F5" }, sports: { emoji: "⚽", color: "#F59E0B", bg: "#FFFBEB" }, hobby: { emoji: "🎨", color: "#8B5CF6", bg: "#F5F3FF" }, family: { emoji: "👨‍👩‍👧", color: "#10B981", bg: "#ECFDF5" }, friend: { emoji: "👫", color: "#3B82F6", bg: "#EFF6FF" }, other: { emoji: "📌", color: "#6B7280", bg: "#F9FAFB" } };
+
+    const saveOne = async (ev, idx) => {
+        if (savedIds.has(idx)) return;
+        const cat = CATS[ev.category] || CATS.other;
+        const matchedAcademy = ev.academyName ? academies.find(a => a.name === ev.academyName) : null;
+        const newEv = {
+            id: generateUUID(), title: ev.title, time: ev.time || "09:00",
+            category: ev.category || "other", emoji: matchedAcademy?.emoji || cat.emoji,
+            color: cat.color, bg: cat.bg, memo: ev.memo || "",
+            location: matchedAcademy?.location || null, notifOverride: null,
+        };
+        const dk = `${ev.year ?? currentDate.year}-${ev.month ?? currentDate.month}-${ev.day ?? currentDate.day}`;
+        onSave(newEv, dk);
+        if (familyId && authUser) {
+            try { await insertEvent(newEv, familyId, dk, authUser.id); } catch (err) { console.error("[AiSchedule] save error:", err); }
+        }
+        setSavedIds(prev => new Set([...prev, idx]));
+    };
+
+    const saveAll = async () => {
+        if (!results?.events) return;
+        for (let i = 0; i < results.events.length; i++) {
+            if (!savedIds.has(i)) await saveOne(results.events[i], i);
+        }
+    };
+
+    return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
+            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "#374151" }}>🤖 AI로 일정입력</div>
+                    <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
+                </div>
+
+                <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12, lineHeight: 1.5 }}>
+                    카카오톡 공지, 알림장, 학원 안내 등을 붙여넣으세요.<br/>이미지도 붙여넣기(Ctrl+V) 가능합니다.
+                </div>
+
+                <textarea
+                    value={inputText} onChange={e => setInputText(e.target.value)}
+                    onPaste={handlePaste}
+                    placeholder="텍스트를 붙여넣거나 직접 입력하세요..."
+                    style={{ width: "100%", minHeight: 100, padding: 14, borderRadius: 16, border: "2px solid #E5E7EB", fontSize: 14, fontFamily: FF, resize: "vertical", boxSizing: "border-box", outline: "none" }}
+                />
+
+                {imageData && (
+                    <div style={{ marginTop: 8, position: "relative", display: "inline-block" }}>
+                        <img src={imageData} alt="붙여넣은 이미지" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 12, border: "2px solid #E5E7EB" }} />
+                        <button onClick={() => setImageData(null)} style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: "50%", background: "#EF4444", color: "white", border: "none", fontSize: 12, cursor: "pointer", fontWeight: 800 }}>✕</button>
+                    </div>
+                )}
+
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <label style={{ padding: "10px 14px", borderRadius: 14, background: "#F3F4F6", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, display: "flex", alignItems: "center", gap: 4 }}>
+                        📷 이미지
+                        <input type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
+                    </label>
+                    <button onClick={analyze} disabled={loading || (!inputText.trim() && !imageData)}
+                        style={{ flex: 1, padding: "12px 16px", borderRadius: 14, border: "none", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF, color: "white", background: loading ? "#9CA3AF" : "linear-gradient(135deg, #8B5CF6, #6D28D9)", boxShadow: loading ? "none" : "0 4px 12px rgba(109,40,217,0.3)" }}>
+                        {loading ? "🔍 분석 중..." : "🤖 AI 분석"}
+                    </button>
+                </div>
+
+                {/* Results */}
+                {results && results.action === "add_events" && results.events?.length > 0 && (
+                    <div style={{ marginTop: 20 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>📋 추출된 일정 ({results.events.length}건)</div>
+                            <button onClick={saveAll} style={{ padding: "6px 14px", borderRadius: 12, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>모두 등록</button>
+                        </div>
+                        {results.events.map((ev, i) => {
+                            const cat = CATS[ev.category] || CATS.other;
+                            const saved = savedIds.has(i);
+                            const m = ev.month != null ? ev.month + 1 : (currentDate.month + 1);
+                            const d = ev.day ?? currentDate.day;
+                            return (
+                                <div key={i} style={{ background: saved ? "#F0FDF4" : cat.bg, borderRadius: 16, padding: "12px 14px", marginBottom: 8, border: saved ? "2px solid #6EE7B7" : `1.5px solid #E5E7EB`, opacity: saved ? 0.7 : 1 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                        <div style={{ fontSize: 24 }}>{cat.emoji}</div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 800, fontSize: 14, color: "#1F2937" }}>{ev.title}</div>
+                                            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                                                {m}월 {d}일 {ev.time || "시간 미정"}
+                                                {ev.memo && ` · ${ev.memo}`}
+                                            </div>
+                                        </div>
+                                        <button onClick={() => saveOne(ev, i)} disabled={saved}
+                                            style={{ padding: "6px 12px", borderRadius: 10, background: saved ? "#D1FAE5" : cat.color, color: saved ? "#065F46" : "white", border: "none", fontSize: 11, fontWeight: 800, cursor: saved ? "default" : "pointer", fontFamily: FF }}>
+                                            {saved ? "✓ 등록됨" : "등록"}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+                {results && results.action === "unknown" && (
+                    <div style={{ marginTop: 16, textAlign: "center", padding: 20, background: "#FEF3C7", borderRadius: 16 }}>
+                        <div style={{ fontSize: 28, marginBottom: 8 }}>🤔</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E" }}>{results.message}</div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Danger Zone Manager — 위험지역 설정 및 관리
+// ─────────────────────────────────────────────────────────────────────────────
+function DangerZoneManager({ zones, familyId, mapReady, onAdd, onDelete, onClose }) {
+    const [showAdd, setShowAdd] = useState(false);
+    const [newName, setNewName] = useState("");
+    const [newRadius, setNewRadius] = useState(200);
+    const [newType, setNewType] = useState("custom");
+    const [selectedLoc, setSelectedLoc] = useState(null);
+    const mapRef = useRef();
+    const mapInst = useRef();
+    const circleRef = useRef(null);
+
+    const ZONE_TYPES = [
+        { id: "construction", label: "🚧 공사장", color: "#F59E0B" },
+        { id: "entertainment", label: "🎰 유흥가", color: "#EF4444" },
+        { id: "water", label: "🌊 수변지역", color: "#3B82F6" },
+        { id: "custom", label: "📍 직접 설정", color: "#6B7280" },
+    ];
+
+    const zoneColor = (type) => ZONE_TYPES.find(z => z.id === type)?.color || "#6B7280";
+
+    // Map for adding new zone
+    useEffect(() => {
+        if (!showAdd || !mapReady || !mapRef.current || mapInst.current) return;
+        const center = new window.kakao.maps.LatLng(37.5665, 126.9780);
+        const map = new window.kakao.maps.Map(mapRef.current, { center, level: 5 });
+        mapInst.current = map;
+
+        window.kakao.maps.event.addListener(map, "click", (e) => {
+            const lat = e.latLng.getLat();
+            const lng = e.latLng.getLng();
+            setSelectedLoc({ lat, lng });
+            if (circleRef.current) circleRef.current.setMap(null);
+            circleRef.current = new window.kakao.maps.Circle({
+                map, center: e.latLng, radius: newRadius,
+                strokeWeight: 3, strokeColor: "#EF4444", strokeOpacity: 0.8,
+                fillColor: "#EF4444", fillOpacity: 0.15
+            });
+        });
+    }, [showAdd, mapReady]);
+
+    // Update circle radius
+    useEffect(() => {
+        if (circleRef.current && selectedLoc) {
+            circleRef.current.setRadius(newRadius);
+        }
+    }, [newRadius, selectedLoc]);
+
+    const handleAdd = async () => {
+        if (!newName.trim() || !selectedLoc) return;
+        try {
+            const zone = await onAdd({ name: newName.trim(), lat: selectedLoc.lat, lng: selectedLoc.lng, radius_m: newRadius, zone_type: newType });
+            setShowAdd(false);
+            setNewName("");
+            setSelectedLoc(null);
+            if (circleRef.current) { circleRef.current.setMap(null); circleRef.current = null; }
+            mapInst.current = null;
+        } catch (err) { console.error("[DangerZone] add error:", err); }
+    };
+
+    return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
+            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "#374151" }}>⚠️ 위험지역 관리</div>
+                    <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
+                </div>
+
+                <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 16 }}>아이가 설정한 지역에 접근하면 알림을 받습니다.</div>
+
+                {/* Zone list */}
+                {zones.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "24px 0", color: "#D1D5DB" }}>
+                        <div style={{ fontSize: 36, marginBottom: 8 }}>🛡️</div>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>설정된 위험지역이 없어요</div>
+                    </div>
+                ) : zones.map(z => (
+                    <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#FEF2F2", borderRadius: 16, marginBottom: 8, border: "1.5px solid #FECACA" }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 12, background: zoneColor(z.zone_type), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "white", fontWeight: 800, flexShrink: 0 }}>
+                            {z.zone_type === "construction" ? "🚧" : z.zone_type === "entertainment" ? "🎰" : z.zone_type === "water" ? "🌊" : "⚠️"}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: "#1F2937" }}>{z.name}</div>
+                            <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>반경 {z.radius_m}m</div>
+                        </div>
+                        <button onClick={() => { if (window.confirm(`"${z.name}" 위험지역을 삭제할까요?`)) onDelete(z.id); }}
+                            style={{ padding: "6px 10px", borderRadius: 10, background: "#FEE2E2", color: "#DC2626", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>삭제</button>
+                    </div>
+                ))}
+
+                {/* Add new zone */}
+                {!showAdd ? (
+                    <button onClick={() => setShowAdd(true)}
+                        style={{ width: "100%", marginTop: 12, padding: "14px", borderRadius: 16, border: "2px dashed #D1D5DB", background: "transparent", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#6B7280", fontFamily: FF }}>
+                        + 위험지역 추가
+                    </button>
+                ) : (
+                    <div style={{ marginTop: 12, background: "#F9FAFB", borderRadius: 20, padding: 16, border: "1.5px solid #E5E7EB" }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", marginBottom: 12 }}>새 위험지역 추가</div>
+
+                        <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="지역 이름 (예: 공사장 앞)"
+                            style={{ width: "100%", padding: "10px 14px", borderRadius: 12, border: "2px solid #E5E7EB", fontSize: 14, fontWeight: 700, fontFamily: FF, boxSizing: "border-box", marginBottom: 10 }} />
+
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                            {ZONE_TYPES.map(zt => (
+                                <button key={zt.id} onClick={() => setNewType(zt.id)}
+                                    style={{ padding: "6px 12px", borderRadius: 10, border: newType === zt.id ? `2px solid ${zt.color}` : "1.5px solid #E5E7EB", background: newType === zt.id ? zt.color + "15" : "white", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: newType === zt.id ? zt.color : "#6B7280" }}>
+                                    {zt.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6 }}>반경: {newRadius}m</div>
+                        <input type="range" min={50} max={500} step={50} value={newRadius} onChange={e => setNewRadius(Number(e.target.value))}
+                            style={{ width: "100%", marginBottom: 12 }} />
+
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6 }}>지도를 클릭해서 위치를 선택하세요</div>
+                        <div ref={mapRef} style={{ width: "100%", height: 200, borderRadius: 16, overflow: "hidden", border: "2px solid #E5E7EB", marginBottom: 12 }} />
+
+                        {selectedLoc && <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, marginBottom: 8 }}>✓ 위치 선택됨 ({selectedLoc.lat.toFixed(4)}, {selectedLoc.lng.toFixed(4)})</div>}
+
+                        <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={handleAdd} disabled={!newName.trim() || !selectedLoc}
+                                style={{ flex: 1, padding: "12px", borderRadius: 14, border: "none", background: !newName.trim() || !selectedLoc ? "#D1D5DB" : "#EF4444", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
+                                ⚠️ 위험지역 등록
+                            </button>
+                            <button onClick={() => { setShowAdd(false); mapInst.current = null; }}
+                                style={{ padding: "12px 16px", borderRadius: 14, border: "1px solid #E5E7EB", background: "white", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#6B7280" }}>취소</button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // Phone Settings Modal (parent)
@@ -2626,6 +2944,10 @@ export default function KidsScheduler() {
     const [stickers, setStickers] = useState([]);
     const [stickerSummary, setStickerSummary] = useState(null);
     const [showStickerBook, setShowStickerBook] = useState(false);
+    const [showAiSchedule, setShowAiSchedule] = useState(false);
+    const [showDangerZones, setShowDangerZones] = useState(false);
+    const [dangerZones, setDangerZones] = useState([]);
+    const [firedDangerAlerts, setFiredDangerAlerts] = useState(new Set());
     // ── Departure detection ─────────────────────────────────────────────────────
     const departureTimers = useRef({}); // { eventId: { timer, leftAt } }
     const [departedAlerts, setDepartedAlerts] = useState(new Set());
@@ -3260,6 +3582,31 @@ export default function KidsScheduler() {
         fetchStickersForDate(familyId, dateKey).then(s => setStickers(s));
     }, [familyId, dateKey]);
 
+    // ── Load danger zones ────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!familyId) return;
+        fetchDangerZones(familyId).then(z => setDangerZones(z));
+    }, [familyId]);
+
+    // ── Danger zone proximity detection ──────────────────────────────────────────
+    useEffect(() => {
+        if (!childPos || !dangerZones.length || !isParent) return;
+        dangerZones.forEach(zone => {
+            if (firedDangerAlerts.has(zone.id)) return;
+            const dist = haversineM(childPos.lat, childPos.lng, zone.lat, zone.lng);
+            if (dist < zone.radius_m) {
+                setFiredDangerAlerts(prev => new Set([...prev, zone.id]));
+                const childName = familyInfo?.members?.find(m => m.role === "child")?.name || "아이";
+                addAlert(`⚠️ ${childName}이(가) 위험지역 '${zone.name}' 근처에 있어요! (${Math.round(dist)}m)`, "parent");
+                sendInstantPush({
+                    action: "parent_alert", familyId, senderUserId: authUser?.id,
+                    title: `⚠️ 위험지역 접근 알림`,
+                    message: `${childName}이(가) '${zone.name}' 근처(${Math.round(dist)}m)에 있어요!`,
+                });
+            }
+        });
+    }, [childPos, dangerZones, firedDangerAlerts, isParent, familyInfo, familyId, authUser, addAlert]);
+
     // ── Geofencing: arrival + departure detection ───────────────────────────────
     useEffect(() => {
         if (!childPos) return;
@@ -3276,10 +3623,11 @@ export default function KidsScheduler() {
                     const [h, m] = ev.time.split(":").map(Number);
                     const evTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
                     const diff = Math.round((now.getTime() - evTime) / 60000);
-                    // Only check arrival from 30min before to event time (diff: -30 ~ 5)
-                    if (diff < -30 || diff > 5) return;
-                    const isEarly = diff < -1;
-                    const isOnTime = diff >= -1 && diff <= 5;
+                    // Only check arrival from 30min before to 10min after event time
+                    if (diff < -30 || diff > 10) return;
+                    const isEarly = diff <= -10;                     // 10분+ 일찍
+                    const isOnTime = diff > -10 && diff <= 0;        // 정시~10분전
+                    const isLate = diff > 0;                         // 늦음
                     const msg = isEarly ? `${Math.abs(diff)}분 일찍 도착` : isOnTime ? "정시 도착" : `${diff}분 늦게 도착`;
 
                     setArrivedSet(prev => new Set([...prev, ev.id]));
@@ -3287,27 +3635,31 @@ export default function KidsScheduler() {
                     // Role-based arrival messages
                     if (!isParent && globalNotif.childEnabled) {
                         addAlert(`🎉 ${ev.title}에 도착했어요! (${msg})`, "child");
-                        showNotif(`🎉 ${ev.title}에 잘 도착했어! ${isEarly ? "일찍 왔네~ 대단해! ⭐" : isOnTime ? "딱 맞춰 왔구나! 👏" : "조금 늦었지만 괜찮아! 💪"}`, "child");
+                        showNotif(`🎉 ${ev.title}에 잘 도착했어! ${isEarly ? "일찍 왔네~ 대단해! 🌟" : isOnTime ? "딱 맞춰 왔구나! ⭐" : "조금 늦었지만 괜찮아! 💪"}`, "child");
                     }
 
                     if (isParent && globalNotif.parentEnabled) {
-                        addAlert(`✅ 혜니가 ${ev.title}에 잘 도착했어요 (${msg})`, "parent");
+                        addAlert(`✅ 혜니가 ${ev.title}에 ${isLate ? "늦게" : "잘"} 도착했어요 (${msg})`, "parent");
                     }
                     sendInstantPush({
                         action: "new_event",
                         familyId, senderUserId: authUser?.id,
-                        title: `✅ ${ev.emoji} 도착 알림`,
-                        message: `혜니가 ${ev.title}에 잘 도착했어요! (${msg})`,
+                        title: `${isLate ? "⏰" : "✅"} ${ev.emoji} 도착 알림`,
+                        message: `혜니가 ${ev.title}에 ${isLate ? "늦게" : "잘"} 도착했어요! (${msg})`,
                     });
                     showArrivalNotification(ev, msg, myRole);
 
-                    // Award sticker if arrived early or on time
-                    if (authUser && familyId && (isEarly || isOnTime)) {
-                        const stickerType = isEarly ? "early" : "on_time";
-                        const stickerEmoji = isEarly ? "🌟" : "⭐";
-                        addSticker(authUser.id, familyId, String(ev.id), key, stickerType, stickerEmoji, ev.title);
-                        showNotif(`${stickerEmoji} 칭찬스티커를 받았어요! ${isEarly ? "일찍 도착 보너스!" : "시간 잘 지켰어요!"}`, "child");
-                        // Refresh stickers
+                    // Award sticker based on arrival timing
+                    if (authUser && familyId) {
+                        if (isEarly || isOnTime) {
+                            const stickerType = isEarly ? "early" : "on_time";
+                            const stickerEmoji = isEarly ? "🌟" : "⭐";
+                            addSticker(authUser.id, familyId, String(ev.id), key, stickerType, stickerEmoji, ev.title);
+                            showNotif(`${stickerEmoji} 칭찬스티커를 받았어요! ${isEarly ? "일찍 도착 보너스!" : "시간 잘 지켰어요!"}`, "child");
+                        } else if (isLate) {
+                            addSticker(authUser.id, familyId, String(ev.id), key, "late", "😢", ev.title);
+                            showNotif("😢 아쉽게 칭찬스티커를 못받았어요...", "child");
+                        }
                         setTimeout(() => fetchStickersForDate(familyId, key).then(s => setStickers(s)), 1000);
                     }
 
@@ -4288,6 +4640,18 @@ export default function KidsScheduler() {
                         🎙️ 음성녹음
                     </button>
                 )}
+                {isParent && (
+                    <button onClick={() => setShowAiSchedule(true)}
+                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#EDE9FE", color: "#6D28D9", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
+                        🤖 AI일정
+                    </button>
+                )}
+                {isParent && (
+                    <button onClick={() => setShowDangerZones(true)}
+                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FEF2F2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
+                        ⚠️ 위험지역
+                    </button>
+                )}
                 {TABS.map(([v, l]) => (
                     <button key={v} onClick={() => setActiveView(v)}
                         style={{
@@ -4666,6 +5030,40 @@ export default function KidsScheduler() {
                 summary={stickerSummary}
                 dateLabel={`${currentMonth + 1}월 ${selectedDate}일`}
                 onClose={() => setShowStickerBook(false)}
+            />}
+
+            {/* ── AI Schedule Modal (학부모 전용) ── */}
+            {showAiSchedule && <AiScheduleModal
+                academies={academies}
+                currentDate={{ year: currentYear, month: currentMonth, day: selectedDate }}
+                familyId={familyId}
+                authUser={authUser}
+                events={events[dateKey] || []}
+                onSave={(newEv, dk) => {
+                    setEvents(prev => ({ ...prev, [dk]: [...(prev[dk] || []), newEv].sort((a, b) => a.time.localeCompare(b.time)) }));
+                    showNotif(`${newEv.emoji} ${newEv.title} 등록 완료!`);
+                }}
+                onClose={() => setShowAiSchedule(false)}
+            />}
+
+            {/* ── Danger Zone Manager (학부모 전용) ── */}
+            {showDangerZones && <DangerZoneManager
+                zones={dangerZones}
+                familyId={familyId}
+                mapReady={mapReady}
+                onAdd={async (zone) => {
+                    const saved = await saveDangerZone(familyId, zone);
+                    setDangerZones(prev => [...prev, saved]);
+                    showNotif(`⚠️ 위험지역 '${zone.name}' 등록 완료`);
+                    return saved;
+                }}
+                onDelete={async (id) => {
+                    await deleteDangerZone(id);
+                    setDangerZones(prev => prev.filter(z => z.id !== id));
+                    setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(id); return n; });
+                    showNotif("위험지역이 삭제됐어요");
+                }}
+                onClose={() => setShowDangerZones(false)}
             />}
 
             {/* ── Audio Recorder Modal (학부모 전용) ── */}
