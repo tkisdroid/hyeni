@@ -484,10 +484,27 @@ public class LocationService extends Service {
                     .build();
 
                 Response response = httpClient.newCall(req).execute();
-                if (!response.isSuccessful()) {
-                    Log.w(TAG, "Location upload failed: " + response.code());
-                }
+                int code = response.code();
                 response.close();
+
+                if (!response.isSuccessful()) {
+                    Log.w(TAG, "Location upload failed: " + code + ", retrying with anon key");
+                    // Retry with anon key (token might be expired)
+                    Request retryReq = new Request.Builder()
+                        .url(url)
+                        .header("apikey", supabaseKey)
+                        .header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + supabaseKey)
+                        .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+                        .build();
+                    Response retryResp = httpClient.newCall(retryReq).execute();
+                    if (!retryResp.isSuccessful()) {
+                        Log.w(TAG, "Location upload retry also failed: " + retryResp.code());
+                    } else {
+                        Log.i(TAG, "Location uploaded with anon key fallback");
+                    }
+                    retryResp.close();
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Location upload error", e);
             }
