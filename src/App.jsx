@@ -2309,6 +2309,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
     const [voiceListening, setVoiceListening] = useState(false);
     const [results, setResults] = useState(null);
     const [savedIds, setSavedIds] = useState(new Set());
+    const fileInputRef = useRef(null);
 
     const handlePaste = (e) => {
         const items = e.clipboardData?.items;
@@ -2457,11 +2458,12 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                             <span style={{ fontSize: 24 }}>🎤</span>
                             {voiceListening ? "듣는 중..." : "음성"}
                         </button>
-                        <label style={{ ...btnSt, background: "linear-gradient(135deg,#93C5FD,#3B82F6)", color: "white", boxShadow: "0 4px 12px rgba(59,130,246,0.3)" }}>
+                        <button onClick={() => fileInputRef.current?.click()}
+                            style={{ ...btnSt, background: "linear-gradient(135deg,#93C5FD,#3B82F6)", color: "white", boxShadow: "0 4px 12px rgba(59,130,246,0.3)" }}>
                             <span style={{ fontSize: 24 }}>📷</span>
                             이미지
-                            <input type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
-                        </label>
+                        </button>
+                        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageSelect} style={{ display: "none" }} />
                         <button onClick={() => document.getElementById("ai-text-input")?.focus()}
                             style={{ ...btnSt, background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", boxShadow: "0 4px 12px rgba(124,58,237,0.3)" }}>
                             <span style={{ fontSize: 24 }}>✏️</span>
@@ -3196,11 +3198,17 @@ export default function KidsScheduler() {
     }, [isNativeApp]);
 
     // ── Subscribe to server-side Web Push when permission + family are ready ────
+    // 네이티브 앱(Android)에서는 FCM을 사용하므로 Web Push 구독 안 함 (이중 알림 방지)
     useEffect(() => {
+        if (isNativeApp) {
+            // Android: 기존 Web Push 구독 해제 (이중 알림 방지)
+            if (authUser?.id && familyId) unsubscribeFromPush().catch(() => {});
+            return;
+        }
         if (pushPermission === "granted" && authUser?.id && familyId) {
             subscribeToPush(authUser.id, familyId);
         }
-    }, [pushPermission, authUser, familyId]);
+    }, [pushPermission, authUser, familyId, isNativeApp]);
 
     // ── Register FCM token (Android only) ───────────────────────────────────────
     useEffect(() => {
