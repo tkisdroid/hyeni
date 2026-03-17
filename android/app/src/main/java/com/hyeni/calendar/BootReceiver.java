@@ -26,12 +26,22 @@ public class BootReceiver extends BroadcastReceiver {
             String userId = prefs.getString("userId", null);
 
             if (enabled && userId != null) {
+                // 위치 권한 체크 후 서비스 재시작 (권한 없으면 크래시 방지)
+                if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    Log.w(TAG, "Location permission not granted, skipping service restart");
+                    return;
+                }
                 Log.i(TAG, "Restart trigger received (" + action + "), restarting location service");
-                Intent serviceIntent = new Intent(context, LocationService.class);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(serviceIntent);
-                } else {
-                    context.startService(serviceIntent);
+                try {
+                    Intent serviceIntent = new Intent(context, LocationService.class);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(serviceIntent);
+                    } else {
+                        context.startService(serviceIntent);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to restart service: " + e.getMessage());
                 }
             }
         }

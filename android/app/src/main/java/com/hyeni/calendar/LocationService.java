@@ -185,7 +185,21 @@ public class LocationService extends Service {
             return START_NOT_STICKY;
         }
 
-        startForeground(NOTIFICATION_ID, buildForegroundNotification());
+        // 위치 권한 체크 — 없으면 서비스 시작하지 않음 (SDK 34+ FGS 크래시 방지)
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "Location permission not granted, cannot start foreground service");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
+        try {
+            startForeground(NOTIFICATION_ID, buildForegroundNotification());
+        } catch (SecurityException e) {
+            Log.e(TAG, "Cannot start foreground service: " + e.getMessage());
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         requestBatteryOptimizationExemption();
         ServiceKeepAlive.schedule(this);
         startLocationTracking();
