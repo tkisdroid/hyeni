@@ -1735,7 +1735,7 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
 // ─────────────────────────────────────────────────────────────────────────────
 // Day Timetable (kid-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
-function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode }) {
+function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode }) {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -1771,8 +1771,8 @@ function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrive
                     const [h, m] = ev.time.split(":").map(Number);
                     const evMin = h * 60 + m;
                     const endMin = ev.endTime ? (() => { const [eh, em] = ev.endTime.split(":").map(Number); return eh * 60 + em; })() : evMin + 60;
-                    const isPast = nowMin > endMin;
-                    const isCurrent = nowMin >= evMin - 10 && nowMin <= endMin;
+                    const isPast = isToday ? nowMin > endMin : !isFuture;  // 오늘이면 시간비교, 과거 날짜면 전부 past
+                    const isCurrent = isToday && nowMin >= evMin - 10 && nowMin <= endMin;  // 오늘만 "지금!" 표시
                     const arrived = arrivedSet.has(ev.id);
                     const emergency = ev.location && !arrived && firedEmergencies.has(ev.id);
                     const friendlyTime = isParentMode ? ev.time : `${h >= 12 ? "오후" : "오전"} ${h > 12 ? h - 12 : h === 0 ? 12 : h}:${String(m).padStart(2, "0")}`;
@@ -1821,6 +1821,9 @@ function DayTimetable({ events, dateLabel, childPos, mapReady: _mapReady, arrive
                                     {isCurrent && (isParentMode
                                         ? <span style={{ fontSize: 11, fontWeight: 700, color: ev.color, animation: "pulse 1.5s infinite" }}>지금!</span>
                                         : <span style={{ fontSize: 13, fontWeight: 800, color: "white", background: ev.color, padding: "3px 10px", borderRadius: 10, animation: "pulse 1.5s infinite" }}>지금 갈 시간! 🏃</span>
+                                    )}
+                                    {isFuture && !isCurrent && (
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6", background: "#EDE9FE", padding: "2px 8px", borderRadius: 8 }}>예정</span>
                                     )}
                                     {arrived && <span style={{ fontSize: isParentMode ? 11 : 13, fontWeight: 700, color: "#059669" }}>✅ 도착</span>}
                                     {emergency && isParentMode && <span style={{ fontSize: 11, fontWeight: 800, color: "#DC2626", animation: "pulse 1s infinite" }}>🚨 미도착</span>}
@@ -4787,6 +4790,8 @@ export default function KidsScheduler() {
                     <DayTimetable
                         events={selectedEvs}
                         dateLabel={`${currentMonth + 1}월 ${selectedDate}일`}
+                        isToday={currentYear === new Date().getFullYear() && currentMonth === new Date().getMonth() && selectedDate === new Date().getDate()}
+                        isFuture={new Date(currentYear, currentMonth, selectedDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0)}
                         childPos={childPos}
                         mapReady={mapReady}
                         stickers={stickers}
