@@ -2489,7 +2489,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                 {/* 분석 버튼 */}
                 <button onClick={() => analyze()} disabled={loading || (!inputText.trim() && !imageData)}
                     style={{ width: "100%", marginTop: 10, padding: "14px 16px", borderRadius: 16, border: "none", fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: FF, color: "white", background: loading ? "#9CA3AF" : "linear-gradient(135deg, #8B5CF6, #6D28D9)", boxShadow: loading ? "none" : "0 4px 16px rgba(109,40,217,0.3)" }}>
-                    {loading ? "🔍 일정을 찾고 있어요..." : "✅ 다 입력했어요^^"}
+                    {loading ? "🔍 AI가 분석하고 있어요..." : "✅ 다 입력했어요^^"}
                 </button>
 
                 {/* Results */}
