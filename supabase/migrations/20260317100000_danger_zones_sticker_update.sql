@@ -1,6 +1,7 @@
 -- ============================================================
 -- 1. get_sticker_summary 업데이트: late_count 추가
 -- ============================================================
+DROP FUNCTION IF EXISTS get_sticker_summary(uuid);
 CREATE OR REPLACE FUNCTION get_sticker_summary(
   p_family_id uuid
 ) RETURNS TABLE(user_id uuid, total_count bigint, early_count bigint, on_time_count bigint, late_count bigint) AS $$
