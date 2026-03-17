@@ -1959,12 +1959,20 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
 // ─────────────────────────────────────────────────────────────────────────────
 // Sticker Book Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
+function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode, onGiveSticker }) {
     const stickerLabels = { early: "일찍 도착", on_time: "정시 도착", late: "아쉬워요", praise: "부모님 칭찬", completed: "완료" };
     const totalCount = summary?.total_count || 0;
     const earlyCount = summary?.early_count || 0;
     const onTimeCount = summary?.on_time_count || 0;
     const lateCount = summary?.late_count || 0;
+    const [showGive, setShowGive] = useState(false);
+    const [giveMsg, setGiveMsg] = useState("");
+    const PRAISE = [
+        { emoji: "🌟", title: "최고예요!" }, { emoji: "👏", title: "잘했어!" },
+        { emoji: "💪", title: "대단해!" }, { emoji: "🎯", title: "정확해요!" },
+        { emoji: "🌈", title: "멋져요!" }, { emoji: "💕", title: "사랑해!" },
+        { emoji: "🏆", title: "챔피언!" }, { emoji: "✨", title: "빛나는 하루!" },
+    ];
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, fontFamily: FF }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -2039,6 +2047,39 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose }) {
                         </div>
                     )}
                 </div>
+
+                {/* Parent: Give sticker */}
+                {isParentMode && onGiveSticker && (
+                    <div style={{ padding: "0 20px 8px" }}>
+                        {!showGive ? (
+                            <button onClick={() => setShowGive(true)}
+                                style={{ width: "100%", padding: "14px", borderRadius: 18, border: "2px dashed #FCD34D", background: "linear-gradient(135deg, #FFFBEB, #FEF3C7)", cursor: "pointer", fontSize: 15, fontWeight: 900, color: "#F59E0B", fontFamily: FF }}>
+                                🌟 칭찬스티커 주기
+                            </button>
+                        ) : (
+                            <div style={{ background: "#FFFBEB", borderRadius: 18, padding: 14, border: "2px solid #FCD34D" }}>
+                                <div style={{ fontSize: 14, fontWeight: 900, color: "#F59E0B", marginBottom: 10 }}>🌟 어떤 칭찬을 해줄까요?</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
+                                    {PRAISE.map((ps, i) => (
+                                        <button key={i} onClick={async () => {
+                                            await onGiveSticker(ps.emoji, giveMsg.trim() || ps.title);
+                                            setShowGive(false);
+                                            setGiveMsg("");
+                                        }}
+                                            style={{ background: "white", border: "1.5px solid #FCD34D", borderRadius: 14, padding: "10px 4px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontFamily: FF }}>
+                                            <span style={{ fontSize: 24 }}>{ps.emoji}</span>
+                                            <span style={{ fontSize: 10, fontWeight: 700, color: "#92400E" }}>{ps.title}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <input value={giveMsg} onChange={e => setGiveMsg(e.target.value)} placeholder="직접 메시지 입력 (선택)"
+                                    style={{ width: "100%", padding: "8px 12px", borderRadius: 12, border: "1.5px solid #FCD34D", fontSize: 13, fontFamily: FF, boxSizing: "border-box", outline: "none", marginBottom: 8 }} />
+                                <button onClick={() => { setShowGive(false); setGiveMsg(""); }}
+                                    style={{ width: "100%", padding: "8px", borderRadius: 12, border: "none", background: "#F3F4F6", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#6B7280" }}>취소</button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div style={{ padding: "16px 20px 20px", flexShrink: 0 }}>
                     <button onClick={onClose}
@@ -5212,6 +5253,19 @@ export default function KidsScheduler() {
                 stickers={stickers}
                 summary={stickerSummary}
                 dateLabel={`${currentMonth + 1}월 ${selectedDate}일`}
+                isParentMode={isParent}
+                onGiveSticker={isParent ? async (emoji, title) => {
+                    const childMember = familyInfo?.members?.find(m => m.role === "child");
+                    if (!childMember || !familyId) return;
+                    await addSticker(childMember.user_id, familyId, `praise-${Date.now()}`, dateKey, "praise", emoji, title);
+                    showNotif(`${emoji} 칭찬스티커를 보냈어요!`);
+                    sendInstantPush({
+                        action: "new_event", familyId, senderUserId: authUser?.id,
+                        title: `${emoji} 칭찬스티커!`,
+                        message: `부모님이 칭찬스티커를 보냈어요! "${title}"`,
+                    });
+                    setTimeout(() => fetchStickersForDate(familyId, dateKey).then(s => setStickers(s)), 500);
+                } : null}
                 onClose={() => setShowStickerBook(false)}
             />}
 
