@@ -747,7 +747,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 460, boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
+            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 460, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: "#374151" }}>🔗 {isParent ? "아이 연동 관리" : "부모님 연동"}</div>
@@ -779,9 +779,11 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                         {editingId === child.user_id ? (
                                             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                                 <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
-                                                    style={{ flex: 1, padding: "6px 10px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 15, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }} />
+                                                    onFocus={e => setTimeout(() => e.target.scrollIntoView({ behavior: "smooth", block: "center" }), 300)}
+                                                    style={{ flex: 1, padding: "6px 10px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
+                                                    maxLength={10} />
                                                 <button onClick={() => { if (editName.trim() && onRename) { onRename(child.user_id, editName.trim()); } setEditingId(null); }}
-                                                    style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>확인</button>
+                                                    style={{ padding: "6px 12px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
                                             </div>
                                         ) : (
                                             <div onClick={() => { setEditingId(child.user_id); setEditName(child.name); }} style={{ cursor: "pointer" }}>
