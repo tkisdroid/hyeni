@@ -1055,11 +1055,15 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         ? haversineM(currentPos.lat, currentPos.lng, ev.location.lat, ev.location.lng)
         : null;
     const displayDist = routeInfo?.distance ?? liveDist;
-    const displayMin = routeInfo?.duration != null
-        ? Math.round(routeInfo.duration / 60)
-        : (liveDist != null ? Math.round(liveDist / 67) : null);
+    // OSRM public 서버는 driving만 지원 → duration 무시, 거리 기반 도보 시간 계산 (4km/h ≈ 67m/min)
+    const displayMin = displayDist != null ? Math.max(1, Math.round(displayDist / 67)) : null;
     const distLabel = displayDist != null
         ? displayDist >= 1000 ? `${(displayDist / 1000).toFixed(1)}km` : `${Math.round(displayDist)}m`
+        : null;
+    const timeLabel = displayMin != null
+        ? displayMin >= 60
+            ? `${Math.floor(displayMin / 60)}시간 ${displayMin % 60 > 0 ? `${displayMin % 60}분` : ""}`
+            : `${displayMin}분`
         : null;
 
     // Start real-time GPS tracking
@@ -1427,7 +1431,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                             <>
                                 <div style={{ fontWeight: 900, fontSize: 20, color: ev.color }}>{distLabel}</div>
                                 <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
-                                    도보 약 {displayMin}분
+                                    도보 약 {timeLabel}
                                     {routeInfo?.error && " (직선거리)"}
                                 </div>
                                 {bunnyEncouragement && (
@@ -1572,7 +1576,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                             </div>
                             {displayMin != null && (
                                 <div style={{ padding: "7px 10px", borderRadius: 999, background: "#EEF2FF", color: "#4338CA", fontSize: 11, fontWeight: 800 }}>
-                                    도보 {displayMin}분
+                                    도보 {timeLabel}
                                 </div>
                             )}
                         </div>
@@ -4641,7 +4645,7 @@ export default function KidsScheduler() {
             />}
 
             {/* ── Child Call Buttons (아이 전용, 화면 우하단 플로팅) ── */}
-            {!isParent && <ChildCallButtons phones={parentPhones} />}
+            {!isParent && !routeEvent && <ChildCallButtons phones={parentPhones} />}
 
             {/* ── Sticker Book Modal ── */}
             {showStickerBook && <StickerBookModal
