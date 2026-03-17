@@ -1035,10 +1035,14 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     const mapInst = useRef();
     const myMarkerRef = useRef(null);
     const polylineRef = useRef(null);
+    const shadowPolyRef = useRef(null);
+    const startOverlayRef = useRef(null);      // "출발" label overlay
+    const arrowOverlaysRef = useRef([]);        // direction arrow overlays
     const routePathRef = useRef(null); // cached route coords for re-render
     const [routeInfo, setRouteInfo] = useState(null);
     const [livePos, setLivePos] = useState(childPos); // real-time GPS tracking
     const [isTracking, setIsTracking] = useState(false);
+    const [gpsError, setGpsError] = useState(false);   // GPS failure flag
     const [centered, setCentered] = useState(true);
     const [mapType, setMapType] = useState("roadmap"); // "hybrid" or "roadmap"
     const [heading, setHeading] = useState(null); // device compass heading in degrees
@@ -1060,19 +1064,20 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 
     // Start real-time GPS tracking
     useEffect(() => {
-        if (!navigator.geolocation) return;
+        if (!navigator.geolocation) { setGpsError(true); return; }
         // 즉시 현재 위치 획득 (watch 첫 응답 전 빈 상태 방지)
         navigator.geolocation.getCurrentPosition(
-            (pos) => setLivePos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-            () => {},
+            (pos) => { setLivePos({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsError(false); },
+            () => { setGpsError(true); },
             { enableHighAccuracy: false, timeout: 5000, maximumAge: 10000 }
         );
         const wid = navigator.geolocation.watchPosition(
             (pos) => {
                 const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 setLivePos(newPos);
+                setGpsError(false);
             },
-            () => {},
+            () => { setGpsError(true); },
             { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
         );
         watchIdRef.current = wid;
@@ -1111,11 +1116,12 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         };
     }, []);
 
-    // Update my-marker position in real-time
+    // Update my-marker + start overlay position in real-time
     useEffect(() => {
         if (!livePos || !mapInst.current || !myMarkerRef.current) return;
         const newLL = new window.kakao.maps.LatLng(livePos.lat, livePos.lng);
         myMarkerRef.current.setPosition(newLL);
+        if (startOverlayRef.current) startOverlayRef.current.setPosition(newLL);
         if (centered) mapInst.current.panTo(newLL);
     }, [livePos, centered]);
 
@@ -1134,11 +1140,40 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
             const route = data.routes[0];
             const coords = route.geometry.coordinates;
             const path = coords.map(([lng, lat]) => new window.kakao.maps.LatLng(lat, lng));
-            // Update polyline
+            routePathRef.current = path;
+            // Update polylines
             if (polylineRef.current) polylineRef.current.setPath(path);
+            if (shadowPolyRef.current) shadowPolyRef.current.setPath(path);
+            // Update direction arrows
+            arrowOverlaysRef.current.forEach(o => o.setMap(null));
+            arrowOverlaysRef.current = createWalkingArrows(mapInst.current, path, "#4285F4");
             setRouteInfo({ distance: route.distance, duration: route.duration, loading: false, error: false });
         }).catch(() => {});
     }, [livePos, ev.location]);
+
+    // Helper: create walking direction arrow overlays along route path
+    const createWalkingArrows = useCallback((map, path, color) => {
+        const arrows = [];
+        if (!path || path.length < 4) return arrows;
+        const interval = Math.max(4, Math.floor(path.length / 8));
+        for (let i = interval; i < path.length - 2; i += interval) {
+            const p1 = path[i - 1];
+            const p2 = path[i + 1];
+            const lat1 = p1.getLat() * Math.PI / 180;
+            const lat2 = p2.getLat() * Math.PI / 180;
+            const dLng = (p2.getLng() - p1.getLng()) * Math.PI / 180;
+            const y = Math.sin(dLng) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+            const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+            const arrowSvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" fill="white" stroke="${color}" stroke-width="2"/><path d="M14 7 L19 17 L14 14 L9 17 Z" fill="${color}" transform="rotate(${bearing}, 14, 14)"/></svg>`)}`;
+            const overlay = new window.kakao.maps.CustomOverlay({
+                map, position: path[i], yAnchor: 0.5, zIndex: 3,
+                content: `<img src="${arrowSvg}" width="26" height="26" style="display:block;pointer-events:none" />`
+            });
+            arrows.push(overlay);
+        }
+        return arrows;
+    }, []);
 
     // Initialize map + route
     useEffect(() => {
@@ -1153,11 +1188,12 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                 center: destLL, level: 4,
                 mapTypeId: window.kakao.maps.MapTypeId.ROADMAP
             });
+            // 도착지 마커 — 깃발 + 이름
             new window.kakao.maps.CustomOverlay({
-                map: mapInst.current, position: destLL, yAnchor: 1.4,
+                map: mapInst.current, position: destLL, yAnchor: 1.4, zIndex: 5,
                 content: `<div style="display:flex;flex-direction:column;align-items:center">
-                    <div style="background:${ev.color};color:white;padding:8px 14px;border-radius:16px;font-size:13px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-family:'Noto Sans KR',sans-serif">🏁 ${escHtml(ev.title)}</div>
-                    <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid ${ev.color}"></div>
+                    <div style="background:${ev.color};color:white;padding:8px 14px;border-radius:16px;font-size:14px;font-weight:900;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-family:'Noto Sans KR',sans-serif;border:2px solid white">🏁 ${escHtml(ev.title)}</div>
+                    <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid ${ev.color}"></div>
                 </div>`
             });
         }
@@ -1169,10 +1205,12 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         const startPos = currentPos;
         const myLL = new window.kakao.maps.LatLng(startPos.lat, startPos.lng);
 
-        // My location marker (movable) — cute bunny face with heading arrow
-        const bunnySvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="56" height="80" viewBox="0 -8 56 80">
-          <!-- pulse ring -->
-          <circle cx="28" cy="36" r="27" fill="rgba(244,114,182,0.15)" stroke="none"><animate attributeName="r" values="24;28;24" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite"/></circle>
+        // ── 내 위치 마커 (이동 가능) — 토끼 + 펄스 링 ──
+        const bunnySvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="92" viewBox="-4 -10 64 92">
+          <!-- outer pulse ring -->
+          <circle cx="28" cy="36" r="30" fill="none" stroke="rgba(236,72,153,0.4)" stroke-width="3"><animate attributeName="r" values="28;34;28" dur="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0.1;0.8" dur="1.8s" repeatCount="indefinite"/></circle>
+          <!-- inner pulse ring -->
+          <circle cx="28" cy="36" r="24" fill="rgba(244,114,182,0.12)" stroke="none"><animate attributeName="r" values="22;26;22" dur="2s" repeatCount="indefinite"/></circle>
           <!-- left ear -->
           <ellipse cx="16" cy="12" rx="7" ry="16" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
           <ellipse cx="16" cy="12" rx="4" ry="12" fill="#FBCFE8"/>
@@ -1180,32 +1218,35 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
           <ellipse cx="40" cy="12" rx="7" ry="16" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
           <ellipse cx="40" cy="12" rx="4" ry="12" fill="#FBCFE8"/>
           <!-- head -->
-          <circle cx="28" cy="36" r="20" fill="#FBCFE8" stroke="#EC4899" stroke-width="2"/>
-          <!-- blush left -->
+          <circle cx="28" cy="36" r="20" fill="#FBCFE8" stroke="#EC4899" stroke-width="2.5"/>
+          <!-- blush -->
           <ellipse cx="14" cy="40" rx="5" ry="3" fill="#F9A8D4" opacity="0.5"/>
-          <!-- blush right -->
           <ellipse cx="42" cy="40" rx="5" ry="3" fill="#F9A8D4" opacity="0.5"/>
-          <!-- left eye -->
-          <circle cx="20" cy="33" r="3.5" fill="#1F2937"/>
-          <circle cx="21.2" cy="31.5" r="1.2" fill="white"/>
-          <!-- right eye -->
-          <circle cx="36" cy="33" r="3.5" fill="#1F2937"/>
-          <circle cx="37.2" cy="31.5" r="1.2" fill="white"/>
+          <!-- eyes -->
+          <circle cx="20" cy="33" r="3.5" fill="#1F2937"/><circle cx="21.2" cy="31.5" r="1.2" fill="white"/>
+          <circle cx="36" cy="33" r="3.5" fill="#1F2937"/><circle cx="37.2" cy="31.5" r="1.2" fill="white"/>
           <!-- nose -->
           <ellipse cx="28" cy="40" rx="3" ry="2.2" fill="#EC4899"/>
           <!-- mouth -->
           <path d="M24 43 Q28 47 32 43" stroke="#EC4899" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          <!-- label -->
-          <rect x="14" y="58" width="28" height="14" rx="7" fill="#EC4899"/>
-          <text x="28" y="68" text-anchor="middle" font-size="9" font-weight="800" fill="white" font-family="sans-serif">나</text>
+          <!-- label: 내 위치 -->
+          <rect x="6" y="62" width="44" height="16" rx="8" fill="#EC4899" stroke="white" stroke-width="1.5"/>
+          <text x="28" y="74" text-anchor="middle" font-size="10" font-weight="900" fill="white" font-family="sans-serif">내 위치</text>
         </svg>`)}`;
         const myOverlay = new window.kakao.maps.CustomOverlay({
-            map: mapInst.current, position: myLL, yAnchor: 0.88,
-            content: `<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 8px rgba(236,72,153,0.4))">
-                <img src="${bunnySvg}" width="52" height="74" style="display:block" />
+            map: mapInst.current, position: myLL, yAnchor: 0.85, zIndex: 10,
+            content: `<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 4px 12px rgba(236,72,153,0.5))">
+                <img src="${bunnySvg}" width="60" height="86" style="display:block" />
             </div>`
         });
         myMarkerRef.current = myOverlay;
+
+        // ── "출발" 라벨 오버레이 (내 위치 위에) ──
+        const startOv = new window.kakao.maps.CustomOverlay({
+            map: mapInst.current, position: myLL, yAnchor: 2.6, zIndex: 9,
+            content: `<div style="background:linear-gradient(135deg,#10B981,#059669);color:white;padding:6px 14px;border-radius:12px;font-size:13px;font-weight:900;box-shadow:0 3px 12px rgba(16,185,129,0.4);font-family:'Noto Sans KR',sans-serif;border:2px solid white">🚶 출발</div>`
+        });
+        startOverlayRef.current = startOv;
 
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setRouteInfo({ loading: true });
@@ -1224,22 +1265,27 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                 const path = coords.map(([lng, lat]) => new window.kakao.maps.LatLng(lat, lng));
                 routePathRef.current = path;
 
-                // Walking route — dashed blue/pink line
+                // ── 도보 경로 — 파란색 실선 (잘 보이게) ──
+                // Shadow polyline (white border effect)
+                const sp = new window.kakao.maps.Polyline({
+                    map: mapInst.current, path,
+                    strokeWeight: 14, strokeColor: "#FFFFFF",
+                    strokeOpacity: 0.9, strokeStyle: "solid"
+                });
+                shadowPolyRef.current = sp;
+
+                // Main route line — bright blue
                 const pl = new window.kakao.maps.Polyline({
                     map: mapInst.current, path,
-                    strokeWeight: 7, strokeColor: ev.color,
-                    strokeOpacity: 0.85, strokeStyle: "solid"
+                    strokeWeight: 8, strokeColor: "#4285F4",
+                    strokeOpacity: 0.95, strokeStyle: "solid"
                 });
                 polylineRef.current = pl;
 
-                // Shadow polyline underneath
-                new window.kakao.maps.Polyline({
-                    map: mapInst.current, path,
-                    strokeWeight: 11, strokeColor: "#00000015",
-                    strokeOpacity: 1, strokeStyle: "solid"
-                });
+                // ── 방향 화살표 오버레이 ──
+                arrowOverlaysRef.current = createWalkingArrows(mapInst.current, path, "#4285F4");
 
-                // Fit route bounds
+                // Fit route bounds (출발 + 도착 + 경로 전체)
                 const bounds = new window.kakao.maps.LatLngBounds();
                 path.forEach(p => bounds.extend(p));
                 bounds.extend(myLL);
@@ -1255,11 +1301,20 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
             })
             .catch(() => {
                 if (cancelled) return;
+                // Fallback: 직선 경로
+                const sp = new window.kakao.maps.Polyline({
+                    map: mapInst.current,
+                    path: [myLL, destLL],
+                    strokeWeight: 10, strokeColor: "#FFFFFF",
+                    strokeOpacity: 0.9, strokeStyle: "solid"
+                });
+                shadowPolyRef.current = sp;
+
                 const pl = new window.kakao.maps.Polyline({
                     map: mapInst.current,
                     path: [myLL, destLL],
-                    strokeWeight: 4, strokeColor: ev.color,
-                    strokeOpacity: 0.7, strokeStyle: "shortdash"
+                    strokeWeight: 6, strokeColor: "#4285F4",
+                    strokeOpacity: 0.8, strokeStyle: "shortdash"
                 });
                 polylineRef.current = pl;
 
@@ -1271,8 +1326,10 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                 setRouteInfo({ loading: false, error: true });
             });
 
-        return () => { cancelled = true; };
-    }, [mapReady, ev, currentPos]);
+        return () => {
+            cancelled = true;
+        };
+    }, [mapReady, ev, currentPos, createWalkingArrows]);
 
     const recenterMap = () => {
         if (!mapInst.current || !currentPos) return;
@@ -1298,6 +1355,16 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         if (routePathRef.current) routePathRef.current.forEach(p => bounds.extend(p));
         mapInst.current.setBounds(bounds, 60);
     };
+
+    // Cleanup overlays on unmount
+    useEffect(() => {
+        return () => {
+            arrowOverlaysRef.current.forEach(o => o.setMap(null));
+            arrowOverlaysRef.current = [];
+            if (startOverlayRef.current) { startOverlayRef.current.setMap(null); startOverlayRef.current = null; }
+            if (myMarkerRef.current) { myMarkerRef.current.setMap(null); myMarkerRef.current = null; }
+        };
+    }, []);
 
     // Arrived check
     const arrived = liveDist != null && liveDist < 100;
@@ -1395,6 +1462,52 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
             <div style={{ flex: 1, margin: "10px 16px", borderRadius: 24, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.1)", position: "relative", minHeight: 0 }}>
                 <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
                 <MapZoomControls mapObj={mapInst} />
+
+                {/* GPS 위치 찾는 중 / 오류 오버레이 */}
+                {!currentPos && (
+                    <div style={{
+                        position: "absolute", inset: 0, zIndex: 20,
+                        background: "rgba(255,255,255,0.75)", backdropFilter: "blur(4px)",
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12
+                    }}>
+                        {gpsError ? (
+                            <>
+                                <div style={{ fontSize: 40 }}>📍</div>
+                                <div style={{ fontSize: 15, fontWeight: 800, color: "#EF4444", fontFamily: FF }}>
+                                    위치를 찾을 수 없어요
+                                </div>
+                                <div style={{ fontSize: 12, color: "#6B7280", fontFamily: FF, textAlign: "center", lineHeight: 1.5 }}>
+                                    GPS가 꺼져 있거나<br />위치 권한이 필요해요
+                                </div>
+                                <button onClick={() => {
+                                    setGpsError(false);
+                                    navigator.geolocation?.getCurrentPosition(
+                                        (pos) => { setLivePos({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsError(false); },
+                                        () => { setGpsError(true); },
+                                        { enableHighAccuracy: true, timeout: 10000 }
+                                    );
+                                }} style={{
+                                    marginTop: 4, padding: "10px 24px", borderRadius: 14,
+                                    background: "linear-gradient(135deg, #4285F4, #1A73E8)", border: "none",
+                                    color: "white", fontSize: 13, fontWeight: 800, cursor: "pointer",
+                                    fontFamily: FF, boxShadow: "0 4px 12px rgba(66,133,244,0.3)"
+                                }}>
+                                    다시 찾기
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <div style={{ fontSize: 40, animation: "pulse 1.5s infinite" }}>📍</div>
+                                <div style={{ fontSize: 15, fontWeight: 800, color: "#4285F4", fontFamily: FF }}>
+                                    내 위치를 찾고 있어요...
+                                </div>
+                                <div style={{ fontSize: 12, color: "#9CA3AF", fontFamily: FF }}>
+                                    GPS 신호를 기다리는 중
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {/* Heading compass indicator (top-right) */}
                 {heading != null && (
