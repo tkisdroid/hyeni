@@ -745,9 +745,9 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
     const [editName, setEditName] = useState("");
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: editingId ? "flex-start" : "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF, paddingTop: editingId ? "env(safe-area-inset-top, 20px)" : 0 }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 460, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
+            <div style={{ background: "white", borderRadius: editingId ? 28 : "28px 28px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 460, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)", marginTop: editingId ? 20 : 0 }}>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: "#374151" }}>🔗 {isParent ? "아이 연동 관리" : "부모님 연동"}</div>
