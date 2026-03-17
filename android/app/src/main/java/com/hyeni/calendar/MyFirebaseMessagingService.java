@@ -43,8 +43,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "FCMService";
     private static final String PREFS_NAME = "hyeni_location_prefs";
-    private static final String ALERT_CHANNEL_ID = "hyeni_alert_v3";
-    private static final String SCHEDULE_CHANNEL_ID = "hyeni_schedule_v3";
+    private static final String ALERT_CHANNEL_ID = "hyeni_alert_v4";
+    private static final String SCHEDULE_CHANNEL_ID = "hyeni_schedule_v4";
     private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen";
     private static final AtomicInteger notifId = new AtomicInteger(5000);
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()

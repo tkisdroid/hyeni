@@ -50,8 +50,8 @@ import okhttp3.Response;
 public class LocationService extends Service {
 
     private static final String TAG = "LocationService";
-    private static final String CHANNEL_ID = "hyeni_location_v3";
-    private static final String ALERT_CHANNEL_ID = "hyeni_alert_v3";
+    private static final String CHANNEL_ID = "hyeni_location_v4";
+    private static final String ALERT_CHANNEL_ID = "hyeni_alert_v4";
     private static final int NOTIFICATION_ID = 9001;
     private static final int ALERT_NOTIFICATION_BASE = 10000;
     private static final long NOTIF_POLL_INTERVAL_MS = 15_000;

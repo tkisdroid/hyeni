@@ -3150,10 +3150,11 @@ export default function KidsScheduler() {
         }
     }, [familyInfo]);
 
-    // ── Register Service Worker for push notifications ──────────────────────────
+    // ── Register Service Worker for push notifications (웹 전용, 네이티브 앱 제외) ──
     useEffect(() => {
+        if (isNativeApp) return; // Android APK → FCM 사용, SW 불필요
         registerSW();
-    }, []);
+    }, [isNativeApp]);
 
     // ── Native notification health (Android Capacitor) ─────────────────────────
     useEffect(() => {
@@ -3201,8 +3202,17 @@ export default function KidsScheduler() {
     // 네이티브 앱(Android)에서는 FCM을 사용하므로 Web Push 구독 안 함 (이중 알림 방지)
     useEffect(() => {
         if (isNativeApp) {
-            // Android: 기존 Web Push 구독 해제 (이중 알림 방지)
-            if (authUser?.id && familyId) unsubscribeFromPush().catch(() => {});
+            // Android: 기존 Web Push 구독 해제 + SW 해제 (이중 알림 완전 차단)
+            unsubscribeFromPush().catch(() => {});
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.getRegistrations().then(regs => {
+                    regs.forEach(r => r.unregister());
+                });
+            }
+            // DB에서도 이 기기의 push_subscriptions 삭제
+            if (authUser?.id) {
+                supabase.from("push_subscriptions").delete().eq("user_id", authUser.id).then(() => {});
+            }
             return;
         }
         if (pushPermission === "granted" && authUser?.id && familyId) {
