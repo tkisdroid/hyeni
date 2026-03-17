@@ -2286,13 +2286,14 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Child Tracker Overlay (학부모용 - 아이 실시간 위치)
 // ─────────────────────────────────────────────────────────────────────────────
-// AI Schedule Modal — 텍스트/이미지 붙여넣기로 일정 자동 등록
+// AI Schedule Modal — 음성/이미지/텍스트로 일정 자동 등록
 // ─────────────────────────────────────────────────────────────────────────────
-function AiScheduleModal({ academies, currentDate, familyId, authUser, events, onSave, onClose }) {
+function AiScheduleModal({ academies, currentDate, familyId, authUser, events, onSave, onClose, startVoiceFn }) {
     const [inputText, setInputText] = useState("");
-    const [imageData, setImageData] = useState(null); // base64 data URI
+    const [imageData, setImageData] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [results, setResults] = useState(null); // { events: [...] }
+    const [voiceListening, setVoiceListening] = useState(false);
+    const [results, setResults] = useState(null);
     const [savedIds, setSavedIds] = useState(new Set());
 
     const handlePaste = (e) => {
@@ -2318,8 +2319,33 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         reader.readAsDataURL(file);
     };
 
-    const analyze = async () => {
-        if (!inputText.trim() && !imageData) return;
+    // Voice input using Web Speech API
+    const startVoiceInput = () => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+            // Fallback: use the parent's startVoice function
+            if (startVoiceFn) { onClose(); startVoiceFn(); }
+            return;
+        }
+        const recognition = new SR();
+        recognition.lang = "ko-KR";
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        setVoiceListening(true);
+        recognition.onresult = (e) => {
+            const transcript = e.results[0]?.[0]?.transcript || "";
+            setInputText(prev => prev ? prev + "\n" + transcript : transcript);
+            setVoiceListening(false);
+        };
+        recognition.onerror = () => setVoiceListening(false);
+        recognition.onend = () => setVoiceListening(false);
+        recognition.start();
+    };
+
+    const analyze = async (text, image) => {
+        const t = text || inputText.trim();
+        const img = image || imageData;
+        if (!t && !img) return;
         setLoading(true);
         setResults(null);
         try {
@@ -2331,8 +2357,8 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}`, "apikey": SUPABASE_KEY },
                 body: JSON.stringify({
-                    text: inputText.trim() || "이미지에서 일정을 추출해주세요",
-                    image: imageData || undefined,
+                    text: t || "이미지에서 일정을 추출해주세요",
+                    image: img || undefined,
                     mode: "paste",
                     academies: academies.map(a => ({ name: a.name, category: a.category })),
                     todayEvents: todayEvs,
@@ -2381,6 +2407,8 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         }
     };
 
+    const btnSt = { width: 64, height: 64, borderRadius: 20, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: FF, fontWeight: 700, fontSize: 10 };
+
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -2390,34 +2418,48 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                     <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
                 </div>
 
-                <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12, lineHeight: 1.5 }}>
-                    카카오톡 공지, 알림장, 학원 안내 등을 붙여넣으세요.<br/>이미지도 붙여넣기(Ctrl+V) 가능합니다.
-                </div>
+                {/* 3가지 입력 방식 버튼 */}
+                {!results && !loading && (
+                    <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 16 }}>
+                        <button onClick={startVoiceInput}
+                            style={{ ...btnSt, background: voiceListening ? "#E879A0" : "linear-gradient(135deg,#F9A8D4,#E879A0)", color: "white", boxShadow: "0 4px 12px rgba(232,121,160,0.3)", animation: voiceListening ? "pulse 1s infinite" : "none" }}>
+                            <span style={{ fontSize: 24 }}>🎤</span>
+                            {voiceListening ? "듣는 중..." : "음성"}
+                        </button>
+                        <label style={{ ...btnSt, background: "linear-gradient(135deg,#93C5FD,#3B82F6)", color: "white", boxShadow: "0 4px 12px rgba(59,130,246,0.3)" }}>
+                            <span style={{ fontSize: 24 }}>📷</span>
+                            이미지
+                            <input type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
+                        </label>
+                        <button onClick={() => document.getElementById("ai-text-input")?.focus()}
+                            style={{ ...btnSt, background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", boxShadow: "0 4px 12px rgba(124,58,237,0.3)" }}>
+                            <span style={{ fontSize: 24 }}>✏️</span>
+                            텍스트
+                        </button>
+                    </div>
+                )}
 
-                <textarea
+                {/* 텍스트 입력 */}
+                <textarea id="ai-text-input"
                     value={inputText} onChange={e => setInputText(e.target.value)}
                     onPaste={handlePaste}
-                    placeholder="텍스트를 붙여넣거나 직접 입력하세요..."
-                    style={{ width: "100%", minHeight: 100, padding: 14, borderRadius: 16, border: "2px solid #E5E7EB", fontSize: 14, fontFamily: FF, resize: "vertical", boxSizing: "border-box", outline: "none" }}
+                    placeholder="카톡 공지, 알림장 등을 붙여넣거나 직접 입력하세요..."
+                    style={{ width: "100%", minHeight: 80, padding: 12, borderRadius: 14, border: "2px solid #E5E7EB", fontSize: 14, fontFamily: FF, resize: "none", boxSizing: "border-box", outline: "none" }}
                 />
 
+                {/* 이미지 미리보기 */}
                 {imageData && (
                     <div style={{ marginTop: 8, position: "relative", display: "inline-block" }}>
-                        <img src={imageData} alt="붙여넣은 이미지" style={{ maxWidth: "100%", maxHeight: 200, borderRadius: 12, border: "2px solid #E5E7EB" }} />
+                        <img src={imageData} alt="첨부 이미지" style={{ maxWidth: "100%", maxHeight: 160, borderRadius: 12, border: "2px solid #E5E7EB" }} />
                         <button onClick={() => setImageData(null)} style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: "50%", background: "#EF4444", color: "white", border: "none", fontSize: 12, cursor: "pointer", fontWeight: 800 }}>✕</button>
                     </div>
                 )}
 
-                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <label style={{ padding: "10px 14px", borderRadius: 14, background: "#F3F4F6", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, display: "flex", alignItems: "center", gap: 4 }}>
-                        📷 이미지
-                        <input type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
-                    </label>
-                    <button onClick={analyze} disabled={loading || (!inputText.trim() && !imageData)}
-                        style={{ flex: 1, padding: "12px 16px", borderRadius: 14, border: "none", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF, color: "white", background: loading ? "#9CA3AF" : "linear-gradient(135deg, #8B5CF6, #6D28D9)", boxShadow: loading ? "none" : "0 4px 12px rgba(109,40,217,0.3)" }}>
-                        {loading ? "🔍 분석 중..." : "🤖 AI 분석"}
-                    </button>
-                </div>
+                {/* 분석 버튼 */}
+                <button onClick={() => analyze()} disabled={loading || (!inputText.trim() && !imageData)}
+                    style={{ width: "100%", marginTop: 10, padding: "14px 16px", borderRadius: 16, border: "none", fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: FF, color: "white", background: loading ? "#9CA3AF" : "linear-gradient(135deg, #8B5CF6, #6D28D9)", boxShadow: loading ? "none" : "0 4px 16px rgba(109,40,217,0.3)" }}>
+                    {loading ? "🔍 AI가 분석하고 있어요..." : "🤖 AI 분석하기"}
+                </button>
 
                 {/* Results */}
                 {results && results.action === "add_events" && results.events?.length > 0 && (
@@ -2435,7 +2477,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                                 <div key={i} style={{ background: saved ? "#F0FDF4" : cat.bg, borderRadius: 16, padding: "12px 14px", marginBottom: 8, border: saved ? "2px solid #6EE7B7" : `1.5px solid #E5E7EB`, opacity: saved ? 0.7 : 1 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                         <div style={{ fontSize: 24 }}>{cat.emoji}</div>
-                                        <div style={{ flex: 1 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontWeight: 800, fontSize: 14, color: "#1F2937" }}>{ev.title}</div>
                                             <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
                                                 {m}월 {d}일 {ev.time || "시간 미정"}
@@ -2443,8 +2485,8 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                                             </div>
                                         </div>
                                         <button onClick={() => saveOne(ev, i)} disabled={saved}
-                                            style={{ padding: "6px 12px", borderRadius: 10, background: saved ? "#D1FAE5" : cat.color, color: saved ? "#065F46" : "white", border: "none", fontSize: 11, fontWeight: 800, cursor: saved ? "default" : "pointer", fontFamily: FF }}>
-                                            {saved ? "✓ 등록됨" : "등록"}
+                                            style={{ padding: "6px 12px", borderRadius: 10, background: saved ? "#D1FAE5" : cat.color, color: saved ? "#065F46" : "white", border: "none", fontSize: 11, fontWeight: 800, cursor: saved ? "default" : "pointer", fontFamily: FF, flexShrink: 0 }}>
+                                            {saved ? "✓" : "등록"}
                                         </button>
                                     </div>
                                 </div>
@@ -4634,12 +4676,6 @@ export default function KidsScheduler() {
                     </button>
                 )}
                 {isParent && (
-                    <button onClick={() => setShowAiSchedule(true)}
-                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#EDE9FE", color: "#6D28D9", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        🤖 AI일정
-                    </button>
-                )}
-                {isParent && (
                     <button onClick={() => setShowDangerZones(true)}
                         style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FEF2F2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
                         ⚠️ 위험지역
@@ -4712,17 +4748,17 @@ export default function KidsScheduler() {
                     혜니캘린더는 아이와 함께 만들어갑니다
                 </div>
 
-                {/* Voice + Add */}
+                {/* AI 일정입력 + 수동 추가 */}
                 <div style={{ width: "100%", maxWidth: 420, display: "flex", gap: 8, marginBottom: 14 }}>
-                    <button onClick={startVoice}
+                    <button onClick={() => setShowAiSchedule(true)}
                         style={{
                             flex: 1, padding: "10px 16px", height: 44, color: "white", border: "none", borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: FF,
-                            background: listening ? "#E879A0" : "linear-gradient(135deg,#F9A8D4,#E879A0)", animation: listening ? "pulse 1s infinite" : "none", boxShadow: "0 3px 12px rgba(232,121,160,0.25)"
+                            background: "linear-gradient(135deg,#8B5CF6,#6D28D9)", boxShadow: "0 3px 12px rgba(109,40,217,0.25)"
                         }}>
-                        {listening ? "🎤 듣는 중..." : "🎤 음성으로 일정등록"}
+                        🤖 AI로 일정입력
                     </button>
                     <button onClick={() => setShowAddModal(true)}
-                        style={{ minWidth: isParent ? 44 : 56, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", border: "none", fontSize: isParent ? 22 : 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 3px 12px rgba(124,58,237,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FF, gap: 2, padding: isParent ? 0 : "0 12px" }}>{isParent ? "+" : "✏️ 추가"}</button>
+                        style={{ minWidth: isParent ? 44 : 56, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#F9A8D4,#E879A0)", color: "white", border: "none", fontSize: isParent ? 22 : 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 3px 12px rgba(232,121,160,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FF, gap: 2, padding: isParent ? 0 : "0 12px" }}>{isParent ? "+" : "✏️ 추가"}</button>
                 </div>
 
                 {/* Day Timetable */}
@@ -5033,6 +5069,7 @@ export default function KidsScheduler() {
                 familyId={familyId}
                 authUser={authUser}
                 events={events[dateKey] || []}
+                startVoiceFn={startVoice}
                 onSave={(newEv, dk) => {
                     setEvents(prev => ({ ...prev, [dk]: [...(prev[dk] || []), newEv].sort((a, b) => a.time.localeCompare(b.time)) }));
                     showNotif(`${newEv.emoji} ${newEv.title} 등록 완료!`);
