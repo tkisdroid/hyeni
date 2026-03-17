@@ -580,10 +580,19 @@ public class LocationService extends Service {
                 for (int i = 0; i < notifications.length(); i++) {
                     JSONObject notif = notifications.getJSONObject(i);
                     String id = notif.getString("id");
+                    deliveredIds.put(id);  // 항상 delivered 처리 (중복 방지)
+
+                    // 보낸 사람 필터링: 내가 보낸 알림은 표시하지 않음
+                    JSONObject data = notif.optJSONObject("data");
+                    String sender = (data != null) ? data.optString("senderUserId", "") : "";
+                    if (sender.equals(userId)) {
+                        Log.d(TAG, "Skipping self-sent notification: " + id);
+                        continue;
+                    }
+
                     String title = notif.optString("title", "혜니캘린더");
                     String notifBody = notif.optString("body", "");
                     showHeadsUpNotification(title, notifBody);
-                    deliveredIds.put(id);
                 }
 
                 markDelivered(deliveredIds);

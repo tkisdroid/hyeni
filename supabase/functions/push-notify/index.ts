@@ -352,10 +352,12 @@ async function handleInstantNotification(
 
   if (!isRemoteListen) {
     // Also queue for Android native polling (fallback)
+    // senderUserId를 data에 포함 → 수신 측에서 자기 알림 필터링
     const { error: pendingErr } = await supabase.from("pending_notifications").insert({
       family_id: familyId,
       title,
       body: message,
+      data: { senderUserId: senderUserId || "" },
     });
 
     if (pendingErr) {
