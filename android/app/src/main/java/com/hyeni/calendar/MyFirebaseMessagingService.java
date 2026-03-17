@@ -312,12 +312,35 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                     .build();
 
                 Response response = HTTP_CLIENT.newCall(req).execute();
-                if (!response.isSuccessful()) {
-                    Log.w(TAG, "FCM token sync failed: " + response.code() + " / " + response.body().string());
-                } else {
+                int code = response.code();
+                if (response.isSuccessful()) {
                     Log.i(TAG, "FCM token synced to Supabase");
+                    response.close();
+                } else {
+                    String errBody = response.body() != null ? response.body().string() : "";
+                    response.close();
+                    Log.w(TAG, "FCM token sync failed: " + code + " / " + errBody);
+
+                    // JWT 만료 시 anon key로 재시도
+                    if (code == 401 || code == 403) {
+                        Log.i(TAG, "Retrying FCM token sync with apikey");
+                        Request retryReq = new Request.Builder()
+                            .url(supabaseUrl + "/rest/v1/fcm_tokens?on_conflict=user_id,fcm_token")
+                            .header("apikey", supabaseKey)
+                            .header("Authorization", "Bearer " + supabaseKey)
+                            .header("Content-Type", "application/json")
+                            .header("Prefer", "resolution=merge-duplicates,return=minimal")
+                            .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+                            .build();
+                        Response retryResp = HTTP_CLIENT.newCall(retryReq).execute();
+                        if (retryResp.isSuccessful()) {
+                            Log.i(TAG, "FCM token synced with apikey fallback");
+                        } else {
+                            Log.e(TAG, "FCM token sync retry failed: " + retryResp.code());
+                        }
+                        retryResp.close();
+                    }
                 }
-                response.close();
             } catch (Exception err) {
                 Log.e(TAG, "FCM token sync error", err);
             }
