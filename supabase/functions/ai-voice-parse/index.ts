@@ -48,6 +48,15 @@ Deno.serve(async (req) => {
     const todayDate = (year && month !== undefined && day) ? new Date(year, month, day) : new Date();
     const todayDow = DOW_KR[todayDate.getDay()];
 
+    // 요일별 정확한 날짜 미리 계산 (AI 날짜 연산 오류 방지)
+    const dowDateMap = DOW_KR.map((name, i) => {
+      const diff = (i - todayDate.getDay() + 7) % 7 || 7; // 오늘 제외, 다음 해당 요일
+      const d = new Date(todayDate.getTime() + diff * 86400000);
+      return `${name}요일 = ${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (month:${d.getMonth()}, day:${d.getDate()})`;
+    }).join("\n   ");
+    const tomorrowDate = new Date(todayDate.getTime() + 86400000);
+    const dayAfterDate = new Date(todayDate.getTime() + 2 * 86400000);
+
     // ── Voice mode system prompt (single event) ──
     const voiceSystemPrompt = `당신은 어린이 일정관리 앱의 AI 비서입니다. 사용자의 음성 입력을 분석하여 정확한 JSON으로 변환합니다.
 
@@ -74,13 +83,13 @@ ${eventList || "(없음)"}
    - 오늘 일정 중 가장 관련 있는 일정에 메모를 추가
    - 대상 일정을 찾지 못하면 targetEventId를 null로
 
-3. 날짜 파싱 (현재 ${todayDow}요일 기준):
-   - "내일" → 현재 날짜 + 1일
-   - "모레" → 현재 날짜 + 2일
-   - "토요일", "일요일" 등 요일명 → 현재 날짜 기준 가장 가까운 미래의 해당 요일 (오늘 포함하지 않음)
-   - "다음주 월요일" → 가장 가까운 다음 주 월요일
-   - **중요**: 요일 계산 시 반드시 현재 날짜(${year}/${monthDisplay}/${day} ${todayDow}요일)로부터 정확히 며칠 후인지 계산하라
+3. 날짜 파싱 — 아래 날짜표를 반드시 참조하라 (직접 계산하지 말 것):
+   - "내일" → ${tomorrowDate.getFullYear()}년 ${tomorrowDate.getMonth()+1}월 ${tomorrowDate.getDate()}일 (month:${tomorrowDate.getMonth()}, day:${tomorrowDate.getDate()})
+   - "모레" → ${dayAfterDate.getFullYear()}년 ${dayAfterDate.getMonth()+1}월 ${dayAfterDate.getDate()}일 (month:${dayAfterDate.getMonth()}, day:${dayAfterDate.getDate()})
+   - 요일명 → 아래 표에서 찾아 그대로 사용:
+   ${dowDateMap}
    - month는 0-based (1월=0, 12월=11)
+   - **절대 직접 계산하지 말고, 위 표의 값을 그대로 사용하라**
 
 ## 응답 형식 (JSON만, 다른 텍스트 없이)
 
@@ -114,7 +123,11 @@ ${academyList || "(없음)"}
 5. 등록된 학원명이 텍스트에 포함되어 있으면 academyName 필드에 해당 학원명을 넣어라.
 6. month는 0-based (1월=0, 12월=11)
 7. 준비물이나 추가 정보가 있으면 memo에 넣어라.
-8. 요일명("토요일" 등) → 현재 ${todayDow}요일 기준 가장 가까운 미래의 해당 요일로 계산 (오늘 제외). 반드시 날짜를 정확히 계산하라.
+8. 요일명 → 아래 날짜표를 반드시 참조 (직접 계산 금지):
+   "내일" → month:${tomorrowDate.getMonth()}, day:${tomorrowDate.getDate()}
+   "모레" → month:${dayAfterDate.getMonth()}, day:${dayAfterDate.getDate()}
+   ${dowDateMap}
+   **절대 직접 계산하지 말고 위 표의 값을 그대로 사용하라.**
 
 ## 응답 형식 (JSON만)
 

@@ -2386,10 +2386,12 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         if (savedIds.has(idx)) return;
         const cat = CATS[ev.category] || CATS.other;
         const matchedAcademy = ev.academyName ? academies.find(a => a.name === ev.academyName) : null;
+        const safeTime = (ev.time && ev.time !== "null") ? ev.time : "09:00";
+        const safeMemo = (ev.memo && ev.memo !== "null") ? ev.memo : "";
         const newEv = {
-            id: generateUUID(), title: ev.title, time: ev.time || "09:00",
+            id: generateUUID(), title: ev.title, time: safeTime,
             category: ev.category || "other", emoji: matchedAcademy?.emoji || cat.emoji,
-            color: cat.color, bg: cat.bg, memo: ev.memo || "",
+            color: cat.color, bg: cat.bg, memo: safeMemo,
             location: matchedAcademy?.location || null, notifOverride: null,
         };
         const dk = `${ev.year ?? currentDate.year}-${ev.month ?? currentDate.month}-${ev.day ?? currentDate.day}`;
@@ -2495,8 +2497,8 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontWeight: 800, fontSize: 14, color: "#1F2937" }}>{ev.title}</div>
                                             <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
-                                                {m}월 {d}일 {ev.time || "시간 미정"}
-                                                {ev.memo && ` · ${ev.memo}`}
+                                                {m}월 {d}일 {(ev.time && ev.time !== "null") ? ev.time : "시간 미정"}
+                                                {ev.memo && ev.memo !== "null" && ` · ${ev.memo}`}
                                             </div>
                                         </div>
                                         <button onClick={async () => {
