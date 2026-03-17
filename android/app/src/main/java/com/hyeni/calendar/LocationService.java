@@ -61,8 +61,8 @@ public class LocationService extends Service {
     // Location tracking constants
     private static final long LOCATION_INTERVAL_MOVING_MS = 10_000;
     private static final long LOCATION_INTERVAL_STATIONARY_MS = 60_000;
-    private static final float STATIONARY_THRESHOLD_M = 10f;
-    private static final long STATIONARY_WINDOW_MS = 30_000;
+    private static final float STATIONARY_THRESHOLD_M = 15f;  // 15m 이내 이동 = 정지로 간주
+    private static final long STATIONARY_WINDOW_MS = 60_000; // 60초 동안 정지 시 저전력 모드
     private static final float MIN_UPLOAD_DISTANCE_M = 5f;
     private static final float MIN_UPDATE_DISTANCE_M = 3f;
     private static final float MAX_ACCURACY_M = 100f;
@@ -80,7 +80,7 @@ public class LocationService extends Service {
     private Runnable eventCheckRunnable;
     private Runnable wakeLockRenewRunnable;
     private Runnable tokenRefreshRunnable;
-    private static final long TOKEN_REFRESH_INTERVAL_MS = 45 * 60 * 1000L; // refresh token every 45min
+    private static final long TOKEN_REFRESH_INTERVAL_MS = 50 * 60 * 1000L; // refresh token every 50min (before 60min expiry)
     private final AtomicInteger alertCounter = new AtomicInteger(0);
 
     // Track which event notifications we already showed (to avoid duplicates)
@@ -474,36 +474,50 @@ public class LocationService extends Service {
                 body.put("p_lng", lng);
 
                 String url = supabaseUrl + "/rest/v1/rpc/upsert_child_location";
+                String bodyStr = body.toString();
+                MediaType jsonType = MediaType.get("application/json");
                 String bearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
-                Request req = new Request.Builder()
-                    .url(url)
-                    .header("apikey", supabaseKey)
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + bearer)
-                    .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
-                    .build();
 
-                Response response = httpClient.newCall(req).execute();
+                // 1차 시도: 현재 토큰
+                Response response = httpClient.newCall(new Request.Builder()
+                    .url(url).header("apikey", supabaseKey).header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + bearer)
+                    .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
                 int code = response.code();
                 response.close();
 
-                if (!response.isSuccessful()) {
-                    Log.w(TAG, "Location upload failed: " + code + ", retrying with anon key");
-                    // Retry with anon key (token might be expired)
-                    Request retryReq = new Request.Builder()
-                        .url(url)
-                        .header("apikey", supabaseKey)
-                        .header("Content-Type", "application/json")
-                        .header("Authorization", "Bearer " + supabaseKey)
-                        .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
-                        .build();
-                    Response retryResp = httpClient.newCall(retryReq).execute();
-                    if (!retryResp.isSuccessful()) {
-                        Log.w(TAG, "Location upload retry also failed: " + retryResp.code());
-                    } else {
-                        Log.i(TAG, "Location uploaded with anon key fallback");
+                if (code == 401 || code == 403) {
+                    // 2차 시도: SharedPreferences에서 최신 토큰 재로드
+                    refreshAccessToken();
+                    String freshToken = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+                    Log.w(TAG, "Location upload auth failed (" + code + "), retrying with refreshed token");
+                    Response retry1 = httpClient.newCall(new Request.Builder()
+                        .url(url).header("apikey", supabaseKey).header("Content-Type", "application/json")
+                        .header("Authorization", "Bearer " + freshToken)
+                        .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
+                    int code2 = retry1.code();
+                    retry1.close();
+
+                    if (code2 == 401 || code2 == 403) {
+                        // 3차 시도: anon key (SECURITY DEFINER RPC용 최후 폴백)
+                        Log.w(TAG, "Retry failed (" + code2 + "), final fallback with apikey");
+                        Response retry2 = httpClient.newCall(new Request.Builder()
+                            .url(url).header("apikey", supabaseKey).header("Content-Type", "application/json")
+                            .header("Authorization", "Bearer " + supabaseKey)
+                            .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
+                        if (!retry2.isSuccessful()) {
+                            Log.e(TAG, "Location upload ALL retries failed: " + retry2.code());
+                        } else {
+                            Log.i(TAG, "Location uploaded with apikey fallback");
+                        }
+                        retry2.close();
+                    } else if (code2 >= 200 && code2 < 300) {
+                        Log.i(TAG, "Location uploaded with refreshed token");
                     }
-                    retryResp.close();
+                } else if (code >= 200 && code < 300) {
+                    // 성공
+                } else {
+                    Log.w(TAG, "Location upload failed: " + code);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Location upload error", e);
@@ -543,6 +557,12 @@ public class LocationService extends Service {
                     .build();
 
                 Response response = httpClient.newCall(req).execute();
+                if (response.code() == 401 || response.code() == 403) {
+                    response.close();
+                    refreshAccessToken();
+                    Log.w(TAG, "Notification poll auth failed (" + response.code() + "), token refreshed for next cycle");
+                    return;
+                }
                 if (!response.isSuccessful()) {
                     response.close();
                     return;

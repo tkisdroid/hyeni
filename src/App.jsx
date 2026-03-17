@@ -389,7 +389,7 @@ function escHtml(str) {
 }
 
 const ARRIVAL_R = 50; // metres (geo-fence radius)
-const DEPARTURE_TIMEOUT_MS = 60_000; // 1 minute outside = departure alert (GPS 오류 방지)
+const DEPARTURE_TIMEOUT_MS = 90_000; // 90초 outside = departure alert (GPS 지터 오알림 방지)
 const DEFAULT_NOTIF = { childEnabled: true, parentEnabled: true, minutesBefore: [15, 5] };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3667,16 +3667,14 @@ export default function KidsScheduler() {
         const load = () => {
             fetchChildLocations(familyId).then(locs => {
                 if (cancelled || !locs.length) return;
-                // 첫 번째 아이 위치 (기존 호환)
                 const latest = locs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
                 setChildPos({ lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at });
-                // 모든 아이 위치 (다중 마커용)
                 const positions = locs.map(loc => {
                     const member = children.find(c => c.user_id === loc.user_id);
                     return { user_id: loc.user_id, name: member?.name || "아이", emoji: member?.emoji || "🐰", lat: loc.lat, lng: loc.lng, updatedAt: loc.updated_at };
                 });
                 setAllChildPositions(positions);
-            });
+            }).catch(err => console.error("[fetchChildLocations] failed:", err));
         };
         load();
         const iv = setInterval(load, 10000);
@@ -3709,13 +3707,16 @@ export default function KidsScheduler() {
         fetchDangerZones(familyId).then(z => setDangerZones(z));
     }, [familyId]);
 
-    // ── Danger zone proximity detection ──────────────────────────────────────────
+    // ── Danger zone proximity detection (재진입 시 재알림 지원) ─────────────────
     useEffect(() => {
         if (!childPos || !dangerZones.length || !isParent) return;
         dangerZones.forEach(zone => {
-            if (firedDangerAlerts.has(zone.id)) return;
             const dist = haversineM(childPos.lat, childPos.lng, zone.lat, zone.lng);
-            if (dist < zone.radius_m) {
+            const isInside = dist < zone.radius_m;
+            const wasFired = firedDangerAlerts.has(zone.id);
+
+            if (isInside && !wasFired) {
+                // 진입 → 알림
                 setFiredDangerAlerts(prev => new Set([...prev, zone.id]));
                 const childName = familyInfo?.members?.find(m => m.role === "child")?.name || "아이";
                 addAlert(`⚠️ ${childName}이(가) 위험지역 '${zone.name}' 근처에 있어요! (${Math.round(dist)}m)`, "parent");
@@ -3724,6 +3725,9 @@ export default function KidsScheduler() {
                     title: `⚠️ 위험지역 접근 알림`,
                     message: `${childName}이(가) '${zone.name}' 근처(${Math.round(dist)}m)에 있어요!`,
                 });
+            } else if (!isInside && wasFired && dist > zone.radius_m * 1.5) {
+                // 충분히 벗어남 → 알림 플래그 초기화 (재진입 시 다시 알림)
+                setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(zone.id); return n; });
             }
         });
     }, [childPos, dangerZones, firedDangerAlerts, isParent, familyInfo, familyId, authUser, addAlert]);
