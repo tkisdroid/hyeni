@@ -2951,7 +2951,7 @@ export default function KidsScheduler() {
     const departureTimers = useRef({}); // { eventId: { timer, leftAt } }
     const [departedAlerts, setDepartedAlerts] = useState(new Set());
     // ── Audio recording ─────────────────────────────────────────────────────────
-    const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+
 
     // ── Voice ──────────────────────────────────────────────────────────────────
     const [voicePreview, setVoicePreview] = useState(null);
@@ -4628,15 +4628,9 @@ export default function KidsScheduler() {
                     </button>
                 )}
                 {isParent && (
-                    <button onClick={() => setIsRecordingAudio(true)}
+                    <button onClick={() => showNotif("🎙️ 주변소리 듣기는 유료기능으로 오픈 예정이에요", "success")}
                         style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FEE2E2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
                         🎙️ 주변소리
-                    </button>
-                )}
-                {isParent && (
-                    <button onClick={() => showNotif("🎙️ 음성녹음은 유료기능으로 오픈 예정이에요", "success")}
-                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FECACA", color: "#991B1B", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        🎙️ 음성녹음
                     </button>
                 )}
                 {isParent && (
@@ -5064,14 +5058,6 @@ export default function KidsScheduler() {
                     showNotif("위험지역이 삭제됐어요");
                 }}
                 onClose={() => setShowDangerZones(false)}
-            />}
-
-            {/* ── Audio Recorder Modal (학부모 전용) ── */}
-            {isRecordingAudio && <AmbientAudioRecorder
-                channel={realtimeChannel.current}
-                familyId={familyId}
-                senderUserId={authUser?.id}
-                onClose={() => setIsRecordingAudio(false)}
             />}
 
             {/* ── 꾹 수신 전체화면 오버레이 ── */}
