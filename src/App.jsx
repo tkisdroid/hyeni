@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { kakaoLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, generateUUID } from "./lib/auth.js";
+import { kakaoLogin, getSession, joinFamily, getMyFamily, unpairChild, saveParentPhones, generateUUID } from "./lib/auth.js";
 import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
@@ -11,6 +11,7 @@ import { REMOTE_AUDIO_DEFAULT_DURATION_SEC, startRemoteAudioCapture, stopRemoteA
 import { startNativeLocationService, stopNativeLocationService } from "./lib/locationService.js";
 import { loadKakaoMap } from "./lib/kakaoMaps.js";
 import useAuth from "./hooks/useAuth.js";
+import useFamily from "./hooks/useFamily.js";
 import BunnyMascot from "./components/common/BunnyMascot.jsx";
 import AlertBanner from "./components/common/AlertBanner.jsx";
 import EmergencyBanner from "./components/common/EmergencyBanner.jsx";
@@ -64,7 +65,13 @@ export default function KidsScheduler() {
         handleLogout,
         handleAuthUser,
     } = useAuth();
-    const [showPairing, setShowPairing] = useState(false);
+    const {
+        showPairing, setShowPairing,
+        parentPhones, setParentPhones,
+        showPhoneSettings, setShowPhoneSettings,
+        handleCreateFamily,
+        handleJoinAsParent,
+    } = useFamily({ authUser, familyInfo, setFamilyInfo, setMyRole, setShowParentSetup });
     const _pairedDevice = pairedChildren[0] || null; // 첫 번째 아이 (하위호환)
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
@@ -78,8 +85,6 @@ export default function KidsScheduler() {
     const [memoReplies, setMemoReplies] = useState([]);
     const [memoReadBy, setMemoReadBy] = useState([]);
     const [globalNotif, _setGlobalNotif] = useState(DEFAULT_NOTIF);
-    const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
-    const [showPhoneSettings, setShowPhoneSettings] = useState(false);
 
     // ── UI state ───────────────────────────────────────────────────────────────
     const [showAddModal, setShowAddModal] = useState(false);
@@ -215,12 +220,6 @@ export default function KidsScheduler() {
         return () => document.removeEventListener("visibilitychange", handleVisibility);
     }, [familyId, authUser?.id, myRole, dateKey]);
 
-    // ── Sync parent phones from familyInfo ─────────────────────────────────────
-    useEffect(() => {
-        if (familyInfo?.phones) {
-            setParentPhones(familyInfo.phones);
-        }
-    }, [familyInfo]);
 
     // ── Register Service Worker for push notifications (웹 전용, 네이티브 앱 제외) ──
     useEffect(() => {
@@ -1285,49 +1284,6 @@ export default function KidsScheduler() {
 
     const TABS = [["calendar", "📅 달력"], ["maplist", "📍 장소"]];
 
-    // ── Handle parent setup: create new family or join existing ────────────────
-    const handleCreateFamily = async () => {
-        if (!authUser) return;
-        try {
-            await setupFamily(authUser.id, authUser.user_metadata?.name || "부모");
-            const fam = await getMyFamily(authUser.id);
-            if (fam) {
-                setFamilyInfo(fam);
-                setMyRole(fam.myRole);
-                setShowParentSetup(false);
-                setShowPairing(true);
-                showNotif("가족이 생성되었어요! 아래 연동코드를 공유해 주세요 🎉");
-            }
-        } catch (err) {
-            console.error("[createFamily]", err);
-            showNotif("가족 생성 실패: " + (err.message || ""), "error");
-        }
-    };
-
-    const handleJoinAsParent = async (code) => {
-        if (!authUser || !code.trim()) return;
-        try {
-            await joinFamilyAsParent(code.trim(), authUser.id, authUser.user_metadata?.name || "부모");
-            const fam = await getMyFamily(authUser.id);
-            if (fam) {
-                setFamilyInfo(fam);
-                setMyRole(fam.myRole);
-                setShowParentSetup(false);
-                showNotif("가족에 합류했어요! 🎉");
-            }
-        } catch (err) {
-            console.error("[joinAsParent]", err);
-            showNotif("합류 실패: 코드를 확인해주세요", "error");
-        }
-    };
-
-    useEffect(() => {
-        // Show pairing modal if parent is logged in but no other family members exist
-        if (familyInfo?.myRole === "parent" && familyInfo?.members?.length === 1) {
-            setShowPairing(true);
-        }
-    }, [familyInfo]);
-
     // ── Render ─────────────────────────────────────────────────────────────────
     if (authLoading) return (
         <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", fontFamily: FF }}>
@@ -1344,7 +1300,7 @@ export default function KidsScheduler() {
 
     // ── Parent first login: choose "새 가족 만들기" or "기존 가족 합류" ────────
     if (showParentSetup && !familyInfo) return (
-        <ParentSetupScreen onCreateFamily={handleCreateFamily} onJoinAsParent={handleJoinAsParent} />
+        <ParentSetupScreen onCreateFamily={() => handleCreateFamily(showNotif)} onJoinAsParent={(code) => handleJoinAsParent(code, showNotif)} />
     );
 
     if (showAcademyMgr) return (
