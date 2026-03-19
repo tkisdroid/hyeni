@@ -8,41 +8,8 @@ import "./App.css";
 import { KAKAO_APP_KEY, SUPABASE_URL, SUPABASE_KEY, PARENT_PAIRING_INTENT_KEY, PUSH_FUNCTION_URL, AI_PARSE_URL, AI_MONITOR_URL, FF, DAYS_KO, MONTHS_KO, ARRIVAL_R, DEPARTURE_TIMEOUT_MS, DEFAULT_NOTIF, getNativeSetupAction, sendInstantPush, rememberParentPairingIntent, clearParentPairingIntent, escHtml, haversineM, getDIM, getFD, fmtT } from "./lib/utils.js";
 import { DEFAULT_CATEGORIES, LS_CUSTOM_CATS, loadCategories, saveCustomCategories, getCustomCategories, DEFAULT_CAT_IDS, ACADEMY_PRESETS, SCHEDULE_PRESETS, getCategories } from "./lib/categories.js";
 import { REMOTE_AUDIO_DEFAULT_DURATION_SEC, startRemoteAudioCapture, stopRemoteAudioCapture } from "./lib/remoteAudio.js";
-
-
-// Native background location (Capacitor plugin)
-async function startNativeLocationService(userId, familyId, accessToken, role) {
-    try {
-        const { Capacitor } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-            const { registerPlugin } = await import("@capacitor/core");
-            const BackgroundLocation = registerPlugin("BackgroundLocation");
-            await BackgroundLocation.startService({
-                userId, familyId,
-                supabaseUrl: SUPABASE_URL,
-                supabaseKey: SUPABASE_KEY,
-                accessToken: accessToken || "",
-                role: role || "child"
-            });
-            console.log("[Native] Background location service started");
-            return true;
-        }
-    } catch (e) {
-        console.log("[Native] Not available (web mode):", e.message);
-    }
-    return false;
-}
-
-async function stopNativeLocationService() {
-    try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-            const BackgroundLocation = registerPlugin("BackgroundLocation");
-            await BackgroundLocation.stopService();
-            console.log("[Native] Background location service stopped");
-        }
-    } catch { /* web mode */ }
-}
+import { startNativeLocationService, stopNativeLocationService } from "./lib/locationService.js";
+import { loadKakaoMap } from "./lib/kakaoMaps.js";
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,37 +108,6 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 
-
-// Kakao Maps
-let kakaoReady = null; // shared promise
-function loadKakaoMap(appKey) {
-    if (kakaoReady) return kakaoReady;
-    kakaoReady = new Promise((res, rej) => {
-        if (window.kakao?.maps?.LatLng) { res(); return; }
-        const timeout = setTimeout(() => {
-            kakaoReady = null;
-            rej(new Error("timeout"));
-        }, 15000);
-        const s = document.createElement("script");
-        s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services`;
-        s.onload = () => {
-            try {
-                window.kakao.maps.load(() => {
-                    clearTimeout(timeout);
-                    console.log("[KakaoMap] SDK ready");
-                    res();
-                });
-            } catch (e) {
-                clearTimeout(timeout);
-                kakaoReady = null;
-                rej(new Error(`maps.load error: ${e.message}`));
-            }
-        };
-        s.onerror = () => { clearTimeout(timeout); kakaoReady = null; rej(new Error("script load failed")); };
-        document.head.appendChild(s);
-    });
-    return kakaoReady;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Kakao Static Map (thumbnail)
