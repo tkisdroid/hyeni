@@ -5,93 +5,8 @@ import { registerSW, requestPermission, getPermissionStatus, scheduleNotificatio
 import { supabase } from "./lib/supabase.js";
 import "./App.css";
 
-const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_APP_KEY;
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const PARENT_PAIRING_INTENT_KEY = "kids-app:parent-pairing-intent";
-const PUSH_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/push-notify` : "";
-const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse` : "";
-const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
+import { KAKAO_APP_KEY, SUPABASE_URL, SUPABASE_KEY, PARENT_PAIRING_INTENT_KEY, PUSH_FUNCTION_URL, AI_PARSE_URL, AI_MONITOR_URL, FF, DAYS_KO, MONTHS_KO, ARRIVAL_R, DEPARTURE_TIMEOUT_MS, DEFAULT_NOTIF, getNativeSetupAction, sendInstantPush, rememberParentPairingIntent, clearParentPairingIntent, escHtml, haversineM, getDIM, getFD, fmtT } from "./lib/utils.js";
 
-function getNativeSetupAction(health) {
-    if (!health) return null;
-    if (!health.postPermissionGranted || !health.notificationsEnabled || !health.channelsEnabled) {
-        return { target: "notifications", label: "알림 권한 열기" };
-    }
-    if (!health.fullScreenIntentAllowed) {
-        return { target: "fullScreen", label: "전체화면 알림 허용" };
-    }
-    if (!health.batteryOptimizationsIgnored) {
-        return { target: "battery", label: "배터리 예외 허용" };
-    }
-    if (!health.exactAlarmAllowed) {
-        return { target: "exactAlarm", label: "정확한 알림 허용" };
-    }
-    return null;
-}
-
-// Send instant push notification via Edge Function
-async function sendInstantPush({ action, familyId, senderUserId, title, message }) {
-    if (!familyId) return;
-    const payload = JSON.stringify({ action, familyId, senderUserId, title, message });
-    const url = PUSH_FUNCTION_URL;
-    if (!url) return;
-    const session = await getSession().catch(() => null);
-    const token = session?.access_token || "";
-
-    // Method 1: XMLHttpRequest with auth headers
-    try {
-        await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", url, true);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-            xhr.timeout = 10000;
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    console.log("[Push] sent via XHR:", action, xhr.status);
-                    resolve();
-                    return;
-                }
-                reject(new Error(`XHR ${xhr.status}: ${xhr.responseText || "push failed"}`));
-            };
-            xhr.onerror = () => reject(new Error("XHR error"));
-            xhr.ontimeout = () => reject(new Error("XHR timeout"));
-            xhr.send(payload);
-        });
-        return;
-    } catch (e) {
-        console.log("[Push] XHR failed:", e.message);
-        // Method 2: fetch with auth headers
-        try {
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-                },
-                body: payload,
-            });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-            }
-            console.log("[Push] sent via fetch:", action);
-            return;
-        } catch (e2) {
-            console.log("[Push] fetch failed:", e2.message);
-        }
-    }
-
-    // Method 3: best-effort beacon fallback for app background/unload
-    try {
-        if (navigator.sendBeacon) {
-            const sent = navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
-            console.log("[Push] beacon fallback:", action, sent ? "queued" : "failed");
-        }
-    } catch (e) {
-        console.log("[Push] all methods failed:", e.message);
-    }
-}
 
 const REMOTE_AUDIO_CHUNK_MS = 2000;
 const REMOTE_AUDIO_DEFAULT_DURATION_SEC = 30;
@@ -239,17 +154,6 @@ async function stopNativeLocationService() {
     } catch { /* web mode */ }
 }
 
-function rememberParentPairingIntent() {
-    if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(PARENT_PAIRING_INTENT_KEY, "1");
-    }
-}
-
-function clearParentPairingIntent() {
-    if (typeof window !== "undefined") {
-        window.sessionStorage.removeItem(PARENT_PAIRING_INTENT_KEY);
-    }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mascot
@@ -276,8 +180,6 @@ const BunnyMascot = ({ size = 80 }) => (
 // ─────────────────────────────────────────────────────────────────────────────
 // Parent Setup Screen (extracted component – hooks must be at top level)
 // ─────────────────────────────────────────────────────────────────────────────
-const FF = "'Noto Sans KR','Apple SD Gothic Neo',sans-serif";
-
 function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
     const [joinCode, setJoinCode] = useState("");
     const [mode, setMode] = useState(null); // null | "create" | "join"
@@ -348,7 +250,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
     { id: "school", label: "학원", emoji: "📚", color: "#A78BFA", bg: "#EDE9FE" },
     { id: "sports", label: "운동", emoji: "⚽", color: "#34D399", bg: "#D1FAE5" },
     { id: "hobby", label: "취미", emoji: "🎨", color: "#F59E0B", bg: "#FEF3C7" },
@@ -356,6 +258,22 @@ const CATEGORIES = [
     { id: "friend", label: "친구", emoji: "👫", color: "#60A5FA", bg: "#DBEAFE" },
     { id: "other", label: "기타", emoji: "🌟", color: "#EC4899", bg: "#FCE7F3" },
 ];
+const LS_CUSTOM_CATS = "hyeni-custom-categories";
+function loadCategories() {
+    try {
+        const custom = JSON.parse(localStorage.getItem(LS_CUSTOM_CATS) || "[]");
+        return [...DEFAULT_CATEGORIES, ...custom];
+    } catch { return [...DEFAULT_CATEGORIES]; }
+}
+let CATEGORIES = loadCategories();
+function saveCustomCategories(customs) {
+    try { localStorage.setItem(LS_CUSTOM_CATS, JSON.stringify(customs)); } catch {}
+    CATEGORIES = [...DEFAULT_CATEGORIES, ...customs];
+}
+function getCustomCategories() {
+    try { return JSON.parse(localStorage.getItem(LS_CUSTOM_CATS) || "[]"); } catch { return []; }
+}
+const DEFAULT_CAT_IDS = new Set(DEFAULT_CATEGORIES.map(c => c.id));
 
 const ACADEMY_PRESETS = [
     { label: "영어학원", emoji: "🔤", category: "school" },
@@ -380,30 +298,6 @@ const SCHEDULE_PRESETS = [
     { label: "방과후 3D펜", emoji: "🖊️", category: "hobby" },
 ];
 
-const DAYS_KO = ["일", "월", "화", "수", "목", "금", "토"];
-const MONTHS_KO = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
-// HTML escape to prevent XSS in Kakao CustomOverlay template literals
-function escHtml(str) {
-    if (!str) return "";
-    return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-}
-
-const ARRIVAL_R = 50; // metres (geo-fence radius)
-const DEPARTURE_TIMEOUT_MS = 90_000; // 90초 outside = departure alert (GPS 지터 오알림 방지)
-const DEFAULT_NOTIF = { childEnabled: true, parentEnabled: true, minutesBefore: [15, 5] };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-function haversineM(la1, lo1, la2, lo2) {
-    const R = 6371000, p1 = la1 * Math.PI / 180, p2 = la2 * Math.PI / 180;
-    const dp = (la2 - la1) * Math.PI / 180, dl = (lo2 - lo1) * Math.PI / 180;
-    const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-const getDIM = (y, m) => new Date(y, m + 1, 0).getDate();
-const getFD = (y, m) => new Date(y, m, 1).getDay();
-const fmtT = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 
 // Kakao Maps
 let kakaoReady = null; // shared promise
@@ -411,15 +305,26 @@ function loadKakaoMap(appKey) {
     if (kakaoReady) return kakaoReady;
     kakaoReady = new Promise((res, rej) => {
         if (window.kakao?.maps?.LatLng) { res(); return; }
+        const timeout = setTimeout(() => {
+            kakaoReady = null;
+            rej(new Error("timeout"));
+        }, 15000);
         const s = document.createElement("script");
         s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services`;
         s.onload = () => {
-            window.kakao.maps.load(() => {
-                console.log("[KakaoMap] SDK ready");
-                res();
-            });
+            try {
+                window.kakao.maps.load(() => {
+                    clearTimeout(timeout);
+                    console.log("[KakaoMap] SDK ready");
+                    res();
+                });
+            } catch (e) {
+                clearTimeout(timeout);
+                kakaoReady = null;
+                rej(new Error(`maps.load error: ${e.message}`));
+            }
         };
-        s.onerror = () => { kakaoReady = null; rej(new Error("script load failed")); };
+        s.onerror = () => { clearTimeout(timeout); kakaoReady = null; rej(new Error("script load failed")); };
         document.head.appendChild(s);
     });
     return kakaoReady;
@@ -587,7 +492,7 @@ function AlertBanner({ alerts, onDismiss }) {
     const ICON = { parent: "👨‍👩‍👧", child: "🐰", friend: "👫", emergency: "🚨", sync: "📅" };
     const LABEL = { parent: "부모님 알림", child: "아이 알림", friend: "친구 알림", emergency: "⚠️ 긴급 미도착", sync: "📅 일정 동기화" };
     return (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 350, display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px", pointerEvents: "none" }}>
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 350, display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)", pointerEvents: "none" }}>
             {alerts.map(a => (
                 <div key={a.id} style={{ background: BG[a.type] || BG.parent, color: "white", borderRadius: 20, padding: "14px 18px", boxShadow: "0 8px 32px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", gap: 12, animation: "slideDownFull 0.4s ease", pointerEvents: "all", fontFamily: FF }}>
                     <div style={{ fontSize: 26 }}>{ICON[a.type] || "🔔"}</div>
@@ -877,6 +782,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
     const [showMap, setShowMap] = useState(false);
     const [editIdx, setEditIdx] = useState(null);
     const [form, setForm] = useState({ name: "", category: "school", emoji: "📚", location: null, schedule: null });
+    const [showAcademyCatAdd, setShowAcademyCatAdd] = useState(false);
     const DAYS_LABEL = ["일", "월", "화", "수", "목", "금", "토"];
 
     const openNew = (preset = null) => {
@@ -945,7 +851,9 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                                         {cat.emoji} {cat.label}
                                     </button>
                                 ))}
+                                <button onClick={() => setShowAcademyCatAdd(prev => !prev)} style={{ padding: "7px 12px", borderRadius: 14, border: "2px dashed #D1D5DB", background: "#F9FAFB", color: "#6B7280", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: FF }}>+ 추가</button>
                             </div>
+                            {showAcademyCatAdd && <CategoryAddForm onAdd={(cat) => { saveCustomCategories([...getCustomCategories(), cat]); setForm(p => ({ ...p, category: cat.id, emoji: cat.emoji })); setShowAcademyCatAdd(false); }} onClose={() => setShowAcademyCatAdd(false)} />}
                         </div>
                         <div style={{ marginBottom: 16 }}>
                             <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>📍 위치 (GPS)</label>
@@ -1043,12 +951,45 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     const [routeInfo, setRouteInfo] = useState(null);
     const [livePos, setLivePos] = useState(childPos); // real-time GPS tracking
     const [isTracking, setIsTracking] = useState(false);
-    const [gpsError, setGpsError] = useState(false);   // GPS failure flag
+    const [gpsError, setGpsError] = useState(() => typeof navigator !== "undefined" && !navigator.geolocation);   // GPS failure flag
     const [centered, setCentered] = useState(true);
     const [mapType, setMapType] = useState("roadmap"); // "hybrid" or "roadmap"
     const [heading, setHeading] = useState(null); // device compass heading in degrees
     const watchIdRef = useRef(null);
     const routeInitDoneRef = useRef(false);
+    const lastRoutePosRef = useRef(null);
+
+    // Helper: create walking direction arrow overlays along route path
+    const createWalkingArrows = useCallback((map, path, color) => {
+        const arrows = [];
+        if (!path || path.length < 4) return arrows;
+        const interval = Math.max(4, Math.floor(path.length / 8));
+        for (let i = interval; i < path.length - 2; i += interval) {
+            const p1 = path[i - 1];
+            const p2 = path[i + 1];
+            const lat1 = p1.getLat() * Math.PI / 180;
+            const lat2 = p2.getLat() * Math.PI / 180;
+            const dLng = (p2.getLng() - p1.getLng()) * Math.PI / 180;
+            const y = Math.sin(dLng) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+            const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+            const arrowSvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" fill="white" stroke="${color}" stroke-width="2"/><path d="M14 7 L19 17 L14 14 L9 17 Z" fill="${color}" transform="rotate(${bearing}, 14, 14)"/></svg>`)}`;
+            const overlay = new window.kakao.maps.CustomOverlay({
+                map, position: path[i], yAnchor: 0.5, zIndex: 3,
+                content: `<img src="${arrowSvg}" width="26" height="26" style="display:block;pointer-events:none" />`
+            });
+            arrows.push(overlay);
+        }
+        return arrows;
+    }, []);
+
+    useEffect(() => {
+        routeInitDoneRef.current = false;
+        routePathRef.current = null;
+        lastRoutePosRef.current = null;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setRouteInfo(null);
+    }, [ev?.id]);
 
     // Compute live distance/time
     const currentPos = livePos || childPos;
@@ -1069,7 +1010,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 
     // Start real-time GPS tracking
     useEffect(() => {
-        if (!navigator.geolocation) { setGpsError(true); return; }
+        if (!navigator.geolocation) return;
         // 즉시 현재 위치 획득 (watch 첫 응답 전 빈 상태 방지)
         navigator.geolocation.getCurrentPosition(
             (pos) => { setLivePos({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsError(false); },
@@ -1131,17 +1072,20 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     }, [livePos, centered]);
 
     // Re-fetch route when position changes significantly (>50m)
-    const lastRoutePosRef = useRef(null);
     useEffect(() => {
         if (!livePos || !ev.location || !mapInst.current || routeInfo?.loading) return;
+        let shouldFetch = true;
         if (lastRoutePosRef.current) {
             const moved = haversineM(livePos.lat, livePos.lng, lastRoutePosRef.current.lat, lastRoutePosRef.current.lng);
-            if (moved < 50) return;
+            if (moved < 50) shouldFetch = false;
         }
-        lastRoutePosRef.current = { ...livePos };
-        const osrmUrl = `https://router.project-osrm.org/route/v1/foot/${livePos.lng},${livePos.lat};${ev.location.lng},${ev.location.lat}?overview=full&geometries=geojson`;
-        fetch(osrmUrl).then(r => r.json()).then(data => {
+        if (!shouldFetch) return;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${livePos.lng},${livePos.lat};${ev.location.lng},${ev.location.lat}?overview=full&geometries=geojson`;
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 8000);
+        fetch(osrmUrl, { signal: ctrl.signal }).then(r => { clearTimeout(tid); return r.json(); }).then(data => {
             if (data.code !== "Ok" || !data.routes?.length) return;
+            lastRoutePosRef.current = { ...livePos };
             const route = data.routes[0];
             const coords = route.geometry.coordinates;
             const path = coords.map(([lng, lat]) => new window.kakao.maps.LatLng(lat, lng));
@@ -1154,31 +1098,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
             arrowOverlaysRef.current = createWalkingArrows(mapInst.current, path, "#4285F4");
             setRouteInfo({ distance: route.distance, duration: route.duration, loading: false, error: false });
         }).catch(() => {});
-    }, [livePos, ev.location]);
-
-    // Helper: create walking direction arrow overlays along route path
-    const createWalkingArrows = useCallback((map, path, color) => {
-        const arrows = [];
-        if (!path || path.length < 4) return arrows;
-        const interval = Math.max(4, Math.floor(path.length / 8));
-        for (let i = interval; i < path.length - 2; i += interval) {
-            const p1 = path[i - 1];
-            const p2 = path[i + 1];
-            const lat1 = p1.getLat() * Math.PI / 180;
-            const lat2 = p2.getLat() * Math.PI / 180;
-            const dLng = (p2.getLng() - p1.getLng()) * Math.PI / 180;
-            const y = Math.sin(dLng) * Math.cos(lat2);
-            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-            const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-            const arrowSvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" fill="white" stroke="${color}" stroke-width="2"/><path d="M14 7 L19 17 L14 14 L9 17 Z" fill="${color}" transform="rotate(${bearing}, 14, 14)"/></svg>`)}`;
-            const overlay = new window.kakao.maps.CustomOverlay({
-                map, position: path[i], yAnchor: 0.5, zIndex: 3,
-                content: `<img src="${arrowSvg}" width="26" height="26" style="display:block;pointer-events:none" />`
-            });
-            arrows.push(overlay);
-        }
-        return arrows;
-    }, []);
+    }, [livePos, ev.location, routeInfo?.loading, createWalkingArrows]);
 
     // Initialize map + route
     useEffect(() => {
@@ -1255,15 +1175,17 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setRouteInfo({ loading: true });
-        lastRoutePosRef.current = { ...startPos };
 
-        const osrmUrl = `https://router.project-osrm.org/route/v1/foot/${startPos.lng},${startPos.lat};${ev.location.lng},${ev.location.lat}?overview=full&geometries=geojson&steps=true`;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startPos.lng},${startPos.lat};${ev.location.lng},${ev.location.lat}?overview=full&geometries=geojson&steps=true`;
 
-        fetch(osrmUrl)
-            .then(r => r.json())
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 10000);
+        fetch(osrmUrl, { signal: ctrl.signal })
+            .then(r => { clearTimeout(tid); return r.json(); })
             .then(data => {
                 if (cancelled) return;
                 if (data.code !== "Ok" || !data.routes?.length) throw new Error("No route");
+                lastRoutePosRef.current = { ...startPos };
 
                 const route = data.routes[0];
                 const coords = route.geometry.coordinates;
@@ -1604,97 +1526,98 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Category Add Form (inline)
+// ─────────────────────────────────────────────────────────────────────────────
+const CAT_EMOJI_PRESETS = ["🏫","📖","🎵","🎭","🏃","🧪","💻","🎸","🩰","✏️","🎯","🚌"];
+const CAT_COLOR_PRESETS = [
+    { color: "#6366F1", bg: "#EEF2FF" },
+    { color: "#14B8A6", bg: "#CCFBF1" },
+    { color: "#F97316", bg: "#FFF7ED" },
+    { color: "#EF4444", bg: "#FEF2F2" },
+    { color: "#8B5CF6", bg: "#F5F3FF" },
+    { color: "#06B6D4", bg: "#ECFEFF" },
+    { color: "#D946EF", bg: "#FAF5FF" },
+    { color: "#84CC16", bg: "#F7FEE7" },
+];
+
+function CategoryAddForm({ onAdd, onClose }) {
+    const [label, setLabel] = useState("");
+    const [emoji, setEmoji] = useState("🏫");
+    const [colorIdx, setColorIdx] = useState(0);
+
+    const handleSave = () => {
+        const name = label.trim();
+        if (!name) return;
+        const id = "custom_" + name.replace(/\s+/g, "_") + "_" + Date.now();
+        const { color, bg } = CAT_COLOR_PRESETS[colorIdx];
+        onAdd({ id, label: name, emoji, color, bg });
+    };
+
+    return (
+        <div style={{ marginTop: 10, padding: 14, background: "#F9FAFB", borderRadius: 16, border: "1.5px solid #E5E7EB", fontFamily: FF }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#374151", marginBottom: 10 }}>새 카테고리 추가</div>
+            <input value={label} onChange={e => setLabel(e.target.value)} placeholder="카테고리 이름 (예: 학교)"
+                style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #E5E7EB", borderRadius: 12, fontSize: 14, fontFamily: FF, outline: "none", boxSizing: "border-box", marginBottom: 10 }} />
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6 }}>이모지</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                {CAT_EMOJI_PRESETS.map(e => (
+                    <button key={e} onClick={() => setEmoji(e)}
+                        style={{ width: 36, height: 36, borderRadius: 10, border: emoji === e ? "2px solid #E879A0" : "1.5px solid #E5E7EB", background: emoji === e ? "#FFF0F7" : "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{e}</button>
+                ))}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6 }}>색상</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                {CAT_COLOR_PRESETS.map((c, i) => (
+                    <button key={i} onClick={() => setColorIdx(i)}
+                        style={{ width: 28, height: 28, borderRadius: "50%", background: c.color, border: colorIdx === i ? "3px solid #374151" : "2px solid transparent", cursor: "pointer", outline: colorIdx === i ? "2px solid white" : "none" }} />
+                ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={handleSave} disabled={!label.trim()}
+                    style={{ flex: 1, padding: "10px", borderRadius: 12, border: "none", background: label.trim() ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", fontWeight: 800, fontSize: 13, cursor: label.trim() ? "pointer" : "default", fontFamily: FF }}>추가</button>
+                <button onClick={onClose}
+                    style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: "#F3F4F6", color: "#6B7280", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>취소</button>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Memo Section with send, replies, read indicator
 // ─────────────────────────────────────────────────────────────────────────────
-function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode }) {
+function MemoSection({ memoValue, replies, onReplySubmit, readBy, myUserId, isParentMode }) {
     const [inputText, setInputText] = useState("");
-    const [memoSent, setMemoSent] = useState(false);
-    const memoText = memoValue || "";
+    const [sent, setSent] = useState(false);
 
     const handleSend = () => {
         if (!inputText.trim()) return;
-        const text = inputText.trim();
+        onReplySubmit?.(inputText.trim());
         setInputText("");
-        if (onReplySubmit) onReplySubmit(text);
+        setSent(true);
+        setTimeout(() => setSent(false), 2000);
     };
 
     const othersRead = (readBy || []).filter(id => id !== myUserId).length > 0;
-    const hasMessages = (replies && replies.length > 0);
-    const hasMemo = memoText.trim().length > 0;
+    const hasMessages = replies && replies.length > 0;
+    const hasMemo = (memoValue || "").trim().length > 0 && memoValue !== "💬";
 
     return (
-        <div style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
+        <div style={{ marginTop: 18, background: "white", borderRadius: 20, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
             {/* Header */}
             <div style={{ padding: "12px 16px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>💬 오늘의 메모</div>
-                {hasMessages && othersRead && <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>}
+                {othersRead && <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>}
             </div>
 
-            {/* Daily memo body */}
-            <div style={{ padding: "14px 16px", background: "#FFF7FB", borderBottom: "1px solid #F3F4F6" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#BE185D", marginBottom: 8 }}>
-                    {isParentMode ? "아이에게 남기는 메모" : "부모님께 남기는 메모"}
-                </div>
-                <textarea
-                    value={memoText}
-                    onChange={e => onMemoChange?.(e.target.value)}
-                    onBlur={() => onMemoBlur?.()}
-                    onKeyDown={e => {
-                        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                            e.preventDefault();
-                            onMemoSend?.();
-                        }
-                    }}
-                    placeholder={isParentMode ? "오늘 꼭 전하고 싶은 내용을 남겨주세요..." : "오늘 있었던 일이나 전하고 싶은 말을 적어봐~ 🐰"}
-                    style={{
-                        width: "100%",
-                        minHeight: 88,
-                        resize: "vertical",
-                        border: "1.5px solid #FBCFE8",
-                        borderRadius: 16,
-                        padding: "12px 14px",
-                        fontSize: 14,
-                        lineHeight: 1.6,
-                        fontFamily: FF,
-                        outline: "none",
-                        background: "white",
-                        boxSizing: "border-box",
-                        color: "#374151",
-                    }}
-                />
-                <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ fontSize: 11, color: hasMemo ? "#6B7280" : "#9CA3AF" }}>
-                        {hasMemo ? "이 메모가 상대방 화면에 바로 보여요." : "메모를 보내면 상대방에게 푸시 알림이 갑니다."}
+            {/* Messages */}
+            <div style={{ padding: "12px 16px", minHeight: 60, maxHeight: 320, overflowY: "auto" }}>
+                {/* 기존 메모가 있으면 상단에 표시 */}
+                {hasMemo && (
+                    <div style={{ background: "#FFF0F7", borderRadius: 16, padding: "10px 14px", fontSize: 14, lineHeight: 1.6, color: "#374151", fontFamily: FF, borderLeft: "3px solid #E879A0", marginBottom: hasMessages ? 12 : 0, whiteSpace: "pre-wrap" }}>
+                        {memoValue}
                     </div>
-                    <button
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => {
-                            onMemoSend?.();
-                            setMemoSent(true);
-                            setTimeout(() => setMemoSent(false), 2500);
-                        }}
-                        disabled={!hasMemo || memoSent}
-                        style={{
-                            padding: "10px 14px",
-                            borderRadius: 14,
-                            border: "none",
-                            cursor: (hasMemo && !memoSent) ? "pointer" : "default",
-                            background: memoSent ? "#10B981" : hasMemo ? "linear-gradient(135deg,#EC4899,#BE185D)" : "#E5E7EB",
-                            color: "white",
-                            fontWeight: 800,
-                            fontSize: 12,
-                            fontFamily: FF,
-                            flexShrink: 0,
-                            transition: "background 0.3s",
-                        }}
-                    >
-                        {memoSent ? "✓ 전송 완료!" : "메모 보내기"}
-                    </button>
-                </div>
-            </div>
+                )}
 
-            {/* Chat area */}
-            <div style={{ padding: "12px 16px", minHeight: 60 }}>
                 {hasMessages ? replies.map(r => {
                     const isMe = r.user_id === myUserId;
                     return (
@@ -1708,24 +1631,24 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
                             </div>
                         </div>
                     );
-                }) : (
-                    <div style={{ textAlign: "center", padding: "12px 0", color: "#D1D5DB", fontSize: 13 }}>{isParentMode ? "메모를 남겨보세요" : "오늘 하루 어땠어? 🐰"}</div>
-                )}
+                }) : (!hasMemo && (
+                    <div style={{ textAlign: "center", padding: "16px 0", color: "#D1D5DB", fontSize: 13 }}>오늘의 메모를 남겨보세요 💬</div>
+                ))}
             </div>
 
-            {/* Input bar */}
-            <div style={{ padding: "10px 12px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, alignItems: "center", background: "#FAFAFA" }}>
+            {/* Input */}
+            <div style={{ padding: "8px 10px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 6, alignItems: "center", background: "#FAFAFA" }}>
                 <input
                     type="text"
-                    placeholder={isParentMode ? "답글을 입력하세요..." : "답글을 남겨봐~ 🐰"}
+                    placeholder="메모를 입력하세요..."
                     value={inputText}
                     onChange={e => setInputText(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") handleSend(); }}
-                    style={{ flex: 1, border: "1.5px solid #E5E7EB", borderRadius: 20, padding: "10px 16px", fontSize: 16, fontFamily: FF, outline: "none", background: "white", boxSizing: "border-box" }}
+                    style={{ flex: 1, minWidth: 0, border: "1.5px solid #E5E7EB", borderRadius: 18, padding: "8px 12px", fontSize: 13, fontFamily: FF, outline: "none", background: "white", boxSizing: "border-box" }}
                 />
-                <button onClick={handleSend}
-                    style={{ width: 40, height: 40, borderRadius: 20, background: inputText.trim() ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-                    ↑
+                <button onClick={handleSend} disabled={!inputText.trim() || sent}
+                    style={{ padding: "8px 12px", borderRadius: 18, background: sent ? "#10B981" : inputText.trim() ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", border: "none", cursor: inputText.trim() ? "pointer" : "default", fontWeight: 800, fontSize: 11, fontFamily: FF, flexShrink: 0, whiteSpace: "nowrap" }}>
+                    {sent ? "✓" : "보내기"}
                 </button>
             </div>
         </div>
@@ -1845,10 +1768,15 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                                 </div>
 
                                 {/* Distance + action row */}
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                                     {ev.location && distLabel && (
                                         <div style={{ fontSize: isParentMode ? 11 : 13, fontWeight: 700, color: ev.color, background: ev.bg, padding: isParentMode ? "4px 10px" : "6px 12px", borderRadius: 10, display: "flex", alignItems: "center", gap: 4 }}>
                                             🚶 {distLabel}
+                                        </div>
+                                    )}
+                                    {ev.location && !distLabel && !isParentMode && (
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", background: "#F3F4F6", padding: "5px 10px", borderRadius: 10 }}>
+                                            📍 위치 확인 중...
                                         </div>
                                     )}
                                     {ev.location && (
@@ -1862,6 +1790,9 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                                             style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, background: "#FFF0F7", border: "1.5px dashed #F9A8D4", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
                                             📍 장소 추가
                                         </button>
+                                    )}
+                                    {!ev.location && !isParentMode && (
+                                        <div style={{ fontSize: 12, color: "#D1D5DB", fontWeight: 600 }}>📍 장소 미설정 (부모님이 추가해요)</div>
                                     )}
                                 </div>
 
@@ -1915,8 +1846,6 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
 // Sticker Book Modal
 // ─────────────────────────────────────────────────────────────────────────────
 function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode, onGiveSticker }) {
-    const stickerLabels = { early: "일찍 도착", on_time: "정시 도착", late: "아쉬워요", praise: "부모님 칭찬", completed: "완료" };
-    const totalCount = summary?.total_count || 0;
     const earlyCount = summary?.early_count || 0;
     const onTimeCount = summary?.on_time_count || 0;
     const lateCount = summary?.late_count || 0;
@@ -2027,6 +1956,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
     const [, setAudioChunks] = useState([]);
     const timerRef = useRef(null);
     const playbackRef = useRef(Promise.resolve());
+    const waveHeights = [18, 24, 16, 28, 20];
 
     const startListening = () => {
         if (!channel) return;
@@ -2109,7 +2039,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                 {status === "listening" && (
                     <div style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 3 }}>
-                            {[...Array(5)].map((_, i) => <div key={i} style={{ width: 4, height: 12 + Math.random() * 20, background: "#DC2626", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
+                            {waveHeights.map((height, i) => <div key={i} style={{ width: 4, height, background: "#DC2626", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
                         </div>
                     </div>
                 )}
@@ -2143,7 +2073,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
 // ─────────────────────────────────────────────────────────────────────────────
 // Location Map View (interactive map + card list)
 // ─────────────────────────────────────────────────────────────────────────────
-function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
+function LocationMapView({ events, childPos, mapReady, mapError, arrivedSet, onRoute }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const markersRef = useRef([]);
@@ -2231,13 +2161,14 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
         <div style={{ width: "100%", maxWidth: 420, marginBottom: 0 }}>
             {/* Map */}
             <div style={{ width: "100%", height: 300, borderRadius: 24, overflow: "hidden", boxShadow: "0 8px 32px rgba(232,121,160,0.12)", marginBottom: 14, position: "relative", background: "#F3F4F6" }}>
-                {!mapReady && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#9CA3AF", fontFamily: FF }}>🗺️ 지도 로딩 중...</div>}
+                {!mapReady && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mapError ? "#EF4444" : "#9CA3AF", fontFamily: FF, textAlign: "center", whiteSpace: "pre-line", lineHeight: 1.8, padding: 16 }}>{mapError || "🗺️ 지도 로딩 중..."}</div>}
                 <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
                 <MapZoomControls mapObj={mapObj} />
                 {childPos && (
-                    <div style={{ position: "absolute", top: 12, left: 12, background: "white", borderRadius: 12, padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "#3B82F6", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", fontFamily: FF, display: "flex", alignItems: "center", gap: 4 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#3B82F6" }} /> 내 위치
-                    </div>
+                    <button onClick={() => { if (mapObj.current) { mapObj.current.setCenter(new window.kakao.maps.LatLng(childPos.lat, childPos.lng)); mapObj.current.setLevel(3); } }}
+                        style={{ position: "absolute", bottom: 16, right: 12, background: "linear-gradient(135deg,#3B82F6,#1D4ED8)", color: "white", border: "none", borderRadius: 16, padding: "12px 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF, boxShadow: "0 4px 16px rgba(59,130,246,0.4)", display: "flex", alignItems: "center", gap: 6, zIndex: 10 }}>
+                        📍 현재 내 위치
+                    </button>
                 )}
                 <div style={{ position: "absolute", top: 12, right: 12, background: "white", borderRadius: 12, padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "#6B7280", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", fontFamily: FF }}>
                     📍 {locEvents.length}개 장소
@@ -2269,7 +2200,10 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
                         <div style={{ fontSize: 36, marginBottom: 8 }}>🗺️</div>
                         <div style={{ fontSize: 14 }}>장소가 등록된 일정이 없어요</div>
                     </div>
-                ) : locEvents.map(ev => (
+                ) : locEvents.map(ev => {
+                    const d = childPos ? haversineM(childPos.lat, childPos.lng, ev.location.lat, ev.location.lng) : null;
+                    const dl = d !== null ? (d >= 1000 ? `${(d / 1000).toFixed(1)}km` : `${Math.round(d)}m`) : null;
+                    return (
                     <div key={ev.id}
                         onClick={() => {
                             setSelected(ev.id);
@@ -2279,19 +2213,30 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
                             }
                         }}
                         style={{
-                            display: "flex", gap: 10, alignItems: "center", padding: "12px", borderRadius: 16, marginBottom: 8, cursor: "pointer", fontFamily: FF,
+                            padding: "12px", borderRadius: 16, marginBottom: 8, cursor: "pointer", fontFamily: FF,
                             background: selected === ev.id ? ev.bg : "#F9FAFB", borderLeft: `3px solid ${ev.color}`,
                             transition: "all 0.15s"
                         }}>
-                        <div style={{ fontSize: 22 }}>{ev.emoji}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: 13, color: "#1F2937" }}>{ev.title}</div>
-                            <div style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {ev.location.address}</div>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <div style={{ fontSize: 22 }}>{ev.emoji}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: 13, color: "#1F2937" }}>{ev.title}</div>
+                                <div style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {ev.location.address}</div>
+                            </div>
+                            <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, flexShrink: 0 }}>⏰ {ev.time}</div>
+                            {arrivedSet.has(ev.id) ? <span style={{ fontSize: 10, color: "#059669", fontWeight: 700 }}>✅</span> : null}
                         </div>
-                        <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, flexShrink: 0 }}>⏰ {ev.time}{ev.endTime ? ` ~ ${ev.endTime}` : ""}</div>
-                        {arrivedSet.has(ev.id) ? <span style={{ fontSize: 10, color: "#059669", fontWeight: 700 }}>✅</span> : null}
+                        <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "center" }}>
+                            {dl && <div style={{ fontSize: 12, fontWeight: 700, color: ev.color, background: ev.bg, padding: "4px 10px", borderRadius: 10 }}>🚶 {dl}</div>}
+                            {!dl && childPos === null && <div style={{ fontSize: 11, color: "#9CA3AF", background: "#F3F4F6", padding: "4px 8px", borderRadius: 8 }}>📍 위치 확인 중...</div>}
+                            {onRoute && <button onClick={(e) => { e.stopPropagation(); onRoute(ev); }}
+                                style={{ fontSize: 12, fontWeight: 800, color: "white", background: `linear-gradient(135deg,${ev.color},${ev.color}cc)`, padding: "5px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: FF, boxShadow: `0 2px 6px ${ev.color}44` }}>
+                                🧭 길찾기
+                            </button>}
+                        </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
@@ -2302,7 +2247,7 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // AI Schedule Modal — 음성/이미지/텍스트로 일정 자동 등록
 // ─────────────────────────────────────────────────────────────────────────────
-function AiScheduleModal({ academies, currentDate, familyId, authUser, events, onSave, onClose, startVoiceFn, onNavigateDate }) {
+function AiScheduleModal({ academies, currentDate, familyId, authUser, eventMap, onSave, onClose, startVoiceFn, onNavigateDate }) {
     const [inputText, setInputText] = useState("");
     const [imageData, setImageData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -2310,6 +2255,28 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
     const [results, setResults] = useState(null);
     const [savedIds, setSavedIds] = useState(new Set());
     const fileInputRef = useRef(null);
+    const currentDateKey = `${currentDate.year}-${currentDate.month}-${currentDate.day}`;
+
+    // 이미지 압축: max 1280px, JPEG 0.7 품질 (~100-300KB)
+    const compressImage = (file) => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const MAX = 1280;
+            let { width, height } = img;
+            if (width > MAX || height > MAX) {
+                const ratio = Math.min(MAX / width, MAX / height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.7));
+        };
+        img.onerror = () => reject(new Error("이미지를 읽을 수 없어요"));
+        img.src = URL.createObjectURL(file);
+    });
 
     const handlePaste = (e) => {
         const items = e.clipboardData?.items;
@@ -2318,9 +2285,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
             if (item.type.startsWith("image/")) {
                 e.preventDefault();
                 const file = item.getAsFile();
-                const reader = new FileReader();
-                reader.onload = () => setImageData(reader.result);
-                reader.readAsDataURL(file);
+                compressImage(file).then(setImageData).catch(() => {});
                 return;
             }
         }
@@ -2329,16 +2294,35 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
     const handleImageSelect = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => setImageData(reader.result);
-        reader.readAsDataURL(file);
+        compressImage(file).then(setImageData).catch(() => {});
     };
 
-    // Voice input using Web Speech API
-    const startVoiceInput = () => {
+    // Voice input — native SpeechPlugin first, then Web Speech API fallback
+    const startVoiceInput = async () => {
+        // Try native Capacitor SpeechRecognition (Android WebView)
+        try {
+            const { Capacitor, registerPlugin } = await import("@capacitor/core");
+            if (Capacitor.isNativePlatform()) {
+                const SpeechRecognition = registerPlugin("SpeechRecognition");
+                setVoiceListening(true);
+                try {
+                    const result = await SpeechRecognition.start({ language: "ko-KR" });
+                    setVoiceListening(false);
+                    const transcript = result?.transcript || "";
+                    if (transcript) {
+                        setInputText(prev => prev ? prev + "\n" + transcript : transcript);
+                    }
+                } catch (err) {
+                    setVoiceListening(false);
+                    console.error("[AiSchedule] native speech error:", err);
+                }
+                return;
+            }
+        } catch { /* not native platform */ }
+
+        // Fallback: Web Speech API (Chrome browser)
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) {
-            // Fallback: use the parent's startVoice function
             if (startVoiceFn) { onClose(); startVoiceFn(); }
             return;
         }
@@ -2367,20 +2351,28 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
             const session = await getSession();
             const token = session?.access_token || SUPABASE_KEY;
             const url = `${SUPABASE_URL}/functions/v1/ai-voice-parse`;
-            const todayEvs = (events || []).map(e => ({ id: e.id, title: e.title, time: e.time, memo: e.memo || "" }));
+            const todayEvs = (eventMap?.[currentDateKey] || []).map(e => ({ id: e.id, title: e.title, time: e.time, memo: e.memo || "" }));
+            const body = JSON.stringify({
+                text: t || "이미지에서 일정을 추출해주세요",
+                image: img || undefined,
+                mode: "paste",
+                academies: academies.map(a => ({ name: a.name, category: a.category })),
+                todayEvents: todayEvs,
+                currentDate,
+            });
+            const bodySizeMB = new Blob([body]).size / (1024 * 1024);
+            if (bodySizeMB > 4) throw new Error("이미지가 너무 커요. 더 작은 이미지를 사용해주세요");
             const resp = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}`, "apikey": SUPABASE_KEY },
-                body: JSON.stringify({
-                    text: t || "이미지에서 일정을 추출해주세요",
-                    image: img || undefined,
-                    mode: "paste",
-                    academies: academies.map(a => ({ name: a.name, category: a.category })),
-                    todayEvents: todayEvs,
-                    currentDate,
-                }),
+                body,
             });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            if (!resp.ok) {
+                const status = resp.status;
+                if (status === 413) throw new Error("이미지가 너무 커요");
+                if (status === 504) throw new Error("분석 시간 초과. 다시 시도해주세요");
+                throw new Error(`서버 오류 (${status})`);
+            }
             const data = await resp.json();
             if (data.action === "add_events" && data.events?.length > 0) {
                 setResults(data);
@@ -2403,13 +2395,18 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         const matchedAcademy = ev.academyName ? academies.find(a => a.name === ev.academyName) : null;
         const safeTime = (ev.time && ev.time !== "null") ? ev.time : "09:00";
         const safeMemo = (ev.memo && ev.memo !== "null") ? ev.memo : "";
+        const dk = `${ev.year ?? currentDate.year}-${ev.month ?? currentDate.month}-${ev.day ?? currentDate.day}`;
         const newEv = {
             id: generateUUID(), title: ev.title, time: safeTime,
             category: ev.category || "other", emoji: matchedAcademy?.emoji || cat.emoji,
             color: cat.color, bg: cat.bg, memo: safeMemo,
             location: matchedAcademy?.location || null, notifOverride: null,
         };
-        const dk = `${ev.year ?? currentDate.year}-${ev.month ?? currentDate.month}-${ev.day ?? currentDate.day}`;
+        const existingOnDate = (eventMap?.[dk] || []).some(existing => existing.title === newEv.title && existing.time === newEv.time);
+        if (existingOnDate) {
+            setSavedIds(prev => new Set([...prev, idx]));
+            return;
+        }
         onSave(newEv, dk);
         if (familyId && authUser) {
             try {
@@ -2463,7 +2460,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                             <span style={{ fontSize: 24 }}>📷</span>
                             이미지
                         </button>
-                        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageSelect} style={{ display: "none" }} />
+                        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} style={{ display: "none" }} />
                         <button onClick={() => document.getElementById("ai-text-input")?.focus()}
                             style={{ ...btnSt, background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", boxShadow: "0 4px 12px rgba(124,58,237,0.3)" }}>
                             <span style={{ fontSize: 24 }}>✏️</span>
@@ -2545,7 +2542,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
 // ─────────────────────────────────────────────────────────────────────────────
 // Danger Zone Manager — 위험지역 설정 및 관리
 // ─────────────────────────────────────────────────────────────────────────────
-function DangerZoneManager({ zones, familyId, mapReady, onAdd, onDelete, onClose }) {
+function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDelete, onClose }) {
     const [showAdd, setShowAdd] = useState(false);
     const [newName, setNewName] = useState("");
     const [newRadius, setNewRadius] = useState(200);
@@ -2594,7 +2591,7 @@ function DangerZoneManager({ zones, familyId, mapReady, onAdd, onDelete, onClose
     const handleAdd = async () => {
         if (!newName.trim() || !selectedLoc) return;
         try {
-            const zone = await onAdd({ name: newName.trim(), lat: selectedLoc.lat, lng: selectedLoc.lng, radius_m: newRadius, zone_type: newType });
+            await onAdd({ name: newName.trim(), lat: selectedLoc.lat, lng: selectedLoc.lng, radius_m: newRadius, zone_type: newType });
             setShowAdd(false);
             setNewName("");
             setSelectedLoc(null);
@@ -2747,7 +2744,7 @@ function ChildCallButtons({ phones }) {
     );
 }
 
-function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapReady, arrivedSet, onClose, locationTrail = [] }) {
+function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapReady, mapError, arrivedSet, onClose, locationTrail = [] }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const myMarkerRef = useRef();
@@ -2876,25 +2873,25 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Header */}
-            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-                <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 14, padding: "10px 16px", cursor: "pointer", fontWeight: 800, fontSize: 14, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>← 돌아가기</button>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#1D4ED8", flex: 1 }}>📍 지금 우리 아이는?</div>
-                {/* 범례 */}
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <div style={{ width: 20, height: 3, background: "#3B82F6", borderRadius: 2 }} />
-                        <span style={{ fontSize: 10, color: "#6B7280" }}>이동</span>
+            <div style={{ padding: "12px 16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 12, padding: "8px 12px", cursor: "pointer", fontWeight: 800, fontSize: 13, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", flexShrink: 0 }}>←</button>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#1D4ED8", whiteSpace: "nowrap" }}>📍 우리 아이 위치</div>
+                <div style={{ flex: 1 }} />
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                        <div style={{ width: 14, height: 3, background: "#3B82F6", borderRadius: 2 }} />
+                        <span style={{ fontSize: 9, color: "#6B7280" }}>이동</span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <div style={{ width: 20, height: 3, background: "#9CA3AF", borderRadius: 2, borderTop: "2px dashed #9CA3AF" }} />
-                        <span style={{ fontSize: 10, color: "#6B7280" }}>예상</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                        <div style={{ width: 14, height: 3, background: "#9CA3AF", borderRadius: 2, borderTop: "2px dashed #9CA3AF" }} />
+                        <span style={{ fontSize: 9, color: "#6B7280" }}>예상</span>
                     </div>
                 </div>
             </div>
 
             {/* Map */}
             <div style={{ flex: 1, margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "0 8px 32px rgba(59,130,246,0.15)", position: "relative", minHeight: 0 }}>
-                {!mapReady && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#3B82F6", fontFamily: FF, background: "#EFF6FF" }}>🗺️ 지도 불러오는 중...</div>}
+                {!mapReady && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mapError ? "#EF4444" : "#3B82F6", fontFamily: FF, background: "#EFF6FF", textAlign: "center", whiteSpace: "pre-line", lineHeight: 1.8, padding: 16 }}>{mapError || "🗺️ 지도 불러오는 중..."}</div>}
                 <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
                 <MapZoomControls mapObj={mapObj} />
                 {!childPos && (
@@ -2928,7 +2925,12 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                     <div style={{ background: "white", borderRadius: 20, padding: "14px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
                         {/* 아이별 위치 상태 */}
                         {(allChildPositions.length > 0 ? allChildPositions : [{ name: "우리 아이", emoji: "🐰", lat: childPos?.lat, lng: childPos?.lng, updatedAt: childPos?.updatedAt }]).map((child, i) => (
-                            <div key={child.user_id || i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: `${CHILD_COLORS[i % CHILD_COLORS.length]}10`, borderRadius: 14 }}>
+                            <div key={child.user_id || i} onClick={() => {
+                                if (mapObj.current && child.lat && child.lng) {
+                                    mapObj.current.setCenter(new window.kakao.maps.LatLng(child.lat, child.lng));
+                                    mapObj.current.setLevel(2);
+                                }
+                            }} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: `${CHILD_COLORS[i % CHILD_COLORS.length]}10`, borderRadius: 14, cursor: "pointer" }}>
                                 <div style={{ width: 36, height: 36, borderRadius: 12, background: CHILD_COLORS[i % CHILD_COLORS.length], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{child.name}</div>
@@ -2936,6 +2938,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                                         {child.updatedAt ? `${new Date(child.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 업데이트` : "위치 수신 중..."}
                                     </div>
                                 </div>
+                                <div style={{ fontSize: 10, color: "#3B82F6", fontWeight: 700, flexShrink: 0, marginRight: 4 }}>📍확대</div>
                                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 0 4px rgba(34,197,94,0.2)", flexShrink: 0 }} />
                             </div>
                         ))}
@@ -3020,14 +3023,17 @@ export default function KidsScheduler() {
 
     // ── UI state ───────────────────────────────────────────────────────────────
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showCatAdd, setShowCatAdd] = useState(false);
+    const [newCatKey, setNewCatKey] = useState(0); // force re-render on category change
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [showChildTracker, setShowChildTracker] = useState(false);
-    const [listening, setListening] = useState(false);
+    const [_listening, setListening] = useState(false);
     const [notification, setNotification] = useState(null);
     const [alerts, setAlerts] = useState([]);
     const [emergencies, setEmergencies] = useState([]);
     const [bounce, setBounce] = useState(false);
     const [mapReady, setMapReady] = useState(false);
+    const [mapError, setMapError] = useState("");
     const [activeView, setActiveView] = useState("calendar");
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
@@ -3119,7 +3125,13 @@ export default function KidsScheduler() {
     // ── Load Kakao Maps SDK on mount ────────────────────────────────────────────
     useEffect(() => {
         if (!KAKAO_APP_KEY) return;
-        loadKakaoMap(KAKAO_APP_KEY).then(() => setMapReady(true)).catch(() => {});
+        loadKakaoMap(KAKAO_APP_KEY).then(() => setMapReady(true)).catch((e) => {
+            console.error("[KakaoMap] load failed:", e.message);
+            const origin = window.location.origin;
+            setMapError(e.message === "timeout"
+                ? `지도 로딩 시간 초과\n\n카카오 개발자 콘솔에서\n플랫폼 → Web → ${origin}\n도메인이 등록되어 있는지 확인하세요`
+                : `지도 로딩 실패: ${e.message}\n\n카카오 개발자 콘솔에서\n플랫폼 → Web → ${origin}\n도메인 등록을 확인하세요`);
+        });
     }, []);
 
     // ── Send memo push when app goes to background / closes ─────────────────────
@@ -3198,7 +3210,9 @@ export default function KidsScheduler() {
                 handle = await CapApp.addListener("appUrlOpen", async (event) => {
                     await handleNativeAuthCallback(event.url);
                 });
-            } catch {}
+            } catch (_error) {
+                // native deep-link listener unavailable in web mode
+            }
         })();
         return () => { if (handle) handle.remove(); };
     }, [handleNativeAuthCallback, isNativeApp]);
@@ -3232,7 +3246,9 @@ export default function KidsScheduler() {
                 if (!Capacitor.isNativePlatform()) return;
                 const BgLoc = registerPlugin("BackgroundLocation");
                 const result = await BgLoc.checkBackgroundLocationPermission();
-                setBgLocationGranted(result.backgroundLocation === true);
+                setBgLocationGranted(
+                    result.backgroundLocation === true && result.locationServicesEnabled !== false
+                );
             } catch { /* web mode */ }
         };
         checkBgLoc();
@@ -3819,8 +3835,8 @@ export default function KidsScheduler() {
                     const [h, m] = ev.time.split(":").map(Number);
                     const evTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
                     const diff = Math.round((now.getTime() - evTime) / 60000);
-                    // Only check arrival from 30min before to 10min after event time
-                    if (diff < -30 || diff > 10) return;
+                    // 도착 체크 범위: 너무 일찍 도착하거나 조금 늦은 경우도 허용
+                    if (diff < -90 || diff > 60) return;
                     const isEarly = diff <= -10;                     // 10분+ 일찍
                     const isOnTime = diff > -10 && diff <= 0;        // 정시~10분전
                     const isLate = diff > 0;                         // 늦음
@@ -4289,9 +4305,20 @@ export default function KidsScheduler() {
 
         const totalWeeks = weeklyRepeat ? repeatWeeks : 1;
         const allEvents = [];
+        const skippedDateKeys = [];
         for (let w = 0; w < totalWeeks; w++) {
             const dk = w === 0 ? dateKey : addDaysToDateKey(dateKey, w * 7);
+            const duplicateExists = (events[dk] || []).some(ev => ev.title === title && ev.time === newTime);
+            if (duplicateExists) {
+                skippedDateKeys.push(dk);
+                continue;
+            }
             allEvents.push({ ev: { id: generateUUID(), title, time: newTime, endTime: newEndTime || null, category: newCategory, emoji, color: cat.color, bg: cat.bg, memo: newMemo.trim(), location: newLocation, notifOverride: null }, dateKey: dk });
+        }
+
+        if (allEvents.length === 0) {
+            showNotif("같은 시간의 동일한 일정이 이미 있어요", "error");
+            return;
         }
 
         // Optimistic local update
@@ -4304,7 +4331,11 @@ export default function KidsScheduler() {
         });
         setNewTitle(""); setNewTime("09:00"); setNewEndTime(""); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4);
         setShowAddModal(false);
-        showNotif(weeklyRepeat ? `✨ ${totalWeeks}주 반복 일정이 추가됐어요!` : "✨ 일정이 추가됐어요!");
+        if (skippedDateKeys.length > 0) {
+            showNotif(`✨ ${allEvents.length}개 추가, ${skippedDateKeys.length}개 중복 일정은 건너뛰었어요!`);
+        } else {
+            showNotif(weeklyRepeat ? `✨ ${totalWeeks}주 반복 일정이 추가됐어요!` : "✨ 일정이 추가됐어요!");
+        }
         setBounce(true); setTimeout(() => setBounce(false), 800);
 
         // Persist to Supabase (Realtime will sync to other device)
@@ -4448,10 +4479,12 @@ export default function KidsScheduler() {
                 // Diff old vs new to determine DB operations
                 const oldMap = new Map(academies.filter(a => a.id).map(a => [a.id, a]));
                 const newMap = new Map(newList.filter(a => a.id).map(a => [a.id, a]));
+                let hasChanges = false;
 
                 // Deleted: in old but not in new
                 for (const [id] of oldMap) {
                     if (!newMap.has(id)) {
+                        hasChanges = true;
                         try { await dbDeleteAcademy(id); } catch (e) { console.error("[academy] delete error:", e); }
                     }
                 }
@@ -4460,13 +4493,14 @@ export default function KidsScheduler() {
                 const finalList = [];
                 for (const a of newList) {
                     if (!a.id) {
+                        hasChanges = true;
                         const ac = { ...a, id: generateUUID() };
                         finalList.push(ac);
                         if (familyId) {
                             try { await insertAcademy(ac, familyId); } catch (e) { console.error("[academy] insert error:", e); }
                         }
                     } else if (!oldMap.has(a.id)) {
-                        // Has id but wasn't in old list (shouldn't happen, but handle)
+                        hasChanges = true;
                         finalList.push(a);
                         if (familyId) {
                             try { await insertAcademy(a, familyId); } catch (e) { console.error("[academy] insert error:", e); }
@@ -4477,6 +4511,7 @@ export default function KidsScheduler() {
                         const old = oldMap.get(a.id);
                         const changed = old && (old.name !== a.name || old.emoji !== a.emoji || old.category !== a.category || JSON.stringify(old.location) !== JSON.stringify(a.location) || JSON.stringify(old.schedule) !== JSON.stringify(a.schedule));
                         if (changed) {
+                            hasChanges = true;
                             try { await updateAcademy(a.id, { name: a.name, emoji: a.emoji, category: a.category, location: a.location || null, schedule: a.schedule || null }); } catch (e) { console.error("[academy] update error:", e); }
                             // 기존 일정도 업데이트 (장소, 이름, 시간, 이모지)
                             if (familyId) {
@@ -4539,7 +4574,9 @@ export default function KidsScheduler() {
 
                 setAcademies(finalList);
                 cacheAcademies(finalList);
-                showNotif("🏫 학원 목록이 저장됐어요!");
+                if (hasChanges) {
+                    showNotif("🏫 학원 목록이 수정됐어요!");
+                }
             }}
             onClose={() => setShowAcademyMgr(false)} />
     );
@@ -4570,7 +4607,7 @@ export default function KidsScheduler() {
             {/* Toast */}
             {notification && (
                 <div style={{
-                    position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
+                    position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 16px)", left: "50%", transform: "translateX(-50%)",
                     background: notification.type === "error" ? "#FEE2E2" : notification.type === "child" ? "#EDE9FE" : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
                     color: notification.type === "error" ? "#DC2626" : notification.type === "child" ? "#6D28D9" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
@@ -4702,17 +4739,24 @@ export default function KidsScheduler() {
                             const { Capacitor, registerPlugin } = await import("@capacitor/core");
                             if (Capacitor.isNativePlatform()) {
                                 const BgLoc = registerPlugin("BackgroundLocation");
+                            const result = await BgLoc.checkBackgroundLocationPermission();
+                            if (result.locationServicesEnabled === false && BgLoc.openSystemLocationSettings) {
+                                await BgLoc.openSystemLocationSettings();
+                            } else {
                                 await BgLoc.openAppLocationSettings();
                             }
-                        } catch {}
+                            }
+                        } catch (_error) {
+                            // settings open may fail in unsupported environments
+                        }
                     }} style={{ padding: "9px 13px", borderRadius: 12, background: "#DC2626", color: "white", border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(220,38,38,0.2)" }}>
-                        설정 열기
+                        위치 설정 열기
                     </button>
                 </div>
             )}
 
             {/* ── Push notification permission banner ── */}
-            {isNativeApp && !isParent && nativeSetupAction && (
+            {isNativeApp && nativeSetupAction && (
                 <div style={{ width: "100%", maxWidth: 420, marginBottom: 8, padding: "12px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FFF7ED, #FEF3C7)", border: "1px solid #FCD34D", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(245,158,11,0.12)" }}>
                     <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🔔</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -4723,7 +4767,34 @@ export default function KidsScheduler() {
                     </div>
                     <button
                         onClick={async () => {
+                            if (nativeSetupAction.target === "notifications") {
+                                const result = await requestPermission();
+                                const health = await getNativeNotificationHealth();
+                                if (health) {
+                                    setNativeNotifHealth(health);
+                                    setPushPermission(
+                                        health.postPermissionGranted && health.notificationsEnabled ? "granted" : "denied"
+                                    );
+                                } else {
+                                    setPushPermission(result);
+                                }
+                                if (result === "granted") {
+                                    scheduleNotifications(events, globalNotif, myRole);
+                                    scheduleNativeAlarms(events, globalNotif, myRole);
+                                    return;
+                                }
+                            }
+
                             await openNativeNotificationSettings(nativeSetupAction.target);
+                            // 배터리 예외 등은 앱 위 오버레이 다이얼로그라 visibilitychange 안 됨 → 수동 갱신
+                            const poll = async (tries = 0) => {
+                                if (tries > 5) return;
+                                await new Promise(r => setTimeout(r, 1000));
+                                const h = await getNativeNotificationHealth();
+                                if (h) { setNativeNotifHealth(h); setPushPermission(h.postPermissionGranted && h.notificationsEnabled ? "granted" : "denied"); }
+                                else poll(tries + 1);
+                            };
+                            poll();
                         }}
                         style={{ padding: "9px 13px", borderRadius: 12, background: "#EA580C", color: "white", border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(234,88,12,0.2)" }}
                     >
@@ -4837,8 +4908,35 @@ export default function KidsScheduler() {
                 </div>
             </div>
 
+            {/* ── Ad Banner + Share ── */}
+            <div style={{ width: "100%", maxWidth: 420, marginBottom: 8, padding: "8px 14px", borderRadius: 12, background: "linear-gradient(135deg,#FFF0F7,#FFF8E7)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#9CA3AF", fontFamily: FF }}>
+                    혜니캘린더는 누구나 무료로 사용할 수 있어요
+                </div>
+                <button onClick={async () => {
+                    const title = "혜니캘린더";
+                    const text = "아이와 부모가 함께 쓰는 일정관리 앱이에요! 무료로 사용해보세요 🐰";
+                    const url = "https://kids-app-alpha.vercel.app";
+                    try {
+                        const { Capacitor, registerPlugin } = await import("@capacitor/core");
+                        if (Capacitor.isNativePlatform()) {
+                            const NativeNotif = registerPlugin("NativeNotification");
+                            await NativeNotif.shareText({ title, text, url });
+                            return;
+                        }
+                    } catch {}
+                    try {
+                        if (navigator.share) { await navigator.share({ title, text, url }); }
+                        else { await navigator.clipboard.writeText(url); showNotif("링크가 복사됐어요!"); }
+                    } catch (e) { if (e.name !== "AbortError") { try { await navigator.clipboard.writeText(url); showNotif("링크가 복사됐어요!"); } catch {} } }
+                }}
+                    style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    📤 공유
+                </button>
+            </div>
+
             {/* ── Header Row 2: Quick action buttons ── */}
-            <div style={{ width: "100%", maxWidth: 420, display: "flex", gap: isParent ? 6 : 10, marginBottom: 10, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            <div style={{ width: "100%", maxWidth: 420, display: "flex", flexWrap: "wrap", gap: isParent ? 6 : 10, marginBottom: 10 }}>
                 {activeView !== "calendar" && (
                     <button onClick={() => setActiveView("calendar")}
                         style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: "#E879A0", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
@@ -5045,7 +5143,7 @@ export default function KidsScheduler() {
                                 action: "new_memo",
                                 familyId,
                                 senderUserId: authUser.id,
-                                title: `💬 ${myRole === "parent" ? "부모님" : "아이"}이 답글을 남겼어요`,
+                                title: `💬 ${myRole === "parent" ? "부모님" : "아이"}이 메모를 남겼어요`,
                                 message: content.length > 50 ? content.substring(0, 50) + "..." : content,
                             });
                         }}
@@ -5058,7 +5156,8 @@ export default function KidsScheduler() {
             {/* ── MAP LIST VIEW ── */}
             {activeView === "maplist" && <LocationMapView
                 events={events} childPos={childPos} mapReady={mapReady}
-                arrivedSet={arrivedSet} />}
+                mapError={mapError} arrivedSet={arrivedSet}
+                onRoute={ev => setRouteEvent(ev)} />}
 
             {/* ── ADD MODAL ── */}
             {showAddModal && (
@@ -5127,8 +5226,24 @@ export default function KidsScheduler() {
                         <div style={{ marginBottom: 14 }}>
                             <label style={labelSt}>🏷️ 종류 {selectedPreset && <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>(자동 매칭됨)</span>}</label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                {CATEGORIES.map(cat => <button key={cat.id} onClick={() => setNewCategory(cat.id)} style={{ padding: "8px 14px", borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, background: newCategory === cat.id ? cat.color : cat.bg, color: newCategory === cat.id ? "white" : cat.color, border: `2px solid ${cat.color}` }}>{cat.emoji} {cat.label}</button>)}
+                                {CATEGORIES.map(cat => (
+                                    <div key={cat.id} style={{ position: "relative", display: "inline-flex" }}>
+                                        <button onClick={() => setNewCategory(cat.id)} style={{ padding: "8px 14px", borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, background: newCategory === cat.id ? cat.color : cat.bg, color: newCategory === cat.id ? "white" : cat.color, border: `2px solid ${cat.color}` }}>{cat.emoji} {cat.label}</button>
+                                        {!DEFAULT_CAT_IDS.has(cat.id) && (
+                                            <button onClick={(e) => { e.stopPropagation(); const customs = getCustomCategories().filter(c => c.id !== cat.id); saveCustomCategories(customs); if (newCategory === cat.id) setNewCategory("other"); setNewCatKey(k => k + 1); }}
+                                                style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#EF4444", color: "white", border: "none", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, lineHeight: 1 }}>✕</button>
+                                        )}
+                                    </div>
+                                ))}
+                                <button onClick={() => setShowCatAdd(prev => !prev)} style={{ padding: "8px 14px", borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, background: "#F9FAFB", color: "#6B7280", border: "2px dashed #D1D5DB" }}>+ 추가</button>
                             </div>
+                            {showCatAdd && <CategoryAddForm onAdd={(cat) => {
+                                const customs = [...getCustomCategories(), cat];
+                                saveCustomCategories(customs);
+                                setNewCategory(cat.id);
+                                setShowCatAdd(false);
+                                setNewCatKey(k => k + 1);
+                            }} onClose={() => setShowCatAdd(false)} />}
                         </div>
                         {isParent && (
                             <div style={{ marginBottom: 14 }}>
@@ -5235,7 +5350,7 @@ export default function KidsScheduler() {
             {/* ── Child Tracker (학부모 전용) ── */}
             {showChildTracker && <ChildTrackerOverlay
                 childPos={childPos} allChildPositions={allChildPositions}
-                events={events} mapReady={mapReady}
+                events={events} mapReady={mapReady} mapError={mapError}
                 arrivedSet={arrivedSet} onClose={() => setShowChildTracker(false)}
                 locationTrail={locationTrail}
             />}
@@ -5288,7 +5403,7 @@ export default function KidsScheduler() {
                 currentDate={{ year: currentYear, month: currentMonth, day: selectedDate }}
                 familyId={familyId}
                 authUser={authUser}
-                events={events[dateKey] || []}
+                eventMap={events}
                 startVoiceFn={startVoice}
                 onSave={(newEv, dk) => {
                     setEvents(prev => ({ ...prev, [dk]: [...(prev[dk] || []), newEv].sort((a, b) => a.time.localeCompare(b.time)) }));
