@@ -6,6 +6,7 @@ import { supabase } from "./lib/supabase.js";
 import "./App.css";
 
 import { KAKAO_APP_KEY, SUPABASE_URL, SUPABASE_KEY, PARENT_PAIRING_INTENT_KEY, PUSH_FUNCTION_URL, AI_PARSE_URL, AI_MONITOR_URL, FF, DAYS_KO, MONTHS_KO, ARRIVAL_R, DEPARTURE_TIMEOUT_MS, DEFAULT_NOTIF, getNativeSetupAction, sendInstantPush, rememberParentPairingIntent, clearParentPairingIntent, escHtml, haversineM, getDIM, getFD, fmtT } from "./lib/utils.js";
+import { DEFAULT_CATEGORIES, LS_CUSTOM_CATS, loadCategories, saveCustomCategories, getCustomCategories, DEFAULT_CAT_IDS, ACADEMY_PRESETS, SCHEDULE_PRESETS, getCategories } from "./lib/categories.js";
 
 
 const REMOTE_AUDIO_CHUNK_MS = 2000;
@@ -250,53 +251,6 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_CATEGORIES = [
-    { id: "school", label: "학원", emoji: "📚", color: "#A78BFA", bg: "#EDE9FE" },
-    { id: "sports", label: "운동", emoji: "⚽", color: "#34D399", bg: "#D1FAE5" },
-    { id: "hobby", label: "취미", emoji: "🎨", color: "#F59E0B", bg: "#FEF3C7" },
-    { id: "family", label: "가족", emoji: "👨‍👩‍👧", color: "#F87171", bg: "#FEE2E2" },
-    { id: "friend", label: "친구", emoji: "👫", color: "#60A5FA", bg: "#DBEAFE" },
-    { id: "other", label: "기타", emoji: "🌟", color: "#EC4899", bg: "#FCE7F3" },
-];
-const LS_CUSTOM_CATS = "hyeni-custom-categories";
-function loadCategories() {
-    try {
-        const custom = JSON.parse(localStorage.getItem(LS_CUSTOM_CATS) || "[]");
-        return [...DEFAULT_CATEGORIES, ...custom];
-    } catch { return [...DEFAULT_CATEGORIES]; }
-}
-let CATEGORIES = loadCategories();
-function saveCustomCategories(customs) {
-    try { localStorage.setItem(LS_CUSTOM_CATS, JSON.stringify(customs)); } catch {}
-    CATEGORIES = [...DEFAULT_CATEGORIES, ...customs];
-}
-function getCustomCategories() {
-    try { return JSON.parse(localStorage.getItem(LS_CUSTOM_CATS) || "[]"); } catch { return []; }
-}
-const DEFAULT_CAT_IDS = new Set(DEFAULT_CATEGORIES.map(c => c.id));
-
-const ACADEMY_PRESETS = [
-    { label: "영어학원", emoji: "🔤", category: "school" },
-    { label: "수학학원", emoji: "🔢", category: "school" },
-    { label: "피아노", emoji: "🎹", category: "school" },
-    { label: "태권도", emoji: "🥋", category: "sports" },
-    { label: "축구교실", emoji: "⚽", category: "sports" },
-    { label: "수영", emoji: "🏊", category: "sports" },
-    { label: "미술학원", emoji: "🎨", category: "hobby" },
-    { label: "코딩학원", emoji: "💻", category: "school" },
-    { label: "무용", emoji: "💃", category: "hobby" },
-    { label: "독서논술", emoji: "📖", category: "school" },
-];
-
-const SCHEDULE_PRESETS = [
-    { label: "피아노", emoji: "🎹", category: "school" },
-    { label: "태권도", emoji: "🥋", category: "sports" },
-    { label: "연기학원", emoji: "🎭", category: "hobby" },
-    { label: "중국어", emoji: "🇨🇳", category: "school" },
-    { label: "방과후 영어", emoji: "🔤", category: "school" },
-    { label: "방과후 과학실험", emoji: "🔬", category: "school" },
-    { label: "방과후 3D펜", emoji: "🖊️", category: "hobby" },
-];
 
 
 // Kakao Maps
@@ -792,7 +746,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
     const openEdit = (idx) => { setForm({ ...list[idx], schedule: list[idx].schedule || null }); setEditIdx(idx); setShowForm(true); };
     const saveForm = () => {
         if (!form.name.trim()) return;
-        const cat = CATEGORIES.find(c => c.id === form.category);
+        const cat = getCategories().find(c => c.id === form.category);
         const item = { ...form, color: cat.color, bg: cat.bg };
         if (editIdx !== null) { const nl = [...list]; nl[editIdx] = item; setList(nl); }
         else setList(p => [...p, item]);
@@ -845,7 +799,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                         <div style={{ marginBottom: 12 }}>
                             <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>카테고리</label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                {CATEGORIES.map(cat => (
+                                {getCategories().map(cat => (
                                     <button key={cat.id} onClick={() => setForm(p => ({ ...p, category: cat.id, emoji: cat.emoji }))}
                                         style={{ padding: "7px 12px", borderRadius: 14, border: `2px solid ${form.category === cat.id ? cat.color : "#E5E7EB"}`, background: form.category === cat.id ? cat.color : "white", color: form.category === cat.id ? "white" : cat.color, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: FF }}>
                                         {cat.emoji} {cat.label}
@@ -919,7 +873,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                             <div style={{ fontSize: 26 }}>{a.emoji}</div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: 800, fontSize: 15, color: "#1F2937" }}>{a.name}</div>
-                                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{CATEGORIES.find(c => c.id === a.category)?.label}</div>
+                                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{getCategories().find(c => c.id === a.category)?.label}</div>
                                 {a.location && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>📍 {a.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
                                 {!a.location && <div style={{ fontSize: 11, color: "#F59E0B", marginTop: 2 }}>📍 위치 미등록</div>}
                                 {a.schedule?.days?.length > 0 && <div style={{ fontSize: 11, color: "#E879A0", fontWeight: 700, marginTop: 3 }}>📅 {a.schedule.days.map(d => DAYS_LABEL[d]).join(", ")} {a.schedule.startTime}~{a.schedule.endTime}</div>}
@@ -4179,7 +4133,7 @@ export default function KidsScheduler() {
         const matchedAcademy = parsed.academyName
             ? academies.find(a => a.name === parsed.academyName) : null;
         const catId = parsed.category || "other";
-        const cat = CATEGORIES.find(c => c.id === catId) || CATEGORIES.find(c => c.id === "other");
+        const cat = getCategories().find(c => c.id === catId) || getCategories().find(c => c.id === "other");
         const evYear = parsed.year ?? currentYear;
         const evMonth = parsed.month ?? currentMonth;
         const evDay = parsed.day ?? selectedDate;
@@ -4300,7 +4254,7 @@ export default function KidsScheduler() {
     const addEvent = async () => {
         const title = newTitle.trim() || (selectedPreset ? selectedPreset.label : "");
         if (!title) { showNotif("일정 이름을 입력해 줘요! 🐰", "error"); return; }
-        const cat = CATEGORIES.find(c => c.id === newCategory);
+        const cat = getCategories().find(c => c.id === newCategory);
         const emoji = selectedPreset ? selectedPreset.emoji : cat.emoji;
 
         const totalWeeks = weeklyRepeat ? repeatWeeks : 1;
@@ -4515,7 +4469,7 @@ export default function KidsScheduler() {
                             try { await updateAcademy(a.id, { name: a.name, emoji: a.emoji, category: a.category, location: a.location || null, schedule: a.schedule || null }); } catch (e) { console.error("[academy] update error:", e); }
                             // 기존 일정도 업데이트 (장소, 이름, 시간, 이모지)
                             if (familyId) {
-                                const cat = CATEGORIES.find(c => c.id === a.category);
+                                const cat = getCategories().find(c => c.id === a.category);
                                 setEvents(prev => {
                                     const updated = { ...prev };
                                     for (const [dk, dayEvs] of Object.entries(updated)) {
@@ -4547,7 +4501,7 @@ export default function KidsScheduler() {
                     const newEvents = {};
                     for (const ac of finalList) {
                         if (!ac.schedule?.days?.length || !ac.schedule.startTime) continue;
-                        const cat = CATEGORIES.find(c => c.id === ac.category);
+                        const cat = getCategories().find(c => c.id === ac.category);
                         for (let d = 0; d < 28; d++) {
                             const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + d);
                             if (!ac.schedule.days.includes(date.getDay())) continue;
@@ -5031,7 +4985,7 @@ export default function KidsScheduler() {
                         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
                             {academies.map((ac, i) => (
                                 <button key={i} onClick={() => {
-                                    const cat = CATEGORIES.find(c => c.id === ac.category);
+                                    const cat = getCategories().find(c => c.id === ac.category);
                                     const _ev = { id: Date.now(), title: ac.name, time: "15:00", category: ac.category, emoji: ac.emoji || cat.emoji, color: ac.color || cat.color, bg: ac.bg || cat.bg, memo: "", location: ac.location || null, notifOverride: null };
                                     setNewTitle(ac.name); setNewCategory(ac.category); setNewLocation(ac.location || null);
                                     setShowAddModal(true);
@@ -5226,7 +5180,7 @@ export default function KidsScheduler() {
                         <div style={{ marginBottom: 14 }}>
                             <label style={labelSt}>🏷️ 종류 {selectedPreset && <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>(자동 매칭됨)</span>}</label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                {CATEGORIES.map(cat => (
+                                {getCategories().map(cat => (
                                     <div key={cat.id} style={{ position: "relative", display: "inline-flex" }}>
                                         <button onClick={() => setNewCategory(cat.id)} style={{ padding: "8px 14px", borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, background: newCategory === cat.id ? cat.color : cat.bg, color: newCategory === cat.id ? "white" : cat.color, border: `2px solid ${cat.color}` }}>{cat.emoji} {cat.label}</button>
                                         {!DEFAULT_CAT_IDS.has(cat.id) && (
