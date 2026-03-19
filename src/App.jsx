@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
+import { kakaoLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, generateUUID } from "./lib/auth.js";
 import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
@@ -10,6 +10,7 @@ import { DEFAULT_CATEGORIES, LS_CUSTOM_CATS, loadCategories, saveCustomCategorie
 import { REMOTE_AUDIO_DEFAULT_DURATION_SEC, startRemoteAudioCapture, stopRemoteAudioCapture } from "./lib/remoteAudio.js";
 import { startNativeLocationService, stopNativeLocationService } from "./lib/locationService.js";
 import { loadKakaoMap } from "./lib/kakaoMaps.js";
+import useAuth from "./hooks/useAuth.js";
 import BunnyMascot from "./components/common/BunnyMascot.jsx";
 import AlertBanner from "./components/common/AlertBanner.jsx";
 import EmergencyBanner from "./components/common/EmergencyBanner.jsx";
@@ -47,28 +48,23 @@ import RouteOverlay from "./components/location/RouteOverlay.jsx";
 export default function KidsScheduler() {
     const today = new Date();
 
-    // ── Auth & family state (Supabase) ──────────────────────────────────────────
-    const [authUser, setAuthUser] = useState(null);       // supabase auth user
-    const [familyInfo, setFamilyInfo] = useState(null);   // { familyId, pairCode, myRole, myName, members }
-    const [authLoading, setAuthLoading] = useState(true);
-    const [myRole, setMyRole] = useState(() => {
-        try { return localStorage.getItem("hyeni-my-role") || null; } catch { return null; }
-    });           // "parent" | "child" | null (role selection)
+    // ── Auth & family state (from useAuth hook) ─────────────────────────────────
+    const {
+        authUser, setAuthUser,
+        authLoading,
+        myRole, setMyRole,
+        familyInfo, setFamilyInfo,
+        showParentSetup, setShowParentSetup,
+        isParent,
+        isNativeApp,
+        familyId,
+        pairCode,
+        pairedChildren,
+        handleChildSelect,
+        handleLogout,
+        handleAuthUser,
+    } = useAuth();
     const [showPairing, setShowPairing] = useState(false);
-
-    // Persist myRole to localStorage for session continuity
-    useEffect(() => {
-        try {
-            if (myRole) localStorage.setItem("hyeni-my-role", myRole);
-            else localStorage.removeItem("hyeni-my-role");
-        } catch { /* ignored */ }
-    }, [myRole]);
-
-    const isParent = familyInfo?.myRole === "parent" || myRole === "parent";
-    const isNativeApp = typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
-    const familyId = familyInfo?.familyId;
-    const pairCode = familyInfo?.pairCode || "";
-    const pairedChildren = familyInfo?.members?.filter(m => m.role === "child") || [];
     const _pairedDevice = pairedChildren[0] || null; // 첫 번째 아이 (하위호환)
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
@@ -84,7 +80,6 @@ export default function KidsScheduler() {
     const [globalNotif, _setGlobalNotif] = useState(DEFAULT_NOTIF);
     const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
     const [showPhoneSettings, setShowPhoneSettings] = useState(false);
-    const [showParentSetup, setShowParentSetup] = useState(false);
 
     // ── UI state ───────────────────────────────────────────────────────────────
     const [showAddModal, setShowAddModal] = useState(false);
@@ -227,61 +222,6 @@ export default function KidsScheduler() {
         }
     }, [familyInfo]);
 
-    const handleNativeAuthCallback = useCallback(async (url) => {
-        if (!url || !url.startsWith("hyenicalendar://auth-callback")) {
-            return false;
-        }
-
-        const fragment = url.includes("#")
-            ? url.split("#")[1]
-            : (url.split("?")[1] || "");
-        const params = new URLSearchParams(fragment);
-        const accessToken = params.get("access_token");
-        const refreshToken = params.get("refresh_token");
-        const code = params.get("code");
-
-        try {
-            if (accessToken && refreshToken) {
-                await supabase.auth.setSession({
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                });
-                return true;
-            }
-
-            if (code) {
-                await supabase.auth.exchangeCodeForSession(code);
-                return true;
-            }
-        } catch (err) {
-            console.error("[Auth] Native OAuth callback handling failed:", err);
-        }
-
-        return false;
-    }, []);
-
-    // ── Deep link handler (카카오 OAuth 콜백 → 앱 복귀) ──────────────────────
-    useEffect(() => {
-        if (!isNativeApp) return;
-        let handle;
-        (async () => {
-            try {
-                const { App: CapApp } = await import("@capacitor/app");
-                const launch = await CapApp.getLaunchUrl();
-                if (launch?.url) {
-                    await handleNativeAuthCallback(launch.url);
-                }
-
-                handle = await CapApp.addListener("appUrlOpen", async (event) => {
-                    await handleNativeAuthCallback(event.url);
-                });
-            } catch (_error) {
-                // native deep-link listener unavailable in web mode
-            }
-        })();
-        return () => { if (handle) handle.remove(); };
-    }, [handleNativeAuthCallback, isNativeApp]);
-
     // ── Register Service Worker for push notifications (웹 전용, 네이티브 앱 제외) ──
     useEffect(() => {
         if (isNativeApp) return; // Android APK → FCM 사용, SW 불필요
@@ -396,125 +336,6 @@ export default function KidsScheduler() {
             cancelled = true;
         };
     }, [authUser, familyId]);
-
-    // ── Shared auth handler (used by both init and onAuthChange) ────────────────
-    const handleAuthUser = useCallback(async (user) => {
-        setAuthUser(user);
-
-        let fam = null;
-        try {
-            fam = await getMyFamily(user.id);
-        } catch (err) {
-            console.error("[getMyFamily]", err);
-        }
-
-        if (fam) {
-            setFamilyInfo(fam);
-            setMyRole(fam.myRole);
-            return;
-        }
-
-        // Kakao user with no family → show parent setup choice (don't auto-create)
-        const isKakao = user.app_metadata?.provider === "kakao"
-            || user.identities?.some(i => i.provider === "kakao")
-            || user.user_metadata?.provider === "kakao";
-        if (isKakao) {
-            setMyRole("parent");
-            setShowParentSetup(true); // Show "새 가족 만들기 / 기존 가족 합류" choice
-        }
-    }, []);
-
-    // ── Auth: check session on mount ────────────────────────────────────────────
-    const authInitDone = useRef(false);
-    const authUserRef = useRef(null);
-    const myRoleRef = useRef(myRole);
-    const familyInfoRef = useRef(familyInfo);
-    // Keep refs in sync with state (avoids stale closure in visibility handler)
-    useEffect(() => { authUserRef.current = authUser; }, [authUser]);
-    useEffect(() => { myRoleRef.current = myRole; }, [myRole]);
-    useEffect(() => { familyInfoRef.current = familyInfo; }, [familyInfo]);
-
-    useEffect(() => {
-        const init = async () => {
-            try {
-                const session = await getSession();
-                if (session?.user) {
-                    await handleAuthUser(session.user);
-                }
-            } catch (err) {
-                console.error("[auth init] error:", err);
-            }
-            authInitDone.current = true;
-            setAuthLoading(false);
-        };
-
-        // Safety timeout: never hang on loading screen
-        const safetyTimer = setTimeout(() => {
-            if (!authInitDone.current) {
-                authInitDone.current = true;
-                setAuthLoading(false);
-            }
-        }, 5000);
-
-        init();
-
-        const sub = onAuthChange(async (session, event) => {
-            // Skip if init() hasn't finished yet (avoid double-run on mount)
-            if (!authInitDone.current) return;
-            if (session?.user) {
-                await handleAuthUser(session.user);
-            } else if (event === "SIGNED_OUT") {
-                // Only reset role on explicit sign-out, not on token refresh failures
-                setAuthUser(null);
-                setFamilyInfo(null);
-                setMyRole(null);
-            }
-        });
-
-        // Re-check session when app comes back from background
-        const handleVisibility = async () => {
-            if (document.visibilityState === "visible" && authInitDone.current) {
-                try {
-                    const session = await getSession();
-                    if (session?.user) {
-                        if (!authUserRef.current || !myRoleRef.current) {
-                            await handleAuthUser(session.user);
-                        }
-                        // Update native service token + ensure service is running
-                        if (session.access_token) {
-                            try {
-                                const { Capacitor, registerPlugin } = await import("@capacitor/core");
-                                if (Capacitor.isNativePlatform()) {
-                                    const BackgroundLocation = registerPlugin("BackgroundLocation");
-                                    // Check if service is still running, restart if dead
-                                    const { running } = await BackgroundLocation.isRunning();
-                                    const curRole = myRoleRef.current;
-                                    const curFamilyId = familyInfoRef.current?.familyId;
-                                    if (!running && curRole === "child" && curFamilyId) {
-                                        console.log("[Resume] LocationService was dead, restarting...");
-                                        await BackgroundLocation.startService({
-                                            userId: session.user.id, familyId: curFamilyId,
-                                            supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY,
-                                            accessToken: session.access_token
-                                        });
-                                    } else {
-                                        await BackgroundLocation.updateToken({ accessToken: session.access_token });
-                                    }
-                                }
-                            } catch { /* ignored */ }
-                        }
-                    }
-                } catch { /* ignored */ }
-            }
-        };
-        document.addEventListener("visibilitychange", handleVisibility);
-
-        return () => {
-            sub?.unsubscribe();
-            clearTimeout(safetyTimer);
-            document.removeEventListener("visibilitychange", handleVisibility);
-        };
-    }, [handleAuthUser]);
 
     // ── Fetch data + subscribe when familyId is available ───────────────────────
     useEffect(() => {
@@ -1463,18 +1284,6 @@ export default function KidsScheduler() {
     const secBtn = { width: "100%", padding: "12px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 20, fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8, fontFamily: FF };
 
     const TABS = [["calendar", "📅 달력"], ["maplist", "📍 장소"]];
-
-    // ── Handle child role selection (anonymous login + pair code input) ────────
-    const handleChildSelect = async () => {
-        try {
-            const user = await anonymousLogin();
-            setAuthUser(user);
-            setMyRole("child");
-            // ChildPairInput overlay will show automatically (myRole=child + !familyId)
-        } catch (err) {
-            console.error("[child login]", err);
-        }
-    };
 
     // ── Handle parent setup: create new family or join existing ────────────────
     const handleCreateFamily = async () => {
