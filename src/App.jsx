@@ -10,29 +10,13 @@ import { DEFAULT_CATEGORIES, LS_CUSTOM_CATS, loadCategories, saveCustomCategorie
 import { REMOTE_AUDIO_DEFAULT_DURATION_SEC, startRemoteAudioCapture, stopRemoteAudioCapture } from "./lib/remoteAudio.js";
 import { startNativeLocationService, stopNativeLocationService } from "./lib/locationService.js";
 import { loadKakaoMap } from "./lib/kakaoMaps.js";
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Mascot
-// ─────────────────────────────────────────────────────────────────────────────
-const BunnyMascot = ({ size = 80 }) => (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-        <ellipse cx="33" cy="22" rx="9" ry="18" fill="#FFD6E8" />
-        <ellipse cx="67" cy="22" rx="9" ry="18" fill="#FFD6E8" />
-        <ellipse cx="33" cy="22" rx="5" ry="13" fill="#FFB3D1" />
-        <ellipse cx="67" cy="22" rx="5" ry="13" fill="#FFB3D1" />
-        <ellipse cx="50" cy="65" rx="26" ry="22" fill="#FFF0F7" />
-        <circle cx="50" cy="48" r="24" fill="#FFF0F7" />
-        <path d="M38 44 Q40 41 42 44" stroke="#FF7BAC" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        <path d="M58 44 Q60 41 62 44" stroke="#FF7BAC" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        <ellipse cx="50" cy="51" rx="3" ry="2" fill="#FFB3D1" />
-        <path d="M45 54 Q50 58 55 54" stroke="#FF7BAC" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <circle cx="37" cy="52" r="5" fill="#FFB3D1" opacity="0.5" />
-        <circle cx="63" cy="52" r="5" fill="#FFB3D1" opacity="0.5" />
-        <ellipse cx="28" cy="68" rx="7" ry="10" fill="#FFF0F7" transform="rotate(-20 28 68)" />
-        <ellipse cx="72" cy="68" rx="7" ry="10" fill="#FFF0F7" transform="rotate(20 72 68)" />
-    </svg>
-);
+import BunnyMascot from "./components/common/BunnyMascot.jsx";
+import AlertBanner from "./components/common/AlertBanner.jsx";
+import EmergencyBanner from "./components/common/EmergencyBanner.jsx";
+import MapZoomControls from "./components/common/MapZoomControls.jsx";
+import KakaoStaticMap from "./components/common/KakaoStaticMap.jsx";
+import ChildPairInput from "./components/auth/ChildPairInput.jsx";
+import PairCodeSection from "./components/auth/PairCodeSection.jsx";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parent Setup Screen (extracted component – hooks must be at top level)
@@ -108,40 +92,6 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Kakao Static Map (thumbnail)
-// ─────────────────────────────────────────────────────────────────────────────
-function KakaoStaticMap({ lat, lng, width = "100%", height = 120 }) {
-    const ref = useRef();
-    useEffect(() => {
-        if (!window.kakao?.maps || !ref.current) return;
-        new window.kakao.maps.StaticMap(ref.current, {
-            center: new window.kakao.maps.LatLng(lat, lng),
-            level: 3,
-            marker: { position: new window.kakao.maps.LatLng(lat, lng) }
-        });
-    }, [lat, lng]);
-    return <div ref={ref} style={{ width, height, borderRadius: 14, overflow: "hidden" }} />;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Map Zoom Controls (아이용 큰 버튼)
-// ─────────────────────────────────────────────────────────────────────────────
-function MapZoomControls({ mapObj, style }) {
-    const zoom = (delta) => {
-        if (!mapObj?.current) return;
-        const lv = mapObj.current.getLevel();
-        mapObj.current.setLevel(lv + delta, { animate: true });
-    };
-    const btnSt = { width: 48, height: 48, borderRadius: 14, border: "none", fontSize: 24, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(0,0,0,0.15)", fontFamily: FF };
-    return (
-        <div style={{ position: "absolute", bottom: 16, left: 12, display: "flex", flexDirection: "column", gap: 8, zIndex: 10, ...style }}>
-            <button onClick={() => zoom(-1)} style={{ ...btnSt, background: "white", color: "#E879A0" }}>+</button>
-            <button onClick={() => zoom(1)} style={{ ...btnSt, background: "white", color: "#9CA3AF" }}>−</button>
-        </div>
-    );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Map Picker (Kakao Maps)
@@ -262,63 +212,6 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Alert Banner
-// ─────────────────────────────────────────────────────────────────────────────
-function AlertBanner({ alerts, onDismiss }) {
-    if (!alerts.length) return null;
-    const BG = { parent: "linear-gradient(135deg,#1E40AF,#2563EB)", child: "linear-gradient(135deg,#7C3AED,#A78BFA)", friend: "linear-gradient(135deg,#059669,#10B981)", emergency: "linear-gradient(135deg,#DC2626,#EF4444)", sync: "linear-gradient(135deg,#0369A1,#0EA5E9)" };
-    const ICON = { parent: "👨‍👩‍👧", child: "🐰", friend: "👫", emergency: "🚨", sync: "📅" };
-    const LABEL = { parent: "부모님 알림", child: "아이 알림", friend: "친구 알림", emergency: "⚠️ 긴급 미도착", sync: "📅 일정 동기화" };
-    return (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 350, display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)", pointerEvents: "none" }}>
-            {alerts.map(a => (
-                <div key={a.id} style={{ background: BG[a.type] || BG.parent, color: "white", borderRadius: 20, padding: "14px 18px", boxShadow: "0 8px 32px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", gap: 12, animation: "slideDownFull 0.4s ease", pointerEvents: "all", fontFamily: FF }}>
-                    <div style={{ fontSize: 26 }}>{ICON[a.type] || "🔔"}</div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 1 }}>{LABEL[a.type] || "알림"}</div>
-                        <div style={{ fontSize: 12, opacity: 0.9, lineHeight: 1.4 }}>{a.msg}</div>
-                    </div>
-                    <button onClick={() => onDismiss(a.id)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, padding: "6px 10px", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>확인</button>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Emergency Modal
-// ─────────────────────────────────────────────────────────────────────────────
-function EmergencyBanner({ emergencies, onDismiss }) {
-    if (!emergencies.length) return null;
-    const em = emergencies[0];
-    return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)", fontFamily: FF }}>
-            <div style={{ background: "white", borderRadius: 28, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(220,38,38,0.4)", animation: "emergencyPulse 0.6s ease" }}>
-                <div style={{ height: 8, borderRadius: 8, background: "linear-gradient(90deg,#EF4444,#DC2626,#EF4444)", backgroundSize: "200% 100%", animation: "shimmer 1s linear infinite", marginBottom: 20 }} />
-                <div style={{ textAlign: "center", marginBottom: 16 }}>
-                    <div style={{ fontSize: 56, marginBottom: 8, animation: "shake 0.5s ease infinite" }}>🚨</div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: "#DC2626" }}>긴급 알림</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7280", marginTop: 4 }}>학부모님, 확인이 필요해요!</div>
-                </div>
-                <div style={{ background: "#FEF2F2", border: "2px solid #FECACA", borderRadius: 18, padding: "16px 18px", marginBottom: 20 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <div style={{ fontSize: 28 }}>{em.emoji}</div>
-                        <div><div style={{ fontWeight: 800, fontSize: 16, color: "#1F2937" }}>{em.title}</div><div style={{ fontSize: 13, color: "#6B7280" }}>예정: ⏰ {em.time}</div></div>
-                    </div>
-                    <div style={{ background: "#DC2626", borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>
-                        <div style={{ color: "white", fontWeight: 800, fontSize: 14 }}>⚠️ 5분 후 시작인데 아직 미도착!</div>
-                        <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 3 }}>{em.location}</div>
-                    </div>
-                </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => onDismiss(em.id, "contact")} style={{ flex: 1, padding: "14px", background: "linear-gradient(135deg,#DC2626,#B91C1C)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: FF }}>📞 아이에게 전화</button>
-                    <button onClick={() => onDismiss(em.id, "ok")} style={{ flex: 1, padding: "14px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>확인했어요</button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Role Setup Modal  (first launch)
@@ -368,51 +261,6 @@ function RoleSetupModal({ onSelect, loading }) {
                     <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4, lineHeight: 1.5 }}>부모님 코드로 연결하고<br />내 일정을 확인해요</div>
                 </button>
             </div>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Pair Code Section (shows code prominently or in collapsible after pairing)
-// ─────────────────────────────────────────────────────────────────────────────
-function PairCodeSection({ pairCode, childrenCount, maxChildren }) {
-    const [showCode, setShowCode] = useState(childrenCount === 0);
-    const canAddMore = childrenCount < maxChildren;
-
-    if (childrenCount === 0) {
-        return (
-            <div style={{ background: "#F0FDF4", border: "1.5px solid #86EFAC", borderRadius: 16, padding: "16px", marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 6 }}>📋 아이에게 공유할 연동 코드</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontWeight: 900, fontSize: 22, color: "#059669", letterSpacing: 2, flex: 1, fontFamily: "monospace" }}>{pairCode}</div>
-                    <button onClick={() => navigator.clipboard?.writeText(pairCode)}
-                        style={{ background: "#059669", color: "white", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>복사</button>
-                </div>
-                <div style={{ fontSize: 11, color: "#6B7280", marginTop: 8 }}>아이 기기에서 이 코드를 입력하면 자동 연결돼요</div>
-            </div>
-        );
-    }
-
-    return (
-        <div style={{ background: showCode ? "#F0FDF4" : "#F9FAFB", border: showCode ? "1.5px solid #86EFAC" : "1.5px solid #E5E7EB", borderRadius: 16, padding: "12px 16px", marginBottom: 20 }}>
-            <button onClick={() => setShowCode(v => !v)}
-                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: 0, fontFamily: FF }}>
-                <span style={{ fontSize: 14 }}>{showCode ? "🔓" : "🔑"}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151", flex: 1, textAlign: "left" }}>연동 코드 확인</span>
-                <span style={{ fontSize: 11, color: "#9CA3AF" }}>{showCode ? "접기" : "펼치기"}</span>
-            </button>
-            {showCode && (
-                <div style={{ marginTop: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontWeight: 900, fontSize: 22, color: "#059669", letterSpacing: 2, flex: 1, fontFamily: "monospace" }}>{pairCode}</div>
-                        <button onClick={() => navigator.clipboard?.writeText(pairCode)}
-                            style={{ background: "#059669", color: "white", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>복사</button>
-                    </div>
-                    <div style={{ fontSize: 11, color: "#6B7280", marginTop: 8 }}>
-                        {canAddMore ? "추가 아이 기기에서 이 코드를 입력하면 연결돼요" : "최대 연동 수에 도달했어요. 기존 연동을 해제하면 새로 추가할 수 있어요"}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
@@ -506,48 +354,6 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                     </div>
                 )}
             </div>
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Child Pair Input (full-screen overlay for first-time child pairing)
-// ─────────────────────────────────────────────────────────────────────────────
-function ChildPairInput({ userId, onPaired }) {
-    const [code, setCode] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState("");
-
-    const handleJoin = async () => {
-        if (!code.trim() || code.length < 4) { setError("코드를 정확히 입력해 주세요"); return; }
-        const fullCode = "KID-" + code.trim();
-        setBusy(true); setError("");
-        try {
-            const result = await joinFamily(fullCode, userId, "아이");
-            console.log("[ChildPairInput] joinFamily result:", result);
-            await onPaired();
-        } catch (err) {
-            console.error("[ChildPairInput] error:", err);
-            setError(err.message?.includes("Too many") ? "시도 횟수 초과. 1시간 후 다시 시도해 주세요" : "잘못된 코드예요. 부모님께 확인해 주세요");
-        } finally { setBusy(false); }
-    };
-
-    return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
-            <BunnyMascot size={70} />
-            <div style={{ fontSize: 24, fontWeight: 900, color: "#E879A0", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
-            <div style={{ fontSize: 14, color: "#6B7280", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
-            <div style={{ position: "relative", width: "100%", maxWidth: 320, marginBottom: 8 }}>
-                <div style={{ position: "absolute", left: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 20, fontFamily: "monospace", fontWeight: 700, color: "#E879A0", pointerEvents: "none", zIndex: 1 }}>KID-</div>
-                <input value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
-                    placeholder="XXXXXXXX" maxLength={8}
-                    style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid #F3E8F0", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "#374151", background: "white", boxShadow: "0 2px 8px rgba(232,121,160,0.1)" }} />
-            </div>
-            {error && <div style={{ fontSize: 13, color: "#EF4444", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
-            <button onClick={handleJoin} disabled={busy}
-                style={{ width: "100%", maxWidth: 320, padding: "16px", background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", border: "none", borderRadius: 20, fontSize: 16, fontWeight: 800, cursor: busy ? "wait" : "pointer", fontFamily: FF, marginTop: 8, opacity: busy ? 0.7 : 1 }}>
-                {busy ? "연결 중..." : "🔗 연결하기"}
-            </button>
         </div>
     );
 }
