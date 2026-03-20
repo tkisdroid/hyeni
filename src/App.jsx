@@ -104,6 +104,8 @@ export default function KidsScheduler() {
 
     // ── Arrival tracking ───────────────────────────────────────────────────────
     const [arrivedSet, setArrivedSet] = useState(new Set());
+    const arrivedSetRef = useRef(arrivedSet);
+    useEffect(() => { arrivedSetRef.current = arrivedSet; }, [arrivedSet]);
     const [firedNotifs, setFiredNotifs] = useState(new Set());
     const [firedEmergencies, setFiredEmergencies] = useState(new Set());
     const [childPos, setChildPos] = useState(null);
@@ -315,7 +317,7 @@ export default function KidsScheduler() {
                 const inside = dist <= ARRIVAL_R;
 
                 // ── Arrival detection (only 30min before ~ event time) ──
-                if (inside && !arrivedSet.has(ev.id)) {
+                if (inside && !arrivedSetRef.current.has(ev.id)) {
                     const [h, m] = ev.time.split(":").map(Number);
                     const evTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
                     const diff = Math.round((now.getTime() - evTime) / 60000);
@@ -376,7 +378,7 @@ export default function KidsScheduler() {
                 }
 
                 // ── Departure detection (left 50m zone after arriving) ──
-                if (!inside && arrivedSet.has(ev.id) && !departedAlerts.has(ev.id)) {
+                if (!inside && arrivedSetRef.current.has(ev.id) && !departedAlerts.has(ev.id)) {
                     // Child left the zone — start countdown
                     if (!departureTimers.current[ev.id]) {
                         departureTimers.current[ev.id] = {
