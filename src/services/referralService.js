@@ -1,5 +1,10 @@
 import { supabase } from "../lib/supabase.js";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function validateUUID(id) {
+  if (!id || !UUID_RE.test(id)) throw new Error("invalid UUID");
+}
+
 /**
  * 내 추천 코드 가져오기/생성
  * @param {string} familyId
@@ -46,6 +51,7 @@ export async function applyReferralCode(refereeFamilyId, code) {
  */
 export async function checkPendingReferrals(familyId) {
   try {
+    validateUUID(familyId);
     const threeDaysAgo = new Date(
       Date.now() - 3 * 24 * 60 * 60 * 1000
     ).toISOString();
@@ -53,7 +59,7 @@ export async function checkPendingReferrals(familyId) {
     // 1. 대기중인 추천 완료 건 조회 (3일 이상 경과)
     const { data: pendingCompletions, error: fetchError } = await supabase
       .from("referral_completions")
-      .select("id, referee_family_id")
+      .select("id, referee_family_id, created_at")
       .or(
         `referrer_family_id.eq.${familyId},referee_family_id.eq.${familyId}`
       )
@@ -65,13 +71,13 @@ export async function checkPendingReferrals(familyId) {
 
     let completedCount = 0;
 
-    // 2. 각 건에 대해 피추천인의 최근 3일 혜니 거래 내역 확인 (retention check)
+    // 2. 각 건에 대해 피추천인의 가입 이후 활동 확인 (retention check)
     for (const completion of pendingCompletions) {
       const { count, error: txError } = await supabase
         .from("point_transactions")
         .select("id", { count: "exact", head: true })
         .eq("family_id", completion.referee_family_id)
-        .gte("created_at", threeDaysAgo);
+        .gte("created_at", completion.created_at);
 
       if (txError) {
         console.warn(
@@ -115,6 +121,7 @@ export async function checkPendingReferrals(familyId) {
  */
 export async function getMyReferralStats(familyId) {
   try {
+    validateUUID(familyId);
     // 추천 코드의 total_referrals 조회
     const { data: codeData, error: codeError } = await supabase
       .from("referral_codes")

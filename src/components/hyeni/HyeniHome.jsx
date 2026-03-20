@@ -4,11 +4,6 @@ import { getWallet, getTransactions, getTodayStats } from "../../services/hyeniS
 import { getMyReferralCode, getMyReferralStats, shareReferralLink } from "../../services/referralService.js";
 import { CATEGORY_LABELS } from "../common/HyeniToast.jsx";
 
-const DAILY_LIMITS = {
-  attendance: 1, arrival: 5, arrival_early: 5,
-  event_create: 3, gguk: 5, memo: 3, academy_register: 1,
-};
-
 const STAT_CHIPS = [
   { key: "attendance", emoji: "✅", label: "출석", limit: 1 },
   { key: "arrival", emoji: "📍", label: "도착", limit: 5, mergeWith: "arrival_early" },
@@ -55,14 +50,20 @@ export default function HyeniHome({ familyId, onClose, onReferralPage }) {
   useEffect(() => { load(); }, [load]);
 
   const loadMore = async () => {
-    const txs = await getTransactions(familyId, 20, txOffset);
-    setTransactions(prev => [...prev, ...txs]);
-    setTxOffset(prev => prev + 20);
-    setHasMore(txs.length >= 20);
+    try {
+      const txs = await getTransactions(familyId, 20, txOffset);
+      if (txs.length > 0) {
+        setTransactions(prev => [...prev, ...txs]);
+        setTxOffset(prev => prev + 20);
+      }
+      setHasMore(txs.length >= 20);
+    } catch {
+      setHasMore(false);
+    }
   };
 
-  const todayTotal = Object.values(todayStats).reduce((sum, s) => {
-    if (["referral_invite", "referral_welcome", "referral_milestone"].includes(s.category)) return sum;
+  const todayTotal = Object.entries(todayStats).reduce((sum, [category, s]) => {
+    if (["referral_invite", "referral_welcome", "referral_milestone"].includes(category)) return sum;
     return sum + (s.total || 0);
   }, 0);
 

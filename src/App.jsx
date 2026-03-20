@@ -255,7 +255,7 @@ export default function KidsScheduler() {
             const memberId = familyInfo?.members?.find(m => m.user_id === authUser.id)?.id || null;
             const r = await earnGguk(familyId, memberId);
             if (r?.success) showHyeniToast(1, 'gguk');
-        } catch {}
+        } catch (e) { console.warn("[Hyeni] gguk earn failed:", e); }
     }, [familyId, authUser, isParent, kkukCooldown, familyInfo]);
 
     // ── Android 뒤로가기 버튼 처리 ───────────────────────────────────────────────
@@ -381,7 +381,7 @@ export default function KidsScheduler() {
                             try {
                                 const memberId = familyInfo?.members?.find(m => m.user_id === authUser.id)?.id || null;
                                 earnArrival(familyId, memberId, String(ev.id), isEarly).then(arrResult => {
-                                    if (arrResult?.success) showHyeniToast(arrResult.earned, isEarly ? 'arrival_early' : 'arrival');
+                                    if (arrResult?.success) showHyeniToast(isEarly ? 5 : 3, isEarly ? 'arrival_early' : 'arrival');
                                     checkAndEarnStreak(familyId, memberId).then(streakResult => {
                                         if (streakResult?.bonus > 0) showHyeniToast(streakResult.bonus, 'arrival_streak');
                                     }).catch(() => {});
@@ -623,7 +623,13 @@ export default function KidsScheduler() {
 
     // ── 혜니 포인트: 출석 적립 + 지갑 로드 ───────────────────────────────────
     const hyeniInitDone = useRef(false);
+    const hyeniLastFamilyId = useRef(null);
     useEffect(() => {
+        // 가족 변경 시 리셋
+        if (familyId !== hyeniLastFamilyId.current) {
+            hyeniInitDone.current = false;
+            hyeniLastFamilyId.current = familyId;
+        }
         if (!familyId || !authUser || !familyInfo || hyeniInitDone.current) return;
         hyeniInitDone.current = true;
         (async () => {
