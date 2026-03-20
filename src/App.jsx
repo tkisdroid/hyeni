@@ -1072,7 +1072,7 @@ export default function KidsScheduler() {
             <style>{`
         *,*::before,*::after{box-sizing:border-box}
         html,body,#root{margin:0;padding:0;width:100%;min-height:100vh}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+        @keyframes float{0%,100%{transform:translateY(4px)}50%{transform:translateY(-4px)}}
         @keyframes bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-16px)}70%{transform:translateY(-8px)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
         @keyframes slideDown{from{transform:translateX(-50%) translateY(-20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
@@ -1324,7 +1324,7 @@ export default function KidsScheduler() {
             {/* ── Header Row 1: Logo + 꾹 + 로그아웃 ── */}
             <div style={{ width: "100%", maxWidth: 420, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 뽀짝이야 🐰"); }}>
+                    <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0, alignSelf: "center", display: "flex", alignItems: "center" }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 뽀짝이야 🐰"); }}>
                         <BunnyMascot size={isParent ? 36 : 44} />
                     </div>
                     <div style={{ minWidth: 0 }}>
