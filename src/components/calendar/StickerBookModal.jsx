@@ -55,17 +55,37 @@ export default function StickerBookModal({ stickers, summary, dateLabel, onClose
                         </div>
                     ) : (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))", gap: 8 }}>
-                            {stickers.map((s, i) => (
-                                <div key={s.id || i} style={{
-                                    background: s.sticker_type === "early" ? "#FEF3C7" : s.sticker_type === "late" ? "#F3F4F6" : s.sticker_type === "praise" ? "#FFF0F5" : "#EDE9FE",
-                                    borderRadius: 14, padding: "8px 6px", textAlign: "center",
-                                    border: `1.5px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : s.sticker_type === "praise" ? "#F9A8D4" : "#C4B5FD"}`,
-                                    opacity: s.sticker_type === "late" ? 0.6 : 1,
-                                }}>
-                                    <div style={{ fontSize: 22 }}>{s.emoji}</div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: "#374151", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
-                                </div>
-                            ))}
+                            {(() => {
+                                // 같은 종류(emoji+title+type) 스티커를 그룹화하여 개수 표시
+                                const groups = [];
+                                const groupMap = new Map();
+                                for (const s of stickers) {
+                                    const key = `${s.emoji}|${s.title}|${s.sticker_type}`;
+                                    if (groupMap.has(key)) {
+                                        groupMap.get(key).count += 1;
+                                    } else {
+                                        const group = { ...s, count: 1, groupKey: key };
+                                        groupMap.set(key, group);
+                                        groups.push(group);
+                                    }
+                                }
+                                return groups.map((s, i) => (
+                                    <div key={s.groupKey || i} style={{
+                                        background: s.sticker_type === "early" ? "#FEF3C7" : s.sticker_type === "late" ? "#F3F4F6" : s.sticker_type === "praise" ? "#FFF0F5" : "#EDE9FE",
+                                        borderRadius: 14, padding: "8px 6px", textAlign: "center", position: "relative",
+                                        border: `1.5px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : s.sticker_type === "praise" ? "#F9A8D4" : "#C4B5FD"}`,
+                                        opacity: s.sticker_type === "late" ? 0.6 : 1,
+                                    }}>
+                                        {s.count > 1 && (
+                                            <div style={{ position: "absolute", top: -4, right: -4, background: s.sticker_type === "early" ? "#F59E0B" : s.sticker_type === "praise" ? "#EC4899" : s.sticker_type === "late" ? "#9CA3AF" : "#7C3AED", color: "white", borderRadius: 10, minWidth: 18, height: 18, fontSize: 10, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>
+                                                {s.count}
+                                            </div>
+                                        )}
+                                        <div style={{ fontSize: 22 }}>{s.emoji}</div>
+                                        <div style={{ fontSize: 9, fontWeight: 700, color: "#374151", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
+                                    </div>
+                                ));
+                            })()}
                         </div>
                     )}
                 </div>
