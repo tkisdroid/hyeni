@@ -39,6 +39,18 @@ export async function registerSW() {
 // ── Request notification permission ─────────────────────────────────────────
 export async function requestPermission() {
   if (isNativePlatform()) {
+    const native = getNativeNotifPlugin();
+    if (native?.requestPermission) {
+      try {
+        const result = await native.requestPermission();
+        if (result?.permission) {
+          return result.permission;
+        }
+      } catch (err) {
+        console.error("[Push] Native permission request failed:", err);
+      }
+    }
+
     const health = await getNativeNotificationHealth();
     if (!health) return "prompt";
     return health.postPermissionGranted && health.notificationsEnabled ? "granted" : "denied";
@@ -281,7 +293,10 @@ export function scheduleNotifications(events, notifSettings, role) {
     if (isParentRole && !settings.parentEnabled) continue;
     if (!isParentRole && !settings.childEnabled) continue;
 
-    for (const mins of minutesList) {
+    // 부모: 15분 전에만, 아이: 전체 minutesList
+    const effectiveMins = isParentRole ? minutesList.filter(m => m >= 15) : minutesList;
+
+    for (const mins of effectiveMins) {
       const fireTime = eventTime.getTime() - mins * 60000;
       const delay = fireTime - now.getTime();
 
@@ -290,14 +305,13 @@ export function scheduleNotifications(events, notifSettings, role) {
         const body = isParentRole
           ? parentNotifMsg(ev.emoji, ev.title, mins, ev.time)
           : childNotifMsg(ev.emoji, ev.title, mins);
-        const isSilent = isParentRole && mins < 15;
 
         const timerId = setTimeout(() => {
           showNotification(
             `${ev.emoji} ${ev.title}`,
             body,
             `hyeni-${ev.id}-${mins}`,
-            { eventId: ev.id, silent: isSilent }
+            { eventId: ev.id }
           );
           scheduledTimers.delete(timerKey);
         }, delay);
@@ -306,6 +320,7 @@ export function scheduleNotifications(events, notifSettings, role) {
       }
     }
 
+    // 시작 알림: 부모 + 아이 모두 (소리 울림)
     const startDelay = eventTime.getTime() - now.getTime();
     if (startDelay > 0 && startDelay < 24 * 60 * 60000) {
       const startKey = `${ev.id}-start`;
@@ -317,31 +332,11 @@ export function scheduleNotifications(events, notifSettings, role) {
           `${ev.emoji} ${ev.title}`,
           startBody,
           `hyeni-${ev.id}-start`,
-          { eventId: ev.id, silent: isParentRole }
+          { eventId: ev.id }
         );
         scheduledTimers.delete(startKey);
       }, startDelay);
       scheduledTimers.set(startKey, timerId);
-    }
-
-    // 종료 알림: 부모에게만, endTime이 있을 때
-    if (isParentRole && ev.endTime) {
-      const [eh, em] = ev.endTime.split(":").map(Number);
-      const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), eh, em);
-      const endDelay = endTime.getTime() - now.getTime();
-      if (endDelay > 0 && endDelay < 24 * 60 * 60000) {
-        const endKey = `${ev.id}-end`;
-        const timerId = setTimeout(() => {
-          showNotification(
-            `${ev.emoji} ${ev.title}`,
-            `${ev.emoji} ${ev.title} 수업이 끝났어요`,
-            `hyeni-${ev.id}-end`,
-            { eventId: ev.id, silent: true }
-          );
-          scheduledTimers.delete(endKey);
-        }, endDelay);
-        scheduledTimers.set(endKey, timerId);
-      }
     }
   }
 
@@ -394,7 +389,10 @@ function buildAlarmPayloads(events, notifSettings, role) {
     if (isParentRole && !settings.parentEnabled) continue;
     if (!isParentRole && !settings.childEnabled) continue;
 
-    for (const mins of minutesList) {
+    // 부모: 15분 전에만, 아이: 전체 minutesList
+    const effectiveMins = isParentRole ? minutesList.filter(m => m >= 15) : minutesList;
+
+    for (const mins of effectiveMins) {
       const fireAt = eventTime.getTime() - mins * 60000;
       if (fireAt <= now.getTime()) continue;
 
@@ -406,11 +404,12 @@ function buildAlarmPayloads(events, notifSettings, role) {
           ? parentNotifMsg(ev.emoji, ev.title, mins, ev.time)
           : childNotifMsg(ev.emoji, ev.title, mins),
         channel: "schedule",
-        wakeScreen: !(isParentRole && mins < 15),
+        wakeScreen: true,
         fullScreen: false,
       });
     }
 
+    // 시작 알림: 부모 + 아이 모두
     const startAt = eventTime.getTime();
     if (startAt > now.getTime()) {
       notifications.push({
@@ -421,26 +420,9 @@ function buildAlarmPayloads(events, notifSettings, role) {
           ? parentStartMsg(ev.emoji, ev.title)
           : childStartMsg(ev.emoji, ev.title),
         channel: "schedule",
-        wakeScreen: !isParentRole,
+        wakeScreen: true,
         fullScreen: false,
       });
-    }
-
-    // 종료 알림: 부모에게만, endTime이 있을 때
-    if (isParentRole && ev.endTime) {
-      const [eh, em] = ev.endTime.split(":").map(Number);
-      const endAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), eh, em).getTime();
-      if (endAt > now.getTime()) {
-        notifications.push({
-          id: `${ev.id}-end`,
-          at: endAt,
-          title: `${ev.emoji} ${ev.title}`,
-          body: `${ev.emoji} ${ev.title} 수업이 끝났어요`,
-          channel: "schedule",
-          wakeScreen: false,
-          fullScreen: false,
-        });
-      }
     }
   }
 
