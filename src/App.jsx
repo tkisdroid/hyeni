@@ -146,6 +146,8 @@ export default function KidsScheduler() {
     // ── Departure detection ─────────────────────────────────────────────────────
     const departureTimers = useRef({}); // { eventId: { timer, leftAt } }
     const [departedAlerts, setDepartedAlerts] = useState(new Set());
+    const departedAlertsRef = useRef(departedAlerts);
+    useEffect(() => { departedAlertsRef.current = departedAlerts; }, [departedAlerts]);
     // ── Audio recording ─────────────────────────────────────────────────────────
 
 
@@ -328,12 +330,7 @@ export default function KidsScheduler() {
                     const isLate = diff > 0;                         // 늦음
                     const msg = isEarly ? `${Math.abs(diff)}분 일찍 도착` : isOnTime ? "정시 도착" : `${diff}분 늦게 도착`;
 
-                    setArrivedSet(prev => {
-                        const next = new Set([...prev, ev.id]);
-                        // 도착한 이벤트의 예약 알림 취소 (재스케줄링)
-                        scheduleNativeAlarms(events, globalNotif, myRole, next);
-                        return next;
-                    });
+                    setArrivedSet(prev => new Set([...prev, ev.id]));
 
                     if (!isParent) {
                         // ── 아이 기기: 도착 알림 + 스티커 부여 + push 전송 ──
@@ -378,7 +375,7 @@ export default function KidsScheduler() {
                 }
 
                 // ── Departure detection (left 50m zone after arriving) ──
-                if (!inside && arrivedSetRef.current.has(ev.id) && !departedAlerts.has(ev.id)) {
+                if (!inside && arrivedSetRef.current.has(ev.id) && !departedAlertsRef.current.has(ev.id)) {
                     // Child left the zone — start countdown
                     if (!departureTimers.current[ev.id]) {
                         departureTimers.current[ev.id] = {
@@ -405,7 +402,7 @@ export default function KidsScheduler() {
             });
         }, 10000); // check every 10s
         return () => clearInterval(iv);
-    }, [childPos, events, arrivedSet, globalNotif, addAlert, familyId, authUser, departedAlerts, isParent]);
+    }, [childPos, events, globalNotif, addAlert, familyId, authUser, isParent]);
 
     // ── Advance notifications (friendly messages) ─────────────────────────────
     useEffect(() => {

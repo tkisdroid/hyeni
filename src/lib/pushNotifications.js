@@ -296,7 +296,7 @@ export function scheduleNotifications(events, notifSettings, role) {
     if (!isParentRole && !settings.childEnabled) continue;
 
     // 부모: 15분 전에만, 아이: 전체 minutesList
-    const effectiveMins = isParentRole ? minutesList.filter(m => m >= 15) : minutesList;
+    const effectiveMins = isParentRole ? minutesList.filter(mins => mins >= 15) : minutesList;
 
     for (const mins of effectiveMins) {
       const fireTime = eventTime.getTime() - mins * 60000;
@@ -395,7 +395,7 @@ function buildAlarmPayloads(events, notifSettings, role, arrivedEventIds = new S
     if (!isParentRole && !settings.childEnabled) continue;
 
     // 부모: 15분 전에만, 아이: 전체 minutesList
-    const effectiveMins = isParentRole ? minutesList.filter(m => m >= 15) : minutesList;
+    const effectiveMins = isParentRole ? minutesList.filter(mins => mins >= 15) : minutesList;
 
     for (const mins of effectiveMins) {
       const fireAt = eventTime.getTime() - mins * 60000;
