@@ -328,35 +328,39 @@ export default function KidsScheduler() {
 
                     setArrivedSet(prev => new Set([...prev, ev.id]));
 
-                    // Role-based arrival messages
-                    if (!isParent && globalNotif.childEnabled) {
-                        addAlert(`🎉 ${ev.title}에 도착했어요! (${msg})`, "child");
-                        showNotif(`🎉 ${ev.title}에 잘 도착했어! ${isEarly ? "일찍 왔네~ 대단해! 🌟" : isOnTime ? "딱 맞춰 왔구나! ⭐" : "조금 늦었지만 괜찮아! 💪"}`, "child");
-                    }
-
-                    if (isParent && globalNotif.parentEnabled) {
-                        addAlert(`✅ 혜니가 ${ev.title}에 ${isLate ? "늦게" : "잘"} 도착했어요 (${msg})`, "parent");
-                    }
-                    sendInstantPush({
-                        action: "new_event",
-                        familyId, senderUserId: authUser?.id,
-                        title: `${isLate ? "⏰" : "✅"} ${ev.emoji} 도착 알림`,
-                        message: `혜니가 ${ev.title}에 ${isLate ? "늦게" : "잘"} 도착했어요! (${msg})`,
-                    });
-                    showArrivalNotification(ev, msg, myRole);
-
-                    // Award sticker based on arrival timing
-                    if (authUser && familyId) {
-                        if (isEarly || isOnTime) {
-                            const stickerType = isEarly ? "early" : "on_time";
-                            const stickerEmoji = isEarly ? "🌟" : "⭐";
-                            addSticker(authUser.id, familyId, String(ev.id), key, stickerType, stickerEmoji, ev.title);
-                            showNotif(`${stickerEmoji} 칭찬스티커를 받았어요! ${isEarly ? "일찍 도착 보너스!" : "시간 잘 지켰어요!"}`, "child");
-                        } else if (isLate) {
-                            addSticker(authUser.id, familyId, String(ev.id), key, "late", "😢", ev.title);
-                            showNotif("😢 아쉽게 칭찬스티커를 못받았어요...", "child");
+                    if (!isParent) {
+                        // ── 아이 기기: 도착 알림 + 스티커 부여 + push 전송 ──
+                        if (globalNotif.childEnabled) {
+                            addAlert(`🎉 ${ev.title}에 도착했어요! (${msg})`, "child");
+                            showNotif(`🎉 ${ev.title}에 잘 도착했어! ${isEarly ? "일찍 왔네~ 대단해! 🌟" : isOnTime ? "딱 맞춰 왔구나! ⭐" : "조금 늦었지만 괜찮아! 💪"}`, "child");
                         }
-                        setTimeout(() => fetchStickersForDate(familyId, key).then(s => setStickers(s)), 1000);
+                        // 부모에게 push 알림 (아이 기기에서만 전송 → 이중 알림 방지)
+                        sendInstantPush({
+                            action: "new_event",
+                            familyId, senderUserId: authUser?.id,
+                            title: `${isLate ? "⏰" : "✅"} ${ev.emoji} 도착 알림`,
+                            message: `혜니가 ${ev.title}에 ${isLate ? "늦게" : "잘"} 도착했어요! (${msg})`,
+                        });
+                        showArrivalNotification(ev, msg, myRole);
+
+                        // 스티커 부여 (아이 기기에서만 → 아이 user_id로 저장)
+                        if (authUser && familyId) {
+                            if (isEarly || isOnTime) {
+                                const stickerType = isEarly ? "early" : "on_time";
+                                const stickerEmoji = isEarly ? "🌟" : "⭐";
+                                addSticker(authUser.id, familyId, String(ev.id), key, stickerType, stickerEmoji, ev.title);
+                                showNotif(`${stickerEmoji} 칭찬스티커를 받았어요! ${isEarly ? "일찍 도착 보너스!" : "시간 잘 지켰어요!"}`, "child");
+                            } else if (isLate) {
+                                addSticker(authUser.id, familyId, String(ev.id), key, "late", "😢", ev.title);
+                                showNotif("😢 아쉽게 칭찬스티커를 못받았어요...", "child");
+                            }
+                            setTimeout(() => fetchStickersForDate(familyId, key).then(s => setStickers(s)), 1000);
+                        }
+                    } else {
+                        // ── 부모 기기: UI 표시만 (push/스티커는 아이 기기가 담당) ──
+                        if (globalNotif.parentEnabled) {
+                            addAlert(`✅ 혜니가 ${ev.title}에 ${isLate ? "늦게" : "잘"} 도착했어요 (${msg})`, "parent");
+                        }
                     }
 
                     // Clear departure timer if any
