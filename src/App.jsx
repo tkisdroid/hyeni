@@ -1346,9 +1346,6 @@ export default function KidsScheduler() {
                     </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
-                    <button onClick={() => setShowHyeniHome(true)} style={{ background: "linear-gradient(135deg,#E879A0,#F4A7C1)", color: "white", border: "none", borderRadius: 12, padding: "4px 10px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
-                        {walletBalance.toLocaleString()}혜니
-                    </button>
                     {isParent && (
                         <button onClick={() => { setShowAlertPanel(true); loadParentAlerts(); }}
                             style={{ position: "relative", fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "#F3F4F6", lineHeight: 1 }}>
