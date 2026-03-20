@@ -276,7 +276,9 @@ export function scheduleNotifications(events, notifSettings, role) {
   scheduledTimers.clear();
 
   if (!role) return; // 역할이 확정되기 전엔 스케줄하지 않음
-  if (!isNativePlatform() && getNotifPermission() !== "granted") return;
+  // 네이티브 앱에서는 AlarmManager(scheduleNativeAlarms)만 사용 → 이중알림 방지
+  if (isNativePlatform()) return;
+  if (getNotifPermission() !== "granted") return;
 
   const isParentRole = role === "parent";
   const now = new Date();
