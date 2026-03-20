@@ -1337,12 +1337,18 @@ export default function KidsScheduler() {
                                 </span>
                             )}
                         </div>
-                        {isParent && (
-                            <button onClick={() => setShowPairing(true)}
-                                style={{ fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 5, border: "none", cursor: "pointer", fontFamily: FF, background: pairedChildren.length > 0 ? "#D1FAE5" : "#FEF3C7", color: pairedChildren.length > 0 ? "#065F46" : "#92400E", marginTop: 1, whiteSpace: "nowrap" }}>
-                                {pairedChildren.length > 0 ? `🔗 연동 (${pairedChildren.length}명)` : "🔗 연동하기"}
-                            </button>
-                        )}
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 1 }}>
+                            {isParent && (
+                                <button onClick={() => setShowPairing(true)}
+                                    style={{ fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 5, border: "none", cursor: "pointer", fontFamily: FF, background: pairedChildren.length > 0 ? "#D1FAE5" : "#FEF3C7", color: pairedChildren.length > 0 ? "#065F46" : "#92400E", whiteSpace: "nowrap" }}>
+                                    {pairedChildren.length > 0 ? `🔗 연동 (${pairedChildren.length}명)` : "🔗 연동하기"}
+                                </button>
+                            )}
+                            <span onClick={() => setActiveView("hyeni")}
+                                style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 5, cursor: "pointer", background: "#FCE7F3", color: "#BE185D", whiteSpace: "nowrap" }}>
+                                💰 {walletBalance.toLocaleString()}혜니
+                            </span>
+                        </div>
                     </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
