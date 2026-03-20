@@ -929,7 +929,7 @@ export default function KidsScheduler() {
     const primBtn = { width: "100%", padding: "15px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 20, fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: FF, marginTop: 16 };
     const secBtn = { width: "100%", padding: "12px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 20, fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8, fontFamily: FF };
 
-    const TABS = [["calendar", "📅 달력"], ["maplist", "📍 장소"]];
+    const TABS = [["calendar", "📅 달력"], ["maplist", "📍 장소"], ["hyeni", "💰 혜니"]];
 
     // ── Render ─────────────────────────────────────────────────────────────────
     if (authLoading) return (
@@ -1658,6 +1658,16 @@ export default function KidsScheduler() {
                 events={events} childPos={childPos} mapReady={mapReady}
                 mapError={mapError} arrivedSet={arrivedSet}
                 onRoute={ev => setRouteEvent(ev)} />}
+
+            {/* ── HYENI VIEW (탭 내 인라인) ── */}
+            {activeView === "hyeni" && (
+                <HyeniHome
+                    familyId={familyId}
+                    inline={true}
+                    onClose={() => setActiveView("calendar")}
+                    onReferralPage={() => setShowReferralPage(true)}
+                />
+            )}
 
             {/* ── ADD MODAL ── */}
             {showAddModal && (

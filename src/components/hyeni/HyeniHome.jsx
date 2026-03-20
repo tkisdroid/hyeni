@@ -13,7 +13,7 @@ const STAT_CHIPS = [
   { key: "academy_register", emoji: "🏫", label: "학원", limit: 1 },
 ];
 
-export default function HyeniHome({ familyId, onClose, onReferralPage }) {
+export default function HyeniHome({ familyId, onClose, onReferralPage, inline = false }) {
   const [wallet, setWallet] = useState({ balance: 0, total_earned: 0, streak_days: 0 });
   const [todayStats, setTodayStats] = useState({});
   const [transactions, setTransactions] = useState([]);
@@ -84,12 +84,14 @@ export default function HyeniHome({ familyId, onClose, onReferralPage }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#FFF0F7", zIndex: 200, fontFamily: FF, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {/* Header */}
-      <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div style={{ fontSize: 20, fontWeight: 900, color: "#E879A0" }}>내 혜니</div>
-        <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 12, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#6B7280" }}>닫기</button>
-      </div>
+    <div style={inline ? { fontFamily: FF, display: "flex", flexDirection: "column" } : { position: "fixed", inset: 0, background: "#FFF0F7", zIndex: 200, fontFamily: FF, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Header — inline 모드에서는 숨김 (탭바가 네비게이션 역할) */}
+      {!inline && (
+        <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ fontSize: 20, fontWeight: 900, color: "#E879A0" }}>내 혜니</div>
+          <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 12, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#6B7280" }}>닫기</button>
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 20px 20px" }}>
         {/* 1. 잔액 카드 */}
