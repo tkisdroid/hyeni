@@ -375,7 +375,7 @@ export function showKkukNotification(senderLabel) {
 }
 
 // ── Build alarm payloads from today's events ────────────────────────────────
-function buildAlarmPayloads(events, notifSettings, role) {
+function buildAlarmPayloads(events, notifSettings, role, arrivedEventIds = new Set()) {
   const isParentRole = role === "parent";
   const now = new Date();
   const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
@@ -383,6 +383,9 @@ function buildAlarmPayloads(events, notifSettings, role) {
   const notifications = [];
 
   for (const ev of todayEvents) {
+    // 이미 도착한 이벤트는 알림 스킵
+    if (arrivedEventIds.has(ev.id)) continue;
+
     const [h, m] = ev.time.split(":").map(Number);
     const eventTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
     const settings = ev.notifOverride || notifSettings;
@@ -432,12 +435,12 @@ function buildAlarmPayloads(events, notifSettings, role) {
 }
 
 // ── Native AlarmManager scheduling (persistent, works when app is killed) ───
-export async function scheduleNativeAlarms(events, notifSettings, role) {
+export async function scheduleNativeAlarms(events, notifSettings, role, arrivedEventIds = new Set()) {
   const native = getNativeNotifPlugin();
   if (!native) return;
   if (!role) return; // 역할이 확정되기 전엔 스케줄하지 않음
 
-  const notifications = buildAlarmPayloads(events, notifSettings, role);
+  const notifications = buildAlarmPayloads(events, notifSettings, role, arrivedEventIds);
 
   try {
     const result = await native.replaceScheduledNotifications({ notifications });

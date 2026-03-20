@@ -4,7 +4,7 @@ import { registerSW, getPermissionStatus, scheduleNotifications, scheduleNativeA
 import { supabase } from "../lib/supabase.js";
 import { SUPABASE_URL, SUPABASE_KEY } from "../lib/utils.js";
 
-export default function useNotification({ isNativeApp, authUser, familyId, events, globalNotif, myRole }) {
+export default function useNotification({ isNativeApp, authUser, familyId, events, globalNotif, myRole, arrivedSet }) {
     const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
     const [nativeNotifHealth, setNativeNotifHealth] = useState(null);
     const [bgLocationGranted, setBgLocationGranted] = useState(true); // assume granted until checked
@@ -130,9 +130,10 @@ export default function useNotification({ isNativeApp, authUser, familyId, event
             scheduleNotifications(events, globalNotif, myRole);
         }
         // Always schedule native AlarmManager alarms (persistent, works when app killed)
-        scheduleNativeAlarms(events, globalNotif, myRole);
+        // arrivedSet으로 이미 도착한 이벤트의 알림 제외
+        scheduleNativeAlarms(events, globalNotif, myRole, arrivedSet);
         return () => clearAllScheduled();
-    }, [events, globalNotif, pushPermission, myRole]);
+    }, [events, globalNotif, pushPermission, myRole, arrivedSet]);
 
     return {
         pushPermission, setPushPermission,

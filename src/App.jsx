@@ -136,7 +136,7 @@ export default function KidsScheduler() {
         pushPermission, setPushPermission,
         nativeNotifHealth, setNativeNotifHealth,
         bgLocationGranted,
-    } = useNotification({ isNativeApp, authUser, familyId, events, globalNotif, myRole });
+    } = useNotification({ isNativeApp, authUser, familyId, events, globalNotif, myRole, arrivedSet });
 
     const [showStickerBook, setShowStickerBook] = useState(false);
     const [showAiSchedule, setShowAiSchedule] = useState(false);
@@ -326,7 +326,12 @@ export default function KidsScheduler() {
                     const isLate = diff > 0;                         // 늦음
                     const msg = isEarly ? `${Math.abs(diff)}분 일찍 도착` : isOnTime ? "정시 도착" : `${diff}분 늦게 도착`;
 
-                    setArrivedSet(prev => new Set([...prev, ev.id]));
+                    setArrivedSet(prev => {
+                        const next = new Set([...prev, ev.id]);
+                        // 도착한 이벤트의 예약 알림 취소 (재스케줄링)
+                        scheduleNativeAlarms(events, globalNotif, myRole, next);
+                        return next;
+                    });
 
                     if (!isParent) {
                         // ── 아이 기기: 도착 알림 + 스티커 부여 + push 전송 ──
@@ -1188,7 +1193,7 @@ export default function KidsScheduler() {
                                 }
                                 if (result === "granted") {
                                     scheduleNotifications(events, globalNotif, myRole);
-                                    scheduleNativeAlarms(events, globalNotif, myRole);
+                                    scheduleNativeAlarms(events, globalNotif, myRole, arrivedSet);
                                     return;
                                 }
                             }
@@ -1223,7 +1228,7 @@ export default function KidsScheduler() {
                         if (result === "granted") {
                             showNotif("푸시 알림이 켜졌어요!");
                             scheduleNotifications(events, globalNotif, myRole);
-                            scheduleNativeAlarms(events, globalNotif, myRole);
+                            scheduleNativeAlarms(events, globalNotif, myRole, arrivedSet);
                             if (!isNativeApp && authUser?.id && familyId) {
                                 subscribeToPush(authUser.id, familyId);
                             }
