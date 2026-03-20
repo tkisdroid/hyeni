@@ -34,6 +34,12 @@ import ChildCallButtons from "./components/memo/ChildCallButtons.jsx";
 import AiScheduleModal from "./components/ai/AiScheduleModal.jsx";
 import AmbientAudioRecorder from "./components/common/AmbientAudioRecorder.jsx";
 import RouteOverlay from "./components/location/RouteOverlay.jsx";
+import HyeniToast from "./components/common/HyeniToast.jsx";
+import { showHyeniToast } from "./components/common/HyeniToast.jsx";
+import HyeniHome from "./components/hyeni/HyeniHome.jsx";
+import ReferralPage from "./components/hyeni/ReferralPage.jsx";
+import { earnAttendance, earnArrival, checkAndEarnStreak, earnEventCreate, earnGguk, earnMemo, earnAcademyRegister, getWallet } from "./services/hyeniService.js";
+import { checkPendingReferrals } from "./services/referralService.js";
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,6 +149,9 @@ export default function KidsScheduler() {
     const [showStickerBook, setShowStickerBook] = useState(false);
     const [showAiSchedule, setShowAiSchedule] = useState(false);
     const [showDangerZones, setShowDangerZones] = useState(false);
+    const [showHyeniHome, setShowHyeniHome] = useState(false);
+    const [showReferralPage, setShowReferralPage] = useState(false);
+    const [walletBalance, setWalletBalance] = useState(0);
     // ── Departure detection ─────────────────────────────────────────────────────
     const departureTimers = useRef({}); // { eventId: { timer, leftAt } }
     const [departedAlerts, setDepartedAlerts] = useState(new Set());
@@ -241,7 +250,13 @@ export default function KidsScheduler() {
         // Vibrate own device as feedback
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         showNotif("💗 꾹을 보냈어요!");
-    }, [familyId, authUser, isParent, kkukCooldown]);
+        // 혜니 포인트: 꾹 적립
+        try {
+            const memberId = familyInfo?.members?.find(m => m.user_id === authUser.id)?.id || null;
+            const r = await earnGguk(familyId, memberId);
+            if (r?.success) showHyeniToast(1, 'gguk');
+        } catch {}
+    }, [familyId, authUser, isParent, kkukCooldown, familyInfo]);
 
     // ── Android 뒤로가기 버튼 처리 ───────────────────────────────────────────────
     const backStateRef = useRef({});
@@ -250,6 +265,7 @@ export default function KidsScheduler() {
             routeEvent, showChildTracker, showMapPicker, showAddModal,
             showAcademyMgr, showPhoneSettings, showParentSetup, editingLocForEvent,
             voicePreview, activeView, showPairing, showAlertPanel,
+            showHyeniHome, showReferralPage,
         };
     });
     useEffect(() => {
@@ -259,6 +275,8 @@ export default function KidsScheduler() {
                 const { App: CapApp } = await import("@capacitor/app");
                 handle = await CapApp.addListener("backButton", () => {
                     const s = backStateRef.current;
+                    if (s.showHyeniHome)       { setShowHyeniHome(false);       return; }
+                    if (s.showReferralPage)    { setShowReferralPage(false);    return; }
                     if (s.routeEvent)          { setRouteEvent(null);           return; }
                     if (s.showChildTracker)    { setShowChildTracker(false);    return; }
                     if (s.showMapPicker)       { setShowMapPicker(false);       return; }
@@ -359,6 +377,16 @@ export default function KidsScheduler() {
                                 showNotif("😢 아쉽게 칭찬스티커를 못받았어요...", "child");
                             }
                             setTimeout(() => fetchStickersForDate(familyId, key).then(s => setStickers(s)), 1000);
+                            // 혜니 포인트: 도착 적립
+                            try {
+                                const memberId = familyInfo?.members?.find(m => m.user_id === authUser.id)?.id || null;
+                                earnArrival(familyId, memberId, String(ev.id), isEarly).then(arrResult => {
+                                    if (arrResult?.success) showHyeniToast(arrResult.earned, isEarly ? 'arrival_early' : 'arrival');
+                                    checkAndEarnStreak(familyId, memberId).then(streakResult => {
+                                        if (streakResult?.bonus > 0) showHyeniToast(streakResult.bonus, 'arrival_streak');
+                                    }).catch(() => {});
+                                }).catch(() => {});
+                            } catch {}
                         }
                     } else {
                         // ── 부모 기기: UI 표시만 (push/스티커는 아이 기기가 담당) ──
@@ -593,6 +621,25 @@ export default function KidsScheduler() {
         } catch (err) { console.warn("[AI memo analysis]", err.message); }
     };
 
+    // ── 혜니 포인트: 출석 적립 + 지갑 로드 ───────────────────────────────────
+    const hyeniInitDone = useRef(false);
+    useEffect(() => {
+        if (!familyId || !authUser || !familyInfo || hyeniInitDone.current) return;
+        hyeniInitDone.current = true;
+        (async () => {
+            try {
+                const memberId = familyInfo?.members?.find(m => m.user_id === authUser.id)?.id || null;
+                const result = await earnAttendance(familyId, memberId);
+                if (result?.success) showHyeniToast(1, 'attendance');
+                checkPendingReferrals(familyId); // async, fire-and-forget
+            } catch {}
+            try {
+                const w = await getWallet(familyId);
+                setWalletBalance(w?.balance || 0);
+            } catch {}
+        })();
+    }, [familyId, authUser, familyInfo]);
+
     // ── AI settings toggle ───────────────────────────────────────────────────
     const toggleAiEnabled = (val) => {
         setAiEnabled(val);
@@ -691,6 +738,12 @@ export default function KidsScheduler() {
                     title: `🤖 새 일정: ${ev.emoji} ${parsed.title}`,
                     message: `${dateLabel} ${ev.time}에 "${parsed.title}" 일정이 추가됐어요 (AI 음성)`,
                 });
+                // 혜니 포인트: 일정 등록 적립 (음성)
+                try {
+                    const memberId = familyInfo?.members?.find(m => m.user_id === authUser.id)?.id || null;
+                    const rEv = await earnEventCreate(familyId, memberId);
+                    if (rEv?.success) showHyeniToast(1, 'event_create');
+                } catch {}
             } catch (err) {
                 console.error("[voiceEvent] Supabase error:", err);
                 // Rollback
@@ -835,6 +888,12 @@ export default function KidsScheduler() {
                         ? `${dateKey.replace(/-/g, "/")}부터 매주 ${totalWeeks}주간 "${title}" 일정이 추가됐어요`
                         : `${dateKey.replace(/-/g, "/")} ${newTime}에 "${title}" 일정이 추가됐어요`,
                 });
+                // 혜니 포인트: 일정 등록 적립
+                try {
+                    const memberId = familyInfo?.members?.find(m => m.user_id === authUser.id)?.id || null;
+                    const r = await earnEventCreate(familyId, memberId);
+                    if (r?.success) showHyeniToast(1, 'event_create');
+                } catch {}
             } catch (err) {
                 console.error("[addEvent] Supabase error:", err);
                 setEvents(prev => {
@@ -988,6 +1047,15 @@ export default function KidsScheduler() {
                 cacheAcademies(finalList);
                 if (hasChanges) {
                     showNotif("🏫 학원 목록이 수정됐어요!");
+                    // 혜니 포인트: 학원 등록 적립 (새 학원이 추가된 경우)
+                    const newCount = newList.filter(a => !a.id || !oldMap.has(a.id)).length;
+                    if (newCount > 0) {
+                        try {
+                            const memberId = familyInfo?.members?.find(m => m.user_id === authUser?.id)?.id || null;
+                            const r = await earnAcademyRegister(familyId, memberId);
+                            if (r?.success) showHyeniToast(3, 'academy_register');
+                        } catch {}
+                    }
                 }
             }}
             onClose={() => setShowAcademyMgr(false)} />
@@ -1272,6 +1340,9 @@ export default function KidsScheduler() {
                     </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
+                    <button onClick={() => setShowHyeniHome(true)} style={{ background: "linear-gradient(135deg,#E879A0,#F4A7C1)", color: "white", border: "none", borderRadius: 12, padding: "4px 10px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
+                        {walletBalance.toLocaleString()}혜니
+                    </button>
                     {isParent && (
                         <button onClick={() => { setShowAlertPanel(true); loadParentAlerts(); }}
                             style={{ position: "relative", fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "#F3F4F6", lineHeight: 1 }}>
@@ -1395,6 +1466,10 @@ export default function KidsScheduler() {
                         ⚠️ 위험지역
                     </button>
                 )}
+                <button onClick={() => setShowReferralPage(true)}
+                    style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: "#BE185D", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    🎁 추천하기
+                </button>
                 {TABS.map(([v, l]) => (
                     <button key={v} onClick={() => setActiveView(v)}
                         style={{
@@ -1537,6 +1612,13 @@ export default function KidsScheduler() {
                                     const evForMemo = selectedEvs[0];
                                     analyzeMemoSentiment(memoLastValue.current, evForMemo?.title);
                                 }
+                                // 혜니 포인트: 메모 적립
+                                try {
+                                    const memberId = familyInfo?.members?.find(m => m.user_id === authUser.id)?.id || null;
+                                    earnMemo(familyId, memberId).then(r => {
+                                        if (r?.success) showHyeniToast(1, 'memo');
+                                    }).catch(() => {});
+                                } catch {}
                             }
                         }}
                         memoReplies={memoReplies}
@@ -1844,6 +1926,12 @@ export default function KidsScheduler() {
                 }}
                 onClose={() => setShowDangerZones(false)}
             />}
+
+            {/* ── 혜니 홈 + 추천 페이지 ── */}
+            {showHyeniHome && <HyeniHome familyId={familyId} onClose={() => setShowHyeniHome(false)} onReferralPage={() => { setShowHyeniHome(false); setShowReferralPage(true); }} />}
+            {showReferralPage && <ReferralPage familyId={familyId} onClose={() => setShowReferralPage(false)} />}
+
+            <HyeniToast />
 
             {/* ── 꾹 수신 전체화면 오버레이 ── */}
             {showKkukReceived && (
