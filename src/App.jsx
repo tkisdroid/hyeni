@@ -34,12 +34,18 @@ import ChildCallButtons from "./components/memo/ChildCallButtons.jsx";
 import AiScheduleModal from "./components/ai/AiScheduleModal.jsx";
 import AmbientAudioRecorder from "./components/common/AmbientAudioRecorder.jsx";
 import RouteOverlay from "./components/location/RouteOverlay.jsx";
+import ChildTrackerOverlay from "./components/location/ChildTrackerOverlay.jsx";
+import MapPicker from "./components/location/MapPicker.jsx";
+import LocationMapView from "./components/location/LocationMapView.jsx";
+import DangerZoneManager from "./components/location/DangerZoneManager.jsx";
 import HyeniToast from "./components/common/HyeniToast.jsx";
 import { showHyeniToast } from "./components/common/HyeniToast.jsx";
 import HyeniHome from "./components/hyeni/HyeniHome.jsx";
 import ReferralPage from "./components/hyeni/ReferralPage.jsx";
 import { earnAttendance, earnArrival, checkAndEarnStreak, earnEventCreate, earnGguk, earnMemo, earnAcademyRegister, getWallet } from "./services/hyeniService.js";
 import { checkPendingReferrals } from "./services/referralService.js";
+import FeedbackButton from "./components/common/FeedbackButton.jsx";
+import FeedbackModal from "./components/common/FeedbackModal.jsx";
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,6 +113,7 @@ export default function KidsScheduler() {
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
+    const [showFeedback, setShowFeedback] = useState(false);
 
     // ── Arrival tracking ───────────────────────────────────────────────────────
     const [arrivedSet, setArrivedSet] = useState(new Set());
@@ -1082,6 +1089,7 @@ export default function KidsScheduler() {
         @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
         @keyframes emergencyPulse{0%{transform:scale(0.9);opacity:0}100%{transform:scale(1);opacity:1}}
         @keyframes shake{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+        @keyframes slideUpModal{from{transform:translateY(100%)}to{transform:translateY(0)}}
         @media(hover:hover){button:hover{transform:scale(1.03)!important}}
         button:active{transform:scale(0.97)!important}
         input:focus,textarea:focus{border-color:#F9A8D4!important}
@@ -1478,6 +1486,10 @@ export default function KidsScheduler() {
                 <button onClick={() => setShowReferralPage(true)}
                     style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: "#BE185D", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
                     🎁 추천하기
+                </button>
+                <button onClick={() => setShowFeedback(true)}
+                    style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "#EDE9FE", color: "#6D28D9", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    💬 피드백
                 </button>
                 {TABS.map(([v, l]) => (
                     <button key={v} onClick={() => setActiveView(v)}
@@ -1998,6 +2010,14 @@ export default function KidsScheduler() {
                 </div>
             )}
 
+            {/* FeedbackButton moved to inline tab bar */}
+            <FeedbackModal
+                open={showFeedback}
+                onClose={() => setShowFeedback(false)}
+                userId={authUser?.id}
+                familyId={familyId}
+                currentScreen={activeView}
+            />
         </div>
     );
 }
