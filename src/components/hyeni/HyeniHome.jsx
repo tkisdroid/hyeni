@@ -108,6 +108,18 @@ export default function HyeniHome({ familyId, onClose, onReferralPage, inline = 
           )}
         </div>
 
+        {/* 혜니 안내 */}
+        <div style={{ background: "white", borderRadius: 20, padding: "14px 16px", marginBottom: 16, border: "1px solid #F3E8EF" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#374151", marginBottom: 6 }}>혜니란?</div>
+          <div style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.7 }}>
+            혜니캘린더의 모든 활동은 <b style={{ color: "#E879A0" }}>혜니</b>로 적립돼요!
+            출석, 정시 도착, 일정 등록, 꾹, 메모 등 다양한 활동으로 혜니를 모을 수 있어요.
+          </div>
+          <div style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.7, marginTop: 4 }}>
+            모은 혜니로 <b style={{ color: "#E879A0" }}>테마, 스티커팩, 기프티콘</b> 등 다양한 보상을 받을 수 있는 서비스를 준비하고 있어요. 많이 모아두세요! 🎁
+          </div>
+        </div>
+
         {/* 2. 오늘의 적립 현황 */}
         <div style={{ background: "white", borderRadius: 20, padding: "16px", marginBottom: 16, border: "1px solid #F3E8EF" }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: "#374151", marginBottom: 10 }}>오늘의 적립</div>
