@@ -463,3 +463,6 @@ export async function clearAllScheduled() {
     try { await native.cancelScheduledNotifications(); } catch { /* cancel failed, ignore */ }
   }
 }
+
+// ── Test exports ────────────────────────────────────────────────────────────
+export { buildAlarmPayloads as _buildAlarmPayloads };
