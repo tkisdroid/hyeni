@@ -51,6 +51,18 @@ export async function kakaoLogin() {
   }
 }
 
+// ── Magic Link login (email) ────────────────────────────────────────────────
+export async function magicLinkLogin(email) {
+  const native = isNative();
+  const redirectTo = native ? NATIVE_OAUTH_REDIRECT_URL : window.location.origin;
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: redirectTo },
+  });
+  if (error) throw error;
+  return true;
+}
+
 // ── Anonymous login (child) ─────────────────────────────────────────────────
 export async function anonymousLogin() {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -80,6 +92,25 @@ export async function logout() {
 
 // ── Setup family (parent, after login) ──────────────────────────────────────
 export async function setupFamily(userId, parentName) {
+  if (!userId) throw new Error("userId is required");
+  const normalizedName = parentName || "부모";
+
+  const { data: rpcData, error: rpcError } = await supabase.rpc("create_or_get_family", {
+    p_user_id: userId,
+    p_parent_name: normalizedName,
+  });
+
+  if (!rpcError) {
+    const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+    const familyId = row?.family_id || row?.result_family_id;
+    const pairCode = row?.pair_code || row?.result_pair_code;
+    if (familyId) {
+      return { familyId, pairCode };
+    }
+  } else if (rpcError.code !== "42883") {
+    throw rpcError;
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from("families")
     .select("id, pair_code")
@@ -91,7 +122,7 @@ export async function setupFamily(userId, parentName) {
   if (existing) {
     const { error: memberError } = await supabase
       .from("family_members")
-      .upsert({ family_id: existing.id, user_id: userId, role: "parent", name: parentName || "부모" }, { onConflict: "family_id,user_id" });
+      .upsert({ family_id: existing.id, user_id: userId, role: "parent", name: normalizedName }, { onConflict: "family_id,user_id" });
     if (memberError) {
       console.error("[setupFamily] parent membership upsert failed:", memberError);
     }
@@ -101,7 +132,7 @@ export async function setupFamily(userId, parentName) {
   const pairCode = generatePairCode();
   const { data: family, error } = await supabase
     .from("families")
-    .insert({ parent_id: userId, pair_code: pairCode, parent_name: parentName || "" })
+    .insert({ parent_id: userId, pair_code: pairCode, parent_name: normalizedName })
     .select("id, pair_code")
     .single();
 
@@ -109,7 +140,7 @@ export async function setupFamily(userId, parentName) {
 
   const { error: memberError } = await supabase
     .from("family_members")
-    .insert({ family_id: family.id, user_id: userId, role: "parent", name: parentName || "부모" });
+    .insert({ family_id: family.id, user_id: userId, role: "parent", name: normalizedName });
   if (memberError) {
     console.error("[setupFamily] parent membership insert failed:", memberError);
   }
@@ -146,6 +177,38 @@ export async function joinFamilyAsParent(pairCode, userId, parentName) {
 }
 
 // ── Get family info for current user ────────────────────────────────────────
+
+async function healPairCode(familyId, existingCode) {
+  if (existingCode) return existingCode;
+  const healed = generatePairCode();
+  try {
+    await supabase.from("families").update({ pair_code: healed }).eq("id", familyId);
+  } catch (e) {
+    console.error("Failed to auto-heal pair code:", e);
+  }
+  return healed;
+}
+
+async function fetchFamilyMembers(familyId) {
+  const { data } = await supabase
+    .from("family_members")
+    .select("user_id, role, name, emoji")
+    .eq("family_id", familyId);
+  return data || [];
+}
+
+function buildFamilyResult(familyId, family, pairCode, role, name, members) {
+  return {
+    familyId,
+    pairCode,
+    parentName: family?.parent_name || "",
+    myRole: role,
+    myName: name,
+    members,
+    phones: { mom: family?.mom_phone || "", dad: family?.dad_phone || "" },
+  };
+}
+
 export async function getMyFamily(userId) {
   const { data: membership } = await supabase
     .from("family_members")
@@ -165,30 +228,9 @@ export async function getMyFamily(userId) {
     if (parentFamilyError) throw parentFamilyError;
     if (!parentFamily) return null;
 
-    let finalPairCode = parentFamily.pair_code;
-    if (!finalPairCode) {
-      finalPairCode = "KID-" + generateUUID().replace(/-/g, "").substring(0, 8).toUpperCase();
-      try {
-        await supabase.from("families").update({ pair_code: finalPairCode }).eq("id", parentFamily.id);
-      } catch (e) {
-        console.error("Failed to auto-heal pair code:", e);
-      }
-    }
-
-    const { data: members } = await supabase
-      .from("family_members")
-      .select("user_id, role, name, emoji")
-      .eq("family_id", parentFamily.id);
-
-    return {
-      familyId: parentFamily.id,
-      pairCode: finalPairCode,
-      parentName: parentFamily.parent_name,
-      myRole: "parent",
-      myName: parentFamily.parent_name || "부모",
-      members: members || [],
-      phones: { mom: parentFamily.mom_phone || "", dad: parentFamily.dad_phone || "" },
-    };
+    const pairCode = await healPairCode(parentFamily.id, parentFamily.pair_code);
+    const members = await fetchFamilyMembers(parentFamily.id);
+    return buildFamilyResult(parentFamily.id, parentFamily, pairCode, "parent", parentFamily.parent_name || "부모", members);
   }
 
   const { data: family, error: familyError } = await supabase
@@ -198,30 +240,11 @@ export async function getMyFamily(userId) {
     .single();
   if (familyError) console.warn("[getMyFamily] family query failed:", familyError);
 
-  let finalPairCode = family?.pair_code || "";
-  if (!finalPairCode && membership.role === "parent") {
-    finalPairCode = "KID-" + generateUUID().replace(/-/g, "").substring(0, 8).toUpperCase();
-    try {
-      await supabase.from("families").update({ pair_code: finalPairCode }).eq("id", membership.family_id);
-    } catch (e) {
-      console.error("Failed to auto-heal pair code:", e);
-    }
-  }
-
-  const { data: members } = await supabase
-    .from("family_members")
-    .select("user_id, role, name, emoji")
-    .eq("family_id", membership.family_id);
-
-  return {
-    familyId: membership.family_id,
-    pairCode: finalPairCode,
-    parentName: family?.parent_name || "",
-    myRole: membership.role,
-    myName: membership.name,
-    members: members || [],
-    phones: { mom: family?.mom_phone || "", dad: family?.dad_phone || "" },
-  };
+  const pairCode = membership.role === "parent"
+    ? await healPairCode(membership.family_id, family?.pair_code)
+    : (family?.pair_code || "");
+  const members = await fetchFamilyMembers(membership.family_id);
+  return buildFamilyResult(membership.family_id, family, pairCode, membership.role, membership.name, members);
 }
 
 // ── Parent phone numbers ─────────────────────────────────────────────────────
