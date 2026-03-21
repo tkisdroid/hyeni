@@ -64,12 +64,19 @@ export default function FeedbackModal({ open, onClose, userId, familyId, current
           fontFamily: FF,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>피드백 보내기</h3>
           <button onClick={onClose} style={{
             background: "none", border: "none", fontSize: 20,
             cursor: "pointer", color: "#9CA3AF", padding: 4,
           }}>✕</button>
+        </div>
+        <div style={{ background: "linear-gradient(135deg, #FFF7ED, #FEF3C7)", borderRadius: 12, padding: "10px 14px", marginBottom: 14, border: "1px solid #FDE68A" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#92400E", marginBottom: 2 }}>💰 피드백 보상</div>
+          <div style={{ fontSize: 11, color: "#78350F", lineHeight: 1.5 }}>
+            피드백이 반영되면 <b style={{ color: "#E879A0" }}>혜니</b>를 드려요!<br/>
+            버그 제보·에러 신고도 보상 대상이에요 🎁
+          </div>
         </div>
 
         {/* 유형 선택 */}
@@ -127,7 +134,7 @@ export default function FeedbackModal({ open, onClose, userId, familyId, current
             background: "#F0FDF4", color: "#166534", fontSize: 13, fontWeight: 600,
             textAlign: "center",
           }}>
-            ✅ 피드백이 전송되었어요! 감사합니다
+            ✅ 피드백이 전송되었어요! 반영되면 혜니를 드릴게요 💰
           </div>
         )}
         {result === "error" && (
