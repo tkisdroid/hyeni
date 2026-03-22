@@ -44,10 +44,10 @@ export async function kakaoLogin() {
       throw new Error("카카오 로그인 URL을 생성하지 못했습니다.");
     }
 
-    // Force the OAuth flow to leave the current app screen only temporarily.
-    // The redirect target is the app's custom scheme, so Android should route
-    // back into the native activity rather than staying in Chrome.
-    window.location.assign(data.url);
+    // Open OAuth in Custom Chrome Tab (in-app browser) so the WebView
+    // stays intact. The deep link redirect closes the tab automatically.
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.open({ url: data.url });
   }
 }
 
