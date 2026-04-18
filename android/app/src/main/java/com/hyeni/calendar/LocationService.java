@@ -717,41 +717,7 @@ public class LocationService extends Service {
                     }
                     int evTotalMin = evHour * 60 + evMin;
 
-                    // Check 15 minutes before — friendly message
-                    int diffTo15 = (evTotalMin - 15) - nowTotalMin;
-                    String key15 = eventId + "-15min-" + dateKey;
-                    if (diffTo15 >= -1 && diffTo15 <= 1 && !shownEventNotifs.contains(key15)) {
-                        shownEventNotifs.add(key15);
-                        showHeadsUpNotification(
-                            "🐰 준비 시간!",
-                            emoji + " " + title + " 가기 15분 전이야! 준비물 챙겼니? 🎒 (" + time + ")"
-                        );
-                        Log.i(TAG, "15min alert for: " + title + " at " + time);
-                    }
-
-                    // Check 5 minutes before — friendly message
-                    int diffTo5 = (evTotalMin - 5) - nowTotalMin;
-                    String key5 = eventId + "-5min-" + dateKey;
-                    if (diffTo5 >= -1 && diffTo5 <= 1 && !shownEventNotifs.contains(key5)) {
-                        shownEventNotifs.add(key5);
-                        showHeadsUpNotification(
-                            "🏃 출발!",
-                            emoji + " " + title + " 곧 시작이야! 출발~ 화이팅! 💪 (" + time + ")"
-                        );
-                        Log.i(TAG, "5min alert for: " + title + " at " + time);
-                    }
-
-                    // Check at start time — friendly message
                     int diffToStart = evTotalMin - nowTotalMin;
-                    String keyStart = eventId + "-start-" + dateKey;
-                    if (diffToStart >= -1 && diffToStart <= 1 && !shownEventNotifs.contains(keyStart)) {
-                        shownEventNotifs.add(keyStart);
-                        showHeadsUpNotification(
-                            "⏰ 시작!",
-                            emoji + " " + title + " 시작 시간이야! 화이팅! 💪"
-                        );
-                        Log.i(TAG, "Start alert for: " + title + " at " + time);
-                    }
 
                     // ── Geo-fence checks: auto-silent + parent alerts ────────────
                     if (location != null && !Double.isNaN(lastUploadedLat)) {
@@ -778,51 +744,27 @@ public class LocationService extends Service {
                                 stillAtSilentLocation = true;
                             }
 
-                            // ── Parent alert: not departed (5min before, far from location)
-                            int diffTo5Before = (evTotalMin - 5) - nowTotalMin;
-                            String keyNotDeparted = eventId + "-notdeparted-" + dateKey;
-                            if (diffTo5Before >= -1 && diffTo5Before <= 1
-                                    && distToEvent > 500f
-                                    && !shownEventNotifs.contains(keyNotDeparted)) {
-                                shownEventNotifs.add(keyNotDeparted);
-                                sendParentAlert(
-                                    "late_departure",
-                                    "🏃 아직 출발 전이에요",
-                                    emoji + " " + title + " 시작 5분 전인데 아직 출발하지 않은 것 같아요 (" + time + ")",
-                                    "warning", eventId
-                                );
-                                Log.i(TAG, "Parent alert: not departed for " + title);
-                            }
-
-                            // ── Parent alert: not arrived (10min after start, not at location)
-                            int diffAfter10 = nowTotalMin - (evTotalMin + 10);
-                            String keyNotArrived = eventId + "-notarrived-" + dateKey;
-                            if (diffAfter10 >= 0 && diffAfter10 <= 1
-                                    && distToEvent > 200f
-                                    && !shownEventNotifs.contains(keyNotArrived)) {
-                                shownEventNotifs.add(keyNotArrived);
-                                sendParentAlert(
-                                    "late_arrival",
-                                    "📍 아직 도착 전이에요",
-                                    emoji + " " + title + " 시작 10분이 지났는데 아직 도착하지 않은 것 같아요 (" + time + ")",
-                                    "warning", eventId
-                                );
-                                Log.i(TAG, "Parent alert: not arrived for " + title);
-                            }
-
-                            // ── Parent alert: arrived on time
-                            String keyArrived = eventId + "-arrived-" + dateKey;
-                            if (atLocation
-                                    && nowTotalMin >= (evTotalMin - 10) && nowTotalMin <= (evTotalMin + 5)
-                                    && !shownEventNotifs.contains(keyArrived)) {
-                                shownEventNotifs.add(keyArrived);
-                                sendParentAlert(
-                                    "arrived",
-                                    "✅ 정시 도착!",
-                                    emoji + " " + title + "에 잘 도착했어요! 👍 (" + time + ")",
-                                    "info", eventId
-                                );
-                                Log.i(TAG, "Parent alert: arrived for " + title);
+                            // ── Parent status alert: only once during the scheduled minute ──
+                            String keyStatus = eventId + "-status-" + dateKey;
+                            if (diffToStart == 0 && !shownEventNotifs.contains(keyStatus)) {
+                                shownEventNotifs.add(keyStatus);
+                                if (atLocation) {
+                                    sendParentAlert(
+                                        "arrived",
+                                        "✅ 도착 확인",
+                                        emoji + " " + title + "에 잘 도착했어요! (" + time + ")",
+                                        "info", eventId
+                                    );
+                                    Log.i(TAG, "Parent exact-time arrival alert for " + title);
+                                } else {
+                                    sendParentAlert(
+                                        "not_arrived",
+                                        "🚨 미도착 긴급 알림",
+                                        emoji + " " + title + " 시작 시간인데 아직 도착하지 않았어요 (" + time + ")",
+                                        "emergency", eventId
+                                    );
+                                    Log.i(TAG, "Parent exact-time emergency alert for " + title);
+                                }
                             }
                         }
                     }

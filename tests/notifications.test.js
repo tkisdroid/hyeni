@@ -64,12 +64,7 @@ describe("push notification settings", () => {
       "parent",
     );
 
-    expect(payloads.map((payload) => payload.id)).toEqual([
-      "event-1-15",
-      "event-1-10",
-      "event-1-start",
-      "event-1-end",
-    ]);
+    expect(payloads.map((payload) => payload.id)).toEqual(["event-1-15", "event-1-10"]);
   });
 
   test("schedules each reminder only once even when duplicate minutes are provided", () => {
@@ -85,12 +80,21 @@ describe("push notification settings", () => {
       "parent",
     );
 
-    expect(timeoutSpy).toHaveBeenCalledTimes(4);
-    expect(__testing__.getScheduledTimerKeys()).toEqual([
-      "event-1-15",
-      "event-1-10",
-      "event-1-start",
-      "event-1-end",
-    ]);
+    expect(timeoutSpy).toHaveBeenCalledTimes(2);
+    expect(__testing__.getScheduledTimerKeys()).toEqual(["event-1-15", "event-1-10"]);
+  });
+
+  test("keeps the exact start notification only for child devices", () => {
+    scheduleNotifications(
+      createEventsForToday(),
+      {
+        childEnabled: true,
+        parentEnabled: true,
+        minutesBefore: [15],
+      },
+      "child",
+    );
+
+    expect(__testing__.getScheduledTimerKeys()).toEqual(["event-1-15", "event-1-start"]);
   });
 });

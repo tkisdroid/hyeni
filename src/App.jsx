@@ -3244,6 +3244,7 @@ export default function KidsScheduler() {
     const [arrivedSet, setArrivedSet] = useState(new Set());
     const [firedNotifs, setFiredNotifs] = useState(new Set());
     const [firedEmergencies, setFiredEmergencies] = useState(new Set());
+    const [firedExactStatuses, setFiredExactStatuses] = useState(new Set());
     const [childPos, setChildPos] = useState(null);
     const [allChildPositions, setAllChildPositions] = useState([]); // [{user_id, name, emoji, lat, lng, updatedAt}]
     const [locationTrail, setLocationTrail] = useState([]); // 오늘 아이 이동경로
@@ -4138,17 +4139,9 @@ export default function KidsScheduler() {
                         addAlert(`🎉 ${ev.title}에 도착했어요! (${msg})`, "child");
                         showNotif(`🎉 ${ev.title}에 잘 도착했어! ${isEarly ? "일찍 왔네~ 대단해! 🌟" : isOnTime ? "딱 맞춰 왔구나! ⭐" : "조금 늦었지만 괜찮아! 💪"}`, "child");
                     }
-
-                    if (isParent && globalNotif.parentEnabled) {
-                        addAlert(`✅ 혜니가 ${ev.title}에 ${isLate ? "늦게" : "잘"} 도착했어요 (${msg})`, "parent");
+                    if (!isParent) {
+                        showArrivalNotification(ev, msg, myRole);
                     }
-                    sendInstantPush({
-                        action: "new_event",
-                        familyId, senderUserId: authUser?.id,
-                        title: `${isLate ? "⏰" : "✅"} ${ev.emoji} 도착 알림`,
-                        message: `혜니가 ${ev.title}에 ${isLate ? "늦게" : "잘"} 도착했어요! (${msg})`,
-                    });
-                    showArrivalNotification(ev, msg, myRole);
 
                     // Award sticker based on arrival timing
                     if (authUser && familyId) {
@@ -4215,13 +4208,16 @@ export default function KidsScheduler() {
         const check = () => {
             if (!myRole) return; // 역할 확정 전에는 실행하지 않음
             const now = new Date(); const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+            const nowMs = now.getTime();
             (events[key] || []).forEach(ev => {
                 const [h, m] = ev.time.split(":").map(Number);
                 const evMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
                 const eff = normalizeNotifSettings(ev.notifOverride, globalNotif);
                 eff.minutesBefore.forEach(mins => {
                     const fireKey = `${ev.id}-${mins}`;
-                    if (Math.abs(now.getTime() - (evMs - mins * 60000)) <= 35000 && !firedNotifs.has(fireKey)) {
+                    const fireAt = evMs - mins * 60000;
+                    const shouldFireNow = nowMs >= fireAt && nowMs < fireAt + 60_000;
+                    if (shouldFireNow && !firedNotifs.has(fireKey)) {
                         setFiredNotifs(prev => new Set([...prev, fireKey]));
                         const label = mins >= 60 ? `${mins / 60}시간` : `${mins}분`;
                         if (!isParent && eff.childEnabled) { showNotif(friendlyChildMsg(ev, mins), "child"); setBounce(true); setTimeout(() => setBounce(false), 800); }
@@ -4233,6 +4229,71 @@ export default function KidsScheduler() {
         check(); const id = setInterval(check, 30000); return () => clearInterval(id);
     }, [events, globalNotif, firedNotifs, showNotif, addAlert, isParent, myRole, pushPermission]);
 
+    // ── Exact-time parent status (arrived or not arrived) ─────────────────────
+    useEffect(() => {
+        const systemNotificationsActive = pushPermission === "granted";
+        const check = () => {
+            if (!myRole) return;
+            const now = new Date();
+            const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+            const nowMs = now.getTime();
+
+            (events[key] || []).forEach(ev => {
+                if (!ev.location || firedExactStatuses.has(ev.id)) return;
+                const [h, m] = ev.time.split(":").map(Number);
+                const eventTimeMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
+                const isExactMinuteWindow = nowMs >= eventTimeMs && nowMs < eventTimeMs + 60_000;
+                if (!isExactMinuteWindow) return;
+
+                setFiredExactStatuses(prev => new Set([...prev, ev.id]));
+
+                const arrived = arrivedSet.has(ev.id);
+                if (arrived) {
+                    if (myRole === "child" && familyId && authUser?.id) {
+                        sendInstantPush({
+                            action: "parent_alert",
+                            familyId,
+                            senderUserId: authUser.id,
+                            title: `✅ ${ev.emoji} 도착 확인`,
+                            message: `${ev.emoji} ${ev.title}에 잘 도착했어요! (${ev.time})`,
+                        });
+                    }
+
+                    if (isParent && globalNotif.parentEnabled && !systemNotificationsActive) {
+                        addAlert(`✅ 혜니가 ${ev.title}에 잘 도착했어요 (${ev.time})`, "parent");
+                        showArrivalNotification(ev, "도착 확인", myRole);
+                    }
+                    return;
+                }
+
+                if (myRole === "child" && familyId && authUser?.id) {
+                    sendInstantPush({
+                        action: "new_event",
+                        familyId,
+                        senderUserId: authUser.id,
+                        title: `🚨 미도착 긴급 알림`,
+                        message: `${ev.emoji} ${ev.title} 시작 시간인데 아직 도착하지 않았어요! (${ev.time})`,
+                    });
+                }
+
+                if (isParent) {
+                    setFiredEmergencies(prev => new Set([...prev, ev.id]));
+                }
+
+                if (isParent && globalNotif.parentEnabled && !systemNotificationsActive) {
+                    const shortAddr = (ev.location.address || "").split(" ").slice(0, 4).join(" ");
+                    setEmergencies(prev => [...prev, { id: Date.now() + Math.random(), emoji: ev.emoji, title: ev.title, time: ev.time, location: shortAddr, eventId: ev.id }]);
+                    addAlert(`🚨 긴급! ${ev.emoji} ${ev.title} 시간인데 아직 미도착!`, "emergency");
+                    showEmergencyNotification(ev);
+                }
+            });
+        };
+
+        check();
+        const id = setInterval(check, 30_000);
+        return () => clearInterval(id);
+    }, [events, arrivedSet, firedExactStatuses, familyId, authUser?.id, isParent, myRole, globalNotif, addAlert, pushPermission]);
+
     // ── Push notification scheduling ────────────────────────────────────────────
     useEffect(() => {
         if (isNativeApp) {
@@ -4242,34 +4303,6 @@ export default function KidsScheduler() {
         }
         return () => clearAllScheduled();
     }, [events, globalNotif, pushPermission, myRole, isNativeApp]);
-
-    // ── Emergency check ────────────────────────────────────────────────────────
-    useEffect(() => {
-        const check = () => {
-            const now = new Date(); const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-            (events[key] || []).forEach(ev => {
-                if (!ev.location || arrivedSet.has(ev.id) || firedEmergencies.has(ev.id)) return;
-                const [h, m] = ev.time.split(":").map(Number);
-                const minsUntil = (new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime() - now.getTime()) / 60000;
-                // 일정 시작 시간에 미도착 시에만 긴급 알림 (시작 시간 ~ 시작 후 3분)
-                if (minsUntil <= 0 && minsUntil > -3) {
-                    setFiredEmergencies(prev => new Set([...prev, ev.id]));
-                    if (isParent) {
-                        const shortAddr = (ev.location.address || "").split(" ").slice(0, 4).join(" ");
-                        setEmergencies(prev => [...prev, { id: Date.now() + Math.random(), emoji: ev.emoji, title: ev.title, time: ev.time, location: shortAddr, eventId: ev.id }]);
-                        addAlert(`🚨 긴급! ${ev.emoji} ${ev.title} 시간인데 아직 미도착!`, "emergency");
-                        showEmergencyNotification(ev);
-                        sendInstantPush({
-                            action: "new_event", familyId, senderUserId: authUser?.id,
-                            title: `🚨 미도착 긴급 알림`,
-                            message: `${ev.emoji} ${ev.title} 시간인데 아직 도착하지 않았어요!`,
-                        });
-                    }
-                }
-            });
-        };
-        check(); const id = setInterval(check, 30000); return () => clearInterval(id);
-    }, [events, arrivedSet, firedEmergencies, addAlert, isParent, authUser?.id, familyId]);
 
     // ── Voice NLP parser ───────────────────────────────────────────────────────
     // ── AI Voice: parse text via Edge Function, fallback to regex ────────────
