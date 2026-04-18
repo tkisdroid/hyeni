@@ -4719,6 +4719,154 @@ export default function KidsScheduler() {
     const secBtn = { width: "100%", padding: "12px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 20, fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8, fontFamily: FF };
 
     const TABS = [["calendar", "📅 달력"], ["maplist", "📍 장소"]];
+    const quickPanelTone = isParent
+        ? { bg: "linear-gradient(180deg,#FFF9FC 0%, #FFF2F7 100%)", border: "rgba(244,114,182,0.14)" }
+        : { bg: "linear-gradient(180deg,#FFFDF8 0%, #FFF7ED 100%)", border: "rgba(251,146,60,0.16)" };
+    const quickModeActions = TABS.map(([view, label]) => {
+        const [icon, text] = label.split(" ");
+        return {
+            key: view,
+            icon,
+            label: text,
+            ariaLabel: label,
+            active: activeView === view,
+            onClick: () => setActiveView(view),
+        };
+    });
+    const quickUtilityActions = [
+        activeView !== "calendar" ? {
+            key: "home",
+            icon: "🏠",
+            label: "홈",
+            ariaLabel: "🏠 홈",
+            palette: { bg: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: "#BE185D", shadow: "rgba(232,121,160,0.16)" },
+            onClick: () => setActiveView("calendar"),
+        } : null,
+        isParent ? {
+            key: "child-tracker",
+            icon: "📍",
+            label: "우리아이",
+            ariaLabel: "📍 우리아이",
+            palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: "#1D4ED8", shadow: "rgba(59,130,246,0.16)" },
+            onClick: () => setShowChildTracker(true),
+        } : null,
+        isParent ? {
+            key: "academy",
+            icon: "🏫",
+            label: "학원관리",
+            ariaLabel: "🏫 학원관리",
+            palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(245,158,11,0.18)" },
+            onClick: () => {
+                if (academies.length === 0 && !entitlement.canUse(FEATURES.ACADEMY_SCHEDULE)) {
+                    openFeatureLock(FEATURES.ACADEMY_SCHEDULE);
+                    return;
+                }
+                setShowAcademyMgr(true);
+            },
+        } : null,
+        {
+            key: "stickers",
+            icon: "🏆",
+            label: "스티커",
+            ariaLabel: "🏆 스티커",
+            palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(251,191,36,0.16)" },
+            onClick: () => {
+                setShowStickerBook(true);
+                if (familyId) {
+                    fetchStickersForDate(familyId, dateKey).then(s => setStickers(s));
+                    fetchStickerSummary(familyId).then(s => setStickerSummary(s?.[0] || null));
+                }
+            },
+        },
+        {
+            key: "notifications",
+            icon: "🔔",
+            label: "일정알림",
+            ariaLabel: "🔔 일정알림",
+            palette: { bg: "linear-gradient(135deg,#EEF2FF,#E0E7FF)", color: "#4338CA", shadow: "rgba(99,102,241,0.16)" },
+            onClick: () => setShowNotifSettings(true),
+        },
+        isParent ? {
+            key: "subscription",
+            icon: "💎",
+            label: "구독",
+            ariaLabel: "💎 구독",
+            palette: { bg: "linear-gradient(135deg,#F5F3FF,#EDE9FE)", color: "#7C3AED", shadow: "rgba(139,92,246,0.16)" },
+            onClick: () => setShowSubscriptionSettings(true),
+        } : null,
+        isParent ? {
+            key: "contacts",
+            icon: "📞",
+            label: "연락처",
+            ariaLabel: "📞 연락처",
+            palette: { bg: "linear-gradient(135deg,#FDF2F8,#FCE7F3)", color: "#BE185D", shadow: "rgba(236,72,153,0.15)" },
+            onClick: () => setShowPhoneSettings(true),
+        } : null,
+        isParent ? {
+            key: "remote-audio",
+            icon: "🎙️",
+            label: "주변소리",
+            ariaLabel: "🎙️ 주변소리",
+            palette: { bg: "linear-gradient(135deg,#FEF2F2,#FEE2E2)", color: "#DC2626", shadow: "rgba(239,68,68,0.15)" },
+            onClick: () => {
+                if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
+                    openFeatureLock(FEATURES.REMOTE_AUDIO);
+                    return;
+                }
+                setShowRemoteAudio(true);
+            },
+        } : null,
+        isParent ? {
+            key: "danger-zones",
+            icon: "⚠️",
+            label: "위험지역",
+            ariaLabel: "⚠️ 위험지역",
+            palette: { bg: "linear-gradient(135deg,#FFF1F2,#FFE4E6)", color: "#E11D48", shadow: "rgba(244,63,94,0.15)" },
+            onClick: () => setShowDangerZones(true),
+        } : null,
+    ].filter(Boolean);
+    const quickUtilityColumns = isParent ? "repeat(4, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))";
+    const renderQuickAction = (action, type = "utility") => {
+        const isMode = type === "mode";
+        return (
+            <button
+                key={action.key}
+                type="button"
+                aria-label={action.ariaLabel}
+                onClick={action.onClick}
+                style={{
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: FF,
+                    borderRadius: isMode ? 18 : 20,
+                    minHeight: isMode ? 68 : (isParent ? 82 : 88),
+                    padding: isMode ? "12px 10px" : (isParent ? "12px 6px 10px" : "14px 8px 12px"),
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: isMode ? 4 : 6,
+                    textAlign: "center",
+                    whiteSpace: "normal",
+                    lineHeight: 1.18,
+                    background: isMode
+                        ? (action.active ? "linear-gradient(135deg,#E879A0,#BE185D)" : "rgba(255,255,255,0.88)")
+                        : action.palette.bg,
+                    color: isMode ? (action.active ? "white" : "#6B7280") : action.palette.color,
+                    boxShadow: isMode
+                        ? (action.active ? "0 10px 20px rgba(232,121,160,0.22)" : "inset 0 0 0 1px rgba(226,232,240,0.85)")
+                        : `0 10px 22px ${action.palette.shadow}`,
+                }}
+            >
+                <span aria-hidden="true" style={{ fontSize: isMode ? (isParent ? 18 : 20) : (isParent ? 20 : 22), lineHeight: 1 }}>
+                    {action.icon}
+                </span>
+                <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 12), fontWeight: action.active ? 800 : 700, letterSpacing: -0.2, wordBreak: "keep-all" }}>
+                    {action.label}
+                </span>
+            </button>
+        );
+    };
 
     // ── Handle child role selection (anonymous login + pair code input) ────────
     const handleChildSelect = async () => {
@@ -5200,87 +5348,51 @@ export default function KidsScheduler() {
             </div>
 
             {/* ── Header Row 2: Quick action buttons ── */}
-            <div style={{ width: "100%", maxWidth: 420, display: "flex", gap: isParent ? 6 : 10, marginBottom: 10, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                {activeView !== "calendar" && (
-                    <button onClick={() => setActiveView("calendar")}
-                        style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: "#E879A0", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        🏠 홈
-                    </button>
-                )}
-                {isParent && (
-                    <button onClick={() => setShowChildTracker(true)}
-                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#DBEAFE", color: "#1D4ED8", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        📍 우리아이
-                    </button>
-                )}
-                {isParent && (
-                    <button
-                        onClick={() => {
-                            if (academies.length === 0 && !entitlement.canUse(FEATURES.ACADEMY_SCHEDULE)) {
-                                openFeatureLock(FEATURES.ACADEMY_SCHEDULE);
-                                return;
-                            }
-                            setShowAcademyMgr(true);
-                        }}
-                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FEF3C7", color: "#92400E", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        🏫 학원관리
-                    </button>
-                )}
-                <button onClick={() => {
-                        setShowStickerBook(true);
-                        if (familyId) {
-                            fetchStickersForDate(familyId, dateKey).then(s => setStickers(s));
-                            fetchStickerSummary(familyId).then(s => setStickerSummary(s?.[0] || null));
-                        }
+            <div style={{ width: "100%", maxWidth: 420, marginBottom: 12 }}>
+                <div
+                    style={{
+                        background: quickPanelTone.bg,
+                        borderRadius: 28,
+                        border: `1px solid ${quickPanelTone.border}`,
+                        boxShadow: isParent
+                            ? "0 16px 34px rgba(236,72,153,0.10)"
+                            : "0 16px 34px rgba(249,115,22,0.10)",
+                        padding: 12,
                     }}
-                    style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "linear-gradient(135deg, #FEF3C7, #FDE68A)", color: "#92400E", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                    🏆 스티커
-                </button>
-                <button onClick={() => setShowNotifSettings(true)}
-                    style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "linear-gradient(135deg,#EFF6FF,#E0E7FF)", color: "#4338CA", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                    🔔 일정알림
-                </button>
-                {isParent && (
-                    <button onClick={() => setShowSubscriptionSettings(true)}
-                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#EDE9FE", color: "#7C3AED", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        💎 구독
-                    </button>
-                )}
-                {isParent && (
-                    <button onClick={() => setShowPhoneSettings(true)}
-                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FCE7F3", color: "#BE185D", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        📞 연락처
-                    </button>
-                )}
-                {isParent && (
-                    <button
-                        onClick={() => {
-                            if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
-                                openFeatureLock(FEATURES.REMOTE_AUDIO);
-                                return;
-                            }
-                            setShowRemoteAudio(true);
-                        }}
-                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FEE2E2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        🎙️ 주변소리
-                    </button>
-                )}
-                {isParent && (
-                    <button onClick={() => setShowDangerZones(true)}
-                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FEF2F2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
-                        ⚠️ 위험지역
-                    </button>
-                )}
-                {TABS.map(([v, l]) => (
-                    <button key={v} onClick={() => setActiveView(v)}
-                        style={{
-                            padding: isParent ? "7px 14px" : "10px 16px", borderRadius: isParent ? 12 : 16, border: "none", cursor: "pointer", fontWeight: 700, fontSize: isParent ? 11 : 13, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0,
-                            background: activeView === v ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#F9FAFB", color: activeView === v ? "white" : "#6B7280",
-                            boxShadow: activeView === v ? "0 3px 12px rgba(232,121,160,0.3)" : "0 1px 4px rgba(0,0,0,0.06)"
-                        }}>
-                        {l}
-                    </button>
-                ))}
+                >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 900, color: isParent ? "#BE185D" : "#C2410C", letterSpacing: -0.2 }}>
+                                빠른 실행
+                            </div>
+                            <div style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>
+                                스크롤 없이 주요 기능을 바로 열 수 있어요
+                            </div>
+                        </div>
+                        <div
+                            style={{
+                                padding: "6px 10px",
+                                borderRadius: 999,
+                                background: "rgba(255,255,255,0.84)",
+                                color: isParent ? "#BE185D" : "#C2410C",
+                                fontSize: 10,
+                                fontWeight: 800,
+                                whiteSpace: "nowrap",
+                                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.62)",
+                            }}
+                        >
+                            {isParent ? "학부모 모드" : "아이 모드"}
+                        </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginBottom: 8 }}>
+                        {quickModeActions.map((action) => renderQuickAction(action, "mode"))}
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: quickUtilityColumns, gap: 8 }}>
+                        {quickUtilityActions.map((action) => renderQuickAction(action))}
+                    </div>
+                </div>
             </div>
 
             {/* ── CALENDAR VIEW ── */}

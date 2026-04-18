@@ -383,13 +383,13 @@ test.describe("subscription and premium flow", () => {
     await expect(parentPage.getByText("7일 무료 체험으로 프리미엄 기능을 열어보세요")).toBeVisible();
     await parentPage.getByText("나중에").click();
 
-    await parentPage.getByText("🎙️ 주변소리").click();
+    await parentPage.getByRole("button", { name: "🎙️ 주변소리", exact: true }).click();
     await expect(parentPage.getByText("주변 소리 듣기는 프리미엄 전용이에요")).toBeVisible();
     await parentPage.getByText("7일 무료 체험 시작").click();
     await expect(parentPage.getByText("자동 갱신 안내")).toBeVisible();
     await parentPage.getByRole("button", { name: "안내를 확인했고 계속할게요" }).evaluate((button) => button.click());
 
-    await parentPage.getByText("💎 구독").click();
+    await parentPage.getByRole("button", { name: "💎 구독", exact: true }).click();
     await expect(parentPage.getByText("무료 체험 중")).toBeVisible();
     await parentPage.getByText("닫기").click();
 
@@ -401,7 +401,7 @@ test.describe("subscription and premium flow", () => {
     await childPage.getByText("🔗 연결하기").click();
     await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible();
 
-    await parentPage.getByText("🎙️ 주변소리").click();
+    await parentPage.getByRole("button", { name: "🎙️ 주변소리", exact: true }).click();
     await expect(parentPage.getByText("주변 소리 듣기")).toBeVisible();
     await parentPage.getByText("🎙️ 듣기 시작").click();
     await expect(parentPage.getByText("아이 기기 연결 중...")).toBeVisible();
@@ -493,6 +493,87 @@ test.describe("subscription and premium flow", () => {
     await expect(parentPage.getByRole("button", { name: "15분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(parentPage.getByRole("button", { name: "10분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(parentPage.getByRole("button", { name: "5분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "false");
+
+    await context.close();
+  });
+
+  test("parent quick actions fit on one mobile screen without horizontal scrolling", async ({ browser }, testInfo) => {
+    const context = await browser.newContext({
+      permissions: ["geolocation", "microphone"],
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+    });
+
+    const parentPage = await context.newPage();
+    await installMockBrowser(parentPage);
+    await parentPage.goto("/");
+
+    await parentPage.getByText("학부모").click();
+    await parentPage.getByText("새 가족 만들기").click();
+    await parentPage.getByText("가족 만들기").click();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+    await parentPage.getByRole("button", { name: "닫기" }).click();
+
+    const labels = [
+      "📍 우리아이",
+      "🏫 학원관리",
+      "🏆 스티커",
+      "🔔 일정알림",
+      "💎 구독",
+      "📞 연락처",
+      "🎙️ 주변소리",
+      "⚠️ 위험지역",
+      "📅 달력",
+      "📍 장소",
+    ];
+
+    for (const label of labels) {
+      await expect(parentPage.getByRole("button", { name: label, exact: true })).toBeVisible();
+    }
+
+    const quickActionMetrics = await parentPage.evaluate(() => {
+      const doc = document.documentElement;
+      const trackedLabels = [
+        "📍 우리아이",
+        "🏫 학원관리",
+        "🏆 스티커",
+        "🔔 일정알림",
+        "💎 구독",
+        "📞 연락처",
+        "🎙️ 주변소리",
+        "⚠️ 위험지역",
+        "📅 달력",
+        "📍 장소",
+      ];
+      const buttons = trackedLabels
+        .map((label) => document.querySelector(`button[aria-label="${label}"]`))
+        .filter(Boolean);
+      const firstButton = buttons[0];
+      const quickPanel = firstButton ? firstButton.closest("div")?.parentElement : null;
+
+      return {
+        viewportWidth: window.innerWidth,
+        documentClientWidth: doc.clientWidth,
+        documentScrollWidth: doc.scrollWidth,
+        hasHorizontalOverflow: doc.scrollWidth > doc.clientWidth,
+        quickPanelClientWidth: quickPanel ? quickPanel.clientWidth : null,
+        quickPanelScrollWidth: quickPanel ? quickPanel.scrollWidth : null,
+        quickActionCount: buttons.length,
+        outOfViewportCount: buttons.filter((button) => {
+          const rect = button.getBoundingClientRect();
+          return rect.left < 0 || rect.right > window.innerWidth;
+        }).length,
+      };
+    });
+
+    expect(quickActionMetrics.quickActionCount).toBe(labels.length);
+    expect(quickActionMetrics.hasHorizontalOverflow).toBe(false);
+    expect(quickActionMetrics.quickPanelScrollWidth).toBe(quickActionMetrics.quickPanelClientWidth);
+    expect(quickActionMetrics.outOfViewportCount).toBe(0);
+
+    await parentPage.screenshot({
+      path: testInfo.outputPath("parent-quick-actions-mobile.png"),
+      fullPage: true,
+    });
 
     await context.close();
   });
