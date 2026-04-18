@@ -3,6 +3,16 @@ import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFa
 import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
+import { FEATURES } from "./lib/features.js";
+import { useEntitlement } from "./lib/entitlement.js";
+import { identify as identifySubscriptionUser, purchase as purchaseSubscription } from "./lib/qonversion.js";
+import { sendBroadcastWhenReady } from "./lib/realtime.js";
+import { PRICING } from "./lib/paywallCopy.js";
+import { TrialInvitePrompt } from "./components/paywall/TrialInvitePrompt.jsx";
+import { FeatureLockOverlay } from "./components/paywall/FeatureLockOverlay.jsx";
+import { TrialEndingBanner } from "./components/paywall/TrialEndingBanner.jsx";
+import { AutoRenewalDisclosure } from "./components/paywall/AutoRenewalDisclosure.jsx";
+import { SubscriptionManagement } from "./components/settings/SubscriptionManagement.jsx";
 import "./App.css";
 
 const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_APP_KEY;
@@ -95,12 +105,15 @@ async function sendInstantPush({ action, familyId, senderUserId, title, message 
 
 const REMOTE_AUDIO_CHUNK_MS = 2000;
 const REMOTE_AUDIO_DEFAULT_DURATION_SEC = 30;
+const TRIAL_INVITE_SHOWN_KEY = "hyeni-trial-invite-shown";
 const REMOTE_AUDIO_MIME_TYPES = [
     "audio/webm;codecs=opus",
     "audio/webm",
     "audio/mp4",
     "audio/ogg;codecs=opus",
 ];
+const REMOTE_AUDIO_LEVEL_BARS = [12, 18, 24, 20, 16];
+const CHILD_MARKER_COLORS = ["#3B82F6", "#EC4899", "#F59E0B", "#10B981"];
 
 function getRemoteAudioMimeType() {
     if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
@@ -120,6 +133,31 @@ function stopRemoteAudioCapture() {
     }
     window._remoteRecorder = null;
     window._remoteStream = null;
+}
+
+function effectiveChildLocation(location, entitlement) {
+    if (!location) return null;
+    if (entitlement?.canUse?.(FEATURES.REALTIME_LOCATION)) {
+        return { ...location, isDelayed: false };
+    }
+    const updatedAtMs = new Date(location.updatedAt || location.updated_at || 0).getTime();
+    if (!updatedAtMs || Number.isNaN(updatedAtMs)) return null;
+    if (Date.now() - updatedAtMs < 5 * 60 * 1000) {
+        return null;
+    }
+    return {
+        ...location,
+        updatedAt: location.updatedAt || location.updated_at,
+        updated_at: location.updated_at || location.updatedAt,
+        isDelayed: true,
+    };
+}
+
+function effectiveChildPositions(positions, entitlement) {
+    if (!Array.isArray(positions)) return [];
+    return positions
+        .map((position) => effectiveChildLocation(position, entitlement))
+        .filter(Boolean);
 }
 
 function blobToBase64(blob) {
@@ -487,6 +525,13 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
             setLoading(false);
             if (!mapRef.current) return;
             const center = new window.kakao.maps.LatLng(defaultCenter.lat, defaultCenter.lng);
+            if (mapObj.current && markerRef.current) {
+                mapObj.current.setCenter(center);
+                markerRef.current.setPosition(center);
+                setPos({ lat: defaultCenter.lat, lng: defaultCenter.lng });
+                if (!initial?.address) reverseGeocode(center.getLat(), center.getLng());
+                return;
+            }
             mapObj.current = new window.kakao.maps.Map(mapRef.current, { center, level: 3 });
             markerRef.current = new window.kakao.maps.Marker({ position: center, map: mapObj.current, draggable: true });
 
@@ -506,7 +551,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
 
             if (!initial?.address) reverseGeocode(center.getLat(), center.getLng());
         }).catch((e) => { setErr(`지도 로딩 실패: ${e.message}\n\n1. 카카오 개발자 콘솔에서 앱 키 확인\n2. 플랫폼 → Web → ${window.location.origin} 등록 확인`); setLoading(false); });
-    }, []);
+    }, [defaultCenter.lat, defaultCenter.lng, initial?.address, reverseGeocode]);
 
     const doSearch = () => {
         if (!query.trim() || !window.kakao?.maps) return;
@@ -691,7 +736,7 @@ function RoleSetupModal({ onSelect, loading }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Pair Code Section (shows code prominently or in collapsible after pairing)
 // ─────────────────────────────────────────────────────────────────────────────
-function PairCodeSection({ pairCode, childrenCount, maxChildren }) {
+function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "" }) {
     const [showCode, setShowCode] = useState(childrenCount === 0);
     const canAddMore = childrenCount < maxChildren;
 
@@ -725,7 +770,9 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren }) {
                             style={{ background: "#059669", color: "white", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>복사</button>
                     </div>
                     <div style={{ fontSize: 11, color: "#6B7280", marginTop: 8 }}>
-                        {canAddMore ? "추가 아이 기기에서 이 코드를 입력하면 연결돼요" : "최대 연동 수에 도달했어요. 기존 연동을 해제하면 새로 추가할 수 있어요"}
+                        {canAddMore
+                            ? "추가 아이 기기에서 이 코드를 입력하면 연결돼요"
+                            : (lockedMessage || "최대 연동 수에 도달했어요. 기존 연동을 해제하면 새로 추가할 수 있어요")}
                     </div>
                 </div>
             )}
@@ -736,11 +783,10 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onClose }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onClose, maxChildren = 2, lockedMessage = "" }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
-    const MAX_CHILDREN = 2;
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState("");
 
@@ -757,7 +803,12 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                 {/* Pair code display (parent) */}
                 {isParent && (
                     pairCode ? (
-                        <PairCodeSection pairCode={pairCode} childrenCount={children.length} maxChildren={MAX_CHILDREN} />
+                        <PairCodeSection
+                            pairCode={pairCode}
+                            childrenCount={children.length}
+                            maxChildren={maxChildren}
+                            lockedMessage={lockedMessage}
+                        />
                     ) : children.length === 0 ? (
                         <div style={{ background: "#FEF3C7", border: "1.5px solid #FCD34D", borderRadius: 16, padding: "16px", marginBottom: 20, textAlign: "center" }}>
                             <div style={{ fontSize: 28, marginBottom: 8 }}>🔐</div>
@@ -770,7 +821,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                 {/* Connected children (parent view) */}
                 {isParent && children.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7280", marginBottom: 10 }}>연동된 아이 ({children.length}/{MAX_CHILDREN})</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7280", marginBottom: 10 }}>연동된 아이 ({children.length}/{maxChildren})</div>
                         {children.map((child, i) => (
                             <div key={child.user_id || i} style={{ background: "#F0FDF4", borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: "1.5px solid #BBF7D0" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -844,7 +895,11 @@ function ChildPairInput({ userId, onPaired }) {
             await onPaired();
         } catch (err) {
             console.error("[ChildPairInput] error:", err);
-            setError(err.message?.includes("Too many") ? "시도 횟수 초과. 1시간 후 다시 시도해 주세요" : "잘못된 코드예요. 부모님께 확인해 주세요");
+            if (err?.message?.includes("프리미엄")) {
+                setError(err.message);
+            } else {
+                setError(err.message?.includes("Too many") ? "시도 횟수 초과. 1시간 후 다시 시도해 주세요" : "잘못된 코드예요. 부모님께 확인해 주세요");
+            }
         } finally { setBusy(false); }
     };
 
@@ -1043,7 +1098,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     const [routeInfo, setRouteInfo] = useState(null);
     const [livePos, setLivePos] = useState(childPos); // real-time GPS tracking
     const [isTracking, setIsTracking] = useState(false);
-    const [gpsError, setGpsError] = useState(false);   // GPS failure flag
+    const [gpsError, setGpsError] = useState(() => typeof navigator !== "undefined" && !navigator.geolocation);   // GPS failure flag
     const [centered, setCentered] = useState(true);
     const [mapType, setMapType] = useState("roadmap"); // "hybrid" or "roadmap"
     const [heading, setHeading] = useState(null); // device compass heading in degrees
@@ -1069,7 +1124,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 
     // Start real-time GPS tracking
     useEffect(() => {
-        if (!navigator.geolocation) { setGpsError(true); return; }
+        if (!navigator.geolocation) return;
         // 즉시 현재 위치 획득 (watch 첫 응답 전 빈 상태 방지)
         navigator.geolocation.getCurrentPosition(
             (pos) => { setLivePos({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGpsError(false); },
@@ -1131,6 +1186,29 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     }, [livePos, centered]);
 
     // Re-fetch route when position changes significantly (>50m)
+    const createWalkingArrows = useCallback((map, path, color) => {
+        const arrows = [];
+        if (!path || path.length < 4) return arrows;
+        const interval = Math.max(4, Math.floor(path.length / 8));
+        for (let i = interval; i < path.length - 2; i += interval) {
+            const p1 = path[i - 1];
+            const p2 = path[i + 1];
+            const lat1 = p1.getLat() * Math.PI / 180;
+            const lat2 = p2.getLat() * Math.PI / 180;
+            const dLng = (p2.getLng() - p1.getLng()) * Math.PI / 180;
+            const y = Math.sin(dLng) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+            const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+            const arrowSvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" fill="white" stroke="${color}" stroke-width="2"/><path d="M14 7 L19 17 L14 14 L9 17 Z" fill="${color}" transform="rotate(${bearing}, 14, 14)"/></svg>`)}`;
+            const overlay = new window.kakao.maps.CustomOverlay({
+                map, position: path[i], yAnchor: 0.5, zIndex: 3,
+                content: `<img src="${arrowSvg}" width="26" height="26" style="display:block;pointer-events:none" />`
+            });
+            arrows.push(overlay);
+        }
+        return arrows;
+    }, []);
+
     const lastRoutePosRef = useRef(null);
     useEffect(() => {
         if (!livePos || !ev.location || !mapInst.current || routeInfo?.loading) return;
@@ -1154,31 +1232,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
             arrowOverlaysRef.current = createWalkingArrows(mapInst.current, path, "#4285F4");
             setRouteInfo({ distance: route.distance, duration: route.duration, loading: false, error: false });
         }).catch(() => {});
-    }, [livePos, ev.location]);
-
-    // Helper: create walking direction arrow overlays along route path
-    const createWalkingArrows = useCallback((map, path, color) => {
-        const arrows = [];
-        if (!path || path.length < 4) return arrows;
-        const interval = Math.max(4, Math.floor(path.length / 8));
-        for (let i = interval; i < path.length - 2; i += interval) {
-            const p1 = path[i - 1];
-            const p2 = path[i + 1];
-            const lat1 = p1.getLat() * Math.PI / 180;
-            const lat2 = p2.getLat() * Math.PI / 180;
-            const dLng = (p2.getLng() - p1.getLng()) * Math.PI / 180;
-            const y = Math.sin(dLng) * Math.cos(lat2);
-            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-            const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-            const arrowSvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="13" fill="white" stroke="${color}" stroke-width="2"/><path d="M14 7 L19 17 L14 14 L9 17 Z" fill="${color}" transform="rotate(${bearing}, 14, 14)"/></svg>`)}`;
-            const overlay = new window.kakao.maps.CustomOverlay({
-                map, position: path[i], yAnchor: 0.5, zIndex: 3,
-                content: `<img src="${arrowSvg}" width="26" height="26" style="display:block;pointer-events:none" />`
-            });
-            arrows.push(overlay);
-        }
-        return arrows;
-    }, []);
+    }, [livePos, ev.location, routeInfo?.loading, createWalkingArrows]);
 
     // Initialize map + route
     useEffect(() => {
@@ -1915,8 +1969,6 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
 // Sticker Book Modal
 // ─────────────────────────────────────────────────────────────────────────────
 function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode, onGiveSticker }) {
-    const stickerLabels = { early: "일찍 도착", on_time: "정시 도착", late: "아쉬워요", praise: "부모님 칭찬", completed: "완료" };
-    const totalCount = summary?.total_count || 0;
     const earlyCount = summary?.early_count || 0;
     const onTimeCount = summary?.on_time_count || 0;
     const lateCount = summary?.late_count || 0;
@@ -2109,7 +2161,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                 {status === "listening" && (
                     <div style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 3 }}>
-                            {[...Array(5)].map((_, i) => <div key={i} style={{ width: 4, height: 12 + Math.random() * 20, background: "#DC2626", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
+                            {REMOTE_AUDIO_LEVEL_BARS.map((height, i) => <div key={i} style={{ width: 4, height, background: "#DC2626", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
                         </div>
                     </div>
                 )}
@@ -2143,7 +2195,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
 // ─────────────────────────────────────────────────────────────────────────────
 // Location Map View (interactive map + card list)
 // ─────────────────────────────────────────────────────────────────────────────
-function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
+function LocationMapView({ events, childPos, mapReady, arrivedSet, locationHint = "" }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const markersRef = useRef([]);
@@ -2209,11 +2261,12 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
         if (locEvents.length > 0) {
             mapObj.current.setBounds(bounds, 60);
         }
-    }, [mapReady, childPos, events, arrivedSet]);
+    }, [mapReady, childPos, locEvents, arrivedSet, center.lat, center.lng]);
 
     // Handle click on overlay via map container click delegation
     useEffect(() => {
-        if (!mapRef.current) return;
+        const mapEl = mapRef.current;
+        if (!mapEl) return;
         const handler = (e) => {
             const target = e.target.closest('[data-evid]');
             if (target) {
@@ -2221,8 +2274,8 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
                 setSelected(prev => prev === id ? null : id);
             }
         };
-        mapRef.current.addEventListener('click', handler);
-        return () => mapRef.current?.removeEventListener('click', handler);
+        mapEl.addEventListener('click', handler);
+        return () => mapEl.removeEventListener('click', handler);
     }, []);
 
     const selectedEv = selected ? locEvents.find(e => e.id === selected) : null;
@@ -2264,6 +2317,11 @@ function LocationMapView({ events, childPos, mapReady, arrivedSet }) {
             {/* Card list */}
             <div style={{ background: "white", borderRadius: 24, boxShadow: "0 8px 32px rgba(232,121,160,0.12)", padding: 16 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", marginBottom: 12, fontFamily: FF }}>📍 등록된 장소</div>
+                {!childPos && locationHint && (
+                    <div style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, marginBottom: 12 }}>
+                        {locationHint}
+                    </div>
+                )}
                 {locEvents.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "24px 0", color: "#D1D5DB", fontFamily: FF }}>
                         <div style={{ fontSize: 36, marginBottom: 8 }}>🗺️</div>
@@ -2545,7 +2603,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
 // ─────────────────────────────────────────────────────────────────────────────
 // Danger Zone Manager — 위험지역 설정 및 관리
 // ─────────────────────────────────────────────────────────────────────────────
-function DangerZoneManager({ zones, familyId, mapReady, onAdd, onDelete, onClose }) {
+function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDelete, onClose }) {
     const [showAdd, setShowAdd] = useState(false);
     const [newName, setNewName] = useState("");
     const [newRadius, setNewRadius] = useState(200);
@@ -2554,6 +2612,7 @@ function DangerZoneManager({ zones, familyId, mapReady, onAdd, onDelete, onClose
     const mapRef = useRef();
     const mapInst = useRef();
     const circleRef = useRef(null);
+    const newRadiusRef = useRef(newRadius);
 
     const ZONE_TYPES = [
         { id: "construction", label: "🚧 공사장", color: "#F59E0B" },
@@ -2563,6 +2622,10 @@ function DangerZoneManager({ zones, familyId, mapReady, onAdd, onDelete, onClose
     ];
 
     const zoneColor = (type) => ZONE_TYPES.find(z => z.id === type)?.color || "#6B7280";
+
+    useEffect(() => {
+        newRadiusRef.current = newRadius;
+    }, [newRadius]);
 
     // Map for adding new zone
     useEffect(() => {
@@ -2577,7 +2640,7 @@ function DangerZoneManager({ zones, familyId, mapReady, onAdd, onDelete, onClose
             setSelectedLoc({ lat, lng });
             if (circleRef.current) circleRef.current.setMap(null);
             circleRef.current = new window.kakao.maps.Circle({
-                map, center: e.latLng, radius: newRadius,
+                map, center: e.latLng, radius: newRadiusRef.current,
                 strokeWeight: 3, strokeColor: "#EF4444", strokeOpacity: 0.8,
                 fillColor: "#EF4444", fillOpacity: 0.15
             });
@@ -2594,7 +2657,7 @@ function DangerZoneManager({ zones, familyId, mapReady, onAdd, onDelete, onClose
     const handleAdd = async () => {
         if (!newName.trim() || !selectedLoc) return;
         try {
-            const zone = await onAdd({ name: newName.trim(), lat: selectedLoc.lat, lng: selectedLoc.lng, radius_m: newRadius, zone_type: newType });
+            await onAdd({ name: newName.trim(), lat: selectedLoc.lat, lng: selectedLoc.lng, radius_m: newRadius, zone_type: newType });
             setShowAdd(false);
             setNewName("");
             setSelectedLoc(null);
@@ -2747,7 +2810,7 @@ function ChildCallButtons({ phones }) {
     );
 }
 
-function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapReady, arrivedSet, onClose, locationTrail = [] }) {
+function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapReady, arrivedSet, onClose, locationTrail = [], locationHint = "" }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const myMarkerRef = useRef();
@@ -2784,10 +2847,9 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
             center: new window.kakao.maps.LatLng(center.lat, center.lng),
             level: 4
         });
-    }, [mapReady]);
+    }, [mapReady, center.lat, center.lng]);
 
     // Effect 2: 아이 현재위치 마커 (다중 아이 지원)
-    const CHILD_COLORS = ["#3B82F6", "#EC4899", "#F59E0B", "#10B981"];
     useEffect(() => {
         if (!mapObj.current) return;
         // 기존 마커 제거
@@ -2800,7 +2862,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
 
         const bounds = new window.kakao.maps.LatLngBounds();
         positions.forEach((child, i) => {
-            const color = CHILD_COLORS[i % CHILD_COLORS.length];
+            const color = CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length];
             const ll = new window.kakao.maps.LatLng(child.lat, child.lng);
             bounds.extend(ll);
             const updatedLabel = child.updatedAt ? (() => { const d = new Date(child.updatedAt); return `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`; })() : "";
@@ -2928,8 +2990,8 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                     <div style={{ background: "white", borderRadius: 20, padding: "14px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
                         {/* 아이별 위치 상태 */}
                         {(allChildPositions.length > 0 ? allChildPositions : [{ name: "우리 아이", emoji: "🐰", lat: childPos?.lat, lng: childPos?.lng, updatedAt: childPos?.updatedAt }]).map((child, i) => (
-                            <div key={child.user_id || i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: `${CHILD_COLORS[i % CHILD_COLORS.length]}10`, borderRadius: 14 }}>
-                                <div style={{ width: 36, height: 36, borderRadius: 12, background: CHILD_COLORS[i % CHILD_COLORS.length], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji}</div>
+                            <div key={child.user_id || i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: `${CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length]}10`, borderRadius: 14 }}>
+                                <div style={{ width: 36, height: 36, borderRadius: 12, background: CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{child.name}</div>
                                     <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
@@ -2965,7 +3027,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                     </div>
                 ) : (
                     <div style={{ background: "white", borderRadius: 20, padding: "20px", textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#9CA3AF" }}>아이 기기에서 위치 권한을 허용해 주세요</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#9CA3AF" }}>{locationHint || "아이 기기에서 위치 권한을 허용해 주세요"}</div>
                     </div>
                 )}
             </div>
@@ -2978,27 +3040,35 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
 // ─────────────────────────────────────────────────────────────────────────────
 export default function KidsScheduler() {
     const today = new Date();
+    const roleStorage = typeof window !== "undefined" && window.sessionStorage ? window.sessionStorage : (typeof window !== "undefined" ? window.localStorage : null);
 
     // ── Auth & family state (Supabase) ──────────────────────────────────────────
     const [authUser, setAuthUser] = useState(null);       // supabase auth user
     const [familyInfo, setFamilyInfo] = useState(null);   // { familyId, pairCode, myRole, myName, members }
     const [authLoading, setAuthLoading] = useState(true);
     const [myRole, setMyRole] = useState(() => {
-        try { return localStorage.getItem("hyeni-my-role") || null; } catch { return null; }
+        try { return roleStorage?.getItem("hyeni-my-role") || null; } catch { return null; }
     });           // "parent" | "child" | null (role selection)
     const [showPairing, setShowPairing] = useState(false);
+    const [showTrialInvite, setShowTrialInvite] = useState(false);
+    const [featureLock, setFeatureLock] = useState({ open: false, feature: null, title: "", body: "" });
+    const [showDisclosure, setShowDisclosure] = useState(false);
+    const [pendingProduct, setPendingProduct] = useState(null);
+    const [showRemoteAudio, setShowRemoteAudio] = useState(false);
+    const [showSubscriptionSettings, setShowSubscriptionSettings] = useState(false);
 
     // Persist myRole to localStorage for session continuity
     useEffect(() => {
         try {
-            if (myRole) localStorage.setItem("hyeni-my-role", myRole);
-            else localStorage.removeItem("hyeni-my-role");
+            if (myRole) roleStorage?.setItem("hyeni-my-role", myRole);
+            else roleStorage?.removeItem("hyeni-my-role");
         } catch { /* ignored */ }
-    }, [myRole]);
+    }, [myRole, roleStorage]);
 
     const isParent = familyInfo?.myRole === "parent" || myRole === "parent";
     const isNativeApp = typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
     const familyId = familyInfo?.familyId;
+    const entitlement = useEntitlement(familyId);
     const pairCode = familyInfo?.pairCode || "";
     const pairedChildren = familyInfo?.members?.filter(m => m.role === "child") || [];
     const _pairedDevice = pairedChildren[0] || null; // 첫 번째 아이 (하위호환)
@@ -3022,7 +3092,7 @@ export default function KidsScheduler() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [showChildTracker, setShowChildTracker] = useState(false);
-    const [listening, setListening] = useState(false);
+    const [_listening, setListening] = useState(false);
     const [notification, setNotification] = useState(null);
     const [alerts, setAlerts] = useState([]);
     const [emergencies, setEmergencies] = useState([]);
@@ -3071,6 +3141,31 @@ export default function KidsScheduler() {
     // ── Refs ────────────────────────────────────────────────────────────────────
     const realtimeChannel = useRef(null);
     const dateKeyRef = useRef("");
+    const displayChildPositions = effectiveChildPositions(allChildPositions, entitlement);
+    const displayChildPos = effectiveChildLocation(childPos, entitlement)
+        || (displayChildPositions.length > 0 ? displayChildPositions[0] : null);
+    const locationGateHint = isParent && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
+        ? "무료 플랜은 5분이 지난 위치만 보여드려요. 실시간 위치는 프리미엄 전용이에요."
+        : "";
+
+    const openFeatureLock = useCallback((feature, title = "", body = "") => {
+        setFeatureLock({ open: true, feature, title, body });
+    }, []);
+
+    const closeFeatureLock = useCallback(() => {
+        setFeatureLock({ open: false, feature: null, title: "", body: "" });
+    }, []);
+
+    const maybeOpenTrialInvite = useCallback(() => {
+        if (myRole !== "parent" || entitlement.tier !== "free") return;
+        try {
+            if (localStorage.getItem(TRIAL_INVITE_SHOWN_KEY)) return;
+            localStorage.setItem(TRIAL_INVITE_SHOWN_KEY, "1");
+        } catch {
+            // ignore storage failures
+        }
+        setShowTrialInvite(true);
+    }, [entitlement.tier, myRole]);
 
     // ── Add form ───────────────────────────────────────────────────────────────
     const [newTitle, setNewTitle] = useState("");
@@ -3114,10 +3209,14 @@ export default function KidsScheduler() {
         // Fetch read_by from memos table
         supabase.from("memos").select("read_by").eq("family_id", familyId).eq("date_key", dateKey).maybeSingle()
             .then(({ data }) => setMemoReadBy(data?.read_by || []));
-    }, [familyId, dateKey, hasMemo]);
+    }, [familyId, dateKey, hasMemo, authUser?.id]);
 
     // ── Load Kakao Maps SDK on mount ────────────────────────────────────────────
     useEffect(() => {
+        if (window.kakao?.maps?.LatLng) {
+            setMapReady(true);
+            return;
+        }
         if (!KAKAO_APP_KEY) return;
         loadKakaoMap(KAKAO_APP_KEY).then(() => setMapReady(true)).catch(() => {});
     }, []);
@@ -3141,7 +3240,7 @@ export default function KidsScheduler() {
         };
         document.addEventListener("visibilitychange", handleVisibility);
         return () => document.removeEventListener("visibilitychange", handleVisibility);
-    }, [familyId, authUser?.id, myRole, dateKey]);
+    }, [familyId, authUser, authUser?.id, myRole, dateKey]);
 
     // ── Sync parent phones from familyInfo ─────────────────────────────────────
     useEffect(() => {
@@ -3198,7 +3297,9 @@ export default function KidsScheduler() {
                 handle = await CapApp.addListener("appUrlOpen", async (event) => {
                     await handleNativeAuthCallback(event.url);
                 });
-            } catch {}
+            } catch (error) {
+                void error;
+            }
         })();
         return () => { if (handle) handle.remove(); };
     }, [handleNativeAuthCallback, isNativeApp]);
@@ -3435,6 +3536,13 @@ export default function KidsScheduler() {
         };
     }, [handleAuthUser]);
 
+    useEffect(() => {
+        if (!familyId) return;
+        identifySubscriptionUser(familyId).catch((error) => {
+            console.warn("[subscription] identify failed:", error);
+        });
+    }, [familyId, authUser?.id, isParent]);
+
     // ── Fetch data + subscribe when familyId is available ───────────────────────
     useEffect(() => {
         if (!familyId) return;
@@ -3502,7 +3610,10 @@ export default function KidsScheduler() {
                 });
             },
             onLocationChange: (payload) => {
-                setChildPos(payload);
+                setChildPos({
+                    ...payload,
+                    updatedAt: payload?.updatedAt || payload?.updated_at || new Date().toISOString(),
+                });
             },
             onKkuk: (payload) => {
                 // Received '꾹' from the other party
@@ -3544,7 +3655,7 @@ export default function KidsScheduler() {
         });
 
         return () => { unsubscribe(realtimeChannel.current); };
-    }, [familyId]);
+    }, [familyId, authUser?.id, isParent]);
 
     // ── Child: check if launched via FCM remote_listen ──
     useEffect(() => {
@@ -3592,6 +3703,12 @@ export default function KidsScheduler() {
     }, [familyId]);
 
     // ── 꾹 (emergency ping) ────────────────────────────────────────────────────
+    const showNotif = useCallback((msg, type = "success") => {
+        setNotification({ msg, type });
+        if (notifTimer.current) clearTimeout(notifTimer.current);
+        notifTimer.current = setTimeout(() => setNotification(null), 3500);
+    }, []);
+
     const sendKkuk = useCallback(async () => {
         if (kkukCooldown || !familyId || !authUser) return;
         setKkukCooldown(true);
@@ -3599,14 +3716,19 @@ export default function KidsScheduler() {
 
         const senderRole = isParent ? "parent" : "child";
         const senderLabel = isParent ? "엄마" : "아이";
+        const kkukPayload = { senderId: authUser.id, senderRole, timestamp: Date.now() };
 
         // 1. Realtime broadcast (instant, if other party has app open)
-        if (realtimeChannel.current && realtimeChannel.current.state === "joined") {
-            realtimeChannel.current.send({
-                type: "broadcast",
-                event: "kkuk",
-                payload: { senderId: authUser.id, senderRole, timestamp: Date.now() }
+        try {
+            const sent = await sendBroadcastWhenReady(realtimeChannel.current, "kkuk", kkukPayload, {
+                timeoutMs: 1800,
+                pollMs: 60,
             });
+            if (!sent) {
+                console.warn("[kkuk] realtime channel was not ready. Falling back to push delivery.");
+            }
+        } catch (error) {
+            console.error("[kkuk] realtime send failed:", error);
         }
 
         // 2. Push notification + pending_notifications (works when app is closed)
@@ -3625,7 +3747,7 @@ export default function KidsScheduler() {
         // Vibrate own device as feedback
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         showNotif("💗 꾹을 보냈어요!");
-    }, [familyId, authUser, isParent, kkukCooldown]);
+    }, [familyId, authUser, isParent, kkukCooldown, showNotif]);
 
     // ── Android 뒤로가기 버튼 처리 ───────────────────────────────────────────────
     const backStateRef = useRef({});
@@ -3664,11 +3786,40 @@ export default function KidsScheduler() {
     }, []);
 
     // ── Helpers ────────────────────────────────────────────────────────────────
-    const showNotif = useCallback((msg, type = "success") => {
-        setNotification({ msg, type });
-        if (notifTimer.current) clearTimeout(notifTimer.current);
-        notifTimer.current = setTimeout(() => setNotification(null), 3500);
-    }, []);
+    const startTrial = useCallback(async (productId = PRICING.monthlyProductId) => {
+        if (myRole === "child") {
+            showNotif("아이 기기에서는 직접 구독을 시작할 수 없어요.", "error");
+            return;
+        }
+        if (!familyId) {
+            showNotif("가족 연결 후 다시 시도해 주세요.", "error");
+            return;
+        }
+
+        setPendingProduct(productId);
+        setShowDisclosure(true);
+    }, [familyId, myRole, showNotif]);
+
+    const confirmStartTrial = useCallback(async () => {
+        if (!pendingProduct || !familyId) {
+            setShowDisclosure(false);
+            return;
+        }
+        try {
+            await purchaseSubscription(pendingProduct, { familyId });
+            await entitlement.refresh();
+            showNotif("무료 체험이 시작됐어요! 프리미엄 기능이 열렸습니다.");
+            closeFeatureLock();
+            setShowTrialInvite(false);
+            setShowSubscriptionSettings(false);
+        } catch (error) {
+            console.error("[subscription] start trial failed:", error);
+            showNotif(error?.message || "구독 시작에 실패했어요", "error");
+        } finally {
+            setPendingProduct(null);
+            setShowDisclosure(false);
+        }
+    }, [closeFeatureLock, entitlement, familyId, pendingProduct, showNotif]);
 
     const nativeSetupAction = getNativeSetupAction(nativeNotifHealth);
 
@@ -3728,7 +3879,7 @@ export default function KidsScheduler() {
             if (wid !== null) navigator.geolocation.clearWatch(wid);
             if (iv) clearInterval(iv);
         };
-    }, [myRole, authUser?.id, familyId]);
+    }, [myRole, authUser?.id, familyId, showNotif]);
 
     // ── Parent: fetch child's last known location from DB ─────────────────────
     useEffect(() => {
@@ -3894,7 +4045,7 @@ export default function KidsScheduler() {
             });
         }, 10000); // check every 10s
         return () => clearInterval(iv);
-    }, [childPos, events, arrivedSet, globalNotif, addAlert, familyId, authUser, departedAlerts, isParent]);
+    }, [childPos, events, arrivedSet, globalNotif, addAlert, familyId, authUser, departedAlerts, isParent, myRole, showNotif]);
 
     // ── Advance notifications (friendly messages) ─────────────────────────────
     useEffect(() => {
@@ -3923,7 +4074,7 @@ export default function KidsScheduler() {
             });
         };
         check(); const id = setInterval(check, 30000); return () => clearInterval(id);
-    }, [events, globalNotif, firedNotifs, showNotif, addAlert, isParent]);
+    }, [events, globalNotif, firedNotifs, showNotif, addAlert, isParent, myRole]);
 
     // ── Push notification scheduling ────────────────────────────────────────────
     useEffect(() => {
@@ -3961,7 +4112,7 @@ export default function KidsScheduler() {
             });
         };
         check(); const id = setInterval(check, 30000); return () => clearInterval(id);
-    }, [events, arrivedSet, firedEmergencies, addAlert, isParent]);
+    }, [events, arrivedSet, firedEmergencies, addAlert, isParent, authUser?.id, familyId]);
 
     // ── Voice NLP parser ───────────────────────────────────────────────────────
     // ── AI Voice: parse text via Edge Function, fallback to regex ────────────
@@ -4060,6 +4211,7 @@ export default function KidsScheduler() {
 
     // ── AI: Analyze memo sentiment ───────────────────────────────────────────
     const analyzeMemoSentiment = async (memoText, eventTitle) => {
+        if (!entitlement.canUse(FEATURES.AI_ANALYSIS)) return;
         if (!aiEnabled || !AI_MONITOR_URL || !familyId || !memoText.trim()) return;
         try {
             const session = await getSession();
@@ -4099,6 +4251,14 @@ export default function KidsScheduler() {
     const toggleAiEnabled = (val) => {
         setAiEnabled(val);
         try { localStorage.setItem("hyeni-ai-enabled", val ? "true" : "false"); } catch { /* ignored */ }
+    };
+
+    const openAiSchedule = () => {
+        if (!entitlement.canUse(FEATURES.AI_ANALYSIS)) {
+            openFeatureLock(FEATURES.AI_ANALYSIS);
+            return;
+        }
+        setShowAiSchedule(true);
     };
 
     // ── Process AI/regex result → create event or add memo ────────────────────
@@ -4188,6 +4348,7 @@ export default function KidsScheduler() {
         if (familyId && authUser) {
             try {
                 await insertEvent(ev, familyId, dk, authUser.id);
+                maybeOpenTrialInvite();
                 sendInstantPush({
                     action: "new_event", familyId, senderUserId: authUser.id,
                     title: `🤖 새 일정: ${ev.emoji} ${parsed.title}`,
@@ -4313,6 +4474,7 @@ export default function KidsScheduler() {
                 for (const { ev, dateKey: dk } of allEvents) {
                     await insertEvent(ev, familyId, dk, authUser.id);
                 }
+                maybeOpenTrialInvite();
                 sendInstantPush({
                     action: "new_event",
                     familyId,
@@ -4448,6 +4610,12 @@ export default function KidsScheduler() {
                 // Diff old vs new to determine DB operations
                 const oldMap = new Map(academies.filter(a => a.id).map(a => [a.id, a]));
                 const newMap = new Map(newList.filter(a => a.id).map(a => [a.id, a]));
+                const createdItems = newList.filter(a => !a.id || !oldMap.has(a.id));
+
+                if (createdItems.length > 0 && !entitlement.canUse(FEATURES.ACADEMY_SCHEDULE)) {
+                    openFeatureLock(FEATURES.ACADEMY_SCHEDULE);
+                    return;
+                }
 
                 // Deleted: in old but not in new
                 for (const [id] of oldMap) {
@@ -4704,7 +4872,9 @@ export default function KidsScheduler() {
                                 const BgLoc = registerPlugin("BackgroundLocation");
                                 await BgLoc.openAppLocationSettings();
                             }
-                        } catch {}
+                        } catch (error) {
+                            void error;
+                        }
                     }} style={{ padding: "9px 13px", borderRadius: 12, background: "#DC2626", color: "white", border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(220,38,38,0.2)" }}>
                         설정 열기
                     </button>
@@ -4763,6 +4933,13 @@ export default function KidsScheduler() {
                     <div style={{ fontSize: 11, color: "#92400E", fontWeight: 600 }}>푸시 알림이 차단됨 — 브라우저 설정에서 이 사이트의 알림을 허용해주세요</div>
                 </div>
             )}
+
+            <TrialEndingBanner
+                trialDaysLeft={entitlement.trialDaysLeft}
+                isTrial={entitlement.isTrial}
+                isChild={!isParent}
+                onContinue={() => startTrial(PRICING.monthlyProductId)}
+            />
 
             {/* ── Header Row 1: Logo + 꾹 + 로그아웃 ── */}
             <div style={{ width: "100%", maxWidth: 420, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -4852,7 +5029,14 @@ export default function KidsScheduler() {
                     </button>
                 )}
                 {isParent && (
-                    <button onClick={() => setShowAcademyMgr(true)}
+                    <button
+                        onClick={() => {
+                            if (academies.length === 0 && !entitlement.canUse(FEATURES.ACADEMY_SCHEDULE)) {
+                                openFeatureLock(FEATURES.ACADEMY_SCHEDULE);
+                                return;
+                            }
+                            setShowAcademyMgr(true);
+                        }}
                         style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FEF3C7", color: "#92400E", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
                         🏫 학원관리
                     </button>
@@ -4868,13 +5052,26 @@ export default function KidsScheduler() {
                     🏆 스티커
                 </button>
                 {isParent && (
+                    <button onClick={() => setShowSubscriptionSettings(true)}
+                        style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#EDE9FE", color: "#7C3AED", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
+                        💎 구독
+                    </button>
+                )}
+                {isParent && (
                     <button onClick={() => setShowPhoneSettings(true)}
                         style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FCE7F3", color: "#BE185D", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
                         📞 연락처
                     </button>
                 )}
                 {isParent && (
-                    <button onClick={() => showNotif("🎙️ 주변소리 듣기는 유료기능으로 오픈 예정이에요", "success")}
+                    <button
+                        onClick={() => {
+                            if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
+                                openFeatureLock(FEATURES.REMOTE_AUDIO);
+                                return;
+                            }
+                            setShowRemoteAudio(true);
+                        }}
                         style={{ fontSize: 11, padding: "7px 12px", borderRadius: 12, background: "#FEE2E2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
                         🎙️ 주변소리
                     </button>
@@ -4954,7 +5151,7 @@ export default function KidsScheduler() {
 
                 {/* AI 일정입력 + 수동 추가 */}
                 <div style={{ width: "100%", maxWidth: 420, display: "flex", gap: 8, marginBottom: 14 }}>
-                    <button onClick={() => setShowAiSchedule(true)}
+                    <button onClick={openAiSchedule}
                         style={{
                             flex: 1, padding: "10px 16px", height: 44, color: "white", border: "none", borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: FF,
                             background: "linear-gradient(135deg,#8B5CF6,#6D28D9)", boxShadow: "0 3px 12px rgba(109,40,217,0.25)"
@@ -4972,7 +5169,7 @@ export default function KidsScheduler() {
                         dateLabel={`${currentMonth + 1}월 ${selectedDate}일`}
                         isToday={currentYear === new Date().getFullYear() && currentMonth === new Date().getMonth() && selectedDate === new Date().getDate()}
                         isFuture={new Date(currentYear, currentMonth, selectedDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0)}
-                        childPos={childPos}
+                        childPos={displayChildPos}
                         mapReady={mapReady}
                         stickers={stickers}
                         arrivedSet={arrivedSet}
@@ -5057,8 +5254,8 @@ export default function KidsScheduler() {
 
             {/* ── MAP LIST VIEW ── */}
             {activeView === "maplist" && <LocationMapView
-                events={events} childPos={childPos} mapReady={mapReady}
-                arrivedSet={arrivedSet} />}
+                events={events} childPos={displayChildPos} mapReady={mapReady}
+                arrivedSet={arrivedSet} locationHint={locationGateHint} />}
 
             {/* ── ADD MODAL ── */}
             {showAddModal && (
@@ -5175,7 +5372,7 @@ export default function KidsScheduler() {
 
             {/* Route Overlay */}
             {routeEvent && (
-                <RouteOverlay ev={routeEvent} childPos={childPos} mapReady={mapReady} isChildMode={!isParent} onClose={() => setRouteEvent(null)} />
+                <RouteOverlay ev={routeEvent} childPos={displayChildPos} mapReady={mapReady} isChildMode={!isParent} onClose={() => setRouteEvent(null)} />
             )}
 
             {/* Map Picker */}
@@ -5191,6 +5388,8 @@ export default function KidsScheduler() {
             {showPairing && familyId && (
                 <PairingModal myRole={familyInfo?.myRole || myRole} pairCode={pairCode} pairedMembers={familyInfo?.members}
                     familyId={familyId}
+                    maxChildren={entitlement.canUse(FEATURES.MULTI_CHILD) ? 2 : 1}
+                    lockedMessage={!entitlement.canUse(FEATURES.MULTI_CHILD) ? "두 번째 아이를 추가하려면 프리미엄을 시작해 주세요" : ""}
                     onUnpair={async (childUserId) => {
                         try {
                             await unpairChild(familyId, childUserId);
@@ -5232,12 +5431,94 @@ export default function KidsScheduler() {
                 }} />
             )}
 
+            <TrialInvitePrompt
+                open={showTrialInvite}
+                isChild={!isParent}
+                onStart={() => startTrial(PRICING.monthlyProductId)}
+                onDismiss={() => setShowTrialInvite(false)}
+            />
+
+            <FeatureLockOverlay
+                open={featureLock.open}
+                feature={featureLock.feature}
+                customTitle={featureLock.title}
+                customBody={featureLock.body}
+                isChild={!isParent}
+                onStart={() => startTrial(PRICING.monthlyProductId)}
+                onClose={closeFeatureLock}
+            />
+
+            <AutoRenewalDisclosure
+                open={showDisclosure}
+                onConfirm={confirmStartTrial}
+                onClose={() => {
+                    setShowDisclosure(false);
+                    setPendingProduct(null);
+                }}
+            />
+
+            {showSubscriptionSettings && (
+                <div
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        zIndex: 650,
+                        background: "rgba(15,23,42,0.45)",
+                        backdropFilter: "blur(4px)",
+                        display: "flex",
+                        alignItems: "flex-end",
+                        justifyContent: "center",
+                        padding: 20,
+                    }}
+                    onClick={(event) => {
+                        if (event.target === event.currentTarget) setShowSubscriptionSettings(false);
+                    }}
+                >
+                    <div style={{ width: "100%", maxWidth: 460 }}>
+                        <SubscriptionManagement
+                            entitlement={entitlement}
+                            role={myRole}
+                            onRefresh={entitlement.refresh}
+                            onStartTrial={startTrial}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowSubscriptionSettings(false)}
+                            style={{
+                                width: "100%",
+                                marginTop: 10,
+                                padding: "12px 14px",
+                                borderRadius: 16,
+                                border: "none",
+                                background: "white",
+                                color: "#6B7280",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
+                            }}
+                        >
+                            닫기
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showRemoteAudio && isParent && (
+                <AmbientAudioRecorder
+                    channel={realtimeChannel.current}
+                    familyId={familyId}
+                    senderUserId={authUser?.id}
+                    onClose={() => setShowRemoteAudio(false)}
+                />
+            )}
+
             {/* ── Child Tracker (학부모 전용) ── */}
             {showChildTracker && <ChildTrackerOverlay
-                childPos={childPos} allChildPositions={allChildPositions}
+                childPos={displayChildPos} allChildPositions={displayChildPositions}
                 events={events} mapReady={mapReady}
                 arrivedSet={arrivedSet} onClose={() => setShowChildTracker(false)}
                 locationTrail={locationTrail}
+                locationHint={locationGateHint}
             />}
 
             {/* ── Phone Settings Modal (학부모 전용) ── */}
@@ -5304,6 +5585,10 @@ export default function KidsScheduler() {
                 familyId={familyId}
                 mapReady={mapReady}
                 onAdd={async (zone) => {
+                    if (dangerZones.length >= 1 && !entitlement.canUse(FEATURES.MULTI_GEOFENCE)) {
+                        openFeatureLock(FEATURES.MULTI_GEOFENCE);
+                        throw new Error("프리미엄 구독이 필요합니다");
+                    }
                     const saved = await saveDangerZone(familyId, zone);
                     setDangerZones(prev => [...prev, saved]);
                     showNotif(`⚠️ 위험지역 '${zone.name}' 등록 완료`);

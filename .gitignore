@@ -27,12 +27,17 @@ dist-ssr
 
 # Secrets
 .env
+.env.txt
+env
 
 # Firebase Admin SDK keys (secrets)
 *-firebase-adminsdk-*.json
 
 # Supabase temp
 supabase/.temp
+
+# Test artifacts
+test-results/
 
 # OS files
 Thumbs.db

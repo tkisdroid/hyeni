@@ -7,9 +7,15 @@ const LS_MEMOS = "hyeni-memos";
 
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
-  catch { /* parse failed, ignore */ return fallback; }
+  catch (error) { void error; return fallback; }
 }
-function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+function lsSet(key, val) {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch (error) {
+    void error;
+  }
+}
 
 // ── Data transformation: DB rows ↔ App state ────────────────────────────────
 

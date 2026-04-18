@@ -133,16 +133,31 @@ export async function joinFamily(pairCode, userId, childName) {
 // ── Join family as second parent (via pair code) ────────────────────────────
 export async function joinFamilyAsParent(pairCode, userId, parentName) {
   if (!pairCode || typeof pairCode !== "string") throw new Error("연동 코드를 입력해주세요");
-  // join_family RPC를 사용하고, 이후 역할을 parent로 업데이트
-  const familyId = await joinFamily(pairCode, userId, parentName || "부모");
-  if (familyId) {
-    await supabase
-      .from("family_members")
-      .update({ role: "parent" })
-      .eq("family_id", familyId)
-      .eq("user_id", userId);
-  }
-  return familyId;
+  const normalizedCode = pairCode.toUpperCase().trim();
+  const { data: family, error: familyError } = await supabase
+    .from("families")
+    .select("id")
+    .eq("pair_code", normalizedCode)
+    .limit(1)
+    .maybeSingle();
+
+  if (familyError) throw familyError;
+  if (!family?.id) throw new Error("연동 코드를 찾지 못했습니다");
+
+  const { error: memberError } = await supabase
+    .from("family_members")
+    .upsert(
+      {
+        family_id: family.id,
+        user_id: userId,
+        role: "parent",
+        name: parentName || "부모",
+      },
+      { onConflict: "family_id,user_id" }
+    );
+
+  if (memberError) throw memberError;
+  return family.id;
 }
 
 // ── Get family info for current user ────────────────────────────────────────

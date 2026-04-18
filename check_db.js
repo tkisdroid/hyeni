@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import process from 'node:process';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
