@@ -6,6 +6,16 @@ import { checkEntitlements } from "./qonversion.js";
 
 const PREMIUM_STATUSES = new Set(["trial", "active", "grace"]);
 
+export function isMissingSubscriptionSchemaError(error) {
+  const code = typeof error?.code === "string" ? error.code : "";
+  const message = typeof error?.message === "string" ? error.message : "";
+  if (code === "PGRST205" || code === "42P01" || code === "42703") {
+    return true;
+  }
+  return /family_subscription/i.test(message)
+    && /(schema cache|does not exist|could not find the table|column)/i.test(message);
+}
+
 export function computeTrialDaysLeft(trialEndsAtIso) {
   if (!trialEndsAtIso) return null;
   const diff = new Date(trialEndsAtIso).getTime() - Date.now();
@@ -91,7 +101,9 @@ export function useEntitlement(familyId) {
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error && !isMissingSubscriptionSchemaError(error)) {
+        throw error;
+      }
       if (data) return applyRow(data);
 
       const external = await checkEntitlements(familyId);

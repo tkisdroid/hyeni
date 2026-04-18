@@ -19,6 +19,13 @@ export function SubscriptionManagement({ entitlement, role, onRefresh, onStartTr
   }
 
   const isPremium = entitlement?.tier === "premium";
+  const statusCopy = entitlement?.isTrial && entitlement.trialDaysLeft != null
+    ? `무료 체험 ${entitlement.trialDaysLeft}일 남음`
+    : isPremium && entitlement?.currentPeriodEnd
+      ? `다음 갱신일 ${entitlement.currentPeriodEnd.toLocaleDateString("ko-KR")}`
+      : isPremium
+        ? "프리미엄 기능이 현재 활성화되어 있어요"
+        : "7일 무료 체험 후 계속 이용 여부를 결정할 수 있어요";
 
   return (
     <section
@@ -64,13 +71,7 @@ export function SubscriptionManagement({ entitlement, role, onRefresh, onStartTr
         <div style={{ fontSize: 14, fontWeight: 800, color: "#BE185D" }}>
           {PRICING.monthlyLabel} · {PRICING.yearlyLabel}
         </div>
-        <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>
-          {entitlement?.isTrial && entitlement.trialDaysLeft != null
-            ? `무료 체험 ${entitlement.trialDaysLeft}일 남음`
-            : isPremium && entitlement?.currentPeriodEnd
-              ? `다음 갱신일 ${entitlement.currentPeriodEnd.toLocaleDateString("ko-KR")}`
-              : "7일 무료 체험 후 계속 이용 여부를 결정할 수 있어요"}
-        </div>
+        <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>{statusCopy}</div>
       </div>
 
       <div style={{ display: "grid", gap: 10, marginTop: 16 }}>

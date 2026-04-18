@@ -10,6 +10,7 @@ import { supabase } from "./supabase.js";
 const APP_PACKAGE_NAME = "com.hyeni.calendar";
 const DEFAULT_ENTITLEMENT_ID = "premium";
 const GPB_MANAGE_URL = "https://play.google.com/store/account/subscriptions";
+const LEGACY_PREMIUM_TIERS = new Set(["premium", "subscription", "trial", "active", "grace"]);
 const QONVERSION_PROJECT_KEY = readEnv("VITE_QONVERSION_PROJECT_KEY");
 const QONVERSION_ENVIRONMENT = readEnv("VITE_QONVERSION_ENVIRONMENT");
 const QONVERSION_PROXY_URL = readEnv("VITE_QONVERSION_PROXY_URL");
@@ -19,7 +20,6 @@ const QONVERSION_KIDS_MODE = readEnv("VITE_QONVERSION_KIDS_MODE");
 
 let sharedInstance = null;
 let initAttempted = false;
-let initErrorMessage = "";
 
 function readEnv(key) {
   const value = import.meta.env?.[key];
@@ -52,16 +52,6 @@ function resolveEnvironment() {
     return Environment.PRODUCTION;
   }
   return import.meta.env.DEV ? Environment.SANDBOX : Environment.PRODUCTION;
-}
-
-function buildInitErrorMessage(error) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-  if (typeof error === "string" && error.trim()) {
-    return error.trim();
-  }
-  return "unknown_error";
 }
 
 function buildQonversionConfig() {
@@ -97,27 +87,38 @@ function getQonversionInstance() {
 
   try {
     sharedInstance = Qonversion.initialize(buildQonversionConfig());
-    initErrorMessage = "";
     return sharedInstance;
   } catch (error) {
-    initErrorMessage = buildInitErrorMessage(error);
     console.warn("[qonversion] initialize failed:", error);
     sharedInstance = null;
     return null;
   }
 }
 
-function buildUnavailableMessage() {
-  if (!QONVERSION_PROJECT_KEY) {
-    return "Qonversion 프로젝트 키가 설정되지 않았습니다.";
+function normalizeTierValue(value) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+export function normalizeLegacyFamilyEntitlement(row) {
+  const tierValue = normalizeTierValue(row?.subscription_tier || row?.user_tier || row?.status);
+  if (!LEGACY_PREMIUM_TIERS.has(tierValue)) {
+    return null;
   }
-  if (!isNativeRuntime()) {
-    return "구독 결제는 Android 앱 빌드에서만 시작할 수 있습니다.";
-  }
-  if (initErrorMessage) {
-    return `Qonversion 초기화에 실패했습니다: ${initErrorMessage}`;
-  }
-  return "Qonversion 네이티브 플러그인을 사용할 수 없습니다.";
+
+  const isTrial = tierValue === "trial";
+  const status = isTrial ? "trial" : tierValue === "grace" ? "grace" : "active";
+
+  return {
+    isActive: true,
+    isTrial,
+    status,
+    productId: row?.product_id || "premium_monthly",
+    tier: "premium",
+    expiresAt: null,
+    trialEndsAt: null,
+    currentPeriodEnd: null,
+    source: "legacy_family_tier",
+  };
 }
 
 function normalizeMockSubscription(row) {
@@ -161,6 +162,56 @@ function normalizeNativeEntitlement(entitlement) {
     currentPeriodEnd: entitlement.expirationDate ? new Date(entitlement.expirationDate) : null,
     renewState,
   };
+}
+
+async function readLegacyFamilyEntitlement(familyId) {
+  if (!familyId) return null;
+
+  const { data, error } = await supabase
+    .from("families")
+    .select("id, user_tier")
+    .eq("id", familyId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeLegacyFamilyEntitlement(data);
+}
+
+async function activateLegacyFamilyPremium(familyId, productId) {
+  if (!familyId) {
+    throw new Error("구독을 시작할 가족 정보가 없습니다");
+  }
+
+  const { data, error } = await supabase
+    .from("families")
+    .update({ user_tier: "premium" })
+    .eq("id", familyId)
+    .select("id, user_tier")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error("프리미엄 권한을 저장하지 못했어요. 부모 계정으로 다시 시도해 주세요.");
+  }
+
+  const entitlement = normalizeLegacyFamilyEntitlement({
+    ...data,
+    product_id: productId || "premium_monthly",
+  });
+
+  if (!entitlement) {
+    throw new Error("프리미엄 권한을 활성화하지 못했어요. 잠시 후 다시 시도해 주세요.");
+  }
+
+  return entitlement;
 }
 
 function pickPremiumEntitlement(entitlements) {
@@ -238,6 +289,17 @@ export async function checkEntitlements(familyId) {
     return normalizeMockSubscription(supabase.__mock.getFamilySubscription(familyId));
   }
 
+  if (familyId) {
+    try {
+      const legacyEntitlement = await readLegacyFamilyEntitlement(familyId);
+      if (legacyEntitlement) {
+        return legacyEntitlement;
+      }
+    } catch (error) {
+      console.warn("[qonversion] legacy entitlement lookup failed:", error);
+    }
+  }
+
   return normalizeMockSubscription(null);
 }
 
@@ -258,21 +320,34 @@ export async function purchase(productId, { familyId } = {}) {
       throw new Error(description || "구독 처리 중 오류가 발생했어요.");
     }
 
+    const entitlement = normalizeNativeEntitlement(pickPremiumEntitlement(result?.entitlements));
+
     return {
       success: !!result?.isSuccess,
       productId,
       entitlements: result?.entitlements || null,
       source: result?.source || null,
       storeTransaction: result?.storeTransaction || null,
+      entitlement,
+      status: entitlement?.status || null,
+      isTrial: entitlement?.isTrial || false,
     };
-  }
-
-  if (!supabase.__mock?.enabled) {
-    throw new Error(buildUnavailableMessage());
   }
 
   if (!familyId) {
     throw new Error("구독을 시작할 가족 정보가 없습니다");
+  }
+
+  if (!supabase.__mock?.enabled) {
+    const entitlement = await activateLegacyFamilyPremium(familyId, productId);
+    return {
+      success: true,
+      productId: entitlement.productId,
+      entitlement,
+      status: entitlement.status,
+      isTrial: entitlement.isTrial,
+      source: entitlement.source,
+    };
   }
 
   const now = new Date();
@@ -293,6 +368,14 @@ export async function purchase(productId, { familyId } = {}) {
   return {
     success: true,
     productId,
+    entitlement: normalizeMockSubscription({
+      status: "trial",
+      product_id: productId || "premium_monthly",
+      trial_ends_at: trialEndsAt.toISOString(),
+      current_period_end: currentPeriodEnd.toISOString(),
+    }),
+    status: "trial",
+    isTrial: true,
     trialEndsAt,
     currentPeriodEnd,
   };
@@ -307,6 +390,17 @@ export async function restore(familyId) {
 
   if (supabase.__mock?.enabled && familyId) {
     return normalizeMockSubscription(supabase.__mock.getFamilySubscription(familyId));
+  }
+
+  if (familyId) {
+    try {
+      const legacyEntitlement = await readLegacyFamilyEntitlement(familyId);
+      if (legacyEntitlement) {
+        return legacyEntitlement;
+      }
+    } catch (error) {
+      console.warn("[qonversion] legacy restore failed:", error);
+    }
   }
 
   return normalizeMockSubscription(null);

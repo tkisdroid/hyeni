@@ -8,6 +8,7 @@ const TABLES = [
   "family_members",
   "events",
   "academies",
+  "saved_places",
   "memos",
   "memo_replies",
   "child_locations",
@@ -379,6 +380,10 @@ function ensureRowDefaults(table, row) {
     next.updated_at ||= timestamp;
   }
   if (table === "academies") {
+    next.created_at ||= timestamp;
+    next.updated_at ||= timestamp;
+  }
+  if (table === "saved_places") {
     next.created_at ||= timestamp;
     next.updated_at ||= timestamp;
   }

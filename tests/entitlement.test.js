@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canUseFeature, computeTrialDaysLeft, deriveEntitlement } from "../src/lib/entitlement.js";
+import {
+  canUseFeature,
+  computeTrialDaysLeft,
+  deriveEntitlement,
+  isMissingSubscriptionSchemaError,
+} from "../src/lib/entitlement.js";
 import { FEATURES } from "../src/lib/features.js";
 
 describe("entitlement helpers", () => {
@@ -30,5 +35,15 @@ describe("entitlement helpers", () => {
     const premiumEntitlement = deriveEntitlement({ status: "active" });
     expect(canUseFeature(freeEntitlement, FEATURES.REMOTE_AUDIO)).toBe(false);
     expect(canUseFeature(premiumEntitlement, FEATURES.REMOTE_AUDIO)).toBe(true);
+  });
+
+  it("recognizes missing subscription schema errors as a recoverable fallback case", () => {
+    expect(isMissingSubscriptionSchemaError({ code: "PGRST205" })).toBe(true);
+    expect(
+      isMissingSubscriptionSchemaError({
+        message: "Could not find the table 'public.family_subscription' in the schema cache",
+      })
+    ).toBe(true);
+    expect(isMissingSubscriptionSchemaError({ code: "42501", message: "permission denied" })).toBe(false);
   });
 });

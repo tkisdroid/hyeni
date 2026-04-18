@@ -8,8 +8,9 @@ describe("FEATURES", () => {
     expect(FEATURES.REMOTE_AUDIO).toBe("remote_audio");
     expect(FEATURES.AI_ANALYSIS).toBe("ai_analysis");
     expect(FEATURES.ACADEMY_SCHEDULE).toBe("academy_schedule");
+    expect(FEATURES.SAVED_PLACES).toBe("saved_places");
     expect(FEATURES.MULTI_GEOFENCE).toBe("multi_geofence");
     expect(FEATURES.EXTENDED_HISTORY).toBe("extended_history");
-    expect(ALL_FEATURES).toHaveLength(7);
+    expect(ALL_FEATURES).toHaveLength(8);
   });
 });

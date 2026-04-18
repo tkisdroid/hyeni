@@ -16,6 +16,27 @@ async function installMockBrowser(page) {
     const watchers = new Map();
     let watcherId = 0;
 
+    window.__mockQrValues = [];
+    window.__mockFeedbackPayloads = [];
+    window.__setMockQrValue = (value) => {
+      if (typeof value === "string" && value.trim()) {
+        window.__mockQrValues.push(value.trim());
+      }
+    };
+    window.__getMockFeedbackPayloads = () => [...window.__mockFeedbackPayloads];
+
+    class FakeBarcodeDetector {
+      static async getSupportedFormats() {
+        return ["qr_code"];
+      }
+
+      async detect() {
+        const nextValue = window.__mockQrValues.shift();
+        if (!nextValue) return [];
+        return [{ rawValue: nextValue }];
+      }
+    }
+
     navigator.geolocation.getCurrentPosition = (success) => {
       success({ coords: { ...fixedPosition } });
     };
@@ -35,6 +56,26 @@ async function installMockBrowser(page) {
     navigator.mediaDevices.getUserMedia = async () => ({
       getTracks: () => [{ stop() {} }],
     });
+
+    Object.defineProperty(window, "BarcodeDetector", {
+      configurable: true,
+      writable: true,
+      value: FakeBarcodeDetector,
+    });
+
+    if (window.HTMLMediaElement?.prototype) {
+      const mediaProto = window.HTMLMediaElement.prototype;
+      mediaProto.play = () => Promise.resolve();
+      Object.defineProperty(mediaProto, "srcObject", {
+        configurable: true,
+        get() {
+          return this.__mockSrcObject || null;
+        },
+        set(value) {
+          this.__mockSrcObject = value;
+        },
+      });
+    }
 
     class FakeMediaRecorder {
       static isTypeSupported() {
@@ -259,6 +300,17 @@ async function installMockBrowser(page) {
 
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input?.url || "";
+      if (url.includes("/functions/v1/feedback-email")) {
+        const payload = init?.body ? JSON.parse(String(init.body)) : null;
+        window.__mockFeedbackPayloads.push(payload);
+        return new Response(
+          JSON.stringify({ ok: true, mock: true }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
       if (url.includes("router.project-osrm.org/route/v1/foot/")) {
         return new Response(
           JSON.stringify({
@@ -354,7 +406,114 @@ async function seedMockRouteEvent(page, title = "영어 학원 길찾기") {
   }, title);
 }
 
+async function seedMockDuplicatePlaceEvents(page) {
+  await page.evaluate(() => {
+    const dbKey = Object.keys(window.localStorage).find((key) => {
+      try {
+        const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
+        return (
+          parsed &&
+          Array.isArray(parsed.families) &&
+          Array.isArray(parsed.family_members) &&
+          Array.isArray(parsed.events)
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    if (!dbKey) {
+      throw new Error("mock db key not found");
+    }
+
+    const db = JSON.parse(window.localStorage.getItem(dbKey) || "null");
+    if (!db?.families?.length) {
+      throw new Error("mock family not found");
+    }
+
+    const family = db.families[0];
+    const now = new Date();
+    const dateKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+    const sharedLocation = {
+      lat: 37.5678,
+      lng: 126.981,
+      address: "서울특별시 중구 세종대로 110",
+    };
+
+    db.events = (db.events || []).filter((row) => !String(row.memo || "").includes("장소중복테스트"));
+    db.events.push(
+      {
+        id: `event-place-${Date.now()}-1`,
+        family_id: family.id,
+        date_key: dateKey,
+        title: "피아노 학원",
+        time: "08:30",
+        end_time: "09:30",
+        category: "school",
+        emoji: "🎹",
+        color: "#8B5CF6",
+        bg: "#EDE9FE",
+        memo: "장소중복테스트-1",
+        location: sharedLocation,
+        notif_override: null,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      },
+      {
+        id: `event-place-${Date.now()}-2`,
+        family_id: family.id,
+        date_key: dateKey,
+        title: "미술 학원",
+        time: "16:00",
+        end_time: "17:00",
+        category: "hobby",
+        emoji: "🎨",
+        color: "#F59E0B",
+        bg: "#FEF3C7",
+        memo: "장소중복테스트-2",
+        location: sharedLocation,
+        notif_override: null,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      },
+    );
+
+    window.localStorage.setItem(dbKey, JSON.stringify(db));
+  });
+}
+
 test.describe("subscription and premium flow", () => {
+  test("child can pair with parent immediately by scanning QR code", async ({ browser }) => {
+    const context = await browser.newContext({
+      permissions: ["geolocation", "microphone", "camera"],
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+    });
+
+    const parentPage = await context.newPage();
+    await installMockBrowser(parentPage);
+    await parentPage.goto("/");
+
+    await parentPage.getByText("학부모").click();
+    await parentPage.getByText("새 가족 만들기").click();
+    await parentPage.getByText("가족 만들기").click();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+
+    const pairCodeText = await parentPage.locator("text=/KID-[A-Z0-9]{8}/").first().textContent();
+    const pairCode = extractPairCode(pairCodeText || "");
+
+    const childPage = await context.newPage();
+    await installMockBrowser(childPage);
+    await childPage.goto("/");
+    await childPage.getByRole("button", { name: /🐰 아이/ }).click();
+    await childPage.evaluate((value) => {
+      window.__setMockQrValue?.(value);
+    }, `KID-${pairCode}`);
+    await childPage.getByRole("button", { name: "📷 QR로 연결하기" }).click();
+    await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible({ timeout: 10_000 });
+
+    await context.close();
+  });
+
   test("parent creates family, starts trial, child pairs, and remote audio starts", async ({ browser }) => {
     const context = await browser.newContext({
       permissions: ["geolocation", "microphone"],
@@ -447,6 +606,7 @@ test.describe("subscription and premium flow", () => {
     await childPage.getByRole("button", { name: "닫기" }).first().click();
 
     await parentPage.getByRole("button", { name: "💗 꾹" }).click();
+    await expect(parentPage.getByText("💗 꾹을 보냈어요!")).toBeVisible({ timeout: 2_000 });
     await expect(childPage.getByText("엄마가 꾹을 보냈어요")).toBeVisible({ timeout: 5_000 });
     await expect(childPage.getByText("화면을 터치하면 닫혀요")).toBeVisible();
 
@@ -482,7 +642,7 @@ test.describe("subscription and premium flow", () => {
 
     await tenMinutes.click();
     await fiveMinutes.click();
-    await parentPage.getByRole("button", { name: "저장" }).click();
+    await parentPage.getByRole("button", { name: "저장", exact: true }).click();
     await expect(parentPage.getByText("🔔 일정 알림 설정이 저장됐어요!")).toBeVisible();
 
     await parentPage.reload();
@@ -493,6 +653,85 @@ test.describe("subscription and premium flow", () => {
     await expect(parentPage.getByRole("button", { name: "15분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(parentPage.getByRole("button", { name: "10분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(parentPage.getByRole("button", { name: "5분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "false");
+
+    await context.close();
+  });
+
+  test("saved places stay locked on free tier and become reusable after trial", async ({ browser }) => {
+    const context = await browser.newContext({
+      permissions: ["geolocation", "microphone"],
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+    });
+
+    const parentPage = await context.newPage();
+    await installMockBrowser(parentPage);
+    await parentPage.goto("/");
+
+    await parentPage.getByText("학부모").click();
+    await parentPage.getByText("새 가족 만들기").click();
+    await parentPage.getByText("가족 만들기").click();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+    await parentPage.getByRole("button", { name: "닫기" }).click();
+
+    await parentPage.getByRole("button", { name: "📍 장소" }).click();
+    await parentPage.getByRole("button", { name: "📍 자주 가는 장소 추가" }).click();
+    await expect(parentPage.getByText("유료계정은 자주가는 장소를 무제한 등록할 수 있어요", { exact: true })).toBeVisible();
+
+    await parentPage.getByRole("button", { name: "7일 무료 체험 시작" }).click();
+    await expect(parentPage.getByText("자동 갱신 안내")).toBeVisible();
+    await parentPage.getByRole("button", { name: "안내를 확인했고 계속할게요" }).evaluate((button) => button.click());
+
+    await parentPage.getByRole("button", { name: "📍 자주 가는 장소 추가" }).click();
+    await expect(parentPage.getByText("📍 자주 가는 장소")).toBeVisible();
+    await parentPage.getByRole("button", { name: /\+ 장소 직접 추가/ }).click();
+    await parentPage.getByPlaceholder("예) 할머니 집, 피아노 학원, 도서관").fill("피아노 학원");
+    await parentPage.getByRole("button", { name: "🗺️ 지도에서 장소 선택" }).click();
+    await expect(parentPage.getByText("📍 자주 가는 장소 설정")).toBeVisible();
+    await parentPage.getByRole("button", { name: "📍 이 장소로 설정하기" }).click();
+    await parentPage.getByRole("button", { name: "저장", exact: true }).click();
+    await parentPage.getByRole("button", { name: "← 저장" }).click();
+    await expect(parentPage.getByText("📍 자주 가는 장소가 저장됐어요!")).toBeVisible();
+    await expect(parentPage.getByText("피아노 학원")).toBeVisible();
+
+    await parentPage.getByRole("button", { name: "📅 달력" }).click();
+    await parentPage.getByRole("button", { name: "+" }).click();
+    await expect(parentPage.locator('button[aria-label="📍 자주 가는 장소 추가"]').last()).toBeVisible();
+    await parentPage.getByPlaceholder("예) 영어 학원, 태권도...").fill("피아노 연습");
+    await parentPage.getByRole("button", { name: /📍 피아노 학원/ }).click();
+    await expect(parentPage.getByText("서울특별시 중구 세종대로 110")).toBeVisible();
+
+    await context.close();
+  });
+
+  test("places view deduplicates schedule locations and keeps add buttons visible", async ({ browser }) => {
+    const context = await browser.newContext({
+      permissions: ["geolocation", "microphone"],
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+    });
+
+    const parentPage = await context.newPage();
+    await installMockBrowser(parentPage);
+    await parentPage.goto("/");
+
+    await parentPage.getByText("학부모").click();
+    await parentPage.getByText("새 가족 만들기").click();
+    await parentPage.getByText("가족 만들기").click();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+
+    await seedMockDuplicatePlaceEvents(parentPage);
+    await parentPage.reload();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+    await parentPage.getByRole("button", { name: "닫기" }).click();
+
+    await parentPage.getByRole("button", { name: "📍 장소" }).click();
+    await expect(parentPage.getByText("📍 1개 장소", { exact: true })).toBeVisible();
+    await expect(parentPage.getByText(/2개 일정/)).toBeVisible();
+    await expect(parentPage.getByRole("button", { name: "📍 장소 추가", exact: true })).toBeVisible();
+    await expect(parentPage.getByRole("button", { name: "📍 자주 가는 장소 추가", exact: true })).toBeVisible();
+
+    await parentPage.getByRole("button", { name: "📅 달력" }).click();
+    await parentPage.getByRole("button", { name: "+" }).click();
+    await expect(parentPage.locator('button[aria-label="📍 자주 가는 장소 추가"]').last()).toBeVisible();
 
     await context.close();
   });
@@ -522,6 +761,7 @@ test.describe("subscription and premium flow", () => {
       "📞 연락처",
       "🎙️ 주변소리",
       "⚠️ 위험지역",
+      "💌 피드백 보내기",
       "📅 달력",
       "📍 장소",
     ];
@@ -541,6 +781,7 @@ test.describe("subscription and premium flow", () => {
         "📞 연락처",
         "🎙️ 주변소리",
         "⚠️ 위험지역",
+        "💌 피드백 보내기",
         "📅 달력",
         "📍 장소",
       ];
@@ -574,6 +815,37 @@ test.describe("subscription and premium flow", () => {
       path: testInfo.outputPath("parent-quick-actions-mobile.png"),
       fullPage: true,
     });
+
+    await context.close();
+  });
+
+  test("parent can send feedback suggestion from the last quick action card", async ({ browser }) => {
+    const context = await browser.newContext({
+      permissions: ["geolocation", "microphone"],
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+    });
+
+    const parentPage = await context.newPage();
+    await installMockBrowser(parentPage);
+    await parentPage.goto("/");
+
+    await parentPage.getByText("학부모").click();
+    await parentPage.getByText("새 가족 만들기").click();
+    await parentPage.getByText("가족 만들기").click();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+    await parentPage.getByRole("button", { name: "닫기" }).click();
+
+    await parentPage.getByRole("button", { name: "💌 피드백 보내기", exact: true }).click();
+    await expect(parentPage.getByText("필요한 기능이 있으면 제안해 주세요")).toBeVisible();
+    await parentPage.getByPlaceholder("예) 형제자매별 위치 알림 시간을 따로 설정하고 싶어요").fill("등하원 확인 알림에 소리 옵션도 추가해 주세요");
+    await parentPage.getByRole("button", { name: "제안 보내기", exact: true }).click();
+
+    await expect(parentPage.getByText(/📮 (제안이 전달됐어요!|메일 앱으로 제안 작성을 이어갈게요!)/)).toBeVisible();
+
+    const payloads = await parentPage.evaluate(() => window.__getMockFeedbackPayloads?.() || []);
+    if (payloads.length > 0) {
+      expect(payloads[0]?.content).toContain("등하원 확인 알림에 소리 옵션도 추가해 주세요");
+    }
 
     await context.close();
   });

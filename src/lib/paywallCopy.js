@@ -55,6 +55,11 @@ export const FEATURE_LOCK = Object.freeze({
     title: "학원 일정은 프리미엄 전용이에요",
     body: "프리미엄을 시작하면 학원 위치와 반복 일정을 등록하고 길찾기와 함께 관리할 수 있어요.",
   },
+  [FEATURES.SAVED_PLACES]: {
+    emoji: "📍",
+    title: "자주 가는 장소 등록은 프리미엄 전용이에요",
+    body: "유료계정은 자주가는 장소를 무제한 등록할 수 있어요.",
+  },
   [FEATURES.AI_ANALYSIS]: {
     emoji: "🤖",
     title: "AI 일정 분석은 프리미엄 전용이에요",

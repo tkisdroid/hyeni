@@ -4,6 +4,7 @@ export const FEATURES = Object.freeze({
   REMOTE_AUDIO: "remote_audio",
   AI_ANALYSIS: "ai_analysis",
   ACADEMY_SCHEDULE: "academy_schedule",
+  SAVED_PLACES: "saved_places",
   MULTI_GEOFENCE: "multi_geofence",
   EXTENDED_HISTORY: "extended_history",
 });

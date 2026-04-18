@@ -4,6 +4,7 @@ import { supabase } from "./supabase.js";
 const LS_EVENTS = "hyeni-events";
 const LS_ACADEMIES = "hyeni-academies";
 const LS_MEMOS = "hyeni-memos";
+const LS_SAVED_PLACES = "hyeni-saved-places";
 
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
@@ -100,6 +101,25 @@ function academyToRow(ac, familyId) {
   };
 }
 
+function rowToSavedPlace(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    location: row.location || null,
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+  };
+}
+
+function savedPlaceToRow(place, familyId) {
+  return {
+    id: place.id,
+    family_id: familyId,
+    name: place.name,
+    location: place.location || null,
+  };
+}
+
 // ── Fetch all data for a family ─────────────────────────────────────────────
 
 export async function fetchEvents(familyId) {
@@ -151,6 +171,23 @@ export async function fetchMemos(familyId) {
   }
   lsSet(LS_MEMOS, map);
   return map;
+}
+
+export async function fetchSavedPlaces(familyId) {
+  const { data, error } = await supabase
+    .from("saved_places")
+    .select("*")
+    .eq("family_id", familyId)
+    .order("created_at");
+
+  if (error) {
+    console.error("[sync] fetchSavedPlaces error:", error);
+    return lsGet(LS_SAVED_PLACES, []);
+  }
+
+  const list = (data || []).map(rowToSavedPlace);
+  lsSet(LS_SAVED_PLACES, list);
+  return list;
 }
 
 // ── CRUD: Events ────────────────────────────────────────────────────────────
@@ -205,6 +242,28 @@ export async function deleteAcademy(academyId) {
     .from("academies")
     .delete()
     .eq("id", academyId);
+  if (error) throw error;
+}
+
+export async function insertSavedPlace(place, familyId) {
+  const row = savedPlaceToRow(place, familyId);
+  const { error } = await supabase.from("saved_places").insert(row);
+  if (error) throw error;
+}
+
+export async function updateSavedPlace(placeId, fields) {
+  const { error } = await supabase
+    .from("saved_places")
+    .update(fields)
+    .eq("id", placeId);
+  if (error) throw error;
+}
+
+export async function deleteSavedPlace(placeId) {
+  const { error } = await supabase
+    .from("saved_places")
+    .delete()
+    .eq("id", placeId);
   if (error) throw error;
 }
 
@@ -319,7 +378,15 @@ export async function fetchChildLocations(familyId) {
 // ── Realtime subscription ───────────────────────────────────────────────────
 
 export function subscribeFamily(familyId, callbacks) {
-  const { onEventsChange, onAcademiesChange, onMemosChange, onMemoRepliesChange, onLocationChange, onKkuk } = callbacks;
+  const {
+    onEventsChange,
+    onAcademiesChange,
+    onMemosChange,
+    onMemoRepliesChange,
+    onSavedPlacesChange,
+    onLocationChange,
+    onKkuk,
+  } = callbacks;
   let retryCount = 0;
   const MAX_RETRIES = 10;
   const BASE_DELAY_MS = 2000;
@@ -351,6 +418,14 @@ export function subscribeFamily(familyId, callbacks) {
       filter: `family_id=eq.${familyId}`,
     }, (payload) => {
       onMemosChange(payload.eventType, payload.new, payload.old);
+    })
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "saved_places",
+      filter: `family_id=eq.${familyId}`,
+    }, (payload) => {
+      if (onSavedPlacesChange) onSavedPlacesChange(payload.eventType, payload.new, payload.old);
     })
     .on("postgres_changes", {
       event: "INSERT",
@@ -419,12 +494,14 @@ export function unsubscribe(channel) {
 export function getCachedEvents() { return lsGet(LS_EVENTS, {}); }
 export function getCachedAcademies() { return lsGet(LS_ACADEMIES, []); }
 export function getCachedMemos() { return lsGet(LS_MEMOS, {}); }
+export function getCachedSavedPlaces() { return lsGet(LS_SAVED_PLACES, []); }
 
 // ── Cache writers (called after realtime updates) ───────────────────────────
 
 export function cacheEvents(eventMap) { lsSet(LS_EVENTS, eventMap); }
 export function cacheAcademies(list) { lsSet(LS_ACADEMIES, list); }
 export function cacheMemos(memoMap) { lsSet(LS_MEMOS, memoMap); }
+export function cacheSavedPlaces(list) { lsSet(LS_SAVED_PLACES, list); }
 
 // ── Stickers ────────────────────────────────────────────────────────────────
 
