@@ -452,4 +452,48 @@ test.describe("subscription and premium flow", () => {
 
     await context.close();
   });
+
+  test("parent can configure reminder times without duplicate minute entries", async ({ browser }) => {
+    const context = await browser.newContext({
+      permissions: ["geolocation", "microphone"],
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+    });
+
+    const parentPage = await context.newPage();
+    await installMockBrowser(parentPage);
+    await parentPage.goto("/");
+
+    await parentPage.getByText("학부모").click();
+    await parentPage.getByText("새 가족 만들기").click();
+    await parentPage.getByText("가족 만들기").click();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+    await parentPage.getByText("닫기").click();
+
+    await parentPage.getByRole("button", { name: "🔔 일정알림" }).click();
+    await expect(parentPage.getByText("일정 알림 설정")).toBeVisible();
+
+    const fifteenMinutes = parentPage.getByRole("button", { name: "15분 전 알림", exact: true });
+    const tenMinutes = parentPage.getByRole("button", { name: "10분 전 알림", exact: true });
+    const fiveMinutes = parentPage.getByRole("button", { name: "5분 전 알림", exact: true });
+
+    await expect(fifteenMinutes).toHaveAttribute("aria-pressed", "true");
+    await expect(tenMinutes).toHaveAttribute("aria-pressed", "false");
+    await expect(fiveMinutes).toHaveAttribute("aria-pressed", "true");
+
+    await tenMinutes.click();
+    await fiveMinutes.click();
+    await parentPage.getByRole("button", { name: "저장" }).click();
+    await expect(parentPage.getByText("🔔 일정 알림 설정이 저장됐어요!")).toBeVisible();
+
+    await parentPage.reload();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+    await parentPage.getByRole("button", { name: "닫기" }).click();
+    await parentPage.getByRole("button", { name: "🔔 일정알림" }).click();
+
+    await expect(parentPage.getByRole("button", { name: "15분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(parentPage.getByRole("button", { name: "10분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(parentPage.getByRole("button", { name: "5분 전 알림", exact: true })).toHaveAttribute("aria-pressed", "false");
+
+    await context.close();
+  });
 });

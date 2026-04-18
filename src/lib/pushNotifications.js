@@ -4,6 +4,12 @@
 import { supabase } from "./supabase.js";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+export const DEFAULT_NOTIFICATION_SETTINGS = Object.freeze({
+  childEnabled: true,
+  parentEnabled: true,
+  minutesBefore: Object.freeze([15, 5]),
+});
+export const NOTIFICATION_MINUTE_OPTIONS = Object.freeze([30, 15, 10, 5]);
 
 let swRegistration = null;
 const scheduledTimers = new Map();
@@ -20,6 +26,40 @@ function getNotifPermission() {
 
 function isNativePlatform() {
   return typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
+}
+
+function normalizeMinuteValues(minutesBefore, fallbackMinutes = DEFAULT_NOTIFICATION_SETTINGS.minutesBefore) {
+  const source = Array.isArray(minutesBefore) && minutesBefore.length
+    ? minutesBefore
+    : fallbackMinutes;
+  const seen = new Set();
+  const normalized = [];
+
+  for (const rawValue of source || []) {
+    const minutes = Number(rawValue);
+    if (!Number.isInteger(minutes) || minutes <= 0 || seen.has(minutes)) continue;
+    seen.add(minutes);
+    normalized.push(minutes);
+  }
+
+  normalized.sort((a, b) => b - a);
+  return normalized.length ? normalized : [...DEFAULT_NOTIFICATION_SETTINGS.minutesBefore];
+}
+
+export function normalizeNotifSettings(input = {}, fallback = DEFAULT_NOTIFICATION_SETTINGS) {
+  const base = fallback && typeof fallback === "object"
+    ? fallback
+    : DEFAULT_NOTIFICATION_SETTINGS;
+
+  return {
+    childEnabled: typeof input?.childEnabled === "boolean"
+      ? input.childEnabled
+      : (typeof base.childEnabled === "boolean" ? base.childEnabled : true),
+    parentEnabled: typeof input?.parentEnabled === "boolean"
+      ? input.parentEnabled
+      : (typeof base.parentEnabled === "boolean" ? base.parentEnabled : true),
+    minutesBefore: normalizeMinuteValues(input?.minutesBefore, base.minutesBefore),
+  };
 }
 
 // ── Register Service Worker ─────────────────────────────────────────────────
@@ -274,8 +314,8 @@ export function scheduleNotifications(events, notifSettings, role) {
   for (const ev of todayEvents) {
     const [h, m] = ev.time.split(":").map(Number);
     const eventTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-    const settings = ev.notifOverride || notifSettings;
-    const minutesList = settings.minutesBefore || [15, 5];
+    const settings = normalizeNotifSettings(ev.notifOverride, notifSettings);
+    const minutesList = settings.minutesBefore;
 
     // Skip if this role's notifications are disabled
     if (isParentRole && !settings.parentEnabled) continue;
@@ -378,7 +418,7 @@ export function showKkukNotification(senderLabel) {
 }
 
 // ── Build alarm payloads from today's events ────────────────────────────────
-function buildAlarmPayloads(events, notifSettings, role) {
+export function buildAlarmPayloads(events, notifSettings, role) {
   const isParentRole = role === "parent";
   const now = new Date();
   const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
@@ -388,8 +428,8 @@ function buildAlarmPayloads(events, notifSettings, role) {
   for (const ev of todayEvents) {
     const [h, m] = ev.time.split(":").map(Number);
     const eventTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-    const settings = ev.notifOverride || notifSettings;
-    const minutesList = settings.minutesBefore || [15, 5];
+    const settings = normalizeNotifSettings(ev.notifOverride, notifSettings);
+    const minutesList = settings.minutesBefore;
 
     if (isParentRole && !settings.parentEnabled) continue;
     if (!isParentRole && !settings.childEnabled) continue;
@@ -476,3 +516,15 @@ export async function clearAllScheduled() {
     try { await native.cancelScheduledNotifications(); } catch { /* cancel failed, ignore */ }
   }
 }
+
+export const __testing__ = {
+  getScheduledTimerKeys() {
+    return [...scheduledTimers.keys()];
+  },
+  resetScheduledTimers() {
+    for (const [, timerId] of scheduledTimers) {
+      clearTimeout(timerId);
+    }
+    scheduledTimers.clear();
+  },
+};

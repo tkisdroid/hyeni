@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
 import { fetchEvents, fetchAcademies, fetchMemos, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, cacheEvents, cacheAcademies, cacheMemos, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
-import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings } from "./lib/pushNotifications.js";
+import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, NOTIFICATION_MINUTE_OPTIONS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { FEATURES } from "./lib/features.js";
 import { useEntitlement } from "./lib/entitlement.js";
@@ -22,6 +22,34 @@ const PARENT_PAIRING_INTENT_KEY = "kids-app:parent-pairing-intent";
 const PUSH_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/push-notify` : "";
 const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse` : "";
 const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
+const NOTIF_SETTINGS_STORAGE_PREFIX = "hyeni-notif-settings-v1";
+
+function getNotifSettingsStorageKey(userId, role) {
+    return `${NOTIF_SETTINGS_STORAGE_PREFIX}:${userId || "anonymous"}:${role || "unknown"}`;
+}
+
+function readNotifSettings(userId, role) {
+    if (typeof window === "undefined" || !role) return normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
+    try {
+        const raw = localStorage.getItem(getNotifSettingsStorageKey(userId, role));
+        if (!raw) return normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
+        return normalizeNotifSettings(JSON.parse(raw), DEFAULT_NOTIFICATION_SETTINGS);
+    } catch {
+        return normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
+    }
+}
+
+function writeNotifSettings(userId, role, settings) {
+    if (typeof window === "undefined" || !role) return;
+    try {
+        localStorage.setItem(
+            getNotifSettingsStorageKey(userId, role),
+            JSON.stringify(normalizeNotifSettings(settings, DEFAULT_NOTIFICATION_SETTINGS)),
+        );
+    } catch {
+        // ignore storage failures
+    }
+}
 
 function getNativeSetupAction(health) {
     if (!health) return null;
@@ -428,7 +456,7 @@ function escHtml(str) {
 
 const ARRIVAL_R = 50; // metres (geo-fence radius)
 const DEPARTURE_TIMEOUT_MS = 90_000; // 90초 outside = departure alert (GPS 지터 오알림 방지)
-const DEFAULT_NOTIF = { childEnabled: true, parentEnabled: true, minutesBefore: [15, 5] };
+const DEFAULT_NOTIF = normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -2778,6 +2806,114 @@ function PhoneSettingsModal({ phones, onSave, onClose }) {
     );
 }
 
+function NotificationSettingsModal({ settings, isParentMode, onSave, onClose }) {
+    const roleKey = isParentMode ? "parentEnabled" : "childEnabled";
+    const [draft, setDraft] = useState(() => normalizeNotifSettings(settings, DEFAULT_NOTIF));
+    const enabled = draft[roleKey];
+
+    const toggleMinute = (minute) => {
+        setDraft((prev) => {
+            const current = normalizeNotifSettings(prev, DEFAULT_NOTIF);
+            const hasMinute = current.minutesBefore.includes(minute);
+            const nextMinutes = hasMinute
+                ? current.minutesBefore.filter((value) => value !== minute)
+                : [...current.minutesBefore, minute];
+
+            return normalizeNotifSettings(
+                {
+                    ...current,
+                    minutesBefore: nextMinutes.length ? nextMinutes : current.minutesBefore,
+                },
+                DEFAULT_NOTIF,
+            );
+        });
+    };
+
+    const roleLabel = isParentMode ? "부모님" : "아이";
+    const selectedSummary = draft.minutesBefore
+        .map((minute) => `${minute}분 전`)
+        .join(", ");
+
+    return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 650, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+            <div style={{ background: "white", borderRadius: 28, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(15,23,42,0.22)" }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#1F2937", textAlign: "center", marginBottom: 8 }}>🔔 일정 알림 설정</div>
+                <div style={{ fontSize: 13, color: "#6B7280", textAlign: "center", lineHeight: 1.5, marginBottom: 20 }}>
+                    {roleLabel} 기기에서 받을 일정 알림 시간을 고를 수 있어요.
+                    <br />
+                    같은 시간은 한 번만 저장돼서 중복 알림을 막아요.
+                </div>
+
+                <div style={{ padding: 14, borderRadius: 18, background: "#F9FAFB", border: "1px solid #E5E7EB", marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                        <div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>{roleLabel} 일정 알림 받기</div>
+                            <div style={{ fontSize: 11, color: "#6B7280", marginTop: 3 }}>
+                                현재 선택: {selectedSummary}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            aria-pressed={enabled}
+                            aria-label={`${roleLabel} 일정 알림 받기`}
+                            onClick={() => setDraft((prev) => normalizeNotifSettings({ ...prev, [roleKey]: !prev[roleKey] }, DEFAULT_NOTIF))}
+                            style={{
+                                padding: "9px 14px",
+                                borderRadius: 12,
+                                border: "none",
+                                cursor: "pointer",
+                                fontWeight: 800,
+                                fontSize: 12,
+                                fontFamily: FF,
+                                background: enabled ? "linear-gradient(135deg,#34D399,#059669)" : "#E5E7EB",
+                                color: enabled ? "white" : "#6B7280",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            {enabled ? "켜짐" : "꺼짐"}
+                        </button>
+                    </div>
+                </div>
+
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#374151", marginBottom: 10 }}>언제 미리 알려드릴까요?</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginBottom: 20 }}>
+                    {NOTIFICATION_MINUTE_OPTIONS.map((minute) => {
+                        const selected = draft.minutesBefore.includes(minute);
+                        return (
+                            <button
+                                key={minute}
+                                type="button"
+                                aria-pressed={selected}
+                                aria-label={`${minute}분 전 알림`}
+                                onClick={() => toggleMinute(minute)}
+                                style={{
+                                    padding: "12px 14px",
+                                    borderRadius: 14,
+                                    border: selected ? "2px solid #7C3AED" : "1.5px solid #E5E7EB",
+                                    background: selected ? "#F5F3FF" : "white",
+                                    color: selected ? "#6D28D9" : "#4B5563",
+                                    cursor: "pointer",
+                                    fontWeight: 800,
+                                    fontSize: 13,
+                                    fontFamily: FF,
+                                    boxShadow: selected ? "0 8px 18px rgba(124,58,237,0.12)" : "none",
+                                }}
+                            >
+                                {minute}분 전
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "#6B7280", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>취소</button>
+                    <button onClick={() => onSave(normalizeNotifSettings(draft, DEFAULT_NOTIF))} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#8B5CF6,#6D28D9)", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>저장</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Child Call Buttons (floating, child view only)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3083,10 +3219,11 @@ export default function KidsScheduler() {
     const [memos, setMemos] = useState(() => getCachedMemos());
     const [memoReplies, setMemoReplies] = useState([]);
     const [memoReadBy, setMemoReadBy] = useState([]);
-    const [globalNotif, _setGlobalNotif] = useState(DEFAULT_NOTIF);
+    const [globalNotif, setGlobalNotifState] = useState(DEFAULT_NOTIF);
     const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
     const [showPhoneSettings, setShowPhoneSettings] = useState(false);
     const [showParentSetup, setShowParentSetup] = useState(false);
+    const [showNotifSettings, setShowNotifSettings] = useState(false);
 
     // ── UI state ───────────────────────────────────────────────────────────────
     const [showAddModal, setShowAddModal] = useState(false);
@@ -3248,6 +3385,22 @@ export default function KidsScheduler() {
             setParentPhones(familyInfo.phones);
         }
     }, [familyInfo]);
+
+    useEffect(() => {
+        if (!myRole) return;
+        setGlobalNotifState(readNotifSettings(authUser?.id, myRole));
+    }, [authUser?.id, myRole]);
+
+    const setGlobalNotif = useCallback((nextValue) => {
+        setGlobalNotifState((prev) => {
+            const resolved = normalizeNotifSettings(
+                typeof nextValue === "function" ? nextValue(prev) : nextValue,
+                DEFAULT_NOTIF,
+            );
+            writeNotifSettings(authUser?.id, myRole, resolved);
+            return resolved;
+        });
+    }, [authUser?.id, myRole]);
 
     const handleNativeAuthCallback = useCallback(async (url) => {
         if (!url || !url.startsWith("hyenicalendar://auth-callback")) {
@@ -3754,7 +3907,7 @@ export default function KidsScheduler() {
     useEffect(() => {
         backStateRef.current = {
             routeEvent, showChildTracker, showMapPicker, showAddModal,
-            showAcademyMgr, showPhoneSettings, showParentSetup, editingLocForEvent,
+            showAcademyMgr, showPhoneSettings, showNotifSettings, showParentSetup, editingLocForEvent,
             voicePreview, activeView, showPairing, showAlertPanel,
         };
     });
@@ -3772,6 +3925,7 @@ export default function KidsScheduler() {
                     if (s.showAcademyMgr)      { setShowAcademyMgr(false);      return; }
                     if (s.showAlertPanel)      { setShowAlertPanel(false);      return; }
                     if (s.showPhoneSettings)   { setShowPhoneSettings(false);   return; }
+                    if (s.showNotifSettings)   { setShowNotifSettings(false);   return; }
                     if (s.showParentSetup)     { setShowParentSetup(false);     return; }
                     if (s.editingLocForEvent)  { setEditingLocForEvent(null);   return; }
                     if (s.voicePreview)        { setVoicePreview(null);         return; }
@@ -4049,6 +4203,9 @@ export default function KidsScheduler() {
 
     // ── Advance notifications (friendly messages) ─────────────────────────────
     useEffect(() => {
+        const systemNotificationsActive = pushPermission === "granted";
+        if (systemNotificationsActive) return;
+
         const friendlyChildMsg = (ev, mins) => {
             if (mins === 15) return `🐰 ${ev.emoji} ${ev.title} 가기 15분 전이야! 준비물 챙겼니? 🎒`;
             if (mins === 5) return `🏃 ${ev.emoji} ${ev.title} 곧 시작이야! 출발~ 화이팅! 💪`;
@@ -4061,7 +4218,7 @@ export default function KidsScheduler() {
             (events[key] || []).forEach(ev => {
                 const [h, m] = ev.time.split(":").map(Number);
                 const evMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
-                const eff = ev.notifOverride || globalNotif;
+                const eff = normalizeNotifSettings(ev.notifOverride, globalNotif);
                 eff.minutesBefore.forEach(mins => {
                     const fireKey = `${ev.id}-${mins}`;
                     if (Math.abs(now.getTime() - (evMs - mins * 60000)) <= 35000 && !firedNotifs.has(fireKey)) {
@@ -4074,17 +4231,17 @@ export default function KidsScheduler() {
             });
         };
         check(); const id = setInterval(check, 30000); return () => clearInterval(id);
-    }, [events, globalNotif, firedNotifs, showNotif, addAlert, isParent, myRole]);
+    }, [events, globalNotif, firedNotifs, showNotif, addAlert, isParent, myRole, pushPermission]);
 
     // ── Push notification scheduling ────────────────────────────────────────────
     useEffect(() => {
-        if (pushPermission === "granted") {
+        if (isNativeApp) {
+            scheduleNativeAlarms(events, globalNotif, myRole);
+        } else if (pushPermission === "granted") {
             scheduleNotifications(events, globalNotif, myRole);
         }
-        // Always schedule native AlarmManager alarms (persistent, works when app killed)
-        scheduleNativeAlarms(events, globalNotif, myRole);
         return () => clearAllScheduled();
-    }, [events, globalNotif, pushPermission, myRole]);
+    }, [events, globalNotif, pushPermission, myRole, isNativeApp]);
 
     // ── Emergency check ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -4913,11 +5070,6 @@ export default function KidsScheduler() {
                         setPushPermission(result);
                         if (result === "granted") {
                             showNotif("푸시 알림이 켜졌어요!");
-                            scheduleNotifications(events, globalNotif, myRole);
-                            scheduleNativeAlarms(events, globalNotif, myRole);
-                            if (!isNativeApp && authUser?.id && familyId) {
-                                subscribeToPush(authUser.id, familyId);
-                            }
                         } else if (result === "denied") {
                             showNotif("알림이 차단되었어요. 브라우저 설정에서 허용해주세요.", "error");
                         }
@@ -5050,6 +5202,10 @@ export default function KidsScheduler() {
                     }}
                     style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "linear-gradient(135deg, #FEF3C7, #FDE68A)", color: "#92400E", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
                     🏆 스티커
+                </button>
+                <button onClick={() => setShowNotifSettings(true)}
+                    style={{ fontSize: isParent ? 11 : 13, padding: isParent ? "7px 12px" : "10px 16px", borderRadius: isParent ? 12 : 16, background: "linear-gradient(135deg,#EFF6FF,#E0E7FF)", color: "#4338CA", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    🔔 일정알림
                 </button>
                 {isParent && (
                     <button onClick={() => setShowSubscriptionSettings(true)}
@@ -5501,6 +5657,19 @@ export default function KidsScheduler() {
                         </button>
                     </div>
                 </div>
+            )}
+
+            {showNotifSettings && (
+                <NotificationSettingsModal
+                    settings={globalNotif}
+                    isParentMode={isParent}
+                    onSave={(nextSettings) => {
+                        setGlobalNotif(nextSettings);
+                        setShowNotifSettings(false);
+                        showNotif("🔔 일정 알림 설정이 저장됐어요!");
+                    }}
+                    onClose={() => setShowNotifSettings(false)}
+                />
             )}
 
             {showRemoteAudio && isParent && (
