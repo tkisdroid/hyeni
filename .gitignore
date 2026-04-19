@@ -25,6 +25,9 @@ dist-ssr
 
 .vercel
 
+# Claude Code per-session workspace artifacts (handoffs, settings)
+.claude/
+
 # Secrets
 .env
 .env.txt

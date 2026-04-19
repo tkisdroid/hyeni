@@ -1598,7 +1598,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         });
         startOverlayRef.current = startOv;
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+         
         setRouteInfo({ loading: true });
         lastRoutePosRef.current = { ...startPos };
 
