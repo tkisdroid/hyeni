@@ -27,11 +27,15 @@
   2. 루스 `supabase/*.sql` 파일이 `supabase/archive/_deprecated_*.sql` 로 이동되고, `supabase db diff` 가 프로덕션 대비 드리프트를 보고하며, 재조정(reconciliation) 마이그레이션이 Supabase branch에서 한 번 적용된다 (`memos` 누락 컬럼 포함).
   3. `pg_policies` 스냅샷 + VAPID·FCM 환경변수 스냅샷이 `.planning/research/baselines/` 에 기록되고, 현재 `push-notify` 배포가 `push-notify-baseline-20260421` 태그로 고정된다.
   4. Supabase branch 재조정 마이그레이션에 대해 Playwright real-services smoke(`playwright.real.config.js`)가 기존 flow(로그인·페어링·꾹·메모 왕복) 회귀 없음을 증명한다.
-**Plans**: TBD
+**Plans**: 5 plans
 **Research required for planning**: No (standard DevOps hygiene; no novel patterns)
 
 Plans:
-- [ ] 01-01: TBD (to be refined by /gsd-plan-phase)
+- [ ] 01-01-PLAN.md — Archive loose supabase/*.sql (12 files) into supabase/archive/_deprecated_*.sql + author archive README (D-01, D-02)
+- [ ] 01-02-PLAN.md — Create supabase/migrations/down/ directory + README declaring up↔down pairing + BEGIN/COMMIT conventions (D-03, D-04)
+- [ ] 01-03-PLAN.md — Capture supabase db diff; author reconciliation migration + paired down file with memos.created_at/user_id/user_role (D-05, D-06, D-07)
+- [ ] 01-04-PLAN.md — Snapshot pg_policies + env metadata under .planning/research/baselines/; create + push git tag push-notify-baseline-20260421 (D-08, D-09, D-10)
+- [ ] 01-05-PLAN.md — [BLOCKING schema push] Create Supabase branch phase-1-baseline, apply reconciliation migration, run Playwright real-services, 5-min Edge Function log watch (D-11..D-14)
 
 ### Phase 2: Unblock Core (Push Gateway · Realtime · Pair Security)
 **Goal**: 모든 하위 phase를 가로막고 있는 세 gateway — (A) `push-notify` ES256 401, (B) `saved_places`·`family_subscription` publication 누락, (C) `pair_code` TTL·회전·단일아이·self-unpair RLS — 를 disjoint한 3개 스트림으로 동시에 뚫는다.
@@ -108,7 +112,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Migration Hygiene & Baseline | 0/TBD | Not started | - |
+| 1. Migration Hygiene & Baseline | 0/5 | Not started | - |
 | 2. Unblock Core | 0/3 | Not started | - |
 | 3. Client Push & Fetch Hygiene | 0/2 | Not started | - |
 | 4. Memo Model Unification | 0/1 | Not started | - |
