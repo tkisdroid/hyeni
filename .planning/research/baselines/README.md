@@ -36,7 +36,7 @@ git ls-remote --tags origin push-notify-baseline-20260421
 - `FCM_SERVICE_ACCOUNT_JSON` / `FCM_PRIVATE_KEY`
 - `KAKAO_CLIENT_SECRET`, `QONVERSION_API_KEY`, or any OAuth / IAP server-side secret
 - Postgres connection strings containing passwords (`postgresql://user:password@host:5432/db`)
-- Production family IDs, user IDs, or any PII (e.g., never commit `4c781fb7-677a-45d9-8fd2-74d0083fe9b4`)
+- Production family IDs, user IDs, or any PII (the live prod family UUID is documented in STATE.md / CLAUDE.md only — never mirror it into this directory)
 - Any value stored in Supabase Edge Function secrets or Vercel env vars marked "secret"
 - `SUPABASE_ACCESS_TOKEN` (`sbp_*`) — personal access token, not project-scoped
 
@@ -52,8 +52,8 @@ grep -rE 'eyJ[A-Za-z0-9_-]{100,}|-----BEGIN' .planning/research/baselines/
 grep -rE '^(VAPID_PRIVATE_KEY|SUPABASE_SERVICE_ROLE_KEY|FCM_PRIVATE_KEY) *[:=]' .planning/research/baselines/
 # No postgres creds
 grep -rE 'postgres(ql)?://[^:]+:[^@]+@' .planning/research/baselines/
-# No live family UUID
-grep -r '4c781fb7-677a-45d9-8fd2-74d0083fe9b4' .planning/research/baselines/
+# No live family UUID (see STATE.md for the literal value to grep for)
+# grep -r '<prod-family-uuid-from-STATE.md>' .planning/research/baselines/
 # No Supabase access tokens
 grep -rE 'sbp_[A-Za-z0-9]{20,}|sb_secret_[A-Za-z0-9]{5,}' .planning/research/baselines/
 ```
