@@ -47,13 +47,15 @@ Plans:
   3. 만료된 `pair_code` 로 `join_family` RPC 호출 시 명시적 에러를 반환하고, 기존(grandfathered) 페어 코드는 계속 redeem되며, 부모 UI에서 TTL 카운트다운 + 수동 회전 버튼이 작동한다 (PAIR-01 달성).
   4. 아이 세션이 `family_members` 자기 row DELETE를 시도하면 RLS 403이 반환되고, 좀비 아이 row 정리는 부모 UI의 해제 버튼을 통해서만 가능하다 (PAIR-02·03·04 달성).
   5. **Supabase branch 검증 스텝**: 세 스트림의 마이그레이션이 `supabase branches create phase-2-*` 에서 적용되고 5분 프로덕션 스모크가 Edge Function 로그 경고 0건 기록 / **Playwright E2E 커버리지 추가**: `playwright.real.config.js` 가 PUSH-01·RT-01~03·PAIR-01~03 각각의 happy/failure path를 검증한다.
-**Plans**: TBD
+**Plans**: 5 plans
 **Research required for planning**: Yes — `/gsd-research-phase` needed for Stream A (VAPID 연속성·OEM `direct_boot_ok`) and Stream C (`join_family` RPC baseline 복원 — 루스 SQL). Stream B (publication ALTER) 은 4줄 표준 SQL, research 불필요.
 
 Plans:
-- [ ] 02-01: TBD — Stream A: P0-1 `push-notify` ES256 via `supabase.auth.getClaims` (PUSH-01)
-- [ ] 02-02: TBD — Stream B: P0-2 publications + `REPLICA IDENTITY FULL` + `NOTIFY pgrst 'reload schema'` (RT-01~04)
-- [ ] 02-03: TBD — Stream C: P0-3 pair code TTL + RLS + zombie cleanup UI (PAIR-01~04)
+- [ ] 02-01-PLAN.md — Stream A (Wave 1): push-notify ES256 in-function getClaims + push_idempotency table + v31 deploy (PUSH-01)
+- [ ] 02-02-PLAN.md — Stream B (Wave 1): publications ADD + REPLICA IDENTITY FULL + NOTIFY pgrst + sync.js per-table channels (RT-01, RT-02, RT-03, RT-04)
+- [ ] 02-03-PLAN.md — Stream C (Wave 1, SQL): pair_code_expires_at column + join_family TTL+suffix + regenerate_pair_code RPC (PAIR-01, PAIR-02)
+- [ ] 02-04-PLAN.md — Stream C (Wave 2, RLS): family_members DELETE policy tightened to parent-only (PAIR-03)
+- [ ] 02-05-PLAN.md — Stream C (Wave 2, UI): PairingModal TTL countdown + regenerate button + ChildPairInput expired-error branch (PAIR-01 UI, PAIR-04)
 
 ### Phase 3: Client Push & Fetch Hygiene
 **Goal**: Phase 2가 서버/인프라를 연 후, 클라이언트 쪽에서 중복 발송·무한 재시도·영수증 공백을 정리한다. 두 스트림은 서로 다른 파일을 건드려 병렬 가능.
