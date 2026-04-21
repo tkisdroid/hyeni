@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-04-21T05:51:00.929Z"
-last_activity: 2026-04-21 — Roadmap created from research synthesis (5 phases, 28 REQs mapped, 0 unmapped)
+status: executing
+stopped_at: Plan 01-04 complete — awaiting human checkpoint for git tag push
+last_updated: "2026-04-21T06:39:19.527Z"
+last_activity: 2026-04-21
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 5
-  completed_plans: 0
-  percent: 0
+  completed_plans: 3
+  percent: 60
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 
 ## Current Position
 
-Phase: 1 of 5 (Migration Hygiene & Baseline)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-04-21 — Roadmap created from research synthesis (5 phases, 28 REQs mapped, 0 unmapped)
+Phase: 1 (Migration Hygiene & Baseline) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-04-21
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01-migration-hygiene-baseline P04 | 9min | 4 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,7 @@ Recent decisions affecting current work:
 - Roadmap: Phase 5 Stream B (P2-8 remote listen) merges LAST behind a remote feature flag — highest Play Store policy risk.
 - Roadmap: Phase 4 (memo unification) DoD is "shadow-running with 14-day read-parity," not "legacy dropped." `memos` DROP scheduled for v1.1.
 - Roadmap: SOS-01 (`sos_events` immutable audit log) added as v1 scope expansion from research (PIPA + OWASP MASTG).
+- Plan 01-04: supabase db query (not psql) for pg_policies dump; baselines directory uses DO-NOT-COMMIT sentinels + 5-check pre-commit grep gate; git tag annotated + local-only pending orchestrator push
 
 ### Pending Todos
 
@@ -89,8 +91,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 1 context gathered
-Resume file: --resume-file
+Last session: 2026-04-21T06:39:19.520Z
+Stopped at: Plan 01-04 complete — awaiting human checkpoint for git tag push
+Resume file: git tag push-notify-baseline-20260421 local only; orchestrator to verify + push
 
 **Planned Phase:** 1 (Migration Hygiene & Baseline) — 5 plans — 2026-04-21T05:51:00.921Z

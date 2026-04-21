@@ -112,7 +112,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Migration Hygiene & Baseline | 0/5 | Not started | - |
+| 1. Migration Hygiene & Baseline | 3/5 | In progress | - |
 | 2. Unblock Core | 0/3 | Not started | - |
 | 3. Client Push & Fetch Hygiene | 0/2 | Not started | - |
 | 4. Memo Model Unification | 0/1 | Not started | - |
