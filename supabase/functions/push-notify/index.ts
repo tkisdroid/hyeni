@@ -346,6 +346,29 @@ async function handleInstantNotification(
 
   if (!familyId) return jsonResponse({ error: "familyId required" }, 400);
 
+  // ── Sender-family membership check (SEC-01, v1.0 re-audit) ─────────
+  // Gate surfaced during live verification: JWT-verified callerUserId is trusted
+  // (Phase 2 PUSH-01), but the Edge Function previously did not cross-check
+  // that the caller belongs to body.familyId. Anyone who knew a family_id UUID
+  // could trigger pushes to that family. Service-role cron path bypasses this
+  // check (needed for scheduled notifications where the DB schedules on behalf
+  // of users).
+  if (callerRole !== "service_role") {
+    const { data: memberRow, error: memberErr } = await supabase
+      .from("family_members")
+      .select("user_id")
+      .eq("family_id", familyId)
+      .eq("user_id", callerUserId)
+      .maybeSingle();
+    if (memberErr) {
+      console.error("push-notify membership check failed:", memberErr);
+      return jsonResponse({ error: "membership check failed" }, 500);
+    }
+    if (!memberRow) {
+      return jsonResponse({ error: "not a family member" }, 403);
+    }
+  }
+
   // ── Idempotency check (Phase 3 D-A03) ───────────────────────────────
   // Header preferred; body mirror supported because navigator.sendBeacon
   // cannot set custom headers. UUID format is enforced by the FK type
