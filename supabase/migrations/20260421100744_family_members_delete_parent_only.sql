@@ -16,6 +16,14 @@
 -- or (b) a co-parent (family_members row with role='parent' for auth.uid()).
 -- Scoped TO authenticated (narrower than the old TO public default) so unauthenticated
 -- DELETEs are never even evaluated.
+--
+-- SELF-REFERENCE RECURSION FIX: The co-parent EXISTS branch references
+-- public.family_members from inside a policy ON public.family_members, which
+-- causes "42P17 infinite recursion detected in policy" under DELETE — Postgres
+-- re-evaluates fm_del against the subquery's table scan. The fix (matching the
+-- project's existing `get_my_family_ids()` SECURITY DEFINER pattern) is to wrap
+-- the parent-role lookup in a SECURITY DEFINER helper `is_family_parent(uuid)`
+-- that bypasses RLS when called from the policy body. See migration body below.
 
 BEGIN;
 
@@ -23,22 +31,37 @@ BEGIN;
 -- (PITFALLS §Pitfall 3 prevention guidance).
 SET LOCAL lock_timeout = '5s';
 
+-- Helper: returns true if auth.uid() is a parent of the given family_id.
+-- SECURITY DEFINER bypasses RLS on family_members, preventing the recursion
+-- that would otherwise occur when the fm_del policy's USING clause references
+-- family_members. Matches the existing `public.get_my_family_ids()` pattern.
+CREATE OR REPLACE FUNCTION public.is_family_parent(p_family_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.families f
+     WHERE f.id = p_family_id
+       AND f.parent_id = auth.uid()
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.family_members me
+     WHERE me.family_id = p_family_id
+       AND me.user_id = auth.uid()
+       AND me.role = 'parent'
+  );
+$$;
+
+-- Only authenticated sessions may invoke; service_role obviously bypasses RLS anyway.
+GRANT EXECUTE ON FUNCTION public.is_family_parent(uuid) TO authenticated;
+
 DROP POLICY IF EXISTS "fm_del" ON public.family_members;
 
 CREATE POLICY "fm_del" ON public.family_members
   FOR DELETE TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.families f
-       WHERE f.id = family_members.family_id
-         AND f.parent_id = auth.uid()
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.family_members me
-       WHERE me.family_id = family_members.family_id
-         AND me.user_id = auth.uid()
-         AND me.role = 'parent'
-    )
-  );
+  USING ( public.is_family_parent(family_members.family_id) );
 
 COMMIT;

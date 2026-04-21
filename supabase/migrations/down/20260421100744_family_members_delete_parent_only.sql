@@ -7,6 +7,10 @@
 -- This rollback re-enables the child self-DELETE branch (`user_id = auth.uid()`).
 -- Intended ONLY for emergency rollback if the tightened policy breaks a legitimate
 -- flow. If triggered, immediately re-evaluate PAIR-03 mitigation strategy.
+--
+-- Also drops the `is_family_parent(uuid)` SECURITY DEFINER helper created by the
+-- up migration (added to fix self-reference recursion; no longer needed under
+-- the permissive policy).
 
 BEGIN;
 SET LOCAL lock_timeout = '5s';
@@ -25,5 +29,8 @@ CREATE POLICY "fm_del" ON public.family_members
        WHERE (families.parent_id = auth.uid())
     ))
   );
+
+-- Drop the helper added by the up migration.
+DROP FUNCTION IF EXISTS public.is_family_parent(uuid);
 
 COMMIT;
