@@ -73,6 +73,10 @@
 - **REFACTOR-01**: `src/App.jsx` 6877줄을 기능별 모듈로 분해 (auth/family, calendar, memo, kkuk, remote-listen, location, push-scheduler)
 - **REFACTOR-02**: TypeScript 마이그레이션 로드맵
 
+### Memo Legacy Cleanup (v1.0에서 shadow, v1.1에서 drop)
+
+- **MEMO-CLEANUP-01**: `memos` VIEW DROP (Phase 4에서 30일 shadow 이후 예약)
+
 ### UX Polish
 
 - **UX-01**: 페어링 QR코드 재디자인 + 공유 링크 방식
@@ -94,31 +98,56 @@
 
 ## Traceability
 
-Phases는 roadmapper가 생성 후 채워짐. 초기 mapping 계획(가설):
+**Final phase mapping (confirmed by roadmapper 2026-04-21).** Every v1 REQ-ID maps to exactly one phase; zero unmapped. Phase 1 intentionally carries zero REQ-IDs — it is pre-remediation migration hygiene that every subsequent phase depends on.
 
-| Requirement | Phase (예상) | Status |
-|-------------|--------------|--------|
-| PUSH-01 | Phase 1 | Pending |
-| PUSH-02 | Phase 4 | Pending |
-| PUSH-03 | Phase 1 or Phase 4 | Pending |
-| PUSH-04 | Phase 4 | Pending |
-| RT-01, RT-02, RT-03, RT-04 | Phase 2 | Pending |
-| PAIR-01 | Phase 3 | Pending |
-| PAIR-02, PAIR-03, PAIR-04 | Phase 3 | Pending |
-| RES-01, RES-02 | Phase 5 | Pending |
-| MEMO-01, MEMO-02, MEMO-03 | Phase 6 | Pending |
-| GATE-01, GATE-02 | Phase 7 | Pending |
-| RL-01, RL-02, RL-03, RL-04 | Phase 8 | Pending |
-| KKUK-01, KKUK-02, KKUK-03 | Phase 9 | Pending |
-| SOS-01 *(new from research)* | Phase 9 | Pending |
+| Requirement | Phase | Stream | Status |
+|-------------|-------|--------|--------|
+| PUSH-01 | Phase 2 | A (P0-1) | Pending |
+| PUSH-02 | Phase 3 | A (P1-4) | Pending |
+| PUSH-03 | Phase 3 | A (P1-4) | Pending |
+| PUSH-04 | Phase 3 | A (P1-4) | Pending |
+| RT-01 | Phase 2 | B (P0-2) | Pending |
+| RT-02 | Phase 2 | B (P0-2) | Pending |
+| RT-03 | Phase 2 | B (P0-2) | Pending |
+| RT-04 | Phase 2 | B (P0-2) | Pending |
+| PAIR-01 | Phase 2 | C (P0-3) | Pending |
+| PAIR-02 | Phase 2 | C (P0-3) | Pending |
+| PAIR-03 | Phase 2 | C (P0-3) | Pending |
+| PAIR-04 | Phase 2 | C (P0-3) | Pending |
+| RES-01 | Phase 3 | B (P1-5) | Pending |
+| RES-02 | Phase 3 | B (P1-5) | Pending |
+| MEMO-01 | Phase 4 | solo (P1-6) | Pending |
+| MEMO-02 | Phase 4 | solo (P1-6) | Pending |
+| MEMO-03 | Phase 4 | solo (P1-6) | Pending |
+| GATE-01 | Phase 5 | A (P2-7) | Pending |
+| GATE-02 | Phase 5 | A (P2-7) | Pending |
+| RL-01 | Phase 5 | B (P2-8) | Pending |
+| RL-02 | Phase 5 | B (P2-8) | Pending |
+| RL-03 | Phase 5 | B (P2-8) | Pending |
+| RL-04 | Phase 5 | B (P2-8) | Pending |
+| KKUK-01 | Phase 5 | C (P2-9) | Pending |
+| KKUK-02 | Phase 5 | C (P2-9) | Pending |
+| KKUK-03 | Phase 5 | C (P2-9) | Pending |
+| SOS-01 | Phase 5 | C (P2-9) | Pending |
 
-**Coverage (초기 가설):**
+**Coverage:**
 - v1 requirements: **28 total** (SOS-01 added from research synthesis)
-- Mapped to phases: 28 (pending roadmap validation)
-- Unmapped: 0
+- Mapped to phases: **28**
+- Unmapped: **0**
 
-최종 매핑은 roadmapper가 확정. SUMMARY.md 가 제안한 4-phase 구조(Pre-Phase 0 마이그레이션 위생 + Phase 1 병렬 P0 + Phase 2 병렬 P1-4/P1-5 + Phase 3 솔로 P1-6 + Phase 4 병렬 P2)가 유력.
+**Phase distribution:**
+- Phase 1: 0 REQs (migration hygiene / infrastructure)
+- Phase 2: 9 REQs (PUSH-01 + RT-01~04 + PAIR-01~04)
+- Phase 3: 5 REQs (PUSH-02~04 + RES-01~02)
+- Phase 4: 3 REQs (MEMO-01~03)
+- Phase 5: 10 REQs (GATE-01~02 + RL-01~04 + KKUK-01~03 + SOS-01)
+
+**Dependency rationale:**
+- Phase 2 unblocks everything: ES256 gateway (PUSH-01) must open before PUSH-02~04·RL-02·KKUK-03 can be push-verified; RT-01~04 must work before RES-01 backoff can target the real 404 path; PAIR-01~04 is independent and parallel-safe.
+- Phase 3 before Phase 4 because RT-03 (Phase 2) already includes memo channels, and `memo_replies` dual-write needs a clean push pipeline first (PUSH-02~04).
+- Phase 4 solo (14 line regions in `src/App.jsx` + `sync.js` + SQL) — shared phase = unsafe.
+- Phase 5 after Phase 3 because P1-4 (Phase 3) and P2-9 (Phase 5 Stream C) touch the same `App.jsx` L4603–4657 region — must serialize. P2-8 merges **last** within Phase 5 behind remote feature flag.
 
 ---
 *Requirements defined: 2026-04-21*
-*Last updated: 2026-04-21 after research synthesis (SOS-01 added)*
+*Last updated: 2026-04-21 — Final phase mapping confirmed by roadmapper (28/28 mapped, 0 unmapped).*
