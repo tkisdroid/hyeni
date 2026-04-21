@@ -4143,6 +4143,15 @@ export default function KidsScheduler() {
     const memoSaveTimer = useRef(null);
     const memoDirty = useRef(false);       // true when memo has unsent push
     const memoLastValue = useRef("");       // last memo value for push
+    // Phase 5 · KKUK-02 — receiver-side LRU dedup. Keys are payload.dedup_key
+    // UUIDs; values are Date.now() timestamps. Pruned on each new event to
+    // anything older than 60s. Backs onKkuk's duplicate-suppression branch.
+    const recentKkukKeys = useRef(new Map());
+    // Phase 5 · KKUK-01 — press-hold timing. holdStart holds the mousedown
+    // / touchstart timestamp; a release between 500–2000 ms later fires sendKkuk.
+    // Releases outside that window are ignored silently (no false-fire, no
+    // accidental-cancel penalty).
+    const kkukHoldStart = useRef(0);
     const dateKey = `${currentYear}-${currentMonth}-${selectedDate}`;
     dateKeyRef.current = dateKey;
 
@@ -4703,14 +4712,30 @@ export default function KidsScheduler() {
             },
             onKkuk: (payload) => {
                 // Received '꾹' from the other party
-                if (payload.senderId !== authUser?.id) {
-                    const senderLabel = payload.senderRole === "parent" ? "엄마" : "아이";
-                    setShowKkukReceived({ from: senderLabel, timestamp: Date.now() });
-                    // Vibrate if supported
-                    if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
-                    // Native notification (wakes screen on Android)
-                    showKkukNotification(senderLabel);
+                if (payload.senderId === authUser?.id) return; // self echo
+
+                // Phase 5 · KKUK-02: LRU dedup. Legacy payloads without
+                // dedup_key fall through to the normal path so old senders
+                // still work during staged rollout. Prune entries older than
+                // 60 s on every receive.
+                if (payload.dedup_key) {
+                    const now = Date.now();
+                    for (const [k, t] of recentKkukKeys.current) {
+                        if (now - t > 60_000) recentKkukKeys.current.delete(k);
+                    }
+                    if (recentKkukKeys.current.has(payload.dedup_key)) {
+                        // Same 꾹 seen within 60 s — suppress UI + vibrate.
+                        return;
+                    }
+                    recentKkukKeys.current.set(payload.dedup_key, now);
                 }
+
+                const senderLabel = payload.senderRole === "parent" ? "엄마" : "아이";
+                setShowKkukReceived({ from: senderLabel, timestamp: Date.now() });
+                // Vibrate if supported
+                if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
+                // Native notification (wakes screen on Android)
+                showKkukNotification(senderLabel);
             },
             onMemoRepliesChange: (newRow) => {
                 if (!newRow) return;
@@ -4882,19 +4907,45 @@ export default function KidsScheduler() {
     const sendKkuk = useCallback(() => {
         if (kkukCooldown || !familyId || !authUser) return;
         setKkukCooldown(true);
-        setTimeout(() => setKkukCooldown(false), 5000); // 5s cooldown
+        setTimeout(() => setKkukCooldown(false), 5000); // 5s client-side UX cooldown
 
         const senderRole = isParent ? "parent" : "child";
         const senderLabel = isParent ? "엄마" : "아이";
-        const kkukPayload = { senderId: authUser.id, senderRole, timestamp: Date.now() };
+        // Phase 5 KKUK-02: dedup_key travels with every 꾹 so receivers can
+        // LRU-dedupe + so the sos_events row links to the exact broadcast.
+        const dedupKey = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+            ? crypto.randomUUID()
+            : `${authUser.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+        const kkukPayload = { senderId: authUser.id, senderRole, timestamp: Date.now(), dedup_key: dedupKey };
 
+        // Local UX feedback fires immediately — kkukCooldown above already
+        // prevents rapid re-taps. The server-side RPC below can still veto
+        // the send, in which case we silently drop without user-facing noise.
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         showNotif("💗 꾹을 보냈어요!");
 
         void (async () => {
+            // Phase 5 KKUK-03: server-side 5s cooldown via RPC. The RPC
+            // inspects sos_events for any row from this sender within 5 s and
+            // returns FALSE if one exists. On FALSE we silently drop; on any
+            // RPC error we FAIL OPEN (send anyway) so a degraded DB can't
+            // block emergencies.
+            try {
+                const { data: cooldownOk, error: rpcErr } = await supabase
+                    .rpc("kkuk_check_cooldown", { p_sender: authUser.id });
+                if (rpcErr) {
+                    console.warn("[kkuk] cooldown RPC errored, failing open:", rpcErr);
+                } else if (cooldownOk === false) {
+                    console.log("[kkuk] server cooldown rejected this send");
+                    return;
+                }
+            } catch (rpcThrown) {
+                console.warn("[kkuk] cooldown RPC threw, failing open:", rpcThrown);
+            }
+
+            let realtimeSent = false;
             // 1. Realtime broadcast (instant, if other party has app open)
             try {
-                let sent = false;
                 const channel = realtimeChannel.current;
 
                 if (channel?.state === "joined" && typeof channel.send === "function") {
@@ -4903,17 +4954,17 @@ export default function KidsScheduler() {
                         event: "kkuk",
                         payload: kkukPayload,
                     });
-                    sent = true;
+                    realtimeSent = true;
                 }
 
-                if (!sent) {
-                    sent = await sendBroadcastWhenReady(channel, "kkuk", kkukPayload, {
+                if (!realtimeSent) {
+                    realtimeSent = await sendBroadcastWhenReady(channel, "kkuk", kkukPayload, {
                         timeoutMs: 1800,
                         pollMs: 60,
                     });
                 }
 
-                if (!sent) {
+                if (!realtimeSent) {
                     console.warn("[kkuk] realtime channel was not ready. Falling back to push delivery.");
                 }
             } catch (error) {
@@ -4921,6 +4972,7 @@ export default function KidsScheduler() {
             }
 
             // 2. Push notification + pending_notifications (works when app is closed)
+            let pushSent = false;
             try {
                 await sendInstantPush({
                     action: "kkuk",
@@ -4929,11 +4981,36 @@ export default function KidsScheduler() {
                     title: "💗 꾹!",
                     message: `${senderLabel}가 꾹을 보냈어요!`,
                 });
+                pushSent = true;
             } catch (e) {
                 console.error("[kkuk] push failed:", e);
             }
+
+            // Phase 5 · SOS-01: immutable audit row. Fire-and-forget — failure
+            // to log must NOT block the emergency signal. receiver_user_ids
+            // lists the OPPOSITE-role members of the current family so
+            // auditors can see who was paged. delivery_status captures the
+            // two delivery channels.
+            try {
+                const oppositeRole = isParent ? "child" : "parent";
+                const receiverIds = (familyInfo?.members || [])
+                    .filter(m => m.role === oppositeRole && m.user_id && m.user_id !== authUser.id)
+                    .map(m => m.user_id);
+                await supabase.from("sos_events").insert({
+                    family_id: familyId,
+                    sender_user_id: authUser.id,
+                    receiver_user_ids: receiverIds,
+                    delivery_status: {
+                        realtime: realtimeSent ? "sent" : "failed",
+                        push: pushSent ? "sent" : "failed",
+                    },
+                    client_request_hash: dedupKey,
+                });
+            } catch (auditErr) {
+                console.error("[kkuk] sos_events audit insert failed:", auditErr);
+            }
         })();
-    }, [familyId, authUser, isParent, kkukCooldown, showNotif]);
+    }, [familyId, authUser, isParent, kkukCooldown, showNotif, familyInfo]);
 
     // ── Android 뒤로가기 버튼 처리 ───────────────────────────────────────────────
     const backStateRef = useRef({});
@@ -6461,14 +6538,44 @@ export default function KidsScheduler() {
                             )}
                         </button>
                     )}
-                    <button onClick={sendKkuk} disabled={kkukCooldown}
+                    {/* Phase 5 KKUK-01: press-and-hold 500–2000 ms. Short
+                         taps and long presses outside the window are ignored
+                         silently. The click handler is a no-op; both mouse
+                         and touch paths write to the shared ref. Cooldown is
+                         still driven by kkukCooldown state + server RPC. */}
+                    <button
+                        disabled={kkukCooldown}
+                        onClick={(e) => { e.preventDefault(); }}
+                        onMouseDown={() => { if (!kkukCooldown) kkukHoldStart.current = Date.now(); }}
+                        onMouseUp={() => {
+                            const start = kkukHoldStart.current;
+                            kkukHoldStart.current = 0;
+                            if (!start) return;
+                            const held = Date.now() - start;
+                            if (held >= 500 && held <= 2000) sendKkuk();
+                        }}
+                        onMouseLeave={() => { kkukHoldStart.current = 0; }}
+                        onTouchStart={() => { if (!kkukCooldown) kkukHoldStart.current = Date.now(); }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            const start = kkukHoldStart.current;
+                            kkukHoldStart.current = 0;
+                            if (!start) return;
+                            const held = Date.now() - start;
+                            if (held >= 500 && held <= 2000) sendKkuk();
+                        }}
+                        onTouchCancel={() => { kkukHoldStart.current = 0; }}
                         style={{
                             fontSize: isParent ? 13 : 15, padding: isParent ? "8px 14px" : "10px 18px", borderRadius: 16, border: "none", cursor: kkukCooldown ? "default" : "pointer",
                             fontWeight: 900, fontFamily: FF, whiteSpace: "nowrap",
                             background: kkukCooldown ? "#E5E7EB" : "linear-gradient(135deg, #FF6B9D, #FF4081)",
                             color: "white", boxShadow: kkukCooldown ? "none" : "0 3px 12px rgba(255,64,129,0.4)",
                             transition: "all 0.2s", transform: kkukCooldown ? "scale(0.95)" : "scale(1)",
-                        }}>
+                            userSelect: "none",
+                            WebkitTouchCallout: "none",
+                        }}
+                        title="0.5초 이상 길게 눌러주세요"
+                        aria-label="꾹 (0.5초 이상 길게 눌러 발송)">
                         💗 꾹
                     </button>
                     {isParent && (
