@@ -1,0 +1,93 @@
+schemaname,tablename,policyname,permissive,roles,cmd,qual,with_check
+public,academies,ac_del,PERMISSIVE,{public},DELETE,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,academies,ac_ins,PERMISSIVE,{public},INSERT,NULL,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))
+public,academies,ac_sel,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,academies,ac_upd,PERMISSIVE,{public},UPDATE,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,child_locations,cl_ins,PERMISSIVE,{public},INSERT,NULL,(user_id = auth.uid())
+public,child_locations,cl_insert_own,PERMISSIVE,{public},INSERT,NULL,(user_id = auth.uid())
+public,child_locations,cl_sel,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,child_locations,cl_select_family,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,child_locations,cl_upd,PERMISSIVE,{public},UPDATE,(user_id = auth.uid()),NULL
+public,child_locations,cl_update_own,PERMISSIVE,{public},UPDATE,(user_id = auth.uid()),NULL
+public,danger_zones,dz_delete_parent,PERMISSIVE,{public},DELETE,"(family_id IN ( SELECT families.id
+   FROM families
+  WHERE (families.parent_id = auth.uid())))",NULL
+public,danger_zones,dz_insert_parent,PERMISSIVE,{public},INSERT,NULL,"(family_id IN ( SELECT families.id
+   FROM families
+  WHERE (families.parent_id = auth.uid())))"
+public,danger_zones,dz_select_family,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,danger_zones,dz_update_parent,PERMISSIVE,{public},UPDATE,"(family_id IN ( SELECT families.id
+   FROM families
+  WHERE (families.parent_id = auth.uid())))",NULL
+public,emergency_audio_chunks,eac_delete_parent,PERMISSIVE,{public},DELETE,"(family_id IN ( SELECT families.id
+   FROM families
+  WHERE (families.parent_id = auth.uid())))",NULL
+public,emergency_audio_chunks,eac_insert_child,PERMISSIVE,{public},INSERT,NULL,((child_id = auth.uid()) AND (family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)))
+public,emergency_audio_chunks,eac_select_family,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,events,ev_del,PERMISSIVE,{public},DELETE,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,events,ev_ins,PERMISSIVE,{public},INSERT,NULL,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))
+public,events,ev_sel,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,events,ev_upd,PERMISSIVE,{public},UPDATE,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,families,fam_ins,PERMISSIVE,{public},INSERT,NULL,(parent_id = auth.uid())
+public,families,fam_sel,PERMISSIVE,{public},SELECT,(id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,families,fam_upd,PERMISSIVE,{public},UPDATE,(parent_id = auth.uid()),NULL
+public,family_members,fm_del,PERMISSIVE,{public},DELETE,"((user_id = auth.uid()) OR (family_id IN ( SELECT families.id
+   FROM families
+  WHERE (families.parent_id = auth.uid()))))",NULL
+public,family_members,fm_ins,PERMISSIVE,{public},INSERT,NULL,(user_id = auth.uid())
+public,family_members,fm_sel,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,family_members,fm_upd,PERMISSIVE,{public},UPDATE,(user_id = auth.uid()),NULL
+public,fcm_tokens,users_manage_own_fcm_tokens,PERMISSIVE,{public},ALL,(user_id = auth.uid()),(user_id = auth.uid())
+public,location_history,child_insert_own_history,PERMISSIVE,{public},INSERT,NULL,(user_id = auth.uid())
+public,location_history,family_read_history,PERMISSIVE,{public},SELECT,"(family_id IN ( SELECT family_members.family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid())))",NULL
+public,location_history,lh_insert_own,PERMISSIVE,{public},INSERT,NULL,(user_id = auth.uid())
+public,location_history,lh_select_family,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,memo_replies,memo_replies_delete,PERMISSIVE,{public},DELETE,(user_id = auth.uid()),NULL
+public,memo_replies,memo_replies_insert,PERMISSIVE,{public},INSERT,NULL,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))
+public,memo_replies,memo_replies_select,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,memos,memo_del,PERMISSIVE,{public},DELETE,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,memos,memo_ins,PERMISSIVE,{public},INSERT,NULL,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))
+public,memos,memo_sel,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,memos,memo_upd,PERMISSIVE,{public},UPDATE,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,memos,memos_insert,PERMISSIVE,{public},INSERT,NULL,"(family_id IN ( SELECT family_members.family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid())))"
+public,memos,memos_update,PERMISSIVE,{public},UPDATE,"(family_id IN ( SELECT family_members.family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid())))",NULL
+public,pair_attempts,pa_ins,PERMISSIVE,{public},INSERT,NULL,true
+public,pair_attempts,pa_sel,PERMISSIVE,{public},SELECT,(user_id = auth.uid()),NULL
+public,parent_alerts,pa_select_family,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,parent_alerts,pa_update_family,PERMISSIVE,{public},UPDATE,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,point_transactions,tx_read,PERMISSIVE,{public},SELECT,"(family_id IN ( SELECT family_members.family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid())))",NULL
+public,point_wallets,wallet_read,PERMISSIVE,{public},SELECT,"(family_id IN ( SELECT family_members.family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid())))",NULL
+public,push_sent,psent_all,PERMISSIVE,{public},ALL,true,true
+public,push_subscriptions,ps_del,PERMISSIVE,{public},DELETE,(user_id = auth.uid()),NULL
+public,push_subscriptions,ps_ins,PERMISSIVE,{public},INSERT,NULL,(user_id = auth.uid())
+public,push_subscriptions,ps_sel,PERMISSIVE,{public},SELECT,(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids)),NULL
+public,push_subscriptions,ps_upd,PERMISSIVE,{public},UPDATE,(user_id = auth.uid()),NULL
+public,referral_codes,rc_read,PERMISSIVE,{public},SELECT,"(family_id IN ( SELECT family_members.family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid())))",NULL
+public,referral_completions,rcomp_read,PERMISSIVE,{public},SELECT,"((referrer_family_id IN ( SELECT family_members.family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid()))) OR (referee_family_id IN ( SELECT family_members.family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid()))))",NULL
+public,user_feedback,Users can insert own feedback,PERMISSIVE,{authenticated},INSERT,NULL,(auth.uid() = user_id)
+public,user_feedback,Users can read own feedback,PERMISSIVE,{authenticated},SELECT,(auth.uid() = user_id),NULL
+storage,objects,sos_audio_delete,PERMISSIVE,{public},DELETE,"((bucket_id = 'sos_audio'::text) AND ((storage.foldername(name))[1] IN ( SELECT (families.id)::text AS id
+   FROM families
+  WHERE (families.parent_id = auth.uid()))))",NULL
+storage,objects,sos_audio_download,PERMISSIVE,{public},SELECT,"((bucket_id = 'sos_audio'::text) AND ((storage.foldername(name))[1] IN ( SELECT (family_members.family_id)::text AS family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid()))))",NULL
+storage,objects,sos_audio_upload,PERMISSIVE,{public},INSERT,NULL,"((bucket_id = 'sos_audio'::text) AND (auth.uid() IS NOT NULL) AND ((storage.foldername(name))[1] IN ( SELECT (family_members.family_id)::text AS family_id
+   FROM family_members
+  WHERE (family_members.user_id = auth.uid()))))"

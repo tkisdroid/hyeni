@@ -1,0 +1,55 @@
+# family_members policies — pre-Phase-2-Plan-04 baseline
+# Captured: 2026-04-21 10:07 UTC via `npx supabase db query --linked`
+# Source query:
+#   SELECT policyname, cmd, roles::text, qual, with_check
+#   FROM pg_policies
+#   WHERE schemaname = 'public' AND tablename = 'family_members'
+#   ORDER BY policyname;
+#
+# NOTE: Only `fm_del` is tightened by Plan 02-04. fm_ins/fm_sel/fm_upd are OUT OF SCOPE
+# and preserved as-is. The four-row snapshot below is authoritative for rollback.
+
+policyname | cmd    | roles    | qual                                                                                                                    | with_check
+-----------+--------+----------+-------------------------------------------------------------------------------------------------------------------------+------------------------
+fm_del     | DELETE | {public} | ((user_id = auth.uid()) OR (family_id IN ( SELECT families.id FROM families WHERE (families.parent_id = auth.uid())))) | NULL
+fm_ins     | INSERT | {public} | NULL                                                                                                                    | (user_id = auth.uid())
+fm_sel     | SELECT | {public} | (family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))                                                       | NULL
+fm_upd     | UPDATE | {public} | (user_id = auth.uid())                                                                                                  | NULL
+
+
+## Cross-check vs Phase 1 baseline (.planning/research/baselines/pg-policies-20260421.csv)
+
+Phase 1 CSV (row 34-36) records fm_del body as:
+  "((user_id = auth.uid()) OR (family_id IN ( SELECT families.id
+     FROM families
+    WHERE (families.parent_id = auth.uid()))))"
+
+Plan 02-04 pre-apply capture: IDENTICAL body (only formatting whitespace differs).
+Roles: {public} in both (NOT {authenticated}).
+Permissive: PERMISSIVE (default).
+
+## Drift notes
+
+- NONE vs Phase 1 baseline. Exact byte-match on policy body (modulo whitespace) and roles.
+- Phase 1 CSV was captured 2026-04-21; Plan 02-04 capture is the same day, so zero clock drift expected.
+
+## Rollback anchor (paired down migration)
+
+The DOWN migration at supabase/migrations/down/{TS}_family_members_delete_parent_only.sql
+restores this exact `fm_del` definition byte-for-byte:
+  USING ( user_id = auth.uid() OR family_id IN (SELECT id FROM families WHERE parent_id = auth.uid()) )
+  TO public (default; no `TO <role>` clause → PERMISSIVE TO public)
+
+## Live audit (PITFALLS §Pitfall 3.2 — "audit live data")
+
+Multi-child families (role='child') on prod:
+  - 16e04fcc-6494-46f5-bbe6-d881a76bf09b : 3 children
+  - 4c781fb7-677a-45d9-8fd2-74d0083fe9b4 : 3 children (the live family from PROJECT.md)
+  - 3f83d4e1-0db5-49ba-9750-d310ae9b449a : 2 children
+
+Live family breakdown:
+  4c781fb7-677a-45d9-8fd2-74d0083fe9b4 | role=child  | 3 rows
+  4c781fb7-677a-45d9-8fd2-74d0083fe9b4 | role=parent | 2 rows
+
+Implication: After tightening, the 3 zombie child rows in the live family can only be cleaned
+via parent UI (Plan 02-05). Children cannot self-remove. This matches PAIR-03 intent.
