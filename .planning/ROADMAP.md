@@ -1,133 +1,92 @@
-# Roadmap: 혜니캘린더 Production Stabilization (v1.0)
+# Roadmap: 혜니캘린더 v1.1 — Native Deploy & Polish
 
 ## Overview
 
-2026-04-21 프로덕션 감사에서 드러난 9개 결함(+ 연구단계에서 추가된 SOS 감사 로그 1건, 총 28 REQs)을 의존성 순서대로 수정해 부모-아이 안전 앱을 "실제 프로덕션 레벨"로 끌어올린다. 라이브 가족 데이터가 활성 상태이므로 모든 DB 변경은 **Supabase branch에서 Playwright real-services E2E 통과 후 main 프로모션** 한다. 신기능은 금지, `src/App.jsx` 모놀리스 해체도 금지. 5개 phase로 완료하며 — Phase 1은 마이그레이션 위생 기반을 세우고, Phase 2는 모든 것을 가로막는 gateway 3개를 병렬로 뚫고, Phase 3·5는 병렬 스트림으로 부피 있는 작업을 처리하며, Phase 4는 단독 phase로 메모 모델을 섀도우 통합한다.
+v1.0에서 웹·서버 경로(28 REQ + SEC-01 핫픽스)를 프로덕션에 배포 완료. v1.1은 **Android 실기기에서 Phase 5 RL(주위소리듣기)가 실제 작동**하도록 APK 리빌드·Play 배포·live 검증을 완료하고, 몇 가지 서버측 폴리싱(GitHub Actions CI, PWA manifest, 멱등키 cron)을 추가한다. 3 phase, 6 REQ.
+
+> v1.0 아카이브: `.planning/milestones/v1.0/ROADMAP.md`
 
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (1, 2, 3, 4, 5): Planned milestone work
+- Integer phases (6, 7, 8): v1.1 신규 작업 (v1.0 이 1-5 사용)
 - Decimal phases (X.Y): Reserved for urgent insertions via `/gsd-insert-phase`
 
-- [ ] **Phase 1: Migration Hygiene & Baseline** - `supabase/migrations/down/` 구조 · 드리프트 재조정 · 환경 스냅샷 · 베이스라인 태깅 (no REQ-IDs)
-- [x] **Phase 2: Unblock Core** - ES256 push-notify · realtime publications · pair code TTL·RLS (parallel ×3)
-- [x] **Phase 3: Client Push & Fetch Hygiene** - `sendInstantPush` idempotency · `fetchSavedPlaces` backoff·circuit breaker (parallel ×2)
-- [x] **Phase 4: Memo Model Unification** - `memo_replies` 단일화 + `memos_legacy` 섀도우 + 수동 read receipt (solo, shadow-running DoD)
-- [x] **Phase 5: UX & Safety Hardening** - pre-pair UI gate · remote listen 감사·FGS·feature flag · SOS press-hold·dedup·감사로그 (parallel ×3)
+- [ ] **Phase 6: Infrastructure & Polish** — GitHub Actions CI + PWA manifest + push_idempotency TTL cron (parallel ×3, 서버만)
+- [ ] **Phase 7: Android Native Build & Submit** — APK 리빌드 + FGS · mic permission 핸들러 완성 + Play 내부 테스트 트랙 업로드 (solo, Android native)
+- [ ] **Phase 8: End-to-End Verification** — 아이 단말 재설치 + remote_listen 라이브 검증 (solo, 사용자 참여 필요)
 
 ## Phase Details
 
-### Phase 1: Migration Hygiene & Baseline
-**Goal**: 라이브 가족 데이터에 영향을 줄 이후 phase들을 위해 마이그레이션 위생과 롤백 기반을 확보한다. 어떤 REQ-ID도 직접 수정하지 않으며, Phase 2~5 전부의 전제 조건이다.
-**Depends on**: Nothing (first phase)
-**Requirements**: (none — infrastructure work; all v1 REQs mapped to Phase 2–5)
-**Success Criteria** (what must be TRUE):
-  1. `supabase/migrations/down/` 디렉터리가 존재하고, 컨벤션을 선언하는 README가 포함되어 있다.
-  2. 루스 `supabase/*.sql` 파일이 `supabase/archive/_deprecated_*.sql` 로 이동되고, `supabase db diff` 가 프로덕션 대비 드리프트를 보고하며, 재조정(reconciliation) 마이그레이션이 Supabase branch에서 한 번 적용된다 (`memos` 누락 컬럼 포함).
-  3. `pg_policies` 스냅샷 + VAPID·FCM 환경변수 스냅샷이 `.planning/research/baselines/` 에 기록되고, 현재 `push-notify` 배포가 `push-notify-baseline-20260421` 태그로 고정된다.
-  4. Supabase branch 재조정 마이그레이션에 대해 Playwright real-services smoke(`playwright.real.config.js`)가 기존 flow(로그인·페어링·꾹·메모 왕복) 회귀 없음을 증명한다.
-**Plans**: 5 plans
-**Research required for planning**: No (standard DevOps hygiene; no novel patterns)
-
-Plans:
-- [x] 01-01-PLAN.md — Archive loose supabase/*.sql (12 files) into supabase/archive/_deprecated_*.sql + author archive README (D-01, D-02)
-- [x] 01-02-PLAN.md — Create supabase/migrations/down/ directory + README declaring up↔down pairing + BEGIN/COMMIT conventions (D-03, D-04)
-- [x] 01-03-PLAN.md — Capture supabase db diff; author reconciliation migration + paired down file with memos.created_at/user_id/user_role (D-05, D-06, D-07)
-- [x] 01-04-PLAN.md — Snapshot pg_policies + env metadata under .planning/research/baselines/; create + push git tag push-notify-baseline-20260421 (D-08, D-09, D-10)
-- [ ] 01-05-PLAN.md — [BLOCKING schema push] Create Supabase branch phase-1-baseline, apply reconciliation migration, run Playwright real-services, 5-min Edge Function log watch (D-11..D-14)
-
-### Phase 2: Unblock Core (Push Gateway · Realtime · Pair Security)
-**Goal**: 모든 하위 phase를 가로막고 있는 세 gateway — (A) `push-notify` ES256 401, (B) `saved_places`·`family_subscription` publication 누락, (C) `pair_code` TTL·회전·단일아이·self-unpair RLS — 를 disjoint한 3개 스트림으로 동시에 뚫는다.
-**Depends on**: Phase 1
-**Requirements**: PUSH-01, RT-01, RT-02, RT-03, RT-04, PAIR-01, PAIR-02, PAIR-03, PAIR-04
-**Success Criteria** (what must be TRUE):
-  1. 유효한 ES256 JWT를 실은 `curl` 호출이 `push-notify` Edge Function에서 2xx로 응답하고(부모/아이 세션 모두), 기존 `push_subscriptions` 엔트리는 VAPID 교체 없이 그대로 유효하다 (PUSH-01 달성).
-  2. Supabase Realtime WebSocket 프레임에서 `saved_places:${familyId}` · `family_subscription:${familyId}` 채널이 `status:ok` 를 받고, 각 테이블의 INSERT·UPDATE가 `postgres_changes` 이벤트로 30초 이내 아이/부모 세션에 도달한다 (RT-01~04 달성).
-  3. 만료된 `pair_code` 로 `join_family` RPC 호출 시 명시적 에러를 반환하고, 기존(grandfathered) 페어 코드는 계속 redeem되며, 부모 UI에서 TTL 카운트다운 + 수동 회전 버튼이 작동한다 (PAIR-01 달성).
-  4. 아이 세션이 `family_members` 자기 row DELETE를 시도하면 RLS 403이 반환되고, 좀비 아이 row 정리는 부모 UI의 해제 버튼을 통해서만 가능하다 (PAIR-02·03·04 달성).
-  5. **Supabase branch 검증 스텝**: 세 스트림의 마이그레이션이 `supabase branches create phase-2-*` 에서 적용되고 5분 프로덕션 스모크가 Edge Function 로그 경고 0건 기록 / **Playwright E2E 커버리지 추가**: `playwright.real.config.js` 가 PUSH-01·RT-01~03·PAIR-01~03 각각의 happy/failure path를 검증한다.
-**Plans**: 5 plans
-**Research required for planning**: Yes — `/gsd-research-phase` needed for Stream A (VAPID 연속성·OEM `direct_boot_ok`) and Stream C (`join_family` RPC baseline 복원 — 루스 SQL). Stream B (publication ALTER) 은 4줄 표준 SQL, research 불필요.
-
-Plans:
-- [x] 02-01-PLAN.md — Stream A (Wave 1): push-notify ES256 in-function getClaims + push_idempotency table + v31 deploy (PUSH-01)
-- [x] 02-02-PLAN.md — Stream B (Wave 1): publications ADD + REPLICA IDENTITY FULL + NOTIFY pgrst + sync.js per-table channels (RT-01, RT-02, RT-03, RT-04)
-- [x] 02-03-PLAN.md — Stream C (Wave 1, SQL): pair_code_expires_at column + join_family TTL+suffix + regenerate_pair_code RPC (PAIR-01, PAIR-02)
-- [x] 02-04-PLAN.md — Stream C (Wave 2, RLS): family_members DELETE policy tightened to parent-only (PAIR-03)
-- [x] 02-05-PLAN.md — Stream C (Wave 2, UI): PairingModal TTL countdown + regenerate button + ChildPairInput expired-error branch (PAIR-01 UI, PAIR-04)
-
-### Phase 3: Client Push & Fetch Hygiene
-**Goal**: Phase 2가 서버/인프라를 연 후, 클라이언트 쪽에서 중복 발송·무한 재시도·영수증 공백을 정리한다. 두 스트림은 서로 다른 파일을 건드려 병렬 가능.
-**Depends on**: Phase 2 (PUSH-01 이후에만 PUSH-02~04의 idempotency 체인이 의미를 가짐; RT-01 이후에만 RES-01의 backoff가 실제 404 경로를 대상으로 함)
-**Requirements**: PUSH-02, PUSH-03, PUSH-04, RES-01, RES-02
-**Success Criteria** (what must be TRUE):
-  1. 동일 `Idempotency-Key` 를 30초 내 2회 호출해도 FCM·Web Push 각각 **정확히 1회** 전달된다(`push_idempotency` unique-violation으로 dedup); body-embedded mirror 로 sendBeacon 경로도 dedup된다 (PUSH-02).
-  2. 수신자(push_subscriptions·fcm_tokens) 0건인 가족에 대해 `push-notify` 가 `pending_notifications` 에 1행을 적재하고, 모든 발송은 delivered/failed 상태를 같은 테이블(또는 telemetry 테이블)에 기록한다 (PUSH-03, PUSH-04).
-  3. `saved_places` REST가 404/5xx 를 반환할 때 `fetchSavedPlaces` 는 exponential backoff(2s→4s→8s, 최대 5분)를 적용하고, 60초 내 3회 연속 실패 시 5분 회로 차단을 발동하며, 콘솔 에러 스팸 없이 UI 에러 배너 하나로 관찰 가능하다 (RES-01, RES-02).
-  4. **Supabase branch 검증 스텝**: `push_idempotency` 테이블 마이그레이션이 branch에서 확인되고, dedup 유니크 제약이 실제 충돌 케이스에서 예상대로 동작함 / **Playwright E2E 커버리지 추가**: 꾹/알림 이중 클릭·네트워크 빠른 연타 → 정확히 1회 전달, `saved_places` 404 주입 → 회로 차단 발동.
+### Phase 6: Infrastructure & Polish
+**Goal**: Phase 7(Android 빌드)과 일반 운영을 위한 기반을 동시 해결. 세 스트림 disjoint, 전부 server-only, 병렬 가능.
+**Depends on**: Nothing (v1.0 아카이브 + SEC-01 이미 live)
+**Requirements**: CI-01, PWA-01, IDEMP-TTL-01
+**Success Criteria**:
+  1. `main` push 시 GitHub Actions 가 APK 아티팩트 빌드 성공 (`.github/workflows/android-apk.yml`), Actions Artifacts 에서 다운로드 가능 (CI-01).
+  2. `curl -I https://hyenicalendar.com/manifest.json` 이 200 반환, 브라우저 콘솔 `Manifest fetch ... 403` 경고 소멸 (PWA-01).
+  3. `public.push_idempotency` row 수가 24시간 이후 자동 감소. pg_cron `cleanup_idempotency` job 등록 확인 + 48h 이후 DB에서 0 row (IDEMP-TTL-01).
 **Plans**: TBD
-**Research required for planning**: No — idempotency(MDN/Stripe/IETF)와 exponential backoff+circuit breaker는 산업 표준 패턴, SUMMARY Research Flags가 '표준 패턴' 분류.
+**Research required**: No (전부 표준 패턴 — GitHub Actions Android 빌드, Vercel rewrites, pg_cron)
 
 Plans:
-- [x] 03-PLAN.md — Combined plan+execute (low-risk client-only phase): Stream A (PUSH-02/03/04) sendInstantPush single-call Idempotency-Key + push-notify v33 dedup + pending_notifications.delivery_status/idempotency_key columns; Stream B (RES-01/02) fetchSavedPlaces breaker+backoff + single UI banner. 5 REQ-IDs closed in one combined SUMMARY (`03-SUMMARY.md`).
+- [ ] 06-01: TBD — Stream A (CI-01)
+- [ ] 06-02: TBD — Stream B (PWA-01)
+- [ ] 06-03: TBD — Stream C (IDEMP-TTL-01)
 
-### Phase 4: Memo Model Unification
-**Goal**: `memos`/`memo_replies` 이원화된 메모 모델을 `memo_replies` 중심으로 통합하되, 라이브 데이터 손실 위험을 이원화해 **"phase 완료 = shadow-running with read-parity"** 로 정의한다. legacy DROP은 v1.1로 예약. 14개 line region + SQL + `sync.js` 를 건드려 단독 phase 할당.
-**Depends on**: Phase 2 (RT-03 에 `memos`/`memo_replies` 가 이미 포함돼야 postgres_changes로 실측 가능)
-**Requirements**: MEMO-01, MEMO-02, MEMO-03
-**Success Criteria** (what must be TRUE):
-  1. 마이그레이션 후 `memos_legacy_20260421` 스냅샷 테이블이 존재하고, 이전 `memos` 모든 행이 `origin` 컬럼(`'legacy_memo'`)과 함께 `memo_replies` 에 통합되며 row-count + sender 속성(user_id·user_role) 패리티가 100% 이다 (MEMO-01, MEMO-03).
-  2. 메모 "읽음" 은 사용자가 뷰포트에 3초 이상 노출했을 때만 서버 상태 업데이트되고, 수신 즉시 auto-read 경로는 제거된다(알림 프리뷰 노출로는 읽음 표시되지 않음) (MEMO-02).
-  3. `memos` 는 DROP되지 않고 30일간 VIEW로 유지되어 기존 읽기 호출이 깨지지 않는다; v1.1 에 DROP 예약 항목이 PROJECT.md / Deferred items 에 기록된다.
-  4. **Supabase branch 검증 스텝**: 마이그레이션 + dual-write가 branch에서 14일 shadow-parity 관찰 가능한 상태로 배포되고, production 프로모션 후 5분 스모크 clean / **Playwright E2E 커버리지 추가**: 부모→아이 메모 + 아이 reply + 3초 뷰포트 read receipt, `memos` VIEW 경유 legacy 읽기가 새 `memo_replies` 경로와 동일 결과.
+### Phase 7: Android Native Build & Submit
+**Goal**: Capacitor 8 기반 Android APK 를 v1.0 + SEC-01 최신 HEAD 로 리빌드 후 Play Console 내부 테스트 트랙 업로드. Phase 5 Stream B 에서 authored 됐지만 deploy 안 된 native 레이어(`AmbientListenService.java` FGS-microphone + WebView `onPermissionRequest` 수정)를 실기기에서 작동하도록 마무리.
+**Depends on**: Phase 6 (CI-01 이 안정되면 빌드 iterate 빠름)
+**Requirements**: NATIVE-01, NATIVE-02
+**Success Criteria**:
+  1. GitHub Actions 로 빌드된 `app-release.apk` (서명됨) 가 로컬 다운로드 가능하고 `aapt dump badging app-release.apk` 에서 `foregroundServiceType microphone` 포함 + `package: name='com.hyeni.calendar' versionCode=X` 신규 (NATIVE-01).
+  2. `MainActivity.java` 의 `WebChromeClient.onPermissionRequest` 가 auto-grant 없이 runtime permission 체크 후 grant/deny 분기. deny 시 WebView 에 `mic-permission-denied` 이벤트 발송 (NATIVE-01).
+  3. `App.jsx` 에 `window.addEventListener('mic-permission-denied', ...)` 핸들러가 아이 단말에서 토스트/모달로 재요청 UI 표시 (NATIVE-01).
+  4. Google Play Console → Internal testing 에 AAB 업로드 완료, "Policy: Spyware/Stalkerware exception" family-app 카테고리 제출 copy 완성 (NATIVE-02).
+  5. 최소 1명의 internal test tester (`energetk@naver.com` 또는 추가 계정) 초대 완료, 자동 설치 확인.
 **Plans**: TBD
-**Research required for planning**: No — shadow + dual-write는 표준 패턴, SUMMARY가 '표준 패턴' 분류. (단, 14개 line region이므로 plan에서 touch map 필수.)
+**Research required**: Yes — `/gsd-research-phase` for Capacitor 8 FGS-microphone patterns (Android 14 API 34 변경점) + Play Console 제출 가이드
 
 Plans:
-- [x] 04-01-PLAN.md — Combined plan+execute (solo, shadow-running DoD): `memos_legacy_20260421` snapshot (17 rows) + `memo_replies.origin text DEFAULT 'reply'` + `memo_replies.read_by uuid[]` + `memo_replies.user_id DROP NOT NULL` (PITFALLS §P1-6 Rule 1 fix) + 11 legacy memos ingested as origin='legacy_memo' / user_role='legacy'. `public.memos` TABLE retained (CLAUDE.md Phase 4 rule; DROP deferred to v1.1 MEMO-CLEANUP-01). Client: fetchMemoReplies returns origin+read_by; new sendMemo + markMemoReplyRead; IntersectionObserver 3-second viewport read receipt (MEMO-02); auto-read-on-view removed; legacy rows visually distinct + IO-excluded (Rule 2 correctness fix). MEMO-01 / MEMO-02 / MEMO-03 all closed in one combined SUMMARY (`04-01-SUMMARY.md`).
+- [ ] 07-01: TBD — Native rebuild + WebView mic permission flow
+- [ ] 07-02: TBD — AAB signing + Play Console upload + copy
 
-### Phase 5: UX & Safety Hardening
-**Goal**: 마일스톤의 외부 면(사용자 신뢰·플레이 스토어 정책·안전 행위 감사)을 완성한다. 3 스트림은 서로 다른 App.jsx region·native 코드를 건드려 병렬 가능. P2-8은 스토어 리스크가 높아 remote feature flag 뒤에서 **마지막으로** 병합.
-**Depends on**: Phase 3 (PUSH-02~04 가 `sendInstantPush` 경로를 깨끗이 정리한 뒤에야 P2-9의 press-hold·dedup·cooldown을 동일 region에 얹을 수 있음 — L4603–4657 충돌)
-**Requirements**: GATE-01, GATE-02, RL-01, RL-02, RL-03, RL-04, KKUK-01, KKUK-02, KKUK-03, SOS-01
-**Success Criteria** (what must be TRUE):
-  1. 아이가 익명 로그인 직후·페어링 이전 상태에서는 "부모 코드 연결" 단일 화면만 노출되고, 메모/꾹/일정 작성 UI에 접근 불가하다; 페어링 성공 시 전체 UI 전환, 페어링 해제 시 복귀한다 (GATE-01·02).
-  2. 주위소리듣기 세션이 시작되기 **전에** `remote_listen_sessions` 에 1행이 insert되고, 세션 동안 아이 기기에는 **영구 비소거 Android 알림(`setOngoing(true)` + `FOREGROUND_SERVICE_MICROPHONE` FGS type)** + 풀스크린 인디케이터가 유지되며, WebView `PermissionRequest.grant()` 자동 승인이 제거되고 기존 사용자는 honor-legacy-consent 로 1회 `.grant()` 후 명시 동의로 전환된다; `stopRemoteAudioCapture` 실패 시에도 beforeunload + 강제 타임아웃으로 cleanup된다 (RL-01~04).
-  3. 꾹 버튼이 500~1000ms press-and-hold 에서만 발사되고, 우발 터치 SOS 비율이 내부 테스트 <1% 이며, 같은 `dedup_key` 를 60초 내 재수신 시 오버레이·진동은 1회만 발생하고, 서버사이드 쿨다운(Edge Function 또는 DB trigger)이 발신자당 5초에 1회를 초과한 broadcast/push를 거부한다 (KKUK-01·02·03).
-  4. 모든 꾹 발송이 `sos_events` 불변 감사 로그(insert-only RLS; service-role만 UPDATE/DELETE)에 1행 기록되고, `client_request_hash` · `delivery_status` · `receiver_user_ids[]` 가 포함되어 PIPA·OWASP MASTG 안전 행위 감사 요건을 충족한다 (SOS-01).
-  5. **Remote feature flag 킬 스위치**가 `family_subscription.runtime_flags`(또는 대체 경로)를 통해 P2-8을 APK 재빌드 없이 비활성화할 수 있으며, 프로덕션 머지 후 flag off→on 왕복이 검증된다.
-  6. **Supabase branch 검증 스텝**: 세 스트림의 마이그레이션·네이티브 변경이 Supabase branch + Android 내부 테스트 트랙에서 검증되고 Play Store 정책 자기 진단(스파이웨어 면제) 체크리스트 통과 / **Playwright E2E 커버리지 추가**: 페어링 전 UI gate, 주위소리듣기 audit row + 인디케이터 가시성, press-hold 500ms 미만 무시·정확 600ms 발사·연속 연타 서버 쿨다운 거부.
+### Phase 8: End-to-End Verification
+**Goal**: 실제 아이 단말에 새 APK 설치 후 부모 → 아이 remote_listen 전체 흐름 live 검증. v1.0 에서 "human_needed" 로 분류된 항목 + v1.1 NATIVE-03 을 동시 해결.
+**Depends on**: Phase 7
+**Requirements**: NATIVE-03
+**Success Criteria** (사용자가 실기기에서 관찰):
+  1. 아이 단말에 새 APK 설치 + 로그인 성공 (realtime WebSocket 연결, `family_members` row 확인).
+  2. 부모가 주위소리듣기 트리거 → 15초 이내 아이 단말 앱 깨어남 (백그라운드 → 포그라운드 또는 silent FCM via FGS).
+  3. 아이 화면에 빨간 배너 `🎤 부모님이 주위 소리를 듣고 있어요` 표시 + Android persistent notification `주변 소리 연결 중`.
+  4. getUserMedia 마이크 권한 프롬프트 → 허용 → `audio_chunk` broadcast 시작 → 부모 기기에서 실제 오디오 재생 (5+ 초 연속).
+  5. 부모가 중단 버튼 누름 또는 타임아웃 → `remote_listen_sessions` 테이블에 `started_at, ended_at, duration_ms, end_reason='user_stopped'` 채워진 row 1개 존재.
+  6. (선택) 마이크 거부 시: `mic-permission-denied` JS 이벤트 → UI 피드백 → 세션 `end_reason='permission_denied'` 기록.
+  7. 세션 종료 후 아이 측 배너 + persistent notification 자동 소멸.
 **Plans**: TBD
-**Research required for planning**: Yes — `/gsd-research-phase` needed for Stream B (Android `FOREGROUND_SERVICE_MICROPHONE` manifest specifics + Play Store family-exception 제출 카피) and Stream C (`sos_events` 스키마 + retention + PIPA 체크리스트). Stream A (pre-pair gate) 는 순수 React early-return, research 불필요.
+**Research required**: No (검증 단계, 기존 구현 확인용)
 
 Plans:
-- [x] 05-01-PLAN.md — Combined plan+execute (all 3 streams in one plan to match Phase 3/4 precedent). SQL migration `20260421113053_phase5_safety_tables_and_rpc` applied live: `remote_listen_sessions` (family-scoped SELECT/INSERT + owner-scoped UPDATE RLS), `family_subscription.remote_listen_enabled` kill switch (default TRUE), `sos_events` immutable insert-only RLS, `kkuk_check_cooldown` SECURITY DEFINER RPC. `src/App.jsx` GATE-01/02 early-return, RL-01..04 audit-row-before-capture + feature-flag guard + indicator banner + beforeunload/pagehide cleanup, KKUK-01..03 press-hold + crypto.randomUUID dedup_key + LRU Map + fail-open cooldown RPC, SOS-01 audit append. Android native authored (D-B06): MainActivity mic auto-grant removed, AmbientListenService FGS-microphone stub, AndroidManifest permission + service declaration. APK rebuild + Play submission deferred to v1.1 native-deploy. GATE-01 / GATE-02 / RL-01 / RL-02 / RL-03 / RL-04 / KKUK-01 / KKUK-02 / KKUK-03 / SOS-01 all closed in one combined SUMMARY (`05-01-SUMMARY.md`).
+- [ ] 08-01: TBD — live smoke + DB evidence capture
+
+## Milestone Lifecycle
+
+Phase 8 성공 = v1.1 완료 조건. 이후:
+1. `/gsd-audit-milestone` 실행 → 6/6 REQ 검증
+2. `/gsd-complete-milestone v1.1` → `.planning/milestones/v1.1/` 아카이브
+3. v1.2 마일스톤 킥오프 제안 (OBS-01..03 + 선택적 UX-01..03 + MEMO-CLEANUP-01)
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+**Execution Order:** 6 → 7 → 8 (순차, Phase 6 만 내부 parallel)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Migration Hygiene & Baseline | 5/5 | Complete ✅ | 2026-04-21 |
-| 2. Unblock Core | 5/5 | Complete ✅ | 2026-04-21 |
-| 3. Client Push & Fetch Hygiene | 1/1 | Complete ✅ | 2026-04-21 |
-| 4. Memo Model Unification | 1/1 | Complete ✅ (shadow-running) | 2026-04-21 |
-| 5. UX & Safety Hardening | 1/1 | Complete ✅ (combined plan+execute, v1.1 native-deploy caveat) | 2026-04-21 |
+| 6. Infrastructure & Polish | 0/3 | Not started | - |
+| 7. Android Native Build & Submit | 0/2 | Not started | - |
+| 8. End-to-End Verification | 0/1 | Not started | - |
 
-## Coverage
+---
 
-- **v1 requirements:** 28 total (SOS-01 added from research synthesis)
-- **Mapped to phases:** 28
-- **Unmapped:** 0
-
-Every v1 REQ-ID maps to exactly one phase. Phase 1 intentionally carries zero REQ-IDs because it is pre-remediation infrastructure hygiene; without it, Phases 2–5 carry unacceptable rollback risk on live production data.
-
-## Non-Negotiable Exit Gates (every phase except Phase 1 where applicable)
-
-1. **Supabase branch verification** — all DB/Edge Function changes applied on `supabase branches create phase-<N>-*`, seeded with test family, 5-min production smoke with Edge Function log watch after `db push` to main.
-2. **Playwright real-services E2E coverage** — `playwright.real.config.js` gains phase-specific specs covering the success criteria; runs green against the Supabase branch before main promotion.
-
-Phase 1 applies gate (1) to its reconciliation migration and gate (2) as regression smoke on existing flows; it does not introduce new feature coverage.
+*Roadmap defined: 2026-04-22*
+*v1.0 archive: `.planning/milestones/v1.0/`*
