@@ -35,7 +35,7 @@ git ls-remote --tags origin push-notify-baseline-20260421
 - `VAPID_PRIVATE_KEY` (or any ECDSA P-256 private key / PEM block)
 - `FCM_SERVICE_ACCOUNT_JSON` / `FCM_PRIVATE_KEY`
 - `KAKAO_CLIENT_SECRET`, `QONVERSION_API_KEY`, or any OAuth / IAP server-side secret
-- Postgres connection strings containing passwords (`postgresql://user:password@host:5432/db`)
+- Postgres connection URIs where the password field is non-empty — always redact to the scheme plus host portion only
 - Production family IDs, user IDs, or any PII (the live prod family UUID is documented in STATE.md / CLAUDE.md only — never mirror it into this directory)
 - Any value stored in Supabase Edge Function secrets or Vercel env vars marked "secret"
 - `SUPABASE_ACCESS_TOKEN` (`sbp_*`) — personal access token, not project-scoped
