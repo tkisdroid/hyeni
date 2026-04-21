@@ -31,10 +31,10 @@
 **Research required for planning**: No (standard DevOps hygiene; no novel patterns)
 
 Plans:
-- [ ] 01-01-PLAN.md — Archive loose supabase/*.sql (12 files) into supabase/archive/_deprecated_*.sql + author archive README (D-01, D-02)
-- [ ] 01-02-PLAN.md — Create supabase/migrations/down/ directory + README declaring up↔down pairing + BEGIN/COMMIT conventions (D-03, D-04)
-- [ ] 01-03-PLAN.md — Capture supabase db diff; author reconciliation migration + paired down file with memos.created_at/user_id/user_role (D-05, D-06, D-07)
-- [ ] 01-04-PLAN.md — Snapshot pg_policies + env metadata under .planning/research/baselines/; create + push git tag push-notify-baseline-20260421 (D-08, D-09, D-10)
+- [x] 01-01-PLAN.md — Archive loose supabase/*.sql (12 files) into supabase/archive/_deprecated_*.sql + author archive README (D-01, D-02)
+- [x] 01-02-PLAN.md — Create supabase/migrations/down/ directory + README declaring up↔down pairing + BEGIN/COMMIT conventions (D-03, D-04)
+- [x] 01-03-PLAN.md — Capture supabase db diff; author reconciliation migration + paired down file with memos.created_at/user_id/user_role (D-05, D-06, D-07)
+- [x] 01-04-PLAN.md — Snapshot pg_policies + env metadata under .planning/research/baselines/; create + push git tag push-notify-baseline-20260421 (D-08, D-09, D-10)
 - [ ] 01-05-PLAN.md — [BLOCKING schema push] Create Supabase branch phase-1-baseline, apply reconciliation migration, run Playwright real-services, 5-min Edge Function log watch (D-11..D-14)
 
 ### Phase 2: Unblock Core (Push Gateway · Realtime · Pair Security)
