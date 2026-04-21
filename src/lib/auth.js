@@ -172,7 +172,7 @@ export async function getMyFamily(userId) {
   if (!membership) {
     const { data: parentFamily, error: parentFamilyError } = await supabase
       .from("families")
-      .select("id, pair_code, parent_name, mom_phone, dad_phone")
+      .select("id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
       .eq("parent_id", userId)
       .limit(1)
       .maybeSingle();
@@ -203,12 +203,13 @@ export async function getMyFamily(userId) {
       myName: parentFamily.parent_name || "부모",
       members: members || [],
       phones: { mom: parentFamily.mom_phone || "", dad: parentFamily.dad_phone || "" },
+      pairCodeExpiresAt: parentFamily.pair_code_expires_at ? new Date(parentFamily.pair_code_expires_at) : null,
     };
   }
 
   const { data: family, error: familyError } = await supabase
     .from("families")
-    .select("id, pair_code, parent_name, mom_phone, dad_phone")
+    .select("id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
     .eq("id", membership.family_id)
     .single();
   if (familyError) console.warn("[getMyFamily] family query failed:", familyError);
@@ -236,6 +237,21 @@ export async function getMyFamily(userId) {
     myName: membership.name,
     members: members || [],
     phones: { mom: family?.mom_phone || "", dad: family?.dad_phone || "" },
+    pairCodeExpiresAt: family?.pair_code_expires_at ? new Date(family.pair_code_expires_at) : null,
+  };
+}
+
+// ── Regenerate pair code (parent only — enforced server-side by regenerate_pair_code RPC) ──
+export async function regeneratePairCode(familyId) {
+  if (!familyId) throw new Error("familyId가 필요해요");
+  const { data, error } = await supabase.rpc("regenerate_pair_code", { p_family_id: familyId });
+  if (error) throw error;
+  // RPC returns TABLE(pair_code text, pair_code_expires_at timestamptz) — array of 1 row
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.pair_code) throw new Error("새 연동 코드 생성에 실패했어요");
+  return {
+    pairCode: row.pair_code,
+    pairCodeExpiresAt: row.pair_code_expires_at ? new Date(row.pair_code_expires_at) : null,
   };
 }
 
