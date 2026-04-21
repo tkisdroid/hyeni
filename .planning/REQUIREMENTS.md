@@ -56,6 +56,7 @@
 - [ ] **KKUK-01**: 꾹 버튼이 **press-and-hold 500~1000ms** 에서만 발사(onMouseDown/onTouchStart 타이머 기반). 우발 터치 방지.
 - [ ] **KKUK-02**: 송신 payload에 UUID `dedup_key` 포함. 수신 측은 `dedup_key`를 LRU로 60초간 보관, 중복 프레임은 1회만 오버레이·진동.
 - [ ] **KKUK-03**: 서버사이드 쿨다운(Edge Function 또는 DB trigger) — 발신자당 5초에 1회만 broadcast/push 허용.
+- [ ] **SOS-01** *(scope expansion from research)*: `sos_events` 불변 감사 로그 테이블 (`id, family_id, sender_user_id, receiver_user_ids[], triggered_at, delivery_status jsonb, client_request_hash text`). Insert-only RLS (service-role만 UPDATE/DELETE 가능). 모든 꾹 발송이 이 테이블에 1행 기록. OWASP MASTG + PIPA 안전 행위 감사 요건 충족.
 
 ## v2 Requirements
 
@@ -109,14 +110,15 @@ Phases는 roadmapper가 생성 후 채워짐. 초기 mapping 계획(가설):
 | GATE-01, GATE-02 | Phase 7 | Pending |
 | RL-01, RL-02, RL-03, RL-04 | Phase 8 | Pending |
 | KKUK-01, KKUK-02, KKUK-03 | Phase 9 | Pending |
+| SOS-01 *(new from research)* | Phase 9 | Pending |
 
 **Coverage (초기 가설):**
-- v1 requirements: 27 total
-- Mapped to phases: 27 (pending roadmap validation)
+- v1 requirements: **28 total** (SOS-01 added from research synthesis)
+- Mapped to phases: 28 (pending roadmap validation)
 - Unmapped: 0
 
-최종 매핑은 roadmapper가 확정.
+최종 매핑은 roadmapper가 확정. SUMMARY.md 가 제안한 4-phase 구조(Pre-Phase 0 마이그레이션 위생 + Phase 1 병렬 P0 + Phase 2 병렬 P1-4/P1-5 + Phase 3 솔로 P1-6 + Phase 4 병렬 P2)가 유력.
 
 ---
 *Requirements defined: 2026-04-21*
-*Last updated: 2026-04-21 after initial definition*
+*Last updated: 2026-04-21 after research synthesis (SOS-01 added)*
