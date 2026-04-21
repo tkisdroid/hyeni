@@ -11,7 +11,7 @@
 - Decimal phases (X.Y): Reserved for urgent insertions via `/gsd-insert-phase`
 
 - [ ] **Phase 1: Migration Hygiene & Baseline** - `supabase/migrations/down/` 구조 · 드리프트 재조정 · 환경 스냅샷 · 베이스라인 태깅 (no REQ-IDs)
-- [ ] **Phase 2: Unblock Core** - ES256 push-notify · realtime publications · pair code TTL·RLS (parallel ×3)
+- [x] **Phase 2: Unblock Core** - ES256 push-notify · realtime publications · pair code TTL·RLS (parallel ×3)
 - [ ] **Phase 3: Client Push & Fetch Hygiene** - `sendInstantPush` idempotency · `fetchSavedPlaces` backoff·circuit breaker (parallel ×2)
 - [ ] **Phase 4: Memo Model Unification** - `memo_replies` 단일화 + `memos_legacy` 섀도우 + 수동 read receipt (solo, shadow-running DoD)
 - [ ] **Phase 5: UX & Safety Hardening** - pre-pair UI gate · remote listen 감사·FGS·feature flag · SOS press-hold·dedup·감사로그 (parallel ×3)
@@ -51,11 +51,11 @@ Plans:
 **Research required for planning**: Yes — `/gsd-research-phase` needed for Stream A (VAPID 연속성·OEM `direct_boot_ok`) and Stream C (`join_family` RPC baseline 복원 — 루스 SQL). Stream B (publication ALTER) 은 4줄 표준 SQL, research 불필요.
 
 Plans:
-- [ ] 02-01-PLAN.md — Stream A (Wave 1): push-notify ES256 in-function getClaims + push_idempotency table + v31 deploy (PUSH-01)
-- [ ] 02-02-PLAN.md — Stream B (Wave 1): publications ADD + REPLICA IDENTITY FULL + NOTIFY pgrst + sync.js per-table channels (RT-01, RT-02, RT-03, RT-04)
+- [x] 02-01-PLAN.md — Stream A (Wave 1): push-notify ES256 in-function getClaims + push_idempotency table + v31 deploy (PUSH-01)
+- [x] 02-02-PLAN.md — Stream B (Wave 1): publications ADD + REPLICA IDENTITY FULL + NOTIFY pgrst + sync.js per-table channels (RT-01, RT-02, RT-03, RT-04)
 - [x] 02-03-PLAN.md — Stream C (Wave 1, SQL): pair_code_expires_at column + join_family TTL+suffix + regenerate_pair_code RPC (PAIR-01, PAIR-02)
 - [x] 02-04-PLAN.md — Stream C (Wave 2, RLS): family_members DELETE policy tightened to parent-only (PAIR-03)
-- [ ] 02-05-PLAN.md — Stream C (Wave 2, UI): PairingModal TTL countdown + regenerate button + ChildPairInput expired-error branch (PAIR-01 UI, PAIR-04)
+- [x] 02-05-PLAN.md — Stream C (Wave 2, UI): PairingModal TTL countdown + regenerate button + ChildPairInput expired-error branch (PAIR-01 UI, PAIR-04)
 
 ### Phase 3: Client Push & Fetch Hygiene
 **Goal**: Phase 2가 서버/인프라를 연 후, 클라이언트 쪽에서 중복 발송·무한 재시도·영수증 공백을 정리한다. 두 스트림은 서로 다른 파일을 건드려 병렬 가능.
@@ -114,8 +114,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Migration Hygiene & Baseline | 3/5 | In progress | - |
-| 2. Unblock Core | 2/5 | In progress | - |
+| 1. Migration Hygiene & Baseline | 5/5 | Complete ✅ | 2026-04-21 |
+| 2. Unblock Core | 5/5 | Complete ✅ | 2026-04-21 |
 | 3. Client Push & Fetch Hygiene | 0/2 | Not started | - |
 | 4. Memo Model Unification | 0/1 | Not started | - |
 | 5. UX & Safety Hardening | 0/3 | Not started | - |

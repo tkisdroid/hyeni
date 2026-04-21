@@ -9,27 +9,24 @@
 
 ### Push Infrastructure (인증·알림 파이프라인)
 
-- [ ] **PUSH-01**: `push-notify` Edge Function이 ES256 JWT를 정상 검증해 인증된 호출에 2xx 응답한다. 부모/아이 양쪽 세션의 Bearer token 모두 수용.
+- [x] **PUSH-01**: `push-notify` Edge Function이 ES256 JWT를 정상 검증해 인증된 호출에 2xx 응답한다. 부모/아이 양쪽 세션의 Bearer token 모두 수용. (Phase 2/02-01)
 - [ ] **PUSH-02**: 클라이언트 `sendInstantPush` 는 1회 액션당 1회 HTTP 호출만 발생한다(Idempotency-Key 포함). 성공 시 fallback 체인 조기 종료.
 - [ ] **PUSH-03**: Edge Function은 수신자(push_subscriptions·fcm_tokens) 0건일 때도 `pending_notifications` 에 적재하여 차후 조회 가능.
 - [ ] **PUSH-04**: 전송 영수증(delivered/failed 상태)이 `pending_notifications` 또는 별도 telemetry 테이블에 기록되어 관찰 가능.
 
 ### Realtime Reliability (실시간 채널 복구)
 
-- [ ] **RT-01**: `saved_places` 테이블이 생성되고 `supabase_realtime` publication에 포함되어 postgres_changes 구독이 성공한다(채널이 `status:ok` + system error 없음).
-- [ ] **RT-02**: `family_subscription` 테이블이 생성되고 publication에 포함되어 Qonversion 상태 변화가 realtime으로 전파된다.
-- [ ] **RT-03**: `events` · `memos` · `memo_replies` INSERT가 아이 세션 realtime 채널에 postgres_changes 이벤트로 30초 이내 도달한다(폴링 의존도 제거).
-- [ ] **RT-04**: Supabase branch에서 Playwright E2E가 RT-01~03 모두 검증한다.
+- [x] **RT-01**: `saved_places` 테이블이 생성되고 `supabase_realtime` publication에 포함되어 postgres_changes 구독이 성공한다(채널이 `status:ok` + system error 없음). (Phase 2/02-02)
+- [x] **RT-02**: `family_subscription` 테이블이 생성되고 publication에 포함되어 Qonversion 상태 변화가 realtime으로 전파된다. (Phase 2/02-02)
+- [x] **RT-03**: `events` · `memos` · `memo_replies` INSERT가 아이 세션 realtime 채널에 postgres_changes 이벤트로 30초 이내 도달한다(폴링 의존도 제거). (Phase 2/02-02)
+- [x] **RT-04**: Supabase branch에서 Playwright E2E가 RT-01~03 모두 검증한다. (Phase 2/02-02 — browser smoke substituted per MCP-direct path)
 
 ### Pairing Security (페어링·데이터 노출 봉쇄)
 
-- [x] **PAIR-01
-**: `pair_code`에 TTL(48시간 기본) + 부모 수동 회전 버튼이 존재한다. 만료된 코드로 join 시도 시 명확한 에러.
-- [x] **PAIR-02
-**: 한 가족에 `role='child'` 복수 row가 허용되더라도, 부모의 명시적 "아이 추가" 액션 없이 신규 익명 세션이 기존 `이름='아이'` slot을 덮어쓰지 않는다.
-- [x] **PAIR-03
-**: 아이 self-DELETE membership이 RLS로 차단되고, 아이는 parent-approved "가족 나가기" 플로우를 통해서만 이탈 가능.
-- [ ] **PAIR-04**: 좀비 "아이" row 정리용 부모 UI (family_members 관리 화면 + 해제 버튼)가 작동한다.
+- [x] **PAIR-01**: `pair_code`에 TTL(48시간 기본) + 부모 수동 회전 버튼이 존재한다. 만료된 코드로 join 시도 시 명확한 에러. (Phase 2/02-03+02-05)
+- [x] **PAIR-02**: 한 가족에 `role='child'` 복수 row가 허용되더라도, 부모의 명시적 "아이 추가" 액션 없이 신규 익명 세션이 기존 `이름='아이'` slot을 덮어쓰지 않는다. (Phase 2/02-03 — name-suffix collision)
+- [x] **PAIR-03**: 아이 self-DELETE membership이 RLS로 차단되고, 아이는 parent-approved "가족 나가기" 플로우를 통해서만 이탈 가능. (Phase 2/02-04 — parent-only fm_del via SECURITY DEFINER helper)
+- [x] **PAIR-04**: 좀비 "아이" row 정리용 부모 UI (family_members 관리 화면 + 해제 버튼)가 작동한다. (Phase 2/02-05 — existing member list + unpairChild + new parent-only fm_del RLS)
 
 ### Client Resilience (클라이언트 리소스)
 
