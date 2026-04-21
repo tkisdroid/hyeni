@@ -35,11 +35,41 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NotificationPlugin.class);
         super.onCreate(savedInstanceState);
 
-        // Allow WebView to access microphone (getUserMedia) + geolocation
+        // Phase 5 RL-03: WebView WebChromeClient no longer auto-grants the
+        // microphone PermissionRequest. Google Play's stalkerware / spyware
+        // policy requires per-session user consent for ambient mic capture;
+        // an unconditional .grant() is policy-violating. We now gate on
+        // OS-level RECORD_AUDIO: if the app already has the OS permission
+        // (which is only true when the user tapped "Allow" on the Android
+        // runtime prompt), the WebView request is forwarded; otherwise we
+        // deny it and dispatch a `mic-permission-denied` DOM event so the JS
+        // side can show consent UI. Geolocation prompts remain auto-approved
+        // because they are gated separately by the Android ACCESS_FINE_LOCATION
+        // runtime permission, which IS prompted in requestCorePermissionsIfNeeded().
+        //
+        // NOTE: a localStorage `hasGrantedAmbientListen` legacy flag would be
+        // the cleanest "honor-legacy-consent" path, but localStorage lives on
+        // the JS side and cannot be read synchronously inside
+        // onPermissionRequest. Since every family using the app has already
+        // been prompted for RECORD_AUDIO at first launch (see
+        // requestCorePermissionsIfNeeded), the OS-permission check is the
+        // functional equivalent of the legacy grant: if the user previously
+        // said "Allow" we forward the request, otherwise we require explicit
+        // consent via JS UI (to be wired in v1.1 native-deploy ticket).
         getBridge().getWebView().setWebChromeClient(new WebChromeClient() {
             @Override
-            public void onPermissionRequest(PermissionRequest request) {
-                request.grant(request.getResources());
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(() -> {
+                    if (hasRecordAudioPermissionGranted()) {
+                        request.grant(request.getResources());
+                    } else {
+                        request.deny();
+                        getBridge().getWebView().evaluateJavascript(
+                            "window.dispatchEvent(new CustomEvent('mic-permission-denied'))",
+                            null
+                        );
+                    }
+                });
             }
 
             @Override
@@ -216,5 +246,17 @@ public class MainActivity extends BridgeActivity {
 
         pendingRemoteListen = false;
         Log.w("MainActivity", "Remote listen microphone permission denied");
+    }
+
+    // Phase 5 RL-03: synchronous check used by the WebChromeClient permission
+    // gate to decide whether the WebView getUserMedia() request should be
+    // forwarded. We deliberately only look at the current OS-level
+    // RECORD_AUDIO grant — we do NOT attempt to re-request it here, because
+    // onPermissionRequest runs on the UI thread during a WebView callback and
+    // cannot block for an async runtime prompt. The runtime prompt is handled
+    // elsewhere by requestCorePermissionsIfNeeded() / handleRemoteListen().
+    private boolean hasRecordAudioPermissionGranted() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED;
     }
 }

@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Phase 5 D-B06 (RL-03): required for AmbientListenService on API 34+ -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -65,6 +67,16 @@
         <service
             android:name=".LocationService"
             android:foregroundServiceType="location"
+            android:exported="false" />
+
+        <!-- Phase 5 D-B06 (RL-03): Ambient listen foreground service.
+             Play Store stalkerware policy requires this as a microphone-type
+             foreground service with a persistent non-dismissable notification
+             while capture is active. Service class is authored this phase but
+             wired through a Capacitor bridge in v1.1 native-deploy. -->
+        <service
+            android:name=".AmbientListenService"
+            android:foregroundServiceType="microphone"
             android:exported="false" />
 
         <!-- FCM Messaging Service -->
