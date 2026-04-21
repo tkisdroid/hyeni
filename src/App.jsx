@@ -3938,6 +3938,10 @@ export default function KidsScheduler() {
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
+    // RES-02: sync degradation banner state. null = healthy; "transient" =
+    // 1+ consecutive failure, retrying soon; "circuit_open" = breaker open,
+    // 5-min cooldown active.
+    const [syncDegraded, setSyncDegraded] = useState(null);
 
     // ── Arrival tracking ───────────────────────────────────────────────────────
     const [arrivedSet, setArrivedSet] = useState(new Set());
@@ -4413,7 +4417,13 @@ export default function KidsScheduler() {
         fetchEvents(familyId).then(map => setEvents(map));
         fetchAcademies(familyId).then(list => setAcademies(list));
         fetchMemos(familyId).then(map => setMemos(map));
-        fetchSavedPlaces(familyId).then(list => setSavedPlaces(list));
+        fetchSavedPlaces(familyId, { meta: true }).then(({ list, breaker }) => {
+            setSavedPlaces(list);
+            // RES-02: surface degraded state on initial load.
+            if (breaker.open) setSyncDegraded("circuit_open");
+            else if (breaker.failures > 0) setSyncDegraded("transient");
+            else setSyncDegraded(null);
+        });
 
         // Subscribe to realtime changes
         realtimeChannel.current = subscribeFamily(familyId, {
@@ -4589,12 +4599,18 @@ export default function KidsScheduler() {
                 if (prevJson !== newJson) { cacheMemos(map); return map; }
                 return prev;
             }));
-            fetchSavedPlaces(familyId).then(list => setSavedPlaces(prev => {
-                const prevJson = JSON.stringify(prev);
-                const newJson = JSON.stringify(list);
-                if (prevJson !== newJson) { cacheSavedPlaces(list); return list; }
-                return prev;
-            }));
+            fetchSavedPlaces(familyId, { meta: true }).then(({ list, breaker }) => {
+                setSavedPlaces(prev => {
+                    const prevJson = JSON.stringify(prev);
+                    const newJson = JSON.stringify(list);
+                    if (prevJson !== newJson) { cacheSavedPlaces(list); return list; }
+                    return prev;
+                });
+                // RES-02: drive banner state from breaker telemetry.
+                if (breaker.open) setSyncDegraded("circuit_open");
+                else if (breaker.failures > 0) setSyncDegraded("transient");
+                else setSyncDegraded(null);
+            });
         }, 30000);
         return () => clearInterval(poll);
     }, [familyId]);
@@ -5938,6 +5954,21 @@ export default function KidsScheduler() {
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {notification.msg}
+                </div>
+            )}
+
+            {/* RES-02: sync degradation banner. Single small pill at top under the
+                notification toast. Replaces the console [sync] spam. */}
+            {syncDegraded && (
+                <div style={{
+                    position: "fixed", top: 64, left: "50%", transform: "translateX(-50%)",
+                    background: syncDegraded === "circuit_open" ? "#FED7AA" : "#FEF3C7",
+                    color: syncDegraded === "circuit_open" ? "#9A3412" : "#92400E",
+                    borderRadius: 16, padding: "8px 14px", fontWeight: 600, fontSize: 12, boxShadow: "0 2px 10px rgba(0,0,0,0.08)", zIndex: 240, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                }}>
+                    {syncDegraded === "circuit_open"
+                        ? "일시적으로 연결이 불안정해요 — 5분 뒤 자동 재시도"
+                        : "일부 기능을 일시적으로 불러오지 못했어요 — 잠시 뒤 자동 재시도합니다"}
                 </div>
             )}
 
