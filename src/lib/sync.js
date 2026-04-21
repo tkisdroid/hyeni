@@ -235,6 +235,12 @@ export async function fetchAcademies(familyId) {
   return list;
 }
 
+// DEPRECATED (Phase 4 · MEMO-01 shadow-running DoD): reads the legacy
+// `public.memos` table. The table is NOT dropped this milestone — it is
+// retained read-only for 30 days while the client migrates to memo_replies
+// for all new writes. Callers should prefer fetchMemoReplies() (below) which
+// returns the unified memo thread including ingested legacy_memo rows.
+// v1.1 MEMO-CLEANUP-01 will DROP public.memos and remove this function.
 export async function fetchMemos(familyId) {
   const { data, error } = await supabase
     .from("memos")
@@ -393,12 +399,19 @@ export async function upsertMemo(familyId, dateKey, content) {
   if (error) throw error;
 }
 
-// ── Memo Replies ────────────────────────────────────────────────────────────
-
+// ── Memo Replies (Phase 4 · MEMO-01 unified path) ───────────────────────────
+//
+// fetchMemoReplies now returns origin + read_by alongside the existing
+// columns so the client can:
+//   · render 'legacy_memo' rows with a distinct label ("👶 예전 메모")
+//   · drive MEMO-02 viewport-read-receipt off of row.read_by
+// All new organic writes go through sendMemo() / insertMemoReply() with an
+// explicit origin — the default 'reply' DB-side default still catches any
+// pre-Phase-4 code path that somehow slips through.
 export async function fetchMemoReplies(familyId, dateKey) {
   const { data, error } = await supabase
     .from("memo_replies")
-    .select("id, user_id, user_role, content, created_at")
+    .select("id, user_id, user_role, content, created_at, origin, read_by")
     .eq("family_id", familyId)
     .eq("date_key", dateKey)
     .order("created_at", { ascending: true });
@@ -406,15 +419,35 @@ export async function fetchMemoReplies(familyId, dateKey) {
   return data || [];
 }
 
-export async function insertMemoReply(familyId, dateKey, userId, userRole, content) {
+// Back-compat wrapper — keeps the 5-arg signature that App.jsx already uses.
+// Phase 4 adds an optional `origin` parameter. New call sites should pass
+// 'original' for the first post of the day or 'reply' for subsequent posts
+// on the same (family_id, date_key). The DB default is 'reply' if omitted.
+export async function insertMemoReply(familyId, dateKey, userId, userRole, content, origin) {
+  const row = { family_id: familyId, date_key: dateKey, user_id: userId, user_role: userRole, content };
+  if (origin) row.origin = origin;
   const { error } = await supabase
     .from("memo_replies")
-    .insert({ family_id: familyId, date_key: dateKey, user_id: userId, user_role: userRole, content });
+    .insert(row);
   if (error) throw error;
+}
+
+// sendMemo — the Phase 4 unified send path. Writes go ONLY to memo_replies
+// from here on; public.memos is read-mostly and will be DROPPED in v1.1
+// (MEMO-CLEANUP-01). The origin distinction between 'original' and 'reply'
+// is non-critical for v1.0 semantics; we default to 'reply' so legacy
+// sort/filter logic (origin != 'legacy_memo') keeps working.
+export async function sendMemo(familyId, dateKey, content, userId, userRole, origin = "reply") {
+  return insertMemoReply(familyId, dateKey, userId, userRole, content, origin);
 }
 
 // ── Memo Read Status ────────────────────────────────────────────────────────
 
+// DEPRECATED (Phase 4 · MEMO-02): writes to public.memos.read_by. Kept so
+// existing App.jsx callers don't break on partial rollouts, but the send
+// path no longer creates memos rows and the auto-read-on-receipt caller
+// has been removed. Prefer markMemoReplyRead() for the new per-reply
+// 3-second viewport flow. Scheduled for removal in v1.1 MEMO-CLEANUP-01.
 export async function markMemoRead(familyId, dateKey, userId) {
   // Atomic: use RPC to append userId only if not already present
   const { error } = await supabase.rpc("mark_memo_read", {
@@ -423,6 +456,31 @@ export async function markMemoRead(familyId, dateKey, userId) {
     p_user_id: userId,
   });
   if (error) console.error("[markMemoRead]", error);
+}
+
+// markMemoReplyRead (Phase 4 · MEMO-02):
+// Append `userId` to memo_replies.read_by ONLY AFTER the user has had the
+// reply visible in their viewport for ≥3 seconds (IntersectionObserver in
+// App.jsx). Read-modify-write is acceptable here because read_by grows
+// monotonically — last-writer-wins on the merged union is still correct.
+// Idempotent: the dedup step (Array.from(Set)) guarantees we don't balloon
+// the array on repeated triggers.
+export async function markMemoReplyRead(replyId, userId) {
+  if (!replyId || !userId) return;
+  const { data, error: selErr } = await supabase
+    .from("memo_replies")
+    .select("read_by")
+    .eq("id", replyId)
+    .single();
+  if (selErr) { console.error("[markMemoReplyRead:select]", selErr); return; }
+  const current = data?.read_by || [];
+  if (current.includes(userId)) return;        // fast-path: already marked
+  const merged = Array.from(new Set([...current, userId]));
+  const { error: updErr } = await supabase
+    .from("memo_replies")
+    .update({ read_by: merged })
+    .eq("id", replyId);
+  if (updErr) console.error("[markMemoReplyRead:update]", updErr);
 }
 
 // ── Child location (DB-persisted) ───────────────────────────────────────────
