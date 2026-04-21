@@ -40,9 +40,9 @@
 
 ### Memo Model Unification (메모 모델 정리)
 
-- [ ] **MEMO-01**: 메모 데이터 모델을 단일(memo_replies 중심)로 통합. `memos` 테이블은 deprecate되고 마이그레이션으로 잔존 데이터를 memo_replies로 이관.
-- [ ] **MEMO-02**: 읽음(read) 표시는 **사용자가 해당 메모가 뷰포트에 3초 이상 노출**되었을 때만 server-side 업데이트. 수신 시 자동 마크 제거.
-- [ ] **MEMO-03**: 발신자 식별(user_id + user_role)이 모든 메모 레코드에 보존.
+- [x] **MEMO-01**: 메모 데이터 모델을 단일(memo_replies 중심)로 통합. `memos` 테이블은 deprecate되고 마이그레이션으로 잔존 데이터를 memo_replies로 이관.
+- [x] **MEMO-02**: 읽음(read) 표시는 **사용자가 해당 메모가 뷰포트에 3초 이상 노출**되었을 때만 server-side 업데이트. 수신 시 자동 마크 제거.
+- [x] **MEMO-03**: 발신자 식별(user_id + user_role)이 모든 메모 레코드에 보존.
 
 ### Pre-Pair UI Gate (페어링 전 UI 차단)
 
@@ -121,9 +121,9 @@
 | PAIR-04 | Phase 2 | C (P0-3) | Pending |
 | RES-01 | Phase 3 | B (P1-5) | Complete |
 | RES-02 | Phase 3 | B (P1-5) | Complete |
-| MEMO-01 | Phase 4 | solo (P1-6) | Pending |
-| MEMO-02 | Phase 4 | solo (P1-6) | Pending |
-| MEMO-03 | Phase 4 | solo (P1-6) | Pending |
+| MEMO-01 | Phase 4 | solo (P1-6) | Complete ✅ (shadow-running; 04-01-SUMMARY.md) |
+| MEMO-02 | Phase 4 | solo (P1-6) | Complete ✅ (shadow-running; 04-01-SUMMARY.md) |
+| MEMO-03 | Phase 4 | solo (P1-6) | Complete ✅ (shadow-running; 04-01-SUMMARY.md) |
 | GATE-01 | Phase 5 | A (P2-7) | Pending |
 | GATE-02 | Phase 5 | A (P2-7) | Pending |
 | RL-01 | Phase 5 | B (P2-8) | Pending |

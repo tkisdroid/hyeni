@@ -13,7 +13,7 @@
 - [ ] **Phase 1: Migration Hygiene & Baseline** - `supabase/migrations/down/` 구조 · 드리프트 재조정 · 환경 스냅샷 · 베이스라인 태깅 (no REQ-IDs)
 - [x] **Phase 2: Unblock Core** - ES256 push-notify · realtime publications · pair code TTL·RLS (parallel ×3)
 - [x] **Phase 3: Client Push & Fetch Hygiene** - `sendInstantPush` idempotency · `fetchSavedPlaces` backoff·circuit breaker (parallel ×2)
-- [ ] **Phase 4: Memo Model Unification** - `memo_replies` 단일화 + `memos_legacy` 섀도우 + 수동 read receipt (solo, shadow-running DoD)
+- [x] **Phase 4: Memo Model Unification** - `memo_replies` 단일화 + `memos_legacy` 섀도우 + 수동 read receipt (solo, shadow-running DoD)
 - [ ] **Phase 5: UX & Safety Hardening** - pre-pair UI gate · remote listen 감사·FGS·feature flag · SOS press-hold·dedup·감사로그 (parallel ×3)
 
 ## Phase Details
@@ -85,7 +85,7 @@ Plans:
 **Research required for planning**: No — shadow + dual-write는 표준 패턴, SUMMARY가 '표준 패턴' 분류. (단, 14개 line region이므로 plan에서 touch map 필수.)
 
 Plans:
-- [ ] 04-01: TBD — Solo: P1-6 `memos_legacy_20260421` 스냅샷 + `origin` 컬럼 + `memo_replies` dual-write + `memos` VIEW + 수동 read receipt (MEMO-01~03)
+- [x] 04-01-PLAN.md — Combined plan+execute (solo, shadow-running DoD): `memos_legacy_20260421` snapshot (17 rows) + `memo_replies.origin text DEFAULT 'reply'` + `memo_replies.read_by uuid[]` + `memo_replies.user_id DROP NOT NULL` (PITFALLS §P1-6 Rule 1 fix) + 11 legacy memos ingested as origin='legacy_memo' / user_role='legacy'. `public.memos` TABLE retained (CLAUDE.md Phase 4 rule; DROP deferred to v1.1 MEMO-CLEANUP-01). Client: fetchMemoReplies returns origin+read_by; new sendMemo + markMemoReplyRead; IntersectionObserver 3-second viewport read receipt (MEMO-02); auto-read-on-view removed; legacy rows visually distinct + IO-excluded (Rule 2 correctness fix). MEMO-01 / MEMO-02 / MEMO-03 all closed in one combined SUMMARY (`04-01-SUMMARY.md`).
 
 ### Phase 5: UX & Safety Hardening
 **Goal**: 마일스톤의 외부 면(사용자 신뢰·플레이 스토어 정책·안전 행위 감사)을 완성한다. 3 스트림은 서로 다른 App.jsx region·native 코드를 건드려 병렬 가능. P2-8은 스토어 리스크가 높아 remote feature flag 뒤에서 **마지막으로** 병합.
@@ -115,8 +115,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Migration Hygiene & Baseline | 5/5 | Complete ✅ | 2026-04-21 |
 | 2. Unblock Core | 5/5 | Complete ✅ | 2026-04-21 |
-| 3. Client Push & Fetch Hygiene | 0/2 | Not started | - |
-| 4. Memo Model Unification | 0/1 | Not started | - |
+| 3. Client Push & Fetch Hygiene | 1/1 | Complete ✅ | 2026-04-21 |
+| 4. Memo Model Unification | 1/1 | Complete ✅ (shadow-running) | 2026-04-21 |
 | 5. UX & Safety Hardening | 0/3 | Not started | - |
 
 ## Coverage
