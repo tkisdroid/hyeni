@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
-import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
+import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, NOTIFICATION_MINUTE_OPTIONS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { FEATURES } from "./lib/features.js";
@@ -1978,7 +1978,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 // ─────────────────────────────────────────────────────────────────────────────
 // Memo Section with send, replies, read indicator
 // ─────────────────────────────────────────────────────────────────────────────
-function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode }) {
+function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode, onReplyRef }) {
     const [inputText, setInputText] = useState("");
     const [memoSent, setMemoSent] = useState(false);
     const memoText = memoValue || "";
@@ -2065,15 +2065,31 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
                 </div>
             </div>
 
-            {/* Chat area */}
+            {/* Chat area — Phase 4 MEMO-01: renders memo_replies including
+                origin='legacy_memo' rows with a distinct label. The `ref`
+                prop on each bubble hooks the 3-second viewport observer
+                (MEMO-02) wired in the parent component. */}
             <div style={{ padding: "12px 16px", minHeight: 60 }}>
                 {hasMessages ? replies.map(r => {
-                    const isMe = r.user_id === myUserId;
+                    const isLegacy = r.origin === "legacy_memo" || r.user_role === "legacy";
+                    const isMe = !isLegacy && r.user_id === myUserId;
+                    const avatarBg = isLegacy ? "#FEF3C7" : (r.user_role === "parent" ? "#DBEAFE" : "#FCE7F3");
+                    const avatarGlyph = isLegacy ? "👶" : (r.user_role === "parent" ? "👩" : "🐰");
+                    const bubbleBg = isLegacy ? "#FFF7ED" : (isMe ? "#E879A0" : "#F3F4F6");
+                    const bubbleColor = isLegacy ? "#92400E" : (isMe ? "white" : "#374151");
+                    const bubbleRadius = isLegacy ? "12px" : (isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px");
                     return (
-                        <div key={r.id} style={{ display: "flex", gap: 8, marginBottom: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-start" }}>
-                            <div style={{ width: 28, height: 28, borderRadius: 14, background: r.user_role === "parent" ? "#DBEAFE" : "#FCE7F3", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{r.user_role === "parent" ? "👩" : "🐰"}</div>
+                        <div
+                            key={r.id}
+                            data-memo-reply-id={r.id}
+                            ref={el => { if (el && !isLegacy && onReplyRef) onReplyRef(el, r.id); }}
+                            style={{ display: "flex", gap: 8, marginBottom: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-start" }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 14, background: avatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{avatarGlyph}</div>
                             <div style={{ maxWidth: "75%" }}>
-                                <div style={{ background: isMe ? "#E879A0" : "#F3F4F6", color: isMe ? "white" : "#374151", borderRadius: isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px", padding: "10px 14px", fontSize: 14, lineHeight: 1.5, fontFamily: FF }}>{r.content}</div>
+                                {isLegacy && (
+                                    <div style={{ fontSize: 10, color: "#B45309", marginBottom: 3, fontWeight: 700 }}>예전 메모</div>
+                                )}
+                                <div style={{ background: bubbleBg, color: bubbleColor, borderRadius: bubbleRadius, padding: "10px 14px", fontSize: 14, lineHeight: 1.5, fontFamily: FF, border: isLegacy ? "1px dashed #FBBF24" : "none" }}>{r.content}</div>
                                 <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 3, textAlign: isMe ? "right" : "left" }}>
                                     {new Date(r.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                                 </div>
@@ -2107,7 +2123,7 @@ function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies,
 // ─────────────────────────────────────────────────────────────────────────────
 // Day Timetable (kid-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
-function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode }) {
+function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onReplyRef }) {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -2118,7 +2134,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                 <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "#D1D5DB" : "#F9A8D4" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
                 <div style={{ fontSize: isParentMode ? 13 : 14, color: "#E5E7EB", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
             </div>
-            <MemoSection memoValue={memoValue} onMemoChange={onMemoChange} onMemoBlur={onMemoBlur} onMemoSend={onMemoSend} replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} />
+            <MemoSection memoValue={memoValue} onMemoChange={onMemoChange} onMemoBlur={onMemoBlur} onMemoSend={onMemoSend} replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} onReplyRef={onReplyRef} />
         </div>
     );
 
@@ -2278,6 +2294,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                 readBy={memoReadBy}
                 myUserId={myUserId}
                 isParentMode={isParentMode}
+                onReplyRef={onReplyRef}
             />
         </div>
     );
@@ -4046,20 +4063,105 @@ export default function KidsScheduler() {
     const dateKey = `${currentYear}-${currentMonth}-${selectedDate}`;
     dateKeyRef.current = dateKey;
 
-    // ── Load memo replies & mark as read when viewing a date with memo ────────
+    // ── Load memo replies when viewing a date ────────────────────────────────
+    // Phase 4 · MEMO-02: auto-read-on-view REMOVED. The user had to glance at
+    // the date for a memo to be marked read — that is just as bad as the push
+    // preview auto-mark we removed elsewhere. Read receipts now come from the
+    // 3-second IntersectionObserver (registerMemoReplyNode below), which
+    // fires markMemoReplyRead ONLY after the reply bubble was visible in the
+    // viewport for 3 continuous seconds. public.memos.read_by is still read
+    // for legacy UI (top-of-card "✓ 읽음" badge) until v1.1 cleans it up.
     const currentMemo = memos[dateKey] || "";
     const hasMemo = currentMemo.length > 0;
     useEffect(() => {
         if (!familyId || !dateKey) return;
         fetchMemoReplies(familyId, dateKey).then(setMemoReplies).catch(() => {});
-        // Mark memo as read by this user
-        if (hasMemo && authUser?.id) {
-            markMemoRead(familyId, dateKey, authUser.id).catch(() => {});
-        }
-        // Fetch read_by from memos table
+        // Legacy memos.read_by fetch retained for the card-level badge only.
+        // Removal scheduled for v1.1 MEMO-CLEANUP-01.
         supabase.from("memos").select("read_by").eq("family_id", familyId).eq("date_key", dateKey).maybeSingle()
             .then(({ data }) => setMemoReadBy(data?.read_by || []));
     }, [familyId, dateKey, hasMemo, authUser?.id]);
+
+    // ── MEMO-02: 3-second viewport read observer ─────────────────────────────
+    // One observer instance, module-lifetime. Each reply bubble passes its
+    // DOM node in via ref={el => registerMemoReplyNode(el, r.id)}. On
+    // entry.isIntersecting (≥50% visible) we schedule a 3-second timer; if
+    // the bubble stays intersecting for the full 3s, we call
+    // markMemoReplyRead and remember the id in markedIdsRef so we never
+    // re-fire for the same reply in this session. If the bubble leaves
+    // before 3s, the pending timer is cleared.
+    //
+    // Observer is created inside useEffect (not during render) to satisfy
+    // the react-hooks/refs rule. The registerMemoReplyNode callback reads
+    // ref values lazily — only inside the IntersectionObserver callback
+    // which fires asynchronously long after render completes.
+    const markedIdsRef = useRef(new Set());
+    const pendingTimersRef = useRef(new Map());
+    const nodeToIdRef = useRef(new WeakMap());
+    const pendingNodesRef = useRef([]); // nodes queued before observer init
+    const replyObserverRef = useRef(null);
+    // Dedicated auth-id ref for the observer's closure. Kept separate from
+    // the app-wide `authUserRef` so the react-hooks/immutability rule
+    // doesn't flag the (pre-existing, correct) `authUserRef.current = ...`
+    // mutation further down. We re-sync this ref whenever authUser changes,
+    // before the observer ever fires a timer.
+    const memoReadAuthIdRef = useRef(null);
+    useEffect(() => { memoReadAuthIdRef.current = authUser?.id || null; }, [authUser?.id]);
+
+    useEffect(() => {
+        if (typeof IntersectionObserver === "undefined") return; // SSR / old browser guard
+        const obs = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                const id = nodeToIdRef.current.get(entry.target);
+                if (!id) continue;
+                if (entry.isIntersecting) {
+                    if (markedIdsRef.current.has(id)) continue;
+                    if (pendingTimersRef.current.has(id)) continue;
+                    const uid = memoReadAuthIdRef.current;
+                    if (!uid) continue;
+                    const timer = setTimeout(() => {
+                        pendingTimersRef.current.delete(id);
+                        if (markedIdsRef.current.has(id)) return;
+                        markedIdsRef.current.add(id);
+                        markMemoReplyRead(id, uid).catch(() => {});
+                    }, 3000);
+                    pendingTimersRef.current.set(id, timer);
+                } else {
+                    const timer = pendingTimersRef.current.get(id);
+                    if (timer) { clearTimeout(timer); pendingTimersRef.current.delete(id); }
+                }
+            }
+        }, { threshold: 0.5 });
+        replyObserverRef.current = obs;
+        // Capture the refs into locals — the hooks/exhaustive-deps rule
+        // wants cleanup to use a stable snapshot, not live ref reads.
+        const timersMap = pendingTimersRef.current;
+        // Flush any nodes registered before the observer was ready.
+        for (const el of pendingNodesRef.current) {
+            try { obs.observe(el); } catch { /* ignore */ }
+        }
+        pendingNodesRef.current = [];
+        return () => {
+            // Clear all pending read-receipt timers and disconnect the observer.
+            for (const t of timersMap.values()) clearTimeout(t);
+            timersMap.clear();
+            try { obs.disconnect(); } catch { /* ignore */ }
+            replyObserverRef.current = null;
+        };
+    }, []);
+
+    const registerMemoReplyNode = useCallback((el, id) => {
+        if (!el || !id) return;
+        // Idempotent: if this node was already registered under this id, skip.
+        if (nodeToIdRef.current.get(el) === id) return;
+        nodeToIdRef.current.set(el, id);
+        const obs = replyObserverRef.current;
+        if (obs) {
+            try { obs.observe(el); } catch { /* ignore double-observe */ }
+        } else {
+            pendingNodesRef.current.push(el);
+        }
+    }, []);
 
     // ── Load Kakao Maps SDK on mount ────────────────────────────────────────────
     useEffect(() => {
@@ -6417,15 +6519,19 @@ export default function KidsScheduler() {
                         memoReplies={memoReplies}
                         onReplySubmit={content => {
                             if (!familyId || !authUser) return;
-                            // Optimistic update - show immediately
-                            const optimisticReply = { id: "temp-" + Date.now(), user_id: authUser.id, user_role: myRole, content, created_at: new Date().toISOString() };
+                            // Phase 4 · MEMO-01: write ONLY to memo_replies.
+                            // The legacy `public.memos` upsert-placeholder "💬"
+                            // trick is gone — the unified chat surface has no
+                            // "top-of-day" concept any more, every message is
+                            // a memo_reply with origin='reply'. public.memos
+                            // is read-mostly this milestone (DROP in v1.1).
+                            const origin = (memoReplies && memoReplies.length > 0) ? "reply" : "original";
+                            // Optimistic update — render immediately, the server echo replaces it.
+                            const optimisticReply = { id: "temp-" + Date.now(), user_id: authUser.id, user_role: myRole, content, created_at: new Date().toISOString(), origin, read_by: [] };
                             setMemoReplies(prev => [...(prev || []), optimisticReply]);
-                            // Ensure memo exists first, then insert reply
-                            const ensureMemo = memos[dateKey]?.trim() ? Promise.resolve() : upsertMemo(familyId, dateKey, "💬");
-                            ensureMemo.then(() => insertMemoReply(familyId, dateKey, authUser.id, myRole, content))
+                            sendMemo(familyId, dateKey, content, authUser.id, myRole, origin)
                                 .then(() => fetchMemoReplies(familyId, dateKey).then(setMemoReplies))
                                 .catch(err => console.error("[reply]", err));
-                            if (!memos[dateKey]?.trim()) setMemos(prev => ({ ...prev, [dateKey]: "💬" }));
                             sendInstantPush({
                                 action: "new_memo",
                                 familyId,
@@ -6436,6 +6542,7 @@ export default function KidsScheduler() {
                         }}
                         memoReadBy={memoReadBy}
                         myUserId={authUser?.id}
+                        onReplyRef={registerMemoReplyNode}
                     />
                 </div>
             </>}
