@@ -54,7 +54,7 @@ Plans:
 - [ ] 02-01-PLAN.md — Stream A (Wave 1): push-notify ES256 in-function getClaims + push_idempotency table + v31 deploy (PUSH-01)
 - [ ] 02-02-PLAN.md — Stream B (Wave 1): publications ADD + REPLICA IDENTITY FULL + NOTIFY pgrst + sync.js per-table channels (RT-01, RT-02, RT-03, RT-04)
 - [x] 02-03-PLAN.md — Stream C (Wave 1, SQL): pair_code_expires_at column + join_family TTL+suffix + regenerate_pair_code RPC (PAIR-01, PAIR-02)
-- [ ] 02-04-PLAN.md — Stream C (Wave 2, RLS): family_members DELETE policy tightened to parent-only (PAIR-03)
+- [x] 02-04-PLAN.md — Stream C (Wave 2, RLS): family_members DELETE policy tightened to parent-only (PAIR-03)
 - [ ] 02-05-PLAN.md — Stream C (Wave 2, UI): PairingModal TTL countdown + regenerate button + ChildPairInput expired-error branch (PAIR-01 UI, PAIR-04)
 
 ### Phase 3: Client Push & Fetch Hygiene
@@ -115,7 +115,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Migration Hygiene & Baseline | 3/5 | In progress | - |
-| 2. Unblock Core | 0/3 | Not started | - |
+| 2. Unblock Core | 2/5 | In progress | - |
 | 3. Client Push & Fetch Hygiene | 0/2 | Not started | - |
 | 4. Memo Model Unification | 0/1 | Not started | - |
 | 5. UX & Safety Hardening | 0/3 | Not started | - |

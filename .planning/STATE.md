@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 02-03 complete
-last_updated: "2026-04-21T10:05:51.301Z"
+stopped_at: Plan 02-04 complete
+last_updated: "2026-04-21T10:15:11.929Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
-  percent: 60
+  completed_plans: 7
+  percent: 70
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-21)
 ## Current Position
 
 Phase: 2 (Unblock Core (Push Gateway · Realtime · Pair Security)) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-21
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [██████░░░░] 60%
 | Phase 01-migration-hygiene-baseline P04 | 9min | 4 tasks | 4 files |
 | Phase 01-migration-hygiene-baseline P03 | 5min | 3 tasks | 3 files |
 | Phase 02-unblock-core-push-gateway-realtime-pair-security P03 | 7 | 2 tasks | 3 files |
+| Phase 02-unblock-core-push-gateway-realtime-pair-security P04 | 13 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Recent decisions affecting current work:
 - Plan 01-04: supabase db query (not psql) for pg_policies dump; baselines directory uses DO-NOT-COMMIT sentinels + 5-check pre-commit grep gate; git tag annotated + local-only pending orchestrator push
 - Plan 01-03: Reconciled memos schema drift via NULLABLE-only ADD COLUMN IF NOT EXISTS (created_at, user_id, user_role) with byte-identical paired down migration at timestamp 20260421074417; used supabase db query --linked fallback since Docker unavailable for supabase db diff shadow container; RLS policy duplication on memos deferred to Phase 2 Stream C
 - Plan 02-03: Applied pair_code_expires_at (nullable) + rewrote join_family with TTL+suffix loop + added regenerate_pair_code RPC (parent-only SECURITY DEFINER, 48h TTL). MCP tools unavailable in executor agent; used supabase db query --linked as functionally equivalent fallback (Phase 1 precedent). Zero existing pair codes invalidated (all 67 families grandfathered NULL).
+- Plan 02-04: family_members DELETE tightened to parent-only via SECURITY DEFINER helper is_family_parent(uuid). First-attempt direct-EXISTS body triggered 42P17 recursion on DELETE (self-referential policy subquery); auto-fixed (Rule 1) by wrapping in SECURITY DEFINER function matching the project's get_my_family_ids() pattern. 3 MCP smokes pass (child blocked / parent allowed / cross-family blocked); zero live data residue.
 
 ### Pending Todos
 
@@ -95,8 +97,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T10:05:51.293Z
-Stopped at: Plan 02-03 complete
+Last session: 2026-04-21T10:15:11.921Z
+Stopped at: Plan 02-04 complete
 Resume file: None
 
 **Planned Phase:** 2 (Unblock Core (Push Gateway · Realtime · Pair Security)) — 5 plans — 2026-04-21T09:19:07.553Z

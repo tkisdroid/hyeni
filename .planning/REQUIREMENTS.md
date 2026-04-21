@@ -27,7 +27,8 @@
 **: `pair_code`에 TTL(48시간 기본) + 부모 수동 회전 버튼이 존재한다. 만료된 코드로 join 시도 시 명확한 에러.
 - [x] **PAIR-02
 **: 한 가족에 `role='child'` 복수 row가 허용되더라도, 부모의 명시적 "아이 추가" 액션 없이 신규 익명 세션이 기존 `이름='아이'` slot을 덮어쓰지 않는다.
-- [ ] **PAIR-03**: 아이 self-DELETE membership이 RLS로 차단되고, 아이는 parent-approved "가족 나가기" 플로우를 통해서만 이탈 가능.
+- [x] **PAIR-03
+**: 아이 self-DELETE membership이 RLS로 차단되고, 아이는 parent-approved "가족 나가기" 플로우를 통해서만 이탈 가능.
 - [ ] **PAIR-04**: 좀비 "아이" row 정리용 부모 UI (family_members 관리 화면 + 해제 버튼)가 작동한다.
 
 ### Client Resilience (클라이언트 리소스)
