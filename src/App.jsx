@@ -161,7 +161,30 @@ function getRemoteAudioMimeType() {
     return REMOTE_AUDIO_MIME_TYPES.find(type => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-function stopRemoteAudioCapture() {
+// Phase 5 · RL-01 / RL-04: close the current remote_listen_sessions row (if any)
+// with ended_at / duration_ms / end_reason. Safe to call when no row exists — it
+// silently no-ops. Uses window._remoteListenSessionId set by startRemoteAudioCapture.
+async function closeRemoteListenSessionRow(endReason) {
+    const sessionId = window._remoteListenSessionId;
+    if (!sessionId) return;
+    window._remoteListenSessionId = null; // single-shot close
+    const startedAtEpoch = window._remoteListenStartedAt || Date.now();
+    const durationMs = Math.max(0, Date.now() - startedAtEpoch);
+    window._remoteListenStartedAt = null;
+    try {
+        await supabase.from("remote_listen_sessions")
+            .update({
+                ended_at: new Date().toISOString(),
+                duration_ms: durationMs,
+                end_reason: endReason || "unspecified",
+            })
+            .eq("id", sessionId);
+    } catch (err) {
+        console.error("[RL-01] failed to close session row:", err);
+    }
+}
+
+function stopRemoteAudioCapture(endReason) {
     if (window._remoteRecorderStopTimer) {
         clearTimeout(window._remoteRecorderStopTimer);
         window._remoteRecorderStopTimer = null;
@@ -174,6 +197,8 @@ function stopRemoteAudioCapture() {
     }
     window._remoteRecorder = null;
     window._remoteStream = null;
+    // Phase 5 RL-01: close the session audit row. Fire-and-forget; errors logged.
+    void closeRemoteListenSessionRow(endReason);
 }
 
 async function sendFeedbackSuggestion({ content, familyId, user, role }) {
@@ -289,15 +314,68 @@ async function waitForRealtimeChannelReady(channel, timeoutMs = 20000) {
     });
 }
 
-async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAULT_DURATION_SEC) {
+async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAULT_DURATION_SEC, options = {}) {
     if (!channel) throw new Error("Realtime channel unavailable");
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("Audio capture unavailable");
     if (typeof MediaRecorder === "undefined") throw new Error("MediaRecorder unavailable");
 
-    await waitForRealtimeChannelReady(channel);
-    stopRemoteAudioCapture();
+    const { familyId, initiatorUserId = null, childUserId = null } = options;
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Phase 5 D-B07: consult the remote_listen_enabled kill switch before
+    // starting. If the flag is FALSE for this family, refuse to start and throw
+    // — the child will never acquire getUserMedia and the parent receives
+    // nothing. Flag is nullable / default true; only a hard FALSE disables.
+    if (familyId) {
+        try {
+            const { data: flagRow } = await supabase
+                .from("family_subscription")
+                .select("remote_listen_enabled")
+                .eq("family_id", familyId)
+                .maybeSingle();
+            if (flagRow && flagRow.remote_listen_enabled === false) {
+                throw new Error("remote_listen_disabled_by_family");
+            }
+        } catch (err) {
+            if (err?.message === "remote_listen_disabled_by_family") throw err;
+            // Fetch errors are non-fatal — default behaviour is allowed.
+            console.warn("[RL flag] lookup failed, defaulting to enabled:", err);
+        }
+    }
+
+    await waitForRealtimeChannelReady(channel);
+    stopRemoteAudioCapture("restart");
+
+    // Phase 5 RL-01: open an audit row BEFORE the microphone capture begins, so
+    // even a crash inside getUserMedia() leaves a started/never-ended row that
+    // the beforeunload fallback can close on next boot.
+    window._remoteListenSessionId = null;
+    window._remoteListenStartedAt = Date.now();
+    if (familyId) {
+        try {
+            const { data: sessionRow } = await supabase
+                .from("remote_listen_sessions")
+                .insert({
+                    family_id: familyId,
+                    initiator_user_id: initiatorUserId,
+                    child_user_id: childUserId,
+                    started_at: new Date().toISOString(),
+                })
+                .select("id")
+                .single();
+            if (sessionRow?.id) window._remoteListenSessionId = sessionRow.id;
+        } catch (err) {
+            console.error("[RL-01] failed to open session row:", err);
+        }
+    }
+
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (micErr) {
+        // Mic denied / unavailable → close the session row we just opened.
+        void closeRemoteListenSessionRow("permission_denied");
+        throw micErr;
+    }
     const mimeType = getRemoteAudioMimeType();
     const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
     const maxDurationMs = Math.max(5, durationSec || REMOTE_AUDIO_DEFAULT_DURATION_SEC) * 1000;
@@ -332,7 +410,7 @@ async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAU
     recorder.start(REMOTE_AUDIO_CHUNK_MS);
     window._remoteRecorder = recorder;
     window._remoteStream = stream;
-    window._remoteRecorderStopTimer = setTimeout(() => stopRemoteAudioCapture(), maxDurationMs);
+    window._remoteRecorderStopTimer = setTimeout(() => stopRemoteAudioCapture("timeout"), maxDurationMs);
     return true;
 }
 
@@ -3903,6 +3981,11 @@ export default function KidsScheduler() {
     const [pendingProduct, setPendingProduct] = useState(null);
     const [showRemoteAudio, setShowRemoteAudio] = useState(false);
     const [showSubscriptionSettings, setShowSubscriptionSettings] = useState(false);
+    // Phase 5 RL-02: child-side persistent listening indicator. Holds the
+    // start timestamp (number) when an ambient listen session is active, or
+    // null when idle. Rendered as a fixed-top red banner the child cannot
+    // miss — stays until onRemoteListenStop fires or the child leaves.
+    const [listeningSession, setListeningSession] = useState(null);
 
     // Persist myRole to localStorage for session continuity
     useEffect(() => {
@@ -4642,12 +4725,30 @@ export default function KidsScheduler() {
             onRemoteListenStart: async (payload) => {
                 if (isParent) return; // only child responds
                 console.log("[Audio] Remote listen request received");
+                // Phase 5 RL-02: show persistent child-side indicator + vibrate
+                // immediately so the child knows the mic is active even if
+                // capture setup takes a second. Buzz once (not the kkuk cadence).
+                setListeningSession(Date.now());
+                if (navigator.vibrate) { try { navigator.vibrate(200); } catch { /* ignore */ } }
                 try {
-                    await startRemoteAudioCapture(realtimeChannel.current, payload.duration || REMOTE_AUDIO_DEFAULT_DURATION_SEC);
-                } catch (e) { console.error("[Audio] Remote recording failed:", e); }
+                    await startRemoteAudioCapture(
+                        realtimeChannel.current,
+                        payload.duration || REMOTE_AUDIO_DEFAULT_DURATION_SEC,
+                        {
+                            familyId,
+                            initiatorUserId: payload?.initiator_user_id || payload?.initiatorId || null,
+                            childUserId: authUser?.id || null,
+                        }
+                    );
+                } catch (e) {
+                    console.error("[Audio] Remote recording failed:", e);
+                    // Start failed → clear the indicator so the child isn't shown a stale banner.
+                    setListeningSession(null);
+                }
             },
             onRemoteListenStop: () => {
-                stopRemoteAudioCapture();
+                setListeningSession(null);
+                stopRemoteAudioCapture("user_stopped");
             },
             onAudioChunk: (payload) => {
                 // Parent receives audio chunk - handled by AmbientAudioRecorder component
@@ -4668,9 +4769,20 @@ export default function KidsScheduler() {
                 window.__REMOTE_LISTEN_REQUESTED = false;
                 console.log("[Audio] Auto-starting remote listen from FCM launch");
                 (async () => {
+                    // Phase 5 RL-02: identical indicator+vibrate treatment as
+                    // the realtime onRemoteListenStart path.
+                    setListeningSession(Date.now());
+                    if (navigator.vibrate) { try { navigator.vibrate(200); } catch { /* ignore */ } }
                     try {
-                        await startRemoteAudioCapture(realtimeChannel.current, REMOTE_AUDIO_DEFAULT_DURATION_SEC);
-                    } catch (e) { console.error("[Audio] Auto remote recording failed:", e); }
+                        await startRemoteAudioCapture(
+                            realtimeChannel.current,
+                            REMOTE_AUDIO_DEFAULT_DURATION_SEC,
+                            { familyId, initiatorUserId: null, childUserId: authUser?.id || null }
+                        );
+                    } catch (e) {
+                        console.error("[Audio] Auto remote recording failed:", e);
+                        setListeningSession(null);
+                    }
                 })();
             }
         };
@@ -4682,7 +4794,29 @@ export default function KidsScheduler() {
             clearInterval(interval);
             clearTimeout(timer);
         };
-    }, [isParent, familyId]);
+    }, [isParent, familyId, authUser?.id]);
+
+    // ── Phase 5 RL-04: cleanup on unload / backgrounding ───────────────────────
+    // If the child tab/page closes while a remote listen session is active, we
+    // still need to close the audit row (end_reason='page_unload') and stop the
+    // stream tracks. beforeunload is best-effort on mobile — we also listen to
+    // pagehide (mobile Safari / bfcache) and a synchronous visibility watcher.
+    useEffect(() => {
+        if (isParent) return;
+        const handleUnload = () => {
+            try {
+                if (window._remoteRecorder || window._remoteStream || window._remoteListenSessionId) {
+                    stopRemoteAudioCapture("page_unload");
+                }
+            } catch { /* ignore */ }
+        };
+        window.addEventListener("beforeunload", handleUnload);
+        window.addEventListener("pagehide", handleUnload);
+        return () => {
+            window.removeEventListener("beforeunload", handleUnload);
+            window.removeEventListener("pagehide", handleUnload);
+        };
+    }, [isParent]);
 
     // ── Polling fallback: refetch every 30s in case Realtime misses changes ──
     useEffect(() => {
@@ -7014,6 +7148,34 @@ export default function KidsScheduler() {
                 }}
                 onClose={() => setShowDangerZones(false)}
             />}
+
+            {/* ── Phase 5 RL-02: child-side persistent listening indicator ── */}
+            {listeningSession && !isParent && (
+                <div
+                    role="status"
+                    aria-live="assertive"
+                    style={{
+                        position: "fixed",
+                        top: 0, left: 0, right: 0,
+                        zIndex: 10000,
+                        padding: "14px 16px",
+                        background: "linear-gradient(135deg, #DC2626, #B91C1C)",
+                        color: "white",
+                        fontFamily: FF,
+                        fontWeight: 900,
+                        fontSize: 14,
+                        lineHeight: 1.4,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 10,
+                        boxShadow: "0 4px 12px rgba(220,38,38,0.35)",
+                        textAlign: "center",
+                    }}>
+                    <span style={{ fontSize: 18 }}>🎤</span>
+                    <span>부모님이 주위 소리를 듣고 있어요 · 세션이 끝나면 자동으로 사라져요</span>
+                </div>
+            )}
 
             {/* ── 꾹 수신 전체화면 오버레이 ── */}
             {showKkukReceived && (
