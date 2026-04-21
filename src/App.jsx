@@ -90,66 +90,57 @@ function getNativeSetupAction(health) {
     return null;
 }
 
-// Send instant push notification via Edge Function
+// Send instant push notification via Edge Function (Phase 3 P1-4, D-A01/A02).
+//
+// Single-call Idempotency-Key pattern replaces the previous XHR→Fetch→Beacon
+// triple-dispatch (which sent every push 3× and spammed the logs). Pattern:
+//   1. Mint one crypto.randomUUID() per user action.
+//   2. One fetch() POST carrying the UUID in both the Idempotency-Key header
+//      AND body.idempotency_key (mirror). Beacon can't set headers → the body
+//      mirror lets any offline/unload-path sender dedupe the same way.
+//   3. On 2xx → done. On network error / 5xx → single retry after 800ms with
+//      the SAME UUID so the server dedups it via push_idempotency. On final
+//      failure log once; no fallback chain.
 async function sendInstantPush({ action, familyId, senderUserId, title, message }) {
     if (!familyId) return;
-    const payload = JSON.stringify({ action, familyId, senderUserId, title, message });
     const url = PUSH_FUNCTION_URL;
     if (!url) return;
+    const idempotencyKey = crypto.randomUUID();
+    const payload = JSON.stringify({
+        action, familyId, senderUserId, title, message,
+        idempotency_key: idempotencyKey,
+    });
     const session = await getSession().catch(() => null);
     const token = session?.access_token || "";
 
-    // Method 1: XMLHttpRequest with auth headers
-    try {
-        await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", url, true);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-            xhr.timeout = 10000;
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    console.log("[Push] sent via XHR:", action, xhr.status);
-                    resolve();
-                    return;
-                }
-                reject(new Error(`XHR ${xhr.status}: ${xhr.responseText || "push failed"}`));
-            };
-            xhr.onerror = () => reject(new Error("XHR error"));
-            xhr.ontimeout = () => reject(new Error("XHR timeout"));
-            xhr.send(payload);
+    const attempt = async () => {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Idempotency-Key": idempotencyKey,
+                ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: payload,
         });
-        return;
-    } catch (e) {
-        console.log("[Push] XHR failed:", e.message);
-        // Method 2: fetch with auth headers
-        try {
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-                },
-                body: payload,
-            });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-            }
-            console.log("[Push] sent via fetch:", action);
-            return;
-        } catch (e2) {
-            console.log("[Push] fetch failed:", e2.message);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
-    }
+        return response;
+    };
 
-    // Method 3: best-effort beacon fallback for app background/unload
     try {
-        if (navigator.sendBeacon) {
-            const sent = navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
-            console.log("[Push] beacon fallback:", action, sent ? "queued" : "failed");
+        await attempt();
+        return;
+    } catch (err) {
+        // One retry, 800ms delay, same UUID — server dedup handles it.
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            await attempt();
+            return;
+        } catch (err2) {
+            console.warn(`[Push] send ${idempotencyKey} failed: ${err2.message || err.message}`);
         }
-    } catch (e) {
-        console.log("[Push] all methods failed:", e.message);
     }
 }
 
