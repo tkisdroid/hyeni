@@ -272,7 +272,7 @@ Deno.serve(async (req: Request) => {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Authorization, Content-Type, apikey, x-client-info",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type, apikey, x-client-info, Idempotency-Key",
       },
     });
   }
@@ -311,7 +311,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen") {
-      return await handleInstantNotification(supabase, body, callerUserId, callerRole);
+      return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
 
     // ── Cron mode: check upcoming events ─────────────────────────────────
@@ -328,6 +328,7 @@ async function handleInstantNotification(
   body: Record<string, unknown>,
   callerUserId: string,
   callerRole: string,
+  req: Request,
 ) {
   const familyId = body.familyId as string;
   // senderUserId is derived from verified JWT claim (callerUserId).
@@ -344,6 +345,37 @@ async function handleInstantNotification(
   const isRemoteListen = action === "remote_listen";
 
   if (!familyId) return jsonResponse({ error: "familyId required" }, 400);
+
+  // ── Idempotency check (Phase 3 D-A03) ───────────────────────────────
+  // Header preferred; body mirror supported because navigator.sendBeacon
+  // cannot set custom headers. UUID format is enforced by the FK type
+  // (push_idempotency.key uuid) — invalid values fail the insert cleanly.
+  // No key = backward-compatible (legacy callers keep working).
+  const headerKey = req.headers.get("Idempotency-Key");
+  const bodyKey = typeof body.idempotency_key === "string" ? body.idempotency_key : null;
+  const idempotencyKey = (headerKey && headerKey.trim()) || bodyKey;
+
+  if (idempotencyKey) {
+    const { error: idemErr } = await supabase
+      .from("push_idempotency")
+      .insert({ key: idempotencyKey, family_id: familyId, action, first_sent_at: new Date().toISOString() })
+      .select("key")
+      .maybeSingle();
+
+    if (idemErr) {
+      // Postgres unique violation → duplicate request; short-circuit with 200.
+      // 22P02 = invalid_text_representation (e.g., non-UUID) → treat as bad request.
+      if ((idemErr as { code?: string }).code === "23505") {
+        return jsonResponse({ duplicate: true, key: idempotencyKey }, 200);
+      }
+      if ((idemErr as { code?: string }).code === "22P02") {
+        return jsonResponse({ error: "idempotency_key must be uuid" }, 400);
+      }
+      // Any other error: log and proceed without dedup (best-effort).
+      console.warn("push_idempotency insert failed (proceeding without dedup):", idemErr);
+    }
+  }
+
   const nativeRecipientIds = await getNativeRecipientIds(supabase, familyId);
 
   // ── Web Push (VAPID) ────────────────────────────────────────────────
@@ -397,6 +429,19 @@ async function handleInstantNotification(
     action
   );
 
+  // ── PUSH-03 / PUSH-04 (D-A04): always record pending_notifications with
+  // observability payload, even when zero recipients. Previously we skipped
+  // insertion in that case, losing the trail entirely.
+  const totalRecipients = (subs?.length || 0);
+  const deliveryStatus: Record<string, unknown> = {
+    webSent,
+    fcmSent,
+    recipients: totalRecipients,
+  };
+  if (webSent === 0 && fcmSent === 0) {
+    deliveryStatus.note = "no subscribers";
+  }
+
   if (!isRemoteListen) {
     // Also queue for Android native polling (fallback)
     // senderUserId를 data에 포함 → 수신 측에서 자기 알림 필터링
@@ -405,6 +450,8 @@ async function handleInstantNotification(
       title,
       body: message,
       data: { senderUserId: senderUserId || "" },
+      delivery_status: deliveryStatus,
+      idempotency_key: idempotencyKey || null,
     });
 
     if (pendingErr) {
@@ -412,7 +459,7 @@ async function handleInstantNotification(
     }
   }
 
-  return jsonResponse({ webSent, fcmSent, total: (subs?.length || 0) });
+  return jsonResponse({ webSent, fcmSent, total: totalRecipients, key: idempotencyKey || null });
 }
 
 // ── Cron notification (time-based, 15min/5min before + at start) ──────────
@@ -563,7 +610,7 @@ function jsonResponse(data: unknown, status = 200) {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Authorization, Content-Type, apikey, x-client-info",
+      "Access-Control-Allow-Headers": "Authorization, Content-Type, apikey, x-client-info, Idempotency-Key",
     },
   });
 }
