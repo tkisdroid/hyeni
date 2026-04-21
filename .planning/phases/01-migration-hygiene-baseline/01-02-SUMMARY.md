@@ -72,7 +72,7 @@ Each task was committed atomically with `git commit --no-verify` (parallel workt
 1. **Task 1: Create supabase/migrations/down/ directory + .gitkeep stub** — `7ad18f8` (chore)
 2. **Task 2: Author supabase/migrations/down/README.md declaring pairing + transaction conventions** — `84987fa` (docs)
 
-SUMMARY.md itself is gitignored (`.planning/` is in `.gitignore`) and therefore not committed in the worktree; the orchestrator collects `.planning/` artifacts out-of-band after wave completion.
+**Plan metadata:** `8bc97d2` (docs: SUMMARY). `.planning/` is NOT gitignored in this repo, so the SUMMARY is committed into the worktree branch `worktree-agent-a5546728` and will be merged back by the orchestrator. A mirror copy was also written to the main-repo `.planning/` filesystem for out-of-band collection if needed.
 
 ## Files Created/Modified
 - `supabase/migrations/down/.gitkeep` — Zero-byte stub so git tracks the empty directory until Plan 03 writes the first real down/*.sql file.
@@ -104,6 +104,21 @@ None — no external service configuration required. This plan authors a single 
 - **Plan 01-03 (reconciliation migration) unblocked:** can now write its paired down file directly into `supabase/migrations/down/YYYYMMDDHHMMSS_reconcile_schema_drift.sql` with no pre-step, following the rules declared in the README.
 - **Plan 01-04 (baselines) and 01-05 (branch verification):** no direct dependency on this plan.
 - **Phases 2-5:** every migration authored from here on MUST follow the convention — planners and executors should cite `supabase/migrations/down/README.md` in their PLAN `context` blocks.
+
+## Self-Check: PASSED
+
+Verified before return:
+
+- File `supabase/migrations/down/.gitkeep` exists (0 bytes).
+- File `supabase/migrations/down/README.md` exists (120 lines).
+- File `.planning/phases/01-migration-hygiene-baseline/01-02-SUMMARY.md` exists in both worktree and main-repo `.planning/`.
+- Commit `7ad18f8` (chore: create down/ + .gitkeep) present in `git log`.
+- Commit `84987fa` (docs: declare up-down + BEGIN/COMMIT conventions) present in `git log`.
+- Commit `8bc97d2` (docs: SUMMARY) present in `git log`.
+- Post-commit deletion scan: no unexpected file deletions across the 3 commits.
+- Secret scan on README (`grep -E 'VAPID_PRIVATE|SERVICE_ROLE|eyJ'`): CLEAN.
+- Existing 15 up-migrations in `supabase/migrations/*.sql`: byte-identical, `git diff` empty.
+- All plan-level verification markers present: `BEGIN;` (4x), `COMMIT;` (4x), `OUT OF SCOPE` (1x), `pairing` (present), `20260` (17x ≥ 15 required).
 
 ---
 *Phase: 01-migration-hygiene-baseline*
