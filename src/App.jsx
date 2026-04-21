@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
+import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
 import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, insertMemoReply, markMemoRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, NOTIFICATION_MINUTE_OPTIONS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
@@ -847,9 +847,37 @@ function RoleSetupModal({ onSelect, loading }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Pair Code Section (shows code prominently or in collapsible after pairing)
 // ─────────────────────────────────────────────────────────────────────────────
-function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "" }) {
+function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null }) {
     const [showCode, setShowCode] = useState(childrenCount === 0);
     const canAddMore = childrenCount < maxChildren;
+    // Phase 2 PAIR-01 UI: Korean-locale pair_code TTL formatter (inline, no external helper — monolith policy).
+    // Returns {text, expired} when expiresAt is a Date/string; null when grandfathered (pairCodeExpiresAt === null).
+    const ttlLabel = (() => {
+        if (!pairCodeExpiresAt) return null;
+        const d = pairCodeExpiresAt instanceof Date ? pairCodeExpiresAt : new Date(pairCodeExpiresAt);
+        const ms = d.getTime() - Date.now();
+        if (ms <= 0) return { text: "만료됨 — 새로고침이 필요해요", expired: true };
+        const totalMinutes = Math.floor(ms / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return { text: hours >= 1 ? `만료까지 ${hours}시간 ${minutes}분` : `만료까지 ${Math.max(minutes, 1)}분`, expired: false };
+    })();
+    const handleRegenerate = async () => {
+        if (!onRegenerate) return;
+        if (!window.confirm("연동 코드를 새로 만들면 기존 코드는 바로 무효가 돼요. 계속할까요?")) return;
+        try { await onRegenerate(); } catch (err) { console.error("[regenerate]", err); alert("새 코드 생성에 실패했어요: " + (err?.message || err)); }
+    };
+    const ttlLine = ttlLabel ? (
+        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 10, color: ttlLabel.expired ? "#DC2626" : "#047857" }}>
+            ⏱️ {ttlLabel.text}
+        </div>
+    ) : null;
+    const regenerateBtn = onRegenerate ? (
+        <button type="button" onClick={handleRegenerate}
+            style={{ marginTop: 10, width: "100%", padding: "10px", background: "white", color: "#059669", border: "1.5px solid #86EFAC", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
+            🔄 새로고침 (새 연동 코드)
+        </button>
+    ) : null;
 
     if (childrenCount === 0) {
         return (
@@ -872,6 +900,8 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
                         아이 기기에서 QR을 스캔하면<br />즉시 연동돼요
                     </div>
                 </div>
+                {ttlLine}
+                {regenerateBtn}
                 <div style={{ fontSize: 11, color: "#6B7280", marginTop: 8 }}>아이 기기에서 이 코드를 입력하면 자동 연결돼요</div>
             </div>
         );
@@ -904,6 +934,8 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
                             아이 기기에서 QR을 스캔하면<br />즉시 연동돼요
                         </div>
                     </div>
+                    {ttlLine}
+                    {regenerateBtn}
                     <div style={{ fontSize: 11, color: "#6B7280", marginTop: 8 }}>
                         {canAddMore
                             ? "추가 아이 기기에서 이 코드를 입력하면 연결돼요"
@@ -918,7 +950,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onClose, maxChildren = 2, lockedMessage = "" }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
@@ -943,6 +975,8 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                             childrenCount={children.length}
                             maxChildren={maxChildren}
                             lockedMessage={lockedMessage}
+                            pairCodeExpiresAt={pairCodeExpiresAt}
+                            onRegenerate={isParent ? onRegenerate : null}
                         />
                     ) : children.length === 0 ? (
                         <div style={{ background: "#FEF3C7", border: "1.5px solid #FCD34D", borderRadius: 16, padding: "16px", marginBottom: 20, textAlign: "center" }}>
@@ -1170,6 +1204,8 @@ function ChildPairInput({ userId, onPaired }) {
             console.error("[ChildPairInput] error:", err);
             if (err?.message?.includes("프리미엄")) {
                 setError(err.message);
+            } else if (err?.message?.includes("만료된 연동 코드")) {
+                setError("만료된 연동 코드예요. 부모님께 새 코드를 받아 주세요");
             } else {
                 setError(err.message?.includes("Too many") ? "시도 횟수 초과. 1시간 후 다시 시도해 주세요" : "잘못된 코드예요. 부모님께 확인해 주세요");
             }
@@ -6591,6 +6627,19 @@ export default function KidsScheduler() {
                     familyId={familyId}
                     maxChildren={entitlement.canUse(FEATURES.MULTI_CHILD) ? 2 : 1}
                     lockedMessage={!entitlement.canUse(FEATURES.MULTI_CHILD) ? "두 번째 아이를 추가하려면 프리미엄을 시작해 주세요" : ""}
+                    pairCodeExpiresAt={familyInfo?.pairCodeExpiresAt || null}
+                    onRegenerate={async () => {
+                        try {
+                            await regeneratePairCode(familyId);
+                            const fam = await getMyFamily(authUser.id);
+                            if (fam) setFamilyInfo(fam);
+                            showNotif("새 연동 코드가 생성됐어요");
+                        } catch (err) {
+                            console.error("[regenerate]", err);
+                            showNotif("새 코드 생성 실패: " + (err?.message || err), "error");
+                            throw err; // let PairCodeSection's alert fire too
+                        }
+                    }}
                     onUnpair={async (childUserId) => {
                         try {
                             await unpairChild(familyId, childUserId);
