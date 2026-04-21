@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered (auto mode)
-last_updated: "2026-04-21T09:19:07.561Z"
+stopped_at: Plan 02-03 complete
+last_updated: "2026-04-21T10:05:51.301Z"
 last_activity: 2026-04-21
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 5
-  percent: 50
+  completed_plans: 6
+  percent: 60
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-21)
 
 **Core value:** 부모가 보낸 SOS/알림이 아이에게, 아이가 보낸 꾹이 부모에게, 앱이 닫혀 있어도 반드시 도달한다.
-**Current focus:** Phase 1 — Migration Hygiene & Baseline
+**Current focus:** Phase 2 — Unblock Core (Push Gateway · Realtime · Pair Security)
 
 ## Current Position
 
-Phase: 1 (Migration Hygiene & Baseline) — EXECUTING
-Plan: 5 of 5
+Phase: 2 (Unblock Core (Push Gateway · Realtime · Pair Security)) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
 Last activity: 2026-04-21
 
-Progress: [████████░░] 80%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [████████░░] 80%
 *Updated after each plan completion*
 | Phase 01-migration-hygiene-baseline P04 | 9min | 4 tasks | 4 files |
 | Phase 01-migration-hygiene-baseline P03 | 5min | 3 tasks | 3 files |
+| Phase 02-unblock-core-push-gateway-realtime-pair-security P03 | 7 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Recent decisions affecting current work:
 - Roadmap: SOS-01 (`sos_events` immutable audit log) added as v1 scope expansion from research (PIPA + OWASP MASTG).
 - Plan 01-04: supabase db query (not psql) for pg_policies dump; baselines directory uses DO-NOT-COMMIT sentinels + 5-check pre-commit grep gate; git tag annotated + local-only pending orchestrator push
 - Plan 01-03: Reconciled memos schema drift via NULLABLE-only ADD COLUMN IF NOT EXISTS (created_at, user_id, user_role) with byte-identical paired down migration at timestamp 20260421074417; used supabase db query --linked fallback since Docker unavailable for supabase db diff shadow container; RLS policy duplication on memos deferred to Phase 2 Stream C
+- Plan 02-03: Applied pair_code_expires_at (nullable) + rewrote join_family with TTL+suffix loop + added regenerate_pair_code RPC (parent-only SECURITY DEFINER, 48h TTL). MCP tools unavailable in executor agent; used supabase db query --linked as functionally equivalent fallback (Phase 1 precedent). Zero existing pair codes invalidated (all 67 families grandfathered NULL).
 
 ### Pending Todos
 
@@ -93,8 +95,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 2 context gathered (auto mode)
-Resume file: --resume-file
+Last session: 2026-04-21T10:05:51.293Z
+Stopped at: Plan 02-03 complete
+Resume file: None
 
 **Planned Phase:** 2 (Unblock Core (Push Gateway · Realtime · Pair Security)) — 5 plans — 2026-04-21T09:19:07.553Z

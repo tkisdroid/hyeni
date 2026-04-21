@@ -53,7 +53,7 @@ Plans:
 Plans:
 - [ ] 02-01-PLAN.md — Stream A (Wave 1): push-notify ES256 in-function getClaims + push_idempotency table + v31 deploy (PUSH-01)
 - [ ] 02-02-PLAN.md — Stream B (Wave 1): publications ADD + REPLICA IDENTITY FULL + NOTIFY pgrst + sync.js per-table channels (RT-01, RT-02, RT-03, RT-04)
-- [ ] 02-03-PLAN.md — Stream C (Wave 1, SQL): pair_code_expires_at column + join_family TTL+suffix + regenerate_pair_code RPC (PAIR-01, PAIR-02)
+- [x] 02-03-PLAN.md — Stream C (Wave 1, SQL): pair_code_expires_at column + join_family TTL+suffix + regenerate_pair_code RPC (PAIR-01, PAIR-02)
 - [ ] 02-04-PLAN.md — Stream C (Wave 2, RLS): family_members DELETE policy tightened to parent-only (PAIR-03)
 - [ ] 02-05-PLAN.md — Stream C (Wave 2, UI): PairingModal TTL countdown + regenerate button + ChildPairInput expired-error branch (PAIR-01 UI, PAIR-04)
 
