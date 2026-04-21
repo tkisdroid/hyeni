@@ -5855,6 +5855,34 @@ export default function KidsScheduler() {
         <ParentSetupScreen onCreateFamily={handleCreateFamily} onJoinAsParent={handleJoinAsParent} />
     );
 
+    // ── Phase 5 · GATE-01 / GATE-02 ────────────────────────────────────────────
+    // Pre-pair UI gate for child sessions. While the child is anonymously
+    // signed in but has not yet joined a family (familyInfo is null — either
+    // first-run, or just unpaired by parent), the ONLY screen we render is
+    // ChildPairInput. This prevents memo / 꾹 / schedule UI from mounting (and
+    // therefore prevents realtime subscribes, polling, and accidental data
+    // writes) until pairing completes. GATE-02: if familyInfo later becomes
+    // null (e.g. parent unpairs the child), this same early-return naturally
+    // returns us to the gate screen on the next render.
+    if (myRole === "child" && authUser && !familyInfo) return (
+        <ChildPairInput userId={authUser.id} onPaired={async () => {
+            try {
+                const fam = await getMyFamily(authUser.id);
+                if (fam) {
+                    setFamilyInfo(fam);
+                    setMyRole(fam.myRole || "child");
+                    showNotif("🎉 부모님과 연동됐어요!", "success");
+                } else {
+                    showNotif("연동은 됐지만 정보 로딩에 실패했어요. 앱을 다시 열어주세요", "error");
+                }
+            } catch (err) {
+                console.error("[onPaired] getMyFamily failed:", err);
+                showNotif("연동 완료! 앱을 다시 열어주세요", "success");
+                setTimeout(() => window.location.reload(), 1500);
+            }
+        }} />
+    );
+
     if (showAcademyMgr) return (
         <AcademyManager academies={academies} currentPos={childPos}
             onSave={async (newList) => {
@@ -6789,26 +6817,9 @@ export default function KidsScheduler() {
                     onClose={() => setShowPairing(false)} />
             )}
 
-            {/* Child pairing input (shown when child first logs in anonymously, no family yet) */}
-            {myRole === "child" && authUser && !familyId && (
-                <ChildPairInput userId={authUser.id} onPaired={async () => {
-                    try {
-                        const fam = await getMyFamily(authUser.id);
-                        if (fam) {
-                            setFamilyInfo(fam);
-                            setMyRole(fam.myRole || "child");
-                            showNotif("🎉 부모님과 연동됐어요!", "success");
-                        } else {
-                            showNotif("연동은 됐지만 정보 로딩에 실패했어요. 앱을 다시 열어주세요", "error");
-                        }
-                    } catch (err) {
-                        console.error("[onPaired] getMyFamily failed:", err);
-                        showNotif("연동 완료! 앱을 다시 열어주세요", "success");
-                        // Force reload to get clean state
-                        setTimeout(() => window.location.reload(), 1500);
-                    }
-                }} />
-            )}
+            {/* Phase 5 GATE-01/02: ChildPairInput overlay removed — pre-pair
+                UI gate now preempts this entire render tree at line ~5857 via
+                early-return, so an unpaired child never reaches this point. */}
 
             <TrialInvitePrompt
                 open={showTrialInvite}
