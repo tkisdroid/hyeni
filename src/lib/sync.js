@@ -6,6 +6,87 @@ const LS_ACADEMIES = "hyeni-academies";
 const LS_MEMOS = "hyeni-memos";
 const LS_SAVED_PLACES = "hyeni-saved-places";
 
+// ── Circuit breaker + exponential backoff (Phase 3 P1-5, D-B01/B02/B05) ─────
+// Module-scoped registry. One BreakerState per named caller (keyed by
+// function name). fetchSavedPlaces is the first + only subscriber this
+// phase; fetchAcademies / fetchEvents stay on their existing polling
+// until a future phase opts them in.
+//
+// State machine:
+//   CLOSED        — normal operation. Every call passes through.
+//                   recordSuccess() resets counters.
+//                   recordFailure() increments; at 3 consecutive within
+//                   60s, transitions to OPEN.
+//   OPEN          — every call short-circuits with { error: 'circuit_open' }.
+//                   openUntil tracks wall-clock wake time (5 min default).
+//                   The next call AFTER openUntil transitions back to
+//                   CLOSED via isOpen()=false on the probe attempt.
+//
+// Design notes:
+//  - 429 (rate limit) bypasses the breaker: it is a deliberate server
+//    signal, not a degraded-resource signal. Caller should honor
+//    Retry-After and re-queue instead of tripping cooldown.
+//  - No internal retry inside fetchSavedPlaces — the polling caller owns
+//    retry timing via backoffDelay() so UI state + interval spacing stay
+//    coherent.
+const breakers = new Map();
+
+function getBreaker(name) {
+  if (!breakers.has(name)) {
+    breakers.set(name, { failures: 0, firstFailureAt: 0, openUntil: 0 });
+  }
+  return breakers.get(name);
+}
+
+function recordSuccess(name) {
+  const b = getBreaker(name);
+  b.failures = 0;
+  b.firstFailureAt = 0;
+  b.openUntil = 0;
+}
+
+function recordFailure(name) {
+  const b = getBreaker(name);
+  const now = Date.now();
+  // Fresh chain if first ever OR prior failure older than 60s.
+  if (b.failures === 0 || now - b.firstFailureAt > 60_000) {
+    b.failures = 1;
+    b.firstFailureAt = now;
+  } else {
+    b.failures += 1;
+  }
+  if (b.failures >= 3) {
+    b.openUntil = now + 5 * 60_000; // 5-minute cooldown per D-B02
+    b.failures = 0;
+    b.firstFailureAt = 0;
+  }
+}
+
+function isOpen(name) {
+  return getBreaker(name).openUntil > Date.now();
+}
+
+// Exponential backoff with ±20% jitter. attempt=0 → ~2s, 1 → ~4s, ...,
+// capped at 60s per D-B01.
+export function backoffDelay(attempt) {
+  const base = Math.min(2000 * Math.pow(2, Math.max(0, attempt)), 60_000);
+  const jitter = base * (0.8 + Math.random() * 0.4);
+  return Math.round(jitter);
+}
+
+// Consumed by the polling caller to coordinate UI banner timing + next
+// tick calculation. Shape: { open: bool, openUntilMs: number,
+// failures: number, firstFailureAt: number }.
+export function getBreakerState(name) {
+  const b = getBreaker(name);
+  return {
+    open: b.openUntil > Date.now(),
+    openUntilMs: b.openUntil,
+    failures: b.failures,
+    firstFailureAt: b.firstFailureAt,
+  };
+}
+
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
   catch (error) { void error; return fallback; }
@@ -173,7 +254,22 @@ export async function fetchMemos(familyId) {
   return map;
 }
 
-export async function fetchSavedPlaces(familyId) {
+// RES-01 / RES-02: circuit-breaker wrapped read. Preserves the legacy
+// "return cached list on transient failure" contract but augments it with:
+//   · short-circuit when breaker is OPEN (no network call, no log)
+//   · recordFailure on network error or non-2xx (429 bypasses per D-B01)
+//   · recordSuccess on 2xx so the banner can clear promptly
+// Callers that need to distinguish "breaker open" vs "data" can pass
+// {meta:true} to get {list, breaker} back instead of a bare list.
+export async function fetchSavedPlaces(familyId, opts = {}) {
+  const BREAKER_KEY = "fetchSavedPlaces";
+
+  if (isOpen(BREAKER_KEY)) {
+    const cached = lsGet(LS_SAVED_PLACES, []);
+    if (opts.meta) return { list: cached, breaker: getBreakerState(BREAKER_KEY) };
+    return cached;
+  }
+
   const { data, error } = await supabase
     .from("saved_places")
     .select("*")
@@ -181,12 +277,30 @@ export async function fetchSavedPlaces(familyId) {
     .order("created_at");
 
   if (error) {
-    console.error("[sync] fetchSavedPlaces error:", error);
-    return lsGet(LS_SAVED_PLACES, []);
+    // HTTP 429 (rate limit) is a deliberate server signal — do NOT
+    // contribute to breaker failure count. supabase-js surfaces the
+    // PostgREST code on error.code / error.status; accept either shape.
+    const code = String(error.code || error.status || "");
+    const isRateLimit = code === "429" || code.includes("429");
+    if (!isRateLimit) {
+      recordFailure(BREAKER_KEY);
+    }
+    const state = getBreakerState(BREAKER_KEY);
+    // Single consolidated log per failure (no spam). Format designed
+    // to be grep-able: "[sync] fetchSavedPlaces degraded".
+    console.warn(
+      `[sync] fetchSavedPlaces degraded (failures: ${state.failures}, open: ${state.open})`,
+      error.message || error
+    );
+    const cached = lsGet(LS_SAVED_PLACES, []);
+    if (opts.meta) return { list: cached, breaker: state };
+    return cached;
   }
 
+  recordSuccess(BREAKER_KEY);
   const list = (data || []).map(rowToSavedPlace);
   lsSet(LS_SAVED_PLACES, list);
+  if (opts.meta) return { list, breaker: getBreakerState(BREAKER_KEY) };
   return list;
 }
 
