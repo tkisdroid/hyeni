@@ -14,7 +14,7 @@
 - [x] **Phase 2: Unblock Core** - ES256 push-notify · realtime publications · pair code TTL·RLS (parallel ×3)
 - [x] **Phase 3: Client Push & Fetch Hygiene** - `sendInstantPush` idempotency · `fetchSavedPlaces` backoff·circuit breaker (parallel ×2)
 - [x] **Phase 4: Memo Model Unification** - `memo_replies` 단일화 + `memos_legacy` 섀도우 + 수동 read receipt (solo, shadow-running DoD)
-- [ ] **Phase 5: UX & Safety Hardening** - pre-pair UI gate · remote listen 감사·FGS·feature flag · SOS press-hold·dedup·감사로그 (parallel ×3)
+- [x] **Phase 5: UX & Safety Hardening** - pre-pair UI gate · remote listen 감사·FGS·feature flag · SOS press-hold·dedup·감사로그 (parallel ×3)
 
 ## Phase Details
 
@@ -102,9 +102,7 @@ Plans:
 **Research required for planning**: Yes — `/gsd-research-phase` needed for Stream B (Android `FOREGROUND_SERVICE_MICROPHONE` manifest specifics + Play Store family-exception 제출 카피) and Stream C (`sos_events` 스키마 + retention + PIPA 체크리스트). Stream A (pre-pair gate) 는 순수 React early-return, research 불필요.
 
 Plans:
-- [ ] 05-01: TBD — Stream A: P2-7 pre-pair UI gate early-return (GATE-01·02)
-- [ ] 05-02: TBD — Stream B: P2-8 `remote_listen_sessions` + persistent notification + FGS-type + WebView honor-legacy-consent + remote feature flag (RL-01~04) — **merge LAST**
-- [ ] 05-03: TBD — Stream C: P2-9 press-hold + dedup + server cooldown + `sos_events` audit log (KKUK-01~03, SOS-01)
+- [x] 05-01-PLAN.md — Combined plan+execute (all 3 streams in one plan to match Phase 3/4 precedent). SQL migration `20260421113053_phase5_safety_tables_and_rpc` applied live: `remote_listen_sessions` (family-scoped SELECT/INSERT + owner-scoped UPDATE RLS), `family_subscription.remote_listen_enabled` kill switch (default TRUE), `sos_events` immutable insert-only RLS, `kkuk_check_cooldown` SECURITY DEFINER RPC. `src/App.jsx` GATE-01/02 early-return, RL-01..04 audit-row-before-capture + feature-flag guard + indicator banner + beforeunload/pagehide cleanup, KKUK-01..03 press-hold + crypto.randomUUID dedup_key + LRU Map + fail-open cooldown RPC, SOS-01 audit append. Android native authored (D-B06): MainActivity mic auto-grant removed, AmbientListenService FGS-microphone stub, AndroidManifest permission + service declaration. APK rebuild + Play submission deferred to v1.1 native-deploy. GATE-01 / GATE-02 / RL-01 / RL-02 / RL-03 / RL-04 / KKUK-01 / KKUK-02 / KKUK-03 / SOS-01 all closed in one combined SUMMARY (`05-01-SUMMARY.md`).
 
 ## Progress
 
@@ -117,7 +115,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Unblock Core | 5/5 | Complete ✅ | 2026-04-21 |
 | 3. Client Push & Fetch Hygiene | 1/1 | Complete ✅ | 2026-04-21 |
 | 4. Memo Model Unification | 1/1 | Complete ✅ (shadow-running) | 2026-04-21 |
-| 5. UX & Safety Hardening | 0/3 | Not started | - |
+| 5. UX & Safety Hardening | 1/1 | Complete ✅ (combined plan+execute, v1.1 native-deploy caveat) | 2026-04-21 |
 
 ## Coverage
 

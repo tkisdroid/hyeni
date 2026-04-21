@@ -46,22 +46,22 @@
 
 ### Pre-Pair UI Gate (페어링 전 UI 차단)
 
-- [ ] **GATE-01**: 아이 역할 선택 + 익명 로그인 직후, 페어링 완료 전에는 "부모 코드 연결" 단일 화면만 노출. 메모/꾹/일정 작성 UI 접근 불가.
-- [ ] **GATE-02**: 페어링 성공 시 전체 앱 UI로 전환. 페어링 해제 시 다시 "부모 코드 연결" 화면으로 복귀.
+- [x] **GATE-01**: 아이 역할 선택 + 익명 로그인 직후, 페어링 완료 전에는 "부모 코드 연결" 단일 화면만 노출. 메모/꾹/일정 작성 UI 접근 불가. (Phase 5/05-01 — early-return at src/App.jsx L5858; old overlay at L6820 removed)
+- [x] **GATE-02**: 페어링 성공 시 전체 앱 UI로 전환. 페어링 해제 시 다시 "부모 코드 연결" 화면으로 복귀. (Phase 5/05-01 — same early-return naturally handles familyInfo → null)
 
 ### Remote Listen Accountability (주위소리듣기 투명성·감사)
 
-- [ ] **RL-01**: `remote_listen_sessions` 테이블 생성 (`id, family_id, initiator_user_id, child_user_id, started_at, ended_at, duration_ms, end_reason`). 모든 청취 세션 기록.
-- [ ] **RL-02**: 아이 측에 청취 중 **지속 표시 인디케이터**(풀스크린 오버레이 또는 상단 고정 배너 + 진동/사운드)가 노출된다. 세션 끝날 때까지 사라지지 않음.
-- [ ] **RL-03**: Android WebView의 `getUserMedia` 자동 승인 제거. 기존 허용을 세션별 명시 동의로 교체.
-- [ ] **RL-04**: 마이크 스트림·MediaRecorder·Realtime 구독이 `stopRemoteAudioCapture` 실패나 앱 크래시 시에도 cleanup (beforeunload + 타임아웃 강제 stop).
+- [x] **RL-01**: `remote_listen_sessions` 테이블 생성 (`id, family_id, initiator_user_id, child_user_id, started_at, ended_at, duration_ms, end_reason`). 모든 청취 세션 기록. (Phase 5/05-01 — migration 20260421113053 + start/stopRemoteAudioCapture INSERT/UPDATE lifecycle)
+- [x] **RL-02**: 아이 측에 청취 중 **지속 표시 인디케이터**(풀스크린 오버레이 또는 상단 고정 배너 + 진동/사운드)가 노출된다. 세션 끝날 때까지 사라지지 않음. (Phase 5/05-01 — listeningSession state + top-fixed red banner + navigator.vibrate(200))
+- [x] **RL-03**: Android WebView의 `getUserMedia` 자동 승인 제거. 기존 허용을 세션별 명시 동의로 교체. (Phase 5/05-01 — MainActivity.onPermissionRequest RECORD_AUDIO runtime gate + mic-permission-denied DOM event; AmbientListenService FGS-microphone authored; APK rebuild deferred to v1.1 native-deploy per D-B06)
+- [x] **RL-04**: 마이크 스트림·MediaRecorder·Realtime 구독이 `stopRemoteAudioCapture` 실패나 앱 크래시 시에도 cleanup (beforeunload + 타임아웃 강제 stop). (Phase 5/05-01 — beforeunload + pagehide + 30s MediaRecorder timeout; audit row closed with end_reason='page_unload'/'timeout'/'permission_denied')
 
 ### Kkuk Reliability (꾹 재설계)
 
-- [ ] **KKUK-01**: 꾹 버튼이 **press-and-hold 500~1000ms** 에서만 발사(onMouseDown/onTouchStart 타이머 기반). 우발 터치 방지.
-- [ ] **KKUK-02**: 송신 payload에 UUID `dedup_key` 포함. 수신 측은 `dedup_key`를 LRU로 60초간 보관, 중복 프레임은 1회만 오버레이·진동.
-- [ ] **KKUK-03**: 서버사이드 쿨다운(Edge Function 또는 DB trigger) — 발신자당 5초에 1회만 broadcast/push 허용.
-- [ ] **SOS-01** *(scope expansion from research)*: `sos_events` 불변 감사 로그 테이블 (`id, family_id, sender_user_id, receiver_user_ids[], triggered_at, delivery_status jsonb, client_request_hash text`). Insert-only RLS (service-role만 UPDATE/DELETE 가능). 모든 꾹 발송이 이 테이블에 1행 기록. OWASP MASTG + PIPA 안전 행위 감사 요건 충족.
+- [x] **KKUK-01**: 꾹 버튼이 **press-and-hold 500~1000ms** 에서만 발사(onMouseDown/onTouchStart 타이머 기반). 우발 터치 방지. (Phase 5/05-01 — onMouseDown/Up + onTouchStart/End/Cancel ref; window [500, 2000] ms; onClick is preventDefault no-op)
+- [x] **KKUK-02**: 송신 payload에 UUID `dedup_key` 포함. 수신 측은 `dedup_key`를 LRU로 60초간 보관, 중복 프레임은 1회만 오버레이·진동. (Phase 5/05-01 — crypto.randomUUID dedup_key + recentKkukKeys useRef Map, 60s window pruned on-receive)
+- [x] **KKUK-03**: 서버사이드 쿨다운(Edge Function 또는 DB trigger) — 발신자당 5초에 1회만 broadcast/push 허용. (Phase 5/05-01 — kkuk_check_cooldown(uuid) SECURITY DEFINER RPC reading sos_events; client calls before broadcast; fail-open on RPC error)
+- [x] **SOS-01** *(scope expansion from research)*: `sos_events` 불변 감사 로그 테이블 (`id, family_id, sender_user_id, receiver_user_ids[], triggered_at, delivery_status jsonb, client_request_hash text`). Insert-only RLS (service-role만 UPDATE/DELETE 가능). 모든 꾹 발송이 이 테이블에 1행 기록. OWASP MASTG + PIPA 안전 행위 감사 요건 충족. (Phase 5/05-01 — migration 20260421113053 + sendKkuk audit insert with dedup_key as client_request_hash + delivery_status per channel)
 
 ## v2 Requirements
 
@@ -124,16 +124,16 @@
 | MEMO-01 | Phase 4 | solo (P1-6) | Complete ✅ (shadow-running; 04-01-SUMMARY.md) |
 | MEMO-02 | Phase 4 | solo (P1-6) | Complete ✅ (shadow-running; 04-01-SUMMARY.md) |
 | MEMO-03 | Phase 4 | solo (P1-6) | Complete ✅ (shadow-running; 04-01-SUMMARY.md) |
-| GATE-01 | Phase 5 | A (P2-7) | Pending |
-| GATE-02 | Phase 5 | A (P2-7) | Pending |
-| RL-01 | Phase 5 | B (P2-8) | Pending |
-| RL-02 | Phase 5 | B (P2-8) | Pending |
-| RL-03 | Phase 5 | B (P2-8) | Pending |
-| RL-04 | Phase 5 | B (P2-8) | Pending |
-| KKUK-01 | Phase 5 | C (P2-9) | Pending |
-| KKUK-02 | Phase 5 | C (P2-9) | Pending |
-| KKUK-03 | Phase 5 | C (P2-9) | Pending |
-| SOS-01 | Phase 5 | C (P2-9) | Pending |
+| GATE-01 | Phase 5 | A (P2-7) | Complete ✅ (05-01-SUMMARY.md) |
+| GATE-02 | Phase 5 | A (P2-7) | Complete ✅ (05-01-SUMMARY.md) |
+| RL-01 | Phase 5 | B (P2-8) | Complete ✅ (05-01-SUMMARY.md) |
+| RL-02 | Phase 5 | B (P2-8) | Complete ✅ (05-01-SUMMARY.md) |
+| RL-03 | Phase 5 | B (P2-8) | Complete ✅ source-authored; APK rebuild deferred v1.1 native-deploy (05-01-SUMMARY.md) |
+| RL-04 | Phase 5 | B (P2-8) | Complete ✅ (05-01-SUMMARY.md) |
+| KKUK-01 | Phase 5 | C (P2-9) | Complete ✅ (05-01-SUMMARY.md) |
+| KKUK-02 | Phase 5 | C (P2-9) | Complete ✅ (05-01-SUMMARY.md) |
+| KKUK-03 | Phase 5 | C (P2-9) | Complete ✅ (05-01-SUMMARY.md) |
+| SOS-01 | Phase 5 | C (P2-9) | Complete ✅ (05-01-SUMMARY.md) |
 
 **Coverage:**
 - v1 requirements: **28 total** (SOS-01 added from research synthesis)
