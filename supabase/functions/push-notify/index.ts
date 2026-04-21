@@ -11,6 +11,9 @@ import webpush from "npm:web-push@3.6.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Auth client (anon key) — used for getClaims() to verify caller JWT (D-A01).
+// The service-role client (created per-request below) is for RLS-bypassing DB work.
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY")!;
 
@@ -274,6 +277,27 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // ── Auth gate: verify caller JWT in-function (D-A01) ────────────────
+  // Gateway is deployed with --no-verify-jwt (D-A02) to route around
+  // supabase#42244 (ES256 gateway rejection). In-function getClaims()
+  // handles ES256 + kid rotation + JWKS caching via Web Crypto API.
+  // Cron callers: use service-role JWT which carries claims.role === "service_role";
+  // we accept that path unconditionally (same privilege level as the function already has).
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    return jsonResponse({ error: "missing auth" }, 401);
+  }
+
+  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(token);
+  if (claimsErr || !claimsData?.claims?.sub) {
+    console.warn("push-notify: invalid jwt", claimsErr?.message);
+    return jsonResponse({ error: "invalid jwt" }, 401);
+  }
+  const callerUserId = claimsData.claims.sub as string;
+  const callerRole = (claimsData.claims.role as string) || "authenticated";
+
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -287,7 +311,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen") {
-      return await handleInstantNotification(supabase, body);
+      return await handleInstantNotification(supabase, body, callerUserId, callerRole);
     }
 
     // ── Cron mode: check upcoming events ─────────────────────────────────
@@ -301,10 +325,19 @@ Deno.serve(async (req: Request) => {
 // ── Instant notification (when parent/child creates event or memo) ─────────
 async function handleInstantNotification(
   supabase: ReturnType<typeof createClient>,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  callerUserId: string,
+  callerRole: string,
 ) {
   const familyId = body.familyId as string;
-  const senderUserId = body.senderUserId as string;
+  // senderUserId is derived from verified JWT claim (callerUserId).
+  // Body-supplied body.senderUserId is IGNORED for authenticated callers —
+  // closes the spoofing vector (PITFALLS §"security mistakes" row 1 / P2-9).
+  // For service-role cron callers, we allow body.senderUserId as a trusted
+  // override since cron acts on behalf of a system actor (no end-user JWT).
+  const senderUserId: string = callerRole === "service_role"
+    ? ((body.senderUserId as string) || callerUserId)
+    : callerUserId;
   const action = body.action as string;
   const title = body.title as string || "새 알림";
   const message = body.message as string || "";
