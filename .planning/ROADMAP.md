@@ -12,7 +12,7 @@
 
 - [ ] **Phase 1: Migration Hygiene & Baseline** - `supabase/migrations/down/` 구조 · 드리프트 재조정 · 환경 스냅샷 · 베이스라인 태깅 (no REQ-IDs)
 - [x] **Phase 2: Unblock Core** - ES256 push-notify · realtime publications · pair code TTL·RLS (parallel ×3)
-- [ ] **Phase 3: Client Push & Fetch Hygiene** - `sendInstantPush` idempotency · `fetchSavedPlaces` backoff·circuit breaker (parallel ×2)
+- [x] **Phase 3: Client Push & Fetch Hygiene** - `sendInstantPush` idempotency · `fetchSavedPlaces` backoff·circuit breaker (parallel ×2)
 - [ ] **Phase 4: Memo Model Unification** - `memo_replies` 단일화 + `memos_legacy` 섀도우 + 수동 read receipt (solo, shadow-running DoD)
 - [ ] **Phase 5: UX & Safety Hardening** - pre-pair UI gate · remote listen 감사·FGS·feature flag · SOS press-hold·dedup·감사로그 (parallel ×3)
 
@@ -70,8 +70,7 @@ Plans:
 **Research required for planning**: No — idempotency(MDN/Stripe/IETF)와 exponential backoff+circuit breaker는 산업 표준 패턴, SUMMARY Research Flags가 '표준 패턴' 분류.
 
 Plans:
-- [ ] 03-01: TBD — Stream A: P1-4 `sendInstantPush` 단일경로 + `Idempotency-Key` + `push_idempotency` dedup 테이블 (PUSH-02~04)
-- [ ] 03-02: TBD — Stream B: P1-5 `fetchSavedPlaces` backoff + circuit breaker + 단일 에러 배너 (RES-01·02)
+- [x] 03-PLAN.md — Combined plan+execute (low-risk client-only phase): Stream A (PUSH-02/03/04) sendInstantPush single-call Idempotency-Key + push-notify v33 dedup + pending_notifications.delivery_status/idempotency_key columns; Stream B (RES-01/02) fetchSavedPlaces breaker+backoff + single UI banner. 5 REQ-IDs closed in one combined SUMMARY (`03-SUMMARY.md`).
 
 ### Phase 4: Memo Model Unification
 **Goal**: `memos`/`memo_replies` 이원화된 메모 모델을 `memo_replies` 중심으로 통합하되, 라이브 데이터 손실 위험을 이원화해 **"phase 완료 = shadow-running with read-parity"** 로 정의한다. legacy DROP은 v1.1로 예약. 14개 line region + SQL + `sync.js` 를 건드려 단독 phase 할당.

@@ -10,9 +10,12 @@
 ### Push Infrastructure (인증·알림 파이프라인)
 
 - [x] **PUSH-01**: `push-notify` Edge Function이 ES256 JWT를 정상 검증해 인증된 호출에 2xx 응답한다. 부모/아이 양쪽 세션의 Bearer token 모두 수용. (Phase 2/02-01)
-- [ ] **PUSH-02**: 클라이언트 `sendInstantPush` 는 1회 액션당 1회 HTTP 호출만 발생한다(Idempotency-Key 포함). 성공 시 fallback 체인 조기 종료.
-- [ ] **PUSH-03**: Edge Function은 수신자(push_subscriptions·fcm_tokens) 0건일 때도 `pending_notifications` 에 적재하여 차후 조회 가능.
-- [ ] **PUSH-04**: 전송 영수증(delivered/failed 상태)이 `pending_notifications` 또는 별도 telemetry 테이블에 기록되어 관찰 가능.
+- [x] **PUSH-02
+**: 클라이언트 `sendInstantPush` 는 1회 액션당 1회 HTTP 호출만 발생한다(Idempotency-Key 포함). 성공 시 fallback 체인 조기 종료.
+- [x] **PUSH-03
+**: Edge Function은 수신자(push_subscriptions·fcm_tokens) 0건일 때도 `pending_notifications` 에 적재하여 차후 조회 가능.
+- [x] **PUSH-04
+**: 전송 영수증(delivered/failed 상태)이 `pending_notifications` 또는 별도 telemetry 테이블에 기록되어 관찰 가능.
 
 ### Realtime Reliability (실시간 채널 복구)
 
@@ -30,8 +33,10 @@
 
 ### Client Resilience (클라이언트 리소스)
 
-- [ ] **RES-01**: `fetchSavedPlaces` 등 polling 함수가 404/5xx 응답에 대해 exponential backoff(최대 5분) + circuit breaker 적용. 60초 동안 3회 연속 실패 시 5분 쿨다운.
-- [ ] **RES-02**: 콘솔 에러 스팸 없이, 실패 상태를 관찰 가능한 단일 에러 배너로 표시.
+- [x] **RES-01
+**: `fetchSavedPlaces` 등 polling 함수가 404/5xx 응답에 대해 exponential backoff(최대 5분) + circuit breaker 적용. 60초 동안 3회 연속 실패 시 5분 쿨다운.
+- [x] **RES-02
+**: 콘솔 에러 스팸 없이, 실패 상태를 관찰 가능한 단일 에러 배너로 표시.
 
 ### Memo Model Unification (메모 모델 정리)
 
@@ -103,9 +108,9 @@
 | Requirement | Phase | Stream | Status |
 |-------------|-------|--------|--------|
 | PUSH-01 | Phase 2 | A (P0-1) | Pending |
-| PUSH-02 | Phase 3 | A (P1-4) | Pending |
-| PUSH-03 | Phase 3 | A (P1-4) | Pending |
-| PUSH-04 | Phase 3 | A (P1-4) | Pending |
+| PUSH-02 | Phase 3 | A (P1-4) | Complete |
+| PUSH-03 | Phase 3 | A (P1-4) | Complete |
+| PUSH-04 | Phase 3 | A (P1-4) | Complete |
 | RT-01 | Phase 2 | B (P0-2) | Pending |
 | RT-02 | Phase 2 | B (P0-2) | Pending |
 | RT-03 | Phase 2 | B (P0-2) | Pending |
@@ -114,8 +119,8 @@
 | PAIR-02 | Phase 2 | C (P0-3) | Pending |
 | PAIR-03 | Phase 2 | C (P0-3) | Pending |
 | PAIR-04 | Phase 2 | C (P0-3) | Pending |
-| RES-01 | Phase 3 | B (P1-5) | Pending |
-| RES-02 | Phase 3 | B (P1-5) | Pending |
+| RES-01 | Phase 3 | B (P1-5) | Complete |
+| RES-02 | Phase 3 | B (P1-5) | Complete |
 | MEMO-01 | Phase 4 | solo (P1-6) | Pending |
 | MEMO-02 | Phase 4 | solo (P1-6) | Pending |
 | MEMO-03 | Phase 4 | solo (P1-6) | Pending |
