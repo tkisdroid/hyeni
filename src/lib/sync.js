@@ -376,6 +376,84 @@ export async function fetchChildLocations(familyId) {
 }
 
 // ── Realtime subscription ───────────────────────────────────────────────────
+//
+// Phase 2 Stream B refactor (D-B02, STACK.md §Issue #2 Part B):
+// Per-table channel pattern prevents the "one bad binding kills all bindings"
+// failure mode from supabase-js#1917. Previously all postgres_changes bindings
+// and all broadcast bindings were colocated on a single `family-${familyId}`
+// channel — a single CHANNEL_ERROR (e.g. missing publication membership for
+// saved_places before Phase 2 Task 2) took down every subscription.
+//
+// Channel layout:
+//   family-{familyId}              — broadcast only (kkuk, child_location,
+//                                    remote_listen_start/stop, audio_chunk)
+//                                    per D-B06 — kept under exact pre-existing
+//                                    name so client senders + Edge Functions
+//                                    keep working without edits. THIS channel
+//                                    is what callers receive and use for .send().
+//   events-{familyId}              — postgres_changes: events        (RT-03)
+//   academies-{familyId}           — postgres_changes: academies
+//   memos-{familyId}               — postgres_changes: memos         (RT-03)
+//   saved_places-{familyId}        — postgres_changes: saved_places  (RT-01)
+//   family_subscription-{familyId} — postgres_changes: family_subscription (RT-02)
+//   memo_replies-{familyId}        — postgres_changes: memo_replies  (RT-03)
+//
+// Each channel has independent CHANNEL_ERROR retry with its own counter —
+// one broken binding never affects the others.
+//
+// Caller contract preserved: subscribeFamily returns the broadcast channel
+// directly (same shape as before — .send(), .state, .subscribe() all work),
+// with _dispose() + _channels attached so unsubscribe() can tear down all
+// 7 channels in one call.
+
+function subscribeTableChanges(channelName, tableName, familyId, eventSpec, handler) {
+  // eventSpec: "*" for all events, or "INSERT"/"UPDATE"/"DELETE"
+  let retryCount = 0;
+  const MAX_RETRIES = 10;
+  const BASE_DELAY_MS = 2000;
+  let retryTimer = null;
+  let disposed = false;
+
+  const ch = supabase
+    .channel(channelName)
+    .on("postgres_changes", {
+      event: eventSpec,
+      schema: "public",
+      table: tableName,
+      filter: `family_id=eq.${familyId}`,
+    }, (payload) => {
+      if (handler) handler(payload.eventType, payload.new, payload.old);
+    })
+    .subscribe((status, err) => {
+      if (status === "SUBSCRIBED") {
+        console.log(`[Realtime] Subscribed to ${channelName}`);
+        retryCount = 0;
+      }
+      if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !disposed) {
+        console.error(`[Realtime] ${channelName} ${status}`, err);
+        if (retryCount < MAX_RETRIES) {
+          const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCount), 60000);
+          retryCount++;
+          console.log(`[Realtime] ${channelName} reconnecting in ${delay}ms (attempt ${retryCount}/${MAX_RETRIES})`);
+          retryTimer = setTimeout(() => {
+            if (disposed) return;
+            try { ch.subscribe(); } catch { /* ignored */ }
+          }, delay);
+        } else {
+          console.error(`[Realtime] ${channelName} max retries reached; disabled until page reload.`);
+        }
+      }
+      if (status === "CLOSED") {
+        console.log(`[Realtime] ${channelName} closed`);
+      }
+    });
+
+  ch._dispose = () => {
+    disposed = true;
+    if (retryTimer) clearTimeout(retryTimer);
+  };
+  return ch;
+}
 
 export function subscribeFamily(familyId, callbacks) {
   const {
@@ -384,57 +462,63 @@ export function subscribeFamily(familyId, callbacks) {
     onMemosChange,
     onMemoRepliesChange,
     onSavedPlacesChange,
+    onFamilySubscriptionChange,   // NEW — RT-02 consumer wiring is out of Phase 2
+                                  // scope (Qonversion integration is a later phase);
+                                  // the channel must subscribe regardless so the
+                                  // postgres_changes path is exercised end-to-end.
     onLocationChange,
     onKkuk,
+    onRemoteListenStart,
+    onRemoteListenStop,
+    onAudioChunk,
   } = callbacks;
-  let retryCount = 0;
-  const MAX_RETRIES = 10;
-  const BASE_DELAY_MS = 2000;
-  let retryTimer = null;
-  let disposed = false;
 
-  const channel = supabase
+  // ── Per-table postgres_changes channels (D-B02) ──────────────────────────
+  const eventsCh = subscribeTableChanges(
+    `events-${familyId}`, "events", familyId, "*",
+    onEventsChange
+  );
+
+  const academiesCh = subscribeTableChanges(
+    `academies-${familyId}`, "academies", familyId, "*",
+    onAcademiesChange
+  );
+
+  const memosCh = subscribeTableChanges(
+    `memos-${familyId}`, "memos", familyId, "*",
+    onMemosChange
+  );
+
+  const savedPlacesCh = subscribeTableChanges(
+    `saved_places-${familyId}`, "saved_places", familyId, "*",
+    onSavedPlacesChange
+  );
+
+  const familySubCh = subscribeTableChanges(
+    `family_subscription-${familyId}`, "family_subscription", familyId, "*",
+    onFamilySubscriptionChange  // undefined handler is fine — events simply drop
+  );
+
+  const memoRepliesCh = subscribeTableChanges(
+    `memo_replies-${familyId}`, "memo_replies", familyId, "INSERT",
+    onMemoRepliesChange
+      ? (_eventType, newRow) => onMemoRepliesChange(newRow)
+      : null
+  );
+
+  // ── Broadcast-only channel (D-B06) ───────────────────────────────────────
+  // Kept under the exact pre-existing name `family-{familyId}` so kkuk/location/
+  // remote_listen senders in App.jsx + the push-notify Edge Function keep
+  // working without caller-side edits. Callers receive THIS channel back —
+  // .send() + .state + .subscribe() all route through it unchanged.
+  let broadcastRetryCount = 0;
+  const BROADCAST_MAX_RETRIES = 10;
+  const BROADCAST_BASE_DELAY_MS = 2000;
+  let broadcastRetryTimer = null;
+  let broadcastDisposed = false;
+
+  const broadcastCh = supabase
     .channel(`family-${familyId}`)
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "events",
-      filter: `family_id=eq.${familyId}`,
-    }, (payload) => {
-      onEventsChange(payload.eventType, payload.new, payload.old);
-    })
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "academies",
-      filter: `family_id=eq.${familyId}`,
-    }, (payload) => {
-      onAcademiesChange(payload.eventType, payload.new, payload.old);
-    })
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "memos",
-      filter: `family_id=eq.${familyId}`,
-    }, (payload) => {
-      onMemosChange(payload.eventType, payload.new, payload.old);
-    })
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "saved_places",
-      filter: `family_id=eq.${familyId}`,
-    }, (payload) => {
-      if (onSavedPlacesChange) onSavedPlacesChange(payload.eventType, payload.new, payload.old);
-    })
-    .on("postgres_changes", {
-      event: "INSERT",
-      schema: "public",
-      table: "memo_replies",
-      filter: `family_id=eq.${familyId}`,
-    }, (payload) => {
-      if (onMemoRepliesChange) onMemoRepliesChange(payload.new);
-    })
     .on("broadcast", { event: "child_location" }, (payload) => {
       if (onLocationChange) onLocationChange(payload.payload);
     })
@@ -442,51 +526,68 @@ export function subscribeFamily(familyId, callbacks) {
       if (onKkuk) onKkuk(payload.payload);
     })
     .on("broadcast", { event: "remote_listen_start" }, (payload) => {
-      if (callbacks.onRemoteListenStart) callbacks.onRemoteListenStart(payload.payload);
+      if (onRemoteListenStart) onRemoteListenStart(payload.payload);
     })
     .on("broadcast", { event: "remote_listen_stop" }, (payload) => {
-      if (callbacks.onRemoteListenStop) callbacks.onRemoteListenStop(payload.payload);
+      if (onRemoteListenStop) onRemoteListenStop(payload.payload);
     })
     .on("broadcast", { event: "audio_chunk" }, (payload) => {
-      if (callbacks.onAudioChunk) callbacks.onAudioChunk(payload.payload);
+      if (onAudioChunk) onAudioChunk(payload.payload);
     })
-    .subscribe((status) => {
+    .subscribe((status, err) => {
       if (status === "SUBSCRIBED") {
-        console.log("[Realtime] Subscribed to family:", familyId);
-        retryCount = 0;
+        console.log(`[Realtime] Subscribed to family-${familyId} (broadcast)`);
+        broadcastRetryCount = 0;
       }
-      if (status === "CHANNEL_ERROR" && !disposed) {
-        console.error("[Realtime] Channel error, attempting reconnect...");
-        if (retryCount < MAX_RETRIES) {
-          const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCount), 60000);
-          retryCount++;
-          console.log(`[Realtime] Reconnecting in ${delay}ms (attempt ${retryCount}/${MAX_RETRIES})`);
-          retryTimer = setTimeout(() => {
-            if (disposed) return;
-            try { channel.subscribe(); } catch { /* ignored */ }
+      if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !broadcastDisposed) {
+        console.error(`[Realtime] family-${familyId} ${status}`, err);
+        if (broadcastRetryCount < BROADCAST_MAX_RETRIES) {
+          const delay = Math.min(BROADCAST_BASE_DELAY_MS * Math.pow(2, broadcastRetryCount), 60000);
+          broadcastRetryCount++;
+          console.log(`[Realtime] family-${familyId} reconnecting in ${delay}ms (attempt ${broadcastRetryCount}/${BROADCAST_MAX_RETRIES})`);
+          broadcastRetryTimer = setTimeout(() => {
+            if (broadcastDisposed) return;
+            try { broadcastCh.subscribe(); } catch { /* ignored */ }
           }, delay);
         } else {
-          console.error("[Realtime] Max retries reached. Realtime disabled until page reload.");
+          console.error(`[Realtime] family-${familyId} max retries reached; broadcast disabled until page reload.`);
         }
       }
       if (status === "CLOSED") {
-        console.log("[Realtime] Channel closed");
+        console.log(`[Realtime] family-${familyId} closed`);
       }
     });
 
-  // Attach dispose method so caller can clean up retry timers
-  channel._dispose = () => {
-    disposed = true;
-    if (retryTimer) clearTimeout(retryTimer);
+  // All postgres_changes channels + the broadcast channel form the composite
+  // subscription. Stored on the broadcast channel itself so a single handle
+  // (the broadcast channel — callers already use it as a channel for .send()
+  // and .state checks) carries the full cleanup responsibility.
+  const postgresChannels = [eventsCh, academiesCh, memosCh, savedPlacesCh, familySubCh, memoRepliesCh];
+  broadcastCh._channels = postgresChannels;
+  broadcastCh._dispose = () => {
+    broadcastDisposed = true;
+    if (broadcastRetryTimer) clearTimeout(broadcastRetryTimer);
+    postgresChannels.forEach((ch) => {
+      try { ch._dispose?.(); } catch { /* ignored */ }
+    });
   };
 
-  return channel;
+  return broadcastCh;
 }
 
 export function unsubscribe(channel) {
   if (!channel) return;
+  // Stop any retry timers (both composite and any standalone per-table channels
+  // that might somehow be passed in — belt-and-suspenders).
   if (channel._dispose) channel._dispose();
-  supabase.removeChannel(channel);
+  // If this is a composite handle, remove the per-table postgres_changes channels
+  // in addition to the broadcast channel itself.
+  if (Array.isArray(channel._channels)) {
+    channel._channels.forEach((ch) => {
+      try { supabase.removeChannel(ch); } catch { /* ignored */ }
+    });
+  }
+  try { supabase.removeChannel(channel); } catch { /* ignored */ }
 }
 
 // ── Cached reads (for offline / initial load) ───────────────────────────────
