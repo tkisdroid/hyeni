@@ -2054,154 +2054,472 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Memo Section with send, replies, read indicator
+// Memo Section — X/Thread-style chat bubble UI (05.5-UI-SPEC.md)
 // ─────────────────────────────────────────────────────────────────────────────
-function MemoSection({ memoValue, onMemoChange, onMemoBlur, onMemoSend, replies, onReplySubmit, readBy, myUserId, isParentMode, onReplyRef }) {
-    const [inputText, setInputText] = useState("");
-    const [memoSent, setMemoSent] = useState(false);
-    const memoText = memoValue || "";
 
-    const handleSend = () => {
-        if (!inputText.trim()) return;
-        const text = inputText.trim();
-        setInputText("");
-        if (onReplySubmit) onReplySubmit(text);
-    };
+/* UI-SPEC §4e — relative timestamp helper */
+function getRelativeTime(createdAt) {
+    const now = Date.now();
+    const ts = new Date(createdAt).getTime();
+    const diffMs = now - ts;
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return "방금";
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}분 전`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}시간 전`;
+    const d = new Date(createdAt);
+    const nowDate = new Date();
+    const timePart = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    if (d.getFullYear() !== nowDate.getFullYear()) {
+        return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. ${timePart}`;
+    }
+    const yesterday = new Date(nowDate); yesterday.setDate(nowDate.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return `어제 ${timePart}`;
+    return `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ${timePart}`;
+}
+
+/* UI-SPEC §4a — date separator label helper */
+function getDateSeparatorLabel(createdAt) {
+    const d = new Date(createdAt);
+    const today = new Date();
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return "오늘";
+    if (d.toDateString() === yesterday.toDateString()) return "어제";
+    return d.toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "long" });
+}
+
+/* UI-SPEC §4b — single-pass group builder: separators + bubbles in correct order */
+function buildMessageItems(replies) {
+    if (!replies || replies.length === 0) return [];
+    const items = [];
+    let prevDateKey = null;
+
+    // First, figure out group membership for all replies
+    const groupIds = new Array(replies.length).fill(0);
+    for (let i = 0; i < replies.length; i++) {
+        const r = replies[i];
+        const prev = i > 0 ? replies[i - 1] : null;
+        const dk = r.created_at ? r.created_at.slice(0, 10) : "";
+        const prevDk = prev ? (prev.created_at ? prev.created_at.slice(0, 10) : "") : null;
+        const sameGroup = prev &&
+            prev.user_id === r.user_id &&
+            dk === prevDk &&
+            (new Date(r.created_at).getTime() - new Date(prev.created_at).getTime()) <= 180000;
+        groupIds[i] = sameGroup ? groupIds[i - 1] : i;
+    }
+
+    for (let i = 0; i < replies.length; i++) {
+        const r = replies[i];
+        const dk = r.created_at ? r.created_at.slice(0, 10) : "";
+
+        // Emit date separator on date change
+        if (dk !== prevDateKey) {
+            items.push({ type: "separator", label: getDateSeparatorLabel(r.created_at), key: `sep-${dk}-${i}` });
+            prevDateKey = dk;
+        }
+
+        const gid = groupIds[i];
+        const isFirstInGroup = groupIds[i - 1] !== gid || i === 0;
+        const isLastInGroup = i === replies.length - 1 || groupIds[i + 1] !== gid;
+
+        items.push({ type: "bubble", r, isFirstInGroup, isLastInGroup, key: r.id });
+    }
+    return items;
+}
+
+function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, onReplyRef }) {
+    /* UI-SPEC §5 — composer state */
+    const [inputText, setInputText] = useState("");
+    const [isFocused, setIsFocused] = useState(false);
+
+    /* UI-SPEC §7 — send-failure toast state (Option A: onReplySubmit returns Promise) */
+    const [showSendFailureToast, setShowSendFailureToast] = useState(false);
+    const [lastFailedText, setLastFailedText] = useState(null);
+    const sendFailureTimerRef = useRef(null);
+
+    /* UI-SPEC §6 — one-time onboarding toast */
+    const [showOnboardingToast, setShowOnboardingToast] = useState(false);
+    const onboardingTimerRef = useRef(null);
+
+    /* UI-SPEC §4f — known-IDs set to detect new bubbles for animation */
+    const seenIdsRef = useRef(new Set());
+
+    /* UI-SPEC §Interaction — container ref for scroll-to-bottom */
+    const containerRef = useRef(null);
+    const prevRepliesLenRef = useRef(0);
+
+    /* UI-SPEC §4f — prefers-reduced-motion */
+    const prefersReducedMotion = useMemo(() =>
+        typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    []);
+
+    /* UI-SPEC §5 — mobile detection for Enter key handling */
+    const isMobile = typeof navigator !== "undefined" &&
+        (/Android|iPhone|iPad/i.test(navigator.userAgent) ||
+         (typeof window !== "undefined" && window.Capacitor !== undefined));
+
+    /* UI-SPEC §6 — onboarding toast: show once on first mount */
+    useEffect(() => {
+        if (!localStorage.getItem("memoOnboardingV2Seen")) {
+            setShowOnboardingToast(true);
+            localStorage.setItem("memoOnboardingV2Seen", "1");
+            onboardingTimerRef.current = setTimeout(() => setShowOnboardingToast(false), 4000);
+        }
+        return () => {
+            if (onboardingTimerRef.current) clearTimeout(onboardingTimerRef.current);
+        };
+    }, []);
+
+    /* UI-SPEC §Interaction §Scroll-to-Bottom — scroll on new message */
+    useEffect(() => {
+        const newLen = (replies || []).length;
+        if (newLen > prevRepliesLenRef.current && containerRef.current) {
+            containerRef.current.scrollIntoView({
+                behavior: prefersReducedMotion ? "instant" : "smooth",
+                block: "end"
+            });
+        }
+        prevRepliesLenRef.current = newLen;
+    }, [replies, prefersReducedMotion]);
 
     const othersRead = (readBy || []).filter(id => id !== myUserId).length > 0;
     const hasMessages = (replies && replies.length > 0);
-    const hasMemo = memoText.trim().length > 0;
+
+    /* UI-SPEC §5 — handleSend with error catch for send-failure toast */
+    const handleSend = (textOverride) => {
+        const text = typeof textOverride === "string" ? textOverride : inputText.trim();
+        if (!text) return;
+        if (typeof textOverride !== "string") setInputText("");
+        const result = onReplySubmit ? onReplySubmit(text) : null;
+        if (result && typeof result.catch === "function") {
+            result.catch(err => {
+                console.error("[MemoSection] send failed", err);
+                /* UI-SPEC §7 — show send-failure toast and keep text for retry */
+                setLastFailedText(text);
+                setShowSendFailureToast(true);
+                if (sendFailureTimerRef.current) clearTimeout(sendFailureTimerRef.current);
+                sendFailureTimerRef.current = setTimeout(() => setShowSendFailureToast(false), 5000);
+            });
+        }
+    };
+
+    /* UI-SPEC §7 — retry handler */
+    const handleRetry = () => {
+        setShowSendFailureToast(false);
+        if (lastFailedText) handleSend(lastFailedText);
+    };
+
+    /* UI-SPEC §4b — build grouped message items */
+    const messageItems = buildMessageItems(replies || []);
 
     return (
-        <div style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
-            {/* Header */}
+        <>
+        {/* UI-SPEC §4f — keyframe animation style tag (idempotent) */}
+        <style id="memo-bubble-anim">{`
+            @keyframes bubbleIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+            @media (prefers-reduced-motion: reduce) { .memo-bubble-animate { animation: none !important; } }
+        `}</style>
+
+        {/* UI-SPEC §1 — MemoSection container */}
+        <div ref={containerRef} style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
+
+            {/* UI-SPEC §2 — Header bar */}
             <div style={{ padding: "12px 16px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>💬 오늘의 메모</div>
-                {hasMessages && othersRead && <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>}
+                {/* UI-SPEC §2 — section title: fontSize 14, fontWeight 700 (corrected from 800) */}
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#374151" }}>💬 오늘의 메모</div>
+                {/* UI-SPEC §2 — conditional ✓ 읽음 badge */}
+                {hasMessages && othersRead && (
+                    <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>
+                )}
             </div>
 
-            {/* Daily memo body */}
-            <div style={{ padding: "14px 16px", background: "#FFF7FB", borderBottom: "1px solid #F3F4F6" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#BE185D", marginBottom: 8 }}>
-                    {isParentMode ? "아이에게 남기는 메모" : "부모님께 남기는 메모"}
-                </div>
-                <textarea
-                    value={memoText}
-                    onChange={e => onMemoChange?.(e.target.value)}
-                    onBlur={() => onMemoBlur?.()}
-                    onKeyDown={e => {
-                        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                            e.preventDefault();
-                            onMemoSend?.();
+            {/* UI-SPEC §4 — Chat bubble area */}
+            <div
+                role="log"
+                aria-live="polite"
+                aria-label="메모 대화"
+                style={{ padding: "12px 16px", minHeight: 60 }}
+            >
+                {/* UI-SPEC §4g — empty state when no messages */}
+                {!hasMessages ? (
+                    <div style={{ textAlign: "center", padding: "24px 16px", color: "#D1D5DB" }}>
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>💗</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#9CA3AF" }}>아직 주고받은 메시지가 없어요</div>
+                        <div style={{ fontSize: 13 }}>
+                            {isParentMode ? "아이에게 첫 메시지를 남겨보세요 💗" : "부모님께 오늘 하루를 전해봐~ 🐰"}
+                        </div>
+                    </div>
+                ) : (
+                    messageItems.map(item => {
+                        if (item.type === "separator") {
+                            /* UI-SPEC §4a — date separator pill */
+                            return (
+                                <div
+                                    key={item.key}
+                                    role="separator"
+                                    aria-label={item.label}
+                                    style={{ display: "flex", alignItems: "center", margin: "8px 0" }}
+                                >
+                                    <hr style={{ flex: 1, border: "none", borderTop: "1px solid #E5E7EB", margin: 0 }} />
+                                    <span style={{ padding: "3px 12px", borderRadius: 99, background: "#F3F4F6", fontSize: 10, color: "#9CA3AF", fontWeight: 700, margin: "0 8px", whiteSpace: "nowrap" }}>
+                                        {item.label}
+                                    </span>
+                                    <hr style={{ flex: 1, border: "none", borderTop: "1px solid #E5E7EB", margin: 0 }} />
+                                </div>
+                            );
                         }
+
+                        /* UI-SPEC §4b — bubble item */
+                        const { r, isFirstInGroup, isLastInGroup } = item;
+                        const isLegacy = r.origin === "legacy_memo" || r.user_role === "legacy";
+                        const isMe = !isLegacy && r.user_id === myUserId;
+
+                        /* UI-SPEC §4c — avatar colors per role */
+                        const avatarBg = isLegacy ? "#FEF3C7" : (r.user_role === "parent" ? "#DBEAFE" : "#FCE7F3");
+                        const avatarGlyph = isLegacy ? "👶" : (r.user_role === "parent" ? "👩" : "🐰");
+
+                        /* UI-SPEC §4d — bubble colors and border-radius */
+                        const bubbleBg = isLegacy ? "#FEF3C7" : (isMe ? "#E879A0" : "#F3F4F6");
+                        const bubbleColor = isLegacy ? "#92400E" : (isMe ? "#FFFFFF" : "#374151");
+                        const bubbleRadius = isLegacy ? "12px" : (isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px");
+
+                        /* UI-SPEC §4f — animation for new bubbles */
+                        const isNew = !seenIdsRef.current.has(r.id);
+                        if (isNew) seenIdsRef.current.add(r.id);
+                        const animStyle = isNew && !prefersReducedMotion
+                            ? { animation: "bubbleIn 150ms ease-out forwards" }
+                            : {};
+
+                        /* UI-SPEC §Accessibility — aria-label for bubble */
+                        const senderLabel = isMe ? "나" : isLegacy ? "예전 메모" : (r.user_role === "parent" ? "부모님" : "아이");
+                        const relTime = getRelativeTime(r.created_at);
+                        const bubbleAriaLabel = `${senderLabel} ${relTime}에 보낸 메시지: ${r.content}`;
+
+                        return (
+                            <div
+                                key={r.id}
+                                role="article"
+                                aria-label={bubbleAriaLabel}
+                                data-memo-reply-id={r.id}
+                                ref={el => { if (el && !isLegacy && onReplyRef) onReplyRef(el, r.id); }}
+                                className={isNew && !prefersReducedMotion ? "memo-bubble-animate" : ""}
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    /* UI-SPEC §4b — marginBottom: 12px last of group, 4px middle */
+                                    marginBottom: isLastInGroup ? 12 : 4,
+                                    flexDirection: isMe ? "row-reverse" : "row",
+                                    alignItems: "flex-start",
+                                    ...animStyle
+                                }}
+                            >
+                                {/* UI-SPEC §4c — avatar on first bubble, spacer on subsequent */}
+                                {isFirstInGroup ? (
+                                    <div style={{ width: 28, height: 28, borderRadius: 14, background: avatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+                                        {avatarGlyph}
+                                    </div>
+                                ) : (
+                                    <div style={{ width: 28, flexShrink: 0 }} aria-hidden="true" />
+                                )}
+
+                                <div style={{ maxWidth: "75%" }}>
+                                    {/* UI-SPEC §4d — legacy "예전 메모" label */}
+                                    {isLegacy && (
+                                        <div style={{ fontSize: 10, color: "#92400E", marginBottom: 3, fontWeight: 700 }}>예전 메모</div>
+                                    )}
+
+                                    {/* UI-SPEC §4d — bubble body */}
+                                    <div style={{
+                                        background: bubbleBg,
+                                        color: bubbleColor,
+                                        borderRadius: bubbleRadius,
+                                        padding: "10px 14px",
+                                        fontSize: 14,
+                                        lineHeight: 1.45,
+                                        fontFamily: FF,
+                                        wordBreak: "break-word",
+                                        overflowWrap: "break-word",
+                                        border: isLegacy ? "1px dashed #FBBF24" : "none"
+                                    }}>
+                                        {r.content}
+                                    </div>
+
+                                    {/* UI-SPEC §4e — timestamp on last bubble of group only */}
+                                    {isLastInGroup && (
+                                        <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, textAlign: isMe ? "right" : "left" }}>
+                                            {relTime}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+
+            {/* UI-SPEC §5 — Composer bar */}
+            <div style={{
+                padding: "10px 12px",
+                paddingBottom: "max(10px, env(safe-area-inset-bottom))",
+                borderTop: "1px solid #F3F4F6",
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                background: "#FAFAFA"
+            }}>
+                {/* UI-SPEC §5 — composer input: fontSize 16 prevents iOS auto-zoom */}
+                <input
+                    type="text"
+                    aria-label={isParentMode ? "메모 입력" : "답글 입력"}
+                    aria-required="false"
+                    autoComplete="off"
+                    autoCorrect="on"
+                    spellCheck="true"
+                    placeholder={isParentMode ? "메시지를 입력하세요..." : "답글을 남겨봐~ 🐰"}
+                    value={inputText}
+                    onChange={e => setInputText(e.target.value)}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    onKeyDown={e => {
+                        /* UI-SPEC §5 — desktop Enter=send, mobile Enter=newline */
+                        if (e.key === "Enter" && !isMobile) { e.preventDefault(); handleSend(); }
                     }}
-                    placeholder={isParentMode ? "오늘 꼭 전하고 싶은 내용을 남겨주세요..." : "오늘 있었던 일이나 전하고 싶은 말을 적어봐~ 🐰"}
                     style={{
-                        width: "100%",
-                        minHeight: 88,
-                        resize: "vertical",
-                        border: "1.5px solid #FBCFE8",
-                        borderRadius: 16,
-                        padding: "12px 14px",
-                        fontSize: 14,
-                        lineHeight: 1.6,
+                        flex: 1,
+                        /* UI-SPEC §5 — focus border swap #E5E7EB → #E879A0 */
+                        border: `1.5px solid ${isFocused ? "#E879A0" : "#E5E7EB"}`,
+                        borderRadius: 22,
+                        padding: "11px 16px",
+                        fontSize: 16,
                         fontFamily: FF,
                         outline: "none",
                         background: "white",
                         boxSizing: "border-box",
-                        color: "#374151",
+                        color: "#374151"
                     }}
                 />
-                <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ fontSize: 11, color: hasMemo ? "#6B7280" : "#9CA3AF" }}>
-                        {hasMemo ? "이 메모가 상대방 화면에 바로 보여요." : "메모를 보내면 상대방에게 푸시 알림이 갑니다."}
-                    </div>
-                    <button
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => {
-                            onMemoSend?.();
-                            setMemoSent(true);
-                            setTimeout(() => setMemoSent(false), 2500);
-                        }}
-                        disabled={!hasMemo || memoSent}
-                        style={{
-                            padding: "10px 14px",
-                            borderRadius: 14,
-                            border: "none",
-                            cursor: (hasMemo && !memoSent) ? "pointer" : "default",
-                            background: memoSent ? "#10B981" : hasMemo ? "linear-gradient(135deg,#EC4899,#BE185D)" : "#E5E7EB",
-                            color: "white",
-                            fontWeight: 800,
-                            fontSize: 12,
-                            fontFamily: FF,
-                            flexShrink: 0,
-                            transition: "background 0.3s",
-                        }}
-                    >
-                        {memoSent ? "✓ 전송 완료!" : "메모 보내기"}
-                    </button>
-                </div>
-            </div>
-
-            {/* Chat area — Phase 4 MEMO-01: renders memo_replies including
-                origin='legacy_memo' rows with a distinct label. The `ref`
-                prop on each bubble hooks the 3-second viewport observer
-                (MEMO-02) wired in the parent component. */}
-            <div style={{ padding: "12px 16px", minHeight: 60 }}>
-                {hasMessages ? replies.map(r => {
-                    const isLegacy = r.origin === "legacy_memo" || r.user_role === "legacy";
-                    const isMe = !isLegacy && r.user_id === myUserId;
-                    const avatarBg = isLegacy ? "#FEF3C7" : (r.user_role === "parent" ? "#DBEAFE" : "#FCE7F3");
-                    const avatarGlyph = isLegacy ? "👶" : (r.user_role === "parent" ? "👩" : "🐰");
-                    const bubbleBg = isLegacy ? "#FFF7ED" : (isMe ? "#E879A0" : "#F3F4F6");
-                    const bubbleColor = isLegacy ? "#92400E" : (isMe ? "white" : "#374151");
-                    const bubbleRadius = isLegacy ? "12px" : (isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px");
-                    return (
-                        <div
-                            key={r.id}
-                            data-memo-reply-id={r.id}
-                            ref={el => { if (el && !isLegacy && onReplyRef) onReplyRef(el, r.id); }}
-                            style={{ display: "flex", gap: 8, marginBottom: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-start" }}>
-                            <div style={{ width: 28, height: 28, borderRadius: 14, background: avatarBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{avatarGlyph}</div>
-                            <div style={{ maxWidth: "75%" }}>
-                                {isLegacy && (
-                                    <div style={{ fontSize: 10, color: "#B45309", marginBottom: 3, fontWeight: 700 }}>예전 메모</div>
-                                )}
-                                <div style={{ background: bubbleBg, color: bubbleColor, borderRadius: bubbleRadius, padding: "10px 14px", fontSize: 14, lineHeight: 1.5, fontFamily: FF, border: isLegacy ? "1px dashed #FBBF24" : "none" }}>{r.content}</div>
-                                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 3, textAlign: isMe ? "right" : "left" }}>
-                                    {new Date(r.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
-                                </div>
-                            </div>
-                        </div>
-                    );
-                }) : (
-                    <div style={{ textAlign: "center", padding: "12px 0", color: "#D1D5DB", fontSize: 13 }}>{isParentMode ? "메모를 남겨보세요" : "오늘 하루 어땠어? 🐰"}</div>
-                )}
-            </div>
-
-            {/* Input bar */}
-            <div style={{ padding: "10px 12px", borderTop: "1px solid #F3F4F6", display: "flex", gap: 8, alignItems: "center", background: "#FAFAFA" }}>
-                <input
-                    type="text"
-                    placeholder={isParentMode ? "답글을 입력하세요..." : "답글을 남겨봐~ 🐰"}
-                    value={inputText}
-                    onChange={e => setInputText(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") handleSend(); }}
-                    style={{ flex: 1, border: "1.5px solid #E5E7EB", borderRadius: 20, padding: "10px 16px", fontSize: 16, fontFamily: FF, outline: "none", background: "white", boxSizing: "border-box" }}
-                />
-                <button onClick={handleSend}
-                    style={{ width: 40, height: 40, borderRadius: 20, background: inputText.trim() ? "linear-gradient(135deg,#E879A0,#BE185D)" : "#E5E7EB", color: "white", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                {/* UI-SPEC §5 — send button: 44x44 touch target */}
+                <button
+                    type="button"
+                    aria-label="메시지 보내기"
+                    onClick={() => handleSend()}
+                    style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        /* UI-SPEC §5 — active gradient vs. inactive grey */
+                        background: inputText.trim()
+                            ? "linear-gradient(135deg,#E879A0,#BE185D)"
+                            : "#E5E7EB",
+                        color: "white",
+                        border: "none",
+                        cursor: inputText.trim() ? "pointer" : "default",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 18,
+                        flexShrink: 0,
+                        transition: "background 0.2s ease"
+                    }}>
                     ↑
                 </button>
             </div>
         </div>
+
+        {/* UI-SPEC §6 — one-time onboarding toast */}
+        {showOnboardingToast && (
+            <div
+                role="status"
+                aria-live="polite"
+                aria-label="메모 화면이 새로워졌어요"
+                style={{
+                    position: "fixed",
+                    bottom: "max(80px, calc(80px + env(safe-area-inset-bottom)))",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "#E879A0",
+                    color: "#FFFFFF",
+                    borderRadius: 24,
+                    padding: "12px 20px",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    fontFamily: FF,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    boxShadow: "0 4px 20px rgba(232,121,160,0.35)",
+                    whiteSpace: "nowrap",
+                    zIndex: 9999,
+                    animation: prefersReducedMotion ? "none" : "toastIn 200ms ease-out forwards"
+                }}
+            >
+                메모 화면이 새로워졌어요 ✨
+                <button
+                    type="button"
+                    aria-label="닫기"
+                    onClick={() => { setShowOnboardingToast(false); if (onboardingTimerRef.current) clearTimeout(onboardingTimerRef.current); }}
+                    style={{ background: "transparent", border: "none", color: "white", fontSize: 16, cursor: "pointer", padding: "0 0 0 4px", lineHeight: 1, minWidth: 24, minHeight: 24 }}
+                >
+                    ×
+                </button>
+            </div>
+        )}
+
+        {/* UI-SPEC §7 — send-failure toast */}
+        {showSendFailureToast && (
+            <div
+                role="alert"
+                aria-live="assertive"
+                aria-label="메시지 전송 실패"
+                style={{
+                    position: "fixed",
+                    bottom: "max(80px, calc(80px + env(safe-area-inset-bottom)))",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "#FEE2E2",
+                    color: "#991B1B",
+                    borderRadius: 24,
+                    padding: "12px 20px",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    fontFamily: FF,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    boxShadow: "0 4px 16px rgba(153,27,27,0.15)",
+                    whiteSpace: "nowrap",
+                    zIndex: 9999
+                }}
+            >
+                메시지 전송에 실패했어요. 다시 시도해 주세요.
+                <button
+                    type="button"
+                    aria-label="메시지 전송 다시 시도"
+                    onClick={handleRetry}
+                    style={{ background: "transparent", border: "1px solid #991B1B", borderRadius: 12, color: "#991B1B", fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", marginLeft: 8 }}
+                >
+                    다시 시도
+                </button>
+                <button
+                    type="button"
+                    aria-label="닫기"
+                    onClick={() => { setShowSendFailureToast(false); if (sendFailureTimerRef.current) clearTimeout(sendFailureTimerRef.current); }}
+                    style={{ background: "transparent", border: "none", color: "#991B1B", fontSize: 16, cursor: "pointer", padding: "0 0 0 4px", lineHeight: 1, minWidth: 24, minHeight: 24 }}
+                >
+                    ×
+                </button>
+            </div>
+        )}
+        </>
     );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Day Timetable (kid-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
-function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, memoValue, onMemoChange, onMemoBlur, onMemoSend, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onReplyRef }) {
+function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onReplyRef }) {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -2212,7 +2530,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                 <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "#D1D5DB" : "#F9A8D4" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
                 <div style={{ fontSize: isParentMode ? 13 : 14, color: "#E5E7EB", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
             </div>
-            <MemoSection memoValue={memoValue} onMemoChange={onMemoChange} onMemoBlur={onMemoBlur} onMemoSend={onMemoSend} replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} onReplyRef={onReplyRef} />
+            <MemoSection replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} onReplyRef={onReplyRef} />
         </div>
     );
 
@@ -2363,10 +2681,6 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
 
             {/* Memo */}
             <MemoSection
-                memoValue={memoValue}
-                onMemoChange={onMemoChange}
-                onMemoBlur={onMemoBlur}
-                onMemoSend={onMemoSend}
                 replies={memoReplies}
                 onReplySubmit={onReplySubmit}
                 readBy={memoReadBy}
@@ -4140,9 +4454,6 @@ export default function KidsScheduler() {
     };
 
     const notifTimer = useRef(null);
-    const memoSaveTimer = useRef(null);
-    const memoDirty = useRef(false);       // true when memo has unsent push
-    const memoLastValue = useRef("");       // last memo value for push
     // Phase 5 · KKUK-02 — receiver-side LRU dedup. Keys are payload.dedup_key
     // UUIDs; values are Date.now() timestamps. Pruned on each new event to
     // anything older than 60s. Backs onKkuk's duplicate-suppression branch.
@@ -4265,26 +4576,6 @@ export default function KidsScheduler() {
         loadKakaoMap(KAKAO_APP_KEY).then(() => setMapReady(true)).catch(() => {});
     }, []);
 
-    // ── Send memo push when app goes to background / closes ─────────────────────
-    useEffect(() => {
-        const handleVisibility = () => {
-            if (document.visibilityState === "hidden" && memoDirty.current && familyId && authUser && memoLastValue.current.trim()) {
-                memoDirty.current = false;
-                // Flush DB save
-                if (memoSaveTimer.current) { clearTimeout(memoSaveTimer.current); memoSaveTimer.current = null; }
-                upsertMemo(familyId, dateKey, memoLastValue.current).catch(() => {});
-                sendInstantPush({
-                    action: "new_memo",
-                    familyId,
-                    senderUserId: authUser.id,
-                    title: `📒 ${myRole === "parent" ? "부모님" : "아이"}이 메모를 남겼어요`,
-                    message: memoLastValue.current.length > 50 ? memoLastValue.current.substring(0, 50) + "..." : memoLastValue.current,
-                });
-            }
-        };
-        document.addEventListener("visibilitychange", handleVisibility);
-        return () => document.removeEventListener("visibilitychange", handleVisibility);
-    }, [familyId, authUser, authUser?.id, myRole, dateKey]);
 
     // ── Sync parent phones from familyInfo ─────────────────────────────────────
     useEffect(() => {
@@ -4667,8 +4958,9 @@ export default function KidsScheduler() {
                     return;
                 }
                 if (!newRow?.date_key) return;
-                // Never overwrite the currently viewed date's memo (user may be editing)
-                if (newRow.date_key === dateKeyRef.current) return;
+                // MEMO-FIX-02: skip guard removed — textarea write-path gone, memos state
+                // is read-only UI; stale state on current date is inconsequential.
+                // updated_by column does not exist in schema, so Option A was not viable.
                 setMemos(prev => {
                     const updated = { ...prev };
                     updated[newRow.date_key] = newRow.content || "";
@@ -5615,8 +5907,11 @@ export default function KidsScheduler() {
 
             if (familyId && authUser) {
                 try {
+                    // Phase 5.5 MEMO-FIX-01: voice add_memo previously dual-wrote to
+                    // events.memo AND legacy public.memos. The public.memos write is
+                    // the same dead-end table whose UI we removed. Voice memos remain
+                    // persistent via events.memo (events table is live and displayed).
                     await updateEvent(targetId, { memo: newMemoVal });
-                    await upsertMemo(familyId, dateKey, newMemoVal);
                 } catch (err) { console.error("[voiceMemo] save error:", err); }
             }
 
@@ -6737,57 +7032,9 @@ export default function KidsScheduler() {
                         onDelete={handleDeleteEvent}
                         onEditLoc={id => { setEditingLocForEvent(id); setShowMapPicker(true); }}
                         isParentMode={isParent}
-                        memoValue={memos[dateKey] || ""}
-                        onMemoChange={val => {
-                            setMemos(prev => ({ ...prev, [dateKey]: val }));
-                            memoDirty.current = true;
-                            memoLastValue.current = val;
-                            // Save to DB quickly (500ms debounce)
-                            if (memoSaveTimer.current) clearTimeout(memoSaveTimer.current);
-                            memoSaveTimer.current = setTimeout(() => {
-                                if (familyId) {
-                                    upsertMemo(familyId, dateKey, val).catch(err => console.error("[memo save]", err));
-                                    cacheMemos({ ...memos, [dateKey]: val });
-                                }
-                            }, 500);
-                        }}
-                        onMemoBlur={() => {
-                            if (memoDirty.current && familyId && memoLastValue.current.trim()) {
-                                memoDirty.current = false;
-                                if (memoSaveTimer.current) { clearTimeout(memoSaveTimer.current); memoSaveTimer.current = null; }
-                                upsertMemo(familyId, dateKey, memoLastValue.current).catch(err => console.error("[memo save]", err));
-                                if (authUser) {
-                                    sendInstantPush({
-                                        action: "new_memo",
-                                        familyId,
-                                        senderUserId: authUser.id,
-                                        title: `📒 ${myRole === "parent" ? "부모님" : "아이"}이 메모를 남겼어요`,
-                                        message: memoLastValue.current.length > 50 ? memoLastValue.current.substring(0, 50) + "..." : memoLastValue.current,
-                                    });
-                                }
-                            }
-                        }}
-                        onMemoSend={() => {
-                            if (familyId && authUser && memoLastValue.current.trim()) {
-                                memoDirty.current = false;
-                                if (memoSaveTimer.current) { clearTimeout(memoSaveTimer.current); memoSaveTimer.current = null; }
-                                upsertMemo(familyId, dateKey, memoLastValue.current).catch(err => console.error("[memo save]", err));
-                                sendInstantPush({
-                                    action: "new_memo",
-                                    familyId,
-                                    senderUserId: authUser.id,
-                                    title: `📒 ${myRole === "parent" ? "부모님" : "아이"}이 메모를 남겼어요`,
-                                    message: memoLastValue.current.length > 50 ? memoLastValue.current.substring(0, 50) + "..." : memoLastValue.current,
-                                });
-                                if (myRole === "child" && aiEnabled) {
-                                    const evForMemo = selectedEvs[0];
-                                    analyzeMemoSentiment(memoLastValue.current, evForMemo?.title);
-                                }
-                            }
-                        }}
                         memoReplies={memoReplies}
                         onReplySubmit={content => {
-                            if (!familyId || !authUser) return;
+                            if (!familyId || !authUser) return Promise.resolve();
                             // Phase 4 · MEMO-01: write ONLY to memo_replies.
                             // The legacy `public.memos` upsert-placeholder "💬"
                             // trick is gone — the unified chat surface has no
@@ -6798,9 +7045,11 @@ export default function KidsScheduler() {
                             // Optimistic update — render immediately, the server echo replaces it.
                             const optimisticReply = { id: "temp-" + Date.now(), user_id: authUser.id, user_role: myRole, content, created_at: new Date().toISOString(), origin, read_by: [] };
                             setMemoReplies(prev => [...(prev || []), optimisticReply]);
-                            sendMemo(familyId, dateKey, content, authUser.id, myRole, origin)
+                            // UI-SPEC §7 Option A: return the Promise so MemoSection can .catch() for send-failure toast.
+                            // console.error is preserved inside .catch at the call site (MemoSection handleSend).
+                            const sendPromise = sendMemo(familyId, dateKey, content, authUser.id, myRole, origin)
                                 .then(() => fetchMemoReplies(familyId, dateKey).then(setMemoReplies))
-                                .catch(err => console.error("[reply]", err));
+                                .catch(err => { console.error("[reply]", err); throw err; });
                             sendInstantPush({
                                 action: "new_memo",
                                 familyId,
@@ -6808,6 +7057,7 @@ export default function KidsScheduler() {
                                 title: `💬 ${myRole === "parent" ? "부모님" : "아이"}이 답글을 남겼어요`,
                                 message: content.length > 50 ? content.substring(0, 50) + "..." : content,
                             });
+                            return sendPromise;
                         }}
                         memoReadBy={memoReadBy}
                         myUserId={authUser?.id}
