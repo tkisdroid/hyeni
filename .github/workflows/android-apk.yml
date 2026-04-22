@@ -32,6 +32,13 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # android/variables.gradle pins compileSdk = 36 / targetSdk = 36. The action's
+          # default package list does NOT install android-36, so we request it explicitly
+          # along with the matching build-tools. Keep android-34 as fallback until the
+          # repo drops it (Phase 5 FGS-microphone code still branches on API 34).
+          # action auto-accepts Android SDK licenses; no explicit flag needed.
+          packages: "platforms;android-36 platforms;android-34 build-tools;36.0.0 build-tools;34.0.0 platform-tools"
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -113,7 +120,13 @@ jobs:
           ORG_GRADLE_PROJECT_HYENI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ORG_GRADLE_PROJECT_HYENI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ORG_GRADLE_PROJECT_HYENI_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon ${{ steps.variant.outputs.task }}
+        shell: bash
+        # --stacktrace surfaces the failing task's Java/Groovy exception in the step log,
+        # which otherwise gets truncated and is invisible to the GitHub public API.
+        # --no-daemon keeps the runner clean. pipefail preserves gradle's non-zero exit.
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace ${{ steps.variant.outputs.task }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
