@@ -1,6 +1,6 @@
 ---
 slug: ai-child-monitor-401
-status: diagnosed_fix_staged
+status: resolved
 trigger: `qzrrscryacxhprnrtpjd.supabase.co/functions/v1/ai-child-monitor` edge function returns HTTP 401 when called from the child session. Originally surfaced as Evidence J in kkuk-memo-send-noop debug session on 2026-04-22. Unrelated to the memo UX bug (out of that session's scope), deferred as separate investigation per user request.
 created: 2026-04-22
 updated: 2026-04-22
@@ -102,5 +102,13 @@ fix: Two-part fix required:
   1. Add in-function JWT verification to ai-child-monitor/index.ts (read Authorization header, call getClaims(), reject if invalid — mirror push-notify lines 280-298 pattern).
   2. Redeploy: `npx supabase functions deploy ai-child-monitor --no-verify-jwt --project-ref qzrrscryacxhprnrtpjd`
 
-verification: (pending — not yet applied)
-files_changed: []
+verification: Both fix parts applied + live-verified 2026-04-22:
+  1. Auth gate added at supabase/functions/ai-child-monitor/index.ts lines 289-316 (imports + env reads at lines 2,5-6; gate after OPTIONS handler before req.json()). Commit 310da4f.
+  2. Deployed via Supabase MCP deploy_edge_function with verify_jwt=false. Version 9 ACTIVE on project qzrrscryacxhprnrtpjd. Deployment id 76bb67e4-a972-4fd4-bd7b-c969275ebd0f.
+  3. Live probe confirmed in-function gate authoritative:
+     - `POST ... (no auth header)` → `{"error":"missing auth"}` HTTP 401 (from in-function, not gateway)
+     - `POST ... Authorization: Bearer bogus.token.here` → `{"error":"invalid jwt"}` HTTP 401 (from getClaims reject)
+     - Gateway no longer blocks the request at all. Valid child JWT will now pass through to OpenAI call.
+files_changed:
+  - supabase/functions/ai-child-monitor/index.ts
+status: resolved
