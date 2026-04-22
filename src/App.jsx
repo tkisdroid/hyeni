@@ -7062,17 +7062,20 @@ export default function KidsScheduler() {
                             // UI-SPEC §7 Option A: return the Promise so MemoSection can .catch() for send-failure toast.
                             // console.error is preserved inside .catch at the call site (MemoSection handleSend).
                             const sendPromise = sendMemo(familyId, dateKey, content, authUser.id, myRole, origin)
-                                .then(() => fetchMemoReplies(familyId, dateKey).then(setMemoReplies))
                                 .then(() => {
-                                    // Codex P1 fix: preserve child memo sentiment analysis.
-                                    // Legacy onMemoSend block (removed in Phase 5.5-01 Task 1) was the
-                                    // only caller. Child-sent replies are the typed-memo equivalent
-                                    // in the unified chat surface — run sentiment per message.
-                                    // Fire-and-forget: analyzeMemoSentiment handles its own errors
-                                    // and feature-flag/entitlement gates internally.
+                                    // Codex P1 + P2 (round 2) fix: preserve child memo sentiment
+                                    // analysis and run it INDEPENDENTLY of the refresh request.
+                                    // Legacy onMemoSend was the only prior caller. Child-sent
+                                    // replies are the typed-memo equivalent in the unified chat.
+                                    // Decoupled from fetchMemoReplies so a refresh network
+                                    // failure cannot suppress the safety analysis on a memo that
+                                    // is already persisted server-side (sendMemo resolved).
+                                    // Fire-and-forget: analyzeMemoSentiment handles entitlement,
+                                    // AI flag, and network errors internally.
                                     if (myRole === "child" && aiEnabled) {
                                         try { analyzeMemoSentiment(content, ""); } catch (_) { /* ignore */ }
                                     }
+                                    return fetchMemoReplies(familyId, dateKey).then(setMemoReplies);
                                 })
                                 .catch(err => { console.error("[reply]", err); throw err; });
                             sendInstantPush({
