@@ -1,6 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -278,6 +281,35 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: "Method not allowed" }),
       {
         status: 405,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  // ── Auth gate: verify caller JWT in-function ────────────────────────
+  // Mirrors push-notify D-A01/D-A02 pattern. Function must be deployed
+  // with `--no-verify-jwt` to bypass supabase#42244 (ES256 JWT rejection
+  // by the Supabase edge gateway). See PITFALLS.md §1.
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    return new Response(
+      JSON.stringify({ error: "missing auth" }),
+      {
+        status: 401,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(token);
+  if (claimsErr || !claimsData?.claims?.sub) {
+    console.warn("ai-child-monitor: invalid jwt", claimsErr?.message);
+    return new Response(
+      JSON.stringify({ error: "invalid jwt" }),
+      {
+        status: 401,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       }
     );
