@@ -155,6 +155,10 @@ const REMOTE_AUDIO_MIME_TYPES = [
 ];
 const REMOTE_AUDIO_LEVEL_BARS = [12, 18, 24, 20, 16];
 const CHILD_MARKER_COLORS = ["#3B82F6", "#EC4899", "#F59E0B", "#10B981"];
+const CHILD_TRACKER_ZOOM_LEVEL = 2;
+const CHILD_TRACKER_WALK_RADIUS_M = 30;
+const CHILD_TRACKER_DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
+const APP_BRAND_LOGO_SRC = "/icon-192.png";
 
 function getRemoteAudioMimeType() {
     if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
@@ -480,6 +484,21 @@ const BunnyMascot = ({ size = 80 }) => (
         <ellipse cx="28" cy="68" rx="7" ry="10" fill="#FFF0F7" transform="rotate(-20 28 68)" />
         <ellipse cx="72" cy="68" rx="7" ry="10" fill="#FFF0F7" transform="rotate(20 72 68)" />
     </svg>
+);
+
+const AppBrandLogo = ({ size = 80, radius = 24, shadow = true }) => (
+    <img
+        src={APP_BRAND_LOGO_SRC}
+        alt="혜니캘린더 로고"
+        style={{
+            width: size,
+            height: size,
+            borderRadius: radius,
+            objectFit: "cover",
+            display: "block",
+            boxShadow: shadow ? "0 10px 28px rgba(232,121,160,0.20)" : "none",
+        }}
+    />
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -886,7 +905,7 @@ function RoleSetupModal({ onSelect, loading }) {
 
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
-            <BunnyMascot size={90} />
+            <AppBrandLogo size={96} radius={28} />
             <div style={{ fontSize: 32, fontWeight: 900, color: "#E879A0", marginTop: 20, marginBottom: 4, letterSpacing: -1, textAlign: "center" }}>
                 혜니캘린더
             </div>
@@ -1284,7 +1303,7 @@ function ChildPairInput({ userId, onPaired }) {
 
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
-            <BunnyMascot size={70} />
+            <AppBrandLogo size={78} radius={24} />
             <div style={{ fontSize: 24, fontWeight: 900, color: "#E879A0", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
             <div style={{ fontSize: 14, color: "#6B7280", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
             <div style={{ position: "relative", width: "100%", maxWidth: 320, marginBottom: 8 }}>
@@ -2472,7 +2491,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                 메모 화면이 새로워졌어요 ✨
                 <button
                     type="button"
-                    aria-label="닫기"
+                    aria-label="메모 안내 숨김"
                     onClick={() => { setShowOnboardingToast(false); if (onboardingTimerRef.current) clearTimeout(onboardingTimerRef.current); }}
                     style={{ background: "transparent", border: "none", color: "white", fontSize: 16, cursor: "pointer", padding: "0 0 0 4px", lineHeight: 1, minWidth: 24, minHeight: 24 }}
                 >
@@ -2518,7 +2537,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                 </button>
                 <button
                     type="button"
-                    aria-label="닫기"
+                    aria-label="전송 실패 숨김"
                     onClick={() => { setShowSendFailureToast(false); if (sendFailureTimerRef.current) clearTimeout(sendFailureTimerRef.current); }}
                     style={{ background: "transparent", border: "none", color: "#991B1B", fontSize: 16, cursor: "pointer", padding: "0 0 0 4px", lineHeight: 1, minWidth: 24, minHeight: 24 }}
                 >
@@ -4068,23 +4087,61 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
     const mapObj = useRef();
     const myMarkerRef = useRef();
     const childMarkersRef = useRef([]);
+    const walkRadiusCircleRef = useRef(null);
     const trailPolyRef = useRef(null);
     const expectedPolyRef = useRef(null);
     const eventMarkersRef = useRef([]);
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [selectedChildId, setSelectedChildId] = useState(null);
 
-    const center = allChildPositions[0] || childPos || { lat: 37.5665, lng: 126.9780 };
+    const childLocations = useMemo(() => {
+        const source = allChildPositions.length > 0
+            ? allChildPositions
+            : (childPos ? [{ user_id: "default", name: "우리 아이", emoji: "🐰", lat: childPos.lat, lng: childPos.lng, updatedAt: childPos.updatedAt }] : []);
+        return source
+            .filter(child => Number.isFinite(Number(child?.lat)) && Number.isFinite(Number(child?.lng)))
+            .map((child, i) => ({
+                ...child,
+                lat: Number(child.lat),
+                lng: Number(child.lng),
+                name: child.name || "우리 아이",
+                emoji: child.emoji || "🐰",
+                trackerKey: child.user_id || child.id || `child-${i}`,
+            }));
+    }, [allChildPositions, childPos]);
+
+    const selectedChild = childLocations.find(child => child.trackerKey === selectedChildId) || childLocations[0] || null;
+    const center = selectedChild || CHILD_TRACKER_DEFAULT_CENTER;
+
+    const focusChildLocation = useCallback((child, level = CHILD_TRACKER_ZOOM_LEVEL) => {
+        if (!mapObj.current || !child || !Number.isFinite(child.lat) || !Number.isFinite(child.lng)) return;
+        const target = new window.kakao.maps.LatLng(child.lat, child.lng);
+        try {
+            mapObj.current.setLevel(level, { animate: true });
+        } catch {
+            mapObj.current.setLevel(level);
+        }
+        if (typeof mapObj.current.panTo === "function") {
+            mapObj.current.panTo(target);
+        } else {
+            mapObj.current.setCenter(target);
+        }
+    }, []);
 
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-    const todayLocEvents = (events[todayKey] || []).filter(e => e.location).sort((a, b) => a.time.localeCompare(b.time));
+    const todayLocEvents = useMemo(
+        () => (events[todayKey] || []).filter(e => e.location).sort((a, b) => a.time.localeCompare(b.time)),
+        [events, todayKey]
+    );
     const nextEvent = todayLocEvents.find(e => {
         const [h, m] = e.time.split(":").map(Number);
         return h * 60 + m > nowMin;
     });
-    const distToNext = childPos && nextEvent?.location
-        ? haversineM(childPos.lat, childPos.lng, nextEvent.location.lat, nextEvent.location.lng)
+    const activeChildLocation = selectedChild || childPos;
+    const distToNext = activeChildLocation && nextEvent?.location
+        ? haversineM(activeChildLocation.lat, activeChildLocation.lng, nextEvent.location.lat, nextEvent.location.lng)
         : null;
 
     // 오늘 총 이동거리 (실제 이동경로 합산)
@@ -4098,7 +4155,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
         if (!mapReady || !mapRef.current || mapObj.current) return;
         mapObj.current = new window.kakao.maps.Map(mapRef.current, {
             center: new window.kakao.maps.LatLng(center.lat, center.lng),
-            level: 4
+            level: CHILD_TRACKER_ZOOM_LEVEL
         });
     }, [mapReady, center.lat, center.lng]);
 
@@ -4109,34 +4166,43 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
         childMarkersRef.current.forEach(m => m.setMap(null));
         childMarkersRef.current = [];
         if (myMarkerRef.current) { myMarkerRef.current.setMap(null); myMarkerRef.current = null; }
+        if (walkRadiusCircleRef.current) { walkRadiusCircleRef.current.setMap(null); walkRadiusCircleRef.current = null; }
 
-        const positions = allChildPositions.length > 0 ? allChildPositions : (childPos ? [{ user_id: "default", name: "우리 아이", emoji: "🐰", lat: childPos.lat, lng: childPos.lng, updatedAt: childPos.updatedAt }] : []);
-        if (!positions.length) return;
+        if (!childLocations.length) return;
 
-        const bounds = new window.kakao.maps.LatLngBounds();
-        positions.forEach((child, i) => {
+        childLocations.forEach((child, i) => {
             const color = CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length];
+            const isActive = child.trackerKey === selectedChild?.trackerKey;
             const ll = new window.kakao.maps.LatLng(child.lat, child.lng);
-            bounds.extend(ll);
             const updatedLabel = child.updatedAt ? (() => { const d = new Date(child.updatedAt); return `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`; })() : "";
             const overlay = new window.kakao.maps.CustomOverlay({
                 position: ll,
                 content: `<div style="display:flex;flex-direction:column;align-items:center">
-                    <div style="width:28px;height:28px;background:${color};border:4px solid white;border-radius:50%;box-shadow:0 0 0 8px ${color}33,0 3px 12px ${color}66;display:flex;align-items:center;justify-content:center;font-size:14px">${escHtml(child.emoji)}</div>
-                    <div style="margin-top:4px;background:${color};color:white;padding:4px 12px;border-radius:10px;font-size:11px;font-weight:800;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap">${escHtml(child.name)}${updatedLabel ? ` · ${updatedLabel}` : ""}</div>
+                    <div style="width:${isActive ? 34 : 28}px;height:${isActive ? 34 : 28}px;background:${color};border:${isActive ? 5 : 4}px solid white;border-radius:50%;box-shadow:0 0 0 ${isActive ? 12 : 8}px ${color}33,0 3px 12px ${color}66;display:flex;align-items:center;justify-content:center;font-size:${isActive ? 16 : 14}px">${escHtml(child.emoji)}</div>
+                    <div style="margin-top:4px;background:${color};color:white;padding:${isActive ? "5px 14px" : "4px 12px"};border-radius:10px;font-size:11px;font-weight:800;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap">${escHtml(child.name)}${updatedLabel ? ` · ${updatedLabel}` : ""}</div>
                 </div>`,
-                yAnchor: 1.8, xAnchor: 0.5, zIndex: 10
+                yAnchor: 1.8, xAnchor: 0.5, zIndex: isActive ? 20 : 10
             });
             overlay.setMap(mapObj.current);
             childMarkersRef.current.push(overlay);
         });
 
-        if (positions.length === 1) {
-            mapObj.current.setCenter(new window.kakao.maps.LatLng(positions[0].lat, positions[0].lng));
-        } else {
-            mapObj.current.setBounds(bounds, 80);
+        if (selectedChild && window.kakao.maps.Circle) {
+            walkRadiusCircleRef.current = new window.kakao.maps.Circle({
+                center: new window.kakao.maps.LatLng(selectedChild.lat, selectedChild.lng),
+                radius: CHILD_TRACKER_WALK_RADIUS_M,
+                strokeWeight: 2,
+                strokeColor: "#2563EB",
+                strokeOpacity: 0.72,
+                strokeStyle: "solid",
+                fillColor: "#3B82F6",
+                fillOpacity: 0.12,
+            });
+            walkRadiusCircleRef.current.setMap(mapObj.current);
         }
-    }, [allChildPositions, childPos]);
+
+        focusChildLocation(selectedChild || childLocations[0]);
+    }, [childLocations, selectedChild, focusChildLocation]);
 
     // Effect 3: 이동경로 + 예상경로 + 일정 마커 (locationTrail/events 변경 시 재드로우)
     useEffect(() => {
@@ -4212,7 +4278,24 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                 {!mapReady && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#3B82F6", fontFamily: FF, background: "#EFF6FF" }}>🗺️ 지도 불러오는 중...</div>}
                 <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
                 <MapZoomControls mapObj={mapObj} />
-                {!childPos && (
+                {selectedChild && (
+                    <>
+                        <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, background: "rgba(255,255,255,0.94)", borderRadius: 16, padding: "10px 12px", boxShadow: "0 4px 16px rgba(37,99,235,0.16)", border: "1px solid rgba(37,99,235,0.14)", maxWidth: "calc(100% - 92px)" }}>
+                            <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedChild.name} 정밀 위치</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", marginTop: 2 }}>도보 확인 반경 {CHILD_TRACKER_WALK_RADIUS_M}m</div>
+                        </div>
+                        <button
+                            type="button"
+                            aria-label={`${selectedChild.name} 위치로 이동`}
+                            title={`${selectedChild.name} 위치로 이동`}
+                            onClick={() => focusChildLocation(selectedChild)}
+                            style={{ position: "absolute", top: 12, right: 12, zIndex: 10, width: 48, height: 48, borderRadius: 14, border: "none", background: "#2563EB", color: "white", fontSize: 22, fontWeight: 900, cursor: "pointer", boxShadow: "0 4px 16px rgba(37,99,235,0.28)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FF }}
+                        >
+                            🎯
+                        </button>
+                    </>
+                )}
+                {!childLocations.length && (
                     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.85)", zIndex: 5 }}>
                         <div style={{ textAlign: "center", padding: 24 }}>
                             <div style={{ fontSize: 48, marginBottom: 12 }}>📡</div>
@@ -4233,27 +4316,45 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                             <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{selectedEvent.title}</div>
                             <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>⏰ {selectedEvent.time} · 📍 {selectedEvent.location.address?.split(" ").slice(0, 3).join(" ")}</div>
                             {arrivedSet.has(selectedEvent.id) && <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, marginTop: 2 }}>✅ 도착 완료</div>}
-                            {childPos && <div style={{ fontSize: 11, color: selectedEvent.color, fontWeight: 700, marginTop: 2 }}>현재위치에서 {distLabel(haversineM(childPos.lat, childPos.lng, selectedEvent.location.lat, selectedEvent.location.lng))}</div>}
+                            {activeChildLocation && <div style={{ fontSize: 11, color: selectedEvent.color, fontWeight: 700, marginTop: 2 }}>현재위치에서 {distLabel(haversineM(activeChildLocation.lat, activeChildLocation.lng, selectedEvent.location.lat, selectedEvent.location.lng))}</div>}
                         </div>
                         <button onClick={() => setSelectedEvent(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#9CA3AF", padding: "0 4px" }}>×</button>
                     </div>
                 )}
 
-                {(allChildPositions.length > 0 || childPos) ? (
+                {childLocations.length > 0 ? (
                     <div style={{ background: "white", borderRadius: 20, padding: "14px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
                         {/* 아이별 위치 상태 */}
-                        {(allChildPositions.length > 0 ? allChildPositions : [{ name: "우리 아이", emoji: "🐰", lat: childPos?.lat, lng: childPos?.lng, updatedAt: childPos?.updatedAt }]).map((child, i) => (
-                            <div key={child.user_id || i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: `${CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length]}10`, borderRadius: 14 }}>
-                                <div style={{ width: 36, height: 36, borderRadius: 12, background: CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji}</div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{child.name}</div>
-                                    <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
-                                        {child.updatedAt ? `${new Date(child.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 업데이트` : "위치 수신 중..."}
+                        {childLocations.map((child, i) => {
+                            const color = CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length];
+                            const isActive = selectedChild?.trackerKey === child.trackerKey;
+                            const updatedAt = child.updatedAt || child.updated_at;
+                            return (
+                                <button
+                                    key={child.trackerKey}
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedChildId(child.trackerKey);
+                                        focusChildLocation(child);
+                                    }}
+                                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: isActive ? `${color}18` : `${color}10`, borderRadius: 14, border: isActive ? `2px solid ${color}` : "2px solid transparent", cursor: "pointer", textAlign: "left", fontFamily: FF, boxShadow: isActive ? `0 4px 14px ${color}22` : "none" }}
+                                >
+                                    <div style={{ width: 36, height: 36, borderRadius: 12, background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{child.name}</div>
+                                        <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
+                                            {updatedAt ? `${new Date(updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 업데이트` : "위치 수신 중..."}
+                                        </div>
+                                        <div style={{ fontSize: 10, color: "#64748B", marginTop: 1 }}>
+                                            {child.lat.toFixed(5)}, {child.lng.toFixed(5)}
+                                        </div>
                                     </div>
-                                </div>
-                                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 0 4px rgba(34,197,94,0.2)", flexShrink: 0 }} />
-                            </div>
-                        ))}
+                                    <div style={{ minWidth: 50, borderRadius: 999, padding: "5px 8px", background: isActive ? color : "white", color: isActive ? "white" : color, fontSize: 10, fontWeight: 900, textAlign: "center", boxShadow: isActive ? "none" : "0 1px 6px rgba(0,0,0,0.06)" }}>
+                                        {isActive ? "확대중" : "보기"}
+                                    </div>
+                                </button>
+                            );
+                        })}
                         {/* 오늘 총 이동거리 */}
                         {totalDistM > 0 && (
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -4410,11 +4511,16 @@ export default function KidsScheduler() {
     // ── Refs ────────────────────────────────────────────────────────────────────
     const realtimeChannel = useRef(null);
     const dateKeyRef = useRef("");
-    const displayChildPositions = effectiveChildPositions(allChildPositions, entitlement);
-    const displayChildPos = effectiveChildLocation(childPos, entitlement)
-        || (displayChildPositions.length > 0 ? displayChildPositions[0] : null);
+    const displayChildPositions = useMemo(
+        () => effectiveChildPositions(allChildPositions, entitlement),
+        [allChildPositions, entitlement]
+    );
+    const displayChildPos = useMemo(
+        () => effectiveChildLocation(childPos, entitlement) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
+        [childPos, displayChildPositions, entitlement]
+    );
     const locationGateHint = isParent && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
-        ? "무료 플랜은 5분이 지난 위치만 보여드려요. 실시간 위치는 프리미엄 전용이에요."
+        ? "무료 플랜에서는 5분 지난 위치만 표시돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
         : "";
 
     const openFeatureLock = useCallback((feature, title = "", body = "") => {
@@ -4477,6 +4583,7 @@ export default function KidsScheduler() {
     // Releases outside that window are ignored silently (no false-fire, no
     // accidental-cancel penalty).
     const kkukHoldStart = useRef(0);
+    const kkukSentFromPressRef = useRef(false);
     const dateKey = `${currentYear}-${currentMonth}-${selectedDate}`;
     dateKeyRef.current = dateKey;
 
@@ -6360,7 +6467,7 @@ export default function KidsScheduler() {
     if (authLoading) return (
         <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", fontFamily: FF }}>
             <div style={{ textAlign: "center" }}>
-                <BunnyMascot size={80} />
+                <AppBrandLogo size={84} radius={26} />
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#E879A0", marginTop: 16 }}>혜니캘린더</div>
                 <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 8 }}>로딩 중...</div>
             </div>
@@ -6814,8 +6921,8 @@ export default function KidsScheduler() {
             {/* ── Header Row 1: Logo + 꾹 + 로그아웃 ── */}
             <div style={{ width: "100%", maxWidth: 420, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 뽀짝이야 🐰"); }}>
-                        <BunnyMascot size={isParent ? 36 : 44} />
+                    <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
+                        <AppBrandLogo size={isParent ? 38 : 44} radius={isParent ? 12 : 14} shadow={false} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -6847,21 +6954,29 @@ export default function KidsScheduler() {
                             )}
                         </button>
                     )}
-                    {/* Phase 5 KKUK-01: press-and-hold 500–2000 ms. Short
-                         taps and long presses outside the window are ignored
-                         silently. The click handler is a no-op; both mouse
-                         and touch paths write to the shared ref. Cooldown is
-                         still driven by kkukCooldown state + server RPC. */}
+                    {/* Phase 5 KKUK-01: single tap sends immediately; 500–2000ms
+                         press still works for the native app habit without
+                         double-sending the synthetic click. Cooldown is still
+                         driven by kkukCooldown state + server RPC. */}
                     <button
                         disabled={kkukCooldown}
-                        onClick={(e) => { e.preventDefault(); }}
+                        onClick={() => {
+                            if (kkukSentFromPressRef.current) {
+                                kkukSentFromPressRef.current = false;
+                                return;
+                            }
+                            sendKkuk();
+                        }}
                         onMouseDown={() => { if (!kkukCooldown) kkukHoldStart.current = Date.now(); }}
                         onMouseUp={() => {
                             const start = kkukHoldStart.current;
                             kkukHoldStart.current = 0;
                             if (!start) return;
                             const held = Date.now() - start;
-                            if (held >= 500 && held <= 2000) sendKkuk();
+                            if (held >= 500 && held <= 2000) {
+                                kkukSentFromPressRef.current = true;
+                                sendKkuk();
+                            }
                         }}
                         onMouseLeave={() => { kkukHoldStart.current = 0; }}
                         onTouchStart={() => { if (!kkukCooldown) kkukHoldStart.current = Date.now(); }}
@@ -6871,7 +6986,10 @@ export default function KidsScheduler() {
                             kkukHoldStart.current = 0;
                             if (!start) return;
                             const held = Date.now() - start;
-                            if (held >= 500 && held <= 2000) sendKkuk();
+                            if (held >= 500 && held <= 2000) {
+                                kkukSentFromPressRef.current = true;
+                                sendKkuk();
+                            }
                         }}
                         onTouchCancel={() => { kkukHoldStart.current = 0; }}
                         style={{
@@ -6883,8 +7001,8 @@ export default function KidsScheduler() {
                             userSelect: "none",
                             WebkitTouchCallout: "none",
                         }}
-                        title="0.5초 이상 길게 눌러주세요"
-                        aria-label="꾹 (0.5초 이상 길게 눌러 발송)">
+                        title="꾹 보내기"
+                        aria-label="💗 꾹">
                         💗 꾹
                     </button>
                     {isParent && (
