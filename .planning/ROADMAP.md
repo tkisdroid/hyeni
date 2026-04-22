@@ -102,8 +102,8 @@ Phase 8 성공 = v1.1 완료 조건. 이후:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 5.5. Memo UX Cleanup (INSERTED) | 2/2 | ✅ Verified (live smoke PASS) | 2026-04-22 |
-| 6. Infrastructure & Polish | 0/3 | Ready to plan | - |
-| 7. Android Native Build & Submit | 0/2 | Not started | - |
+| 6. Infrastructure & Polish | 3/3 | ✅ Verified (CI green + manifest 200 + cron active) | 2026-04-22 |
+| 7. Android Native Build & Submit | 0/2 | Ready to plan | - |
 | 8. End-to-End Verification | 0/1 | Not started | - |
 
 ---
