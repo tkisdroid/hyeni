@@ -121,12 +121,26 @@ jobs:
           ORG_GRADLE_PROJECT_HYENI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ORG_GRADLE_PROJECT_HYENI_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         shell: bash
-        # --stacktrace surfaces the failing task's Java/Groovy exception in the step log,
-        # which otherwise gets truncated and is invisible to the GitHub public API.
-        # --no-daemon keeps the runner clean. pipefail preserves gradle's non-zero exit.
+        # Tee gradle output to a file so a follow-up step can upload it as an artifact
+        # even on failure — GitHub's public API gates step logs behind admin auth,
+        # so this is the only way to inspect gradle errors without elevated access.
+        # --stacktrace surfaces the exception Groovy/Java stack. --no-daemon keeps the
+        # runner clean. pipefail preserves gradle's non-zero exit through tee.
         run: |
           set -o pipefail
-          ./gradlew --no-daemon --stacktrace ${{ steps.variant.outputs.task }}
+          ./gradlew --no-daemon --stacktrace ${{ steps.variant.outputs.task }} 2>&1 | tee "${{ github.workspace }}/gradle-build.log"
+
+      - name: Upload gradle log on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log-${{ github.sha }}
+          path: |
+            gradle-build.log
+            android/app/build/outputs/logs/**
+            android/build/reports/**
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
