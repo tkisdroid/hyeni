@@ -1,0 +1,102 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle (vite)
+        run: npm run build
+
+      - name: Capacitor sync (Android)
+        run: npx cap sync android
+
+      - name: Grant gradlew execute permission
+        working-directory: android
+        run: chmod +x ./gradlew
+
+      # Release signing is opt-in. If ANDROID_KEYSTORE_BASE64 is present we
+      # decode it into android/app/release.keystore and run assembleRelease.
+      # Otherwise we run assembleDebug so CI stays green without secrets.
+      #
+      # To enable signed release builds (Phase 7 / NATIVE-02), add these four
+      # secrets to the repo (Settings -> Secrets and variables -> Actions):
+      #   ANDROID_KEYSTORE_BASE64    — keystore file, base64-encoded
+      #   ANDROID_KEYSTORE_PASSWORD  — password for the keystore
+      #   ANDROID_KEY_ALIAS          — key alias inside the keystore
+      #   ANDROID_KEY_PASSWORD       — password for the key alias
+      # Then add a matching signingConfigs block in android/app/build.gradle.
+      - name: Decide build variant
+        id: variant
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "task=:app:assembleRelease" >> "$GITHUB_OUTPUT"
+            echo "apk_glob=android/app/build/outputs/apk/release/*.apk" >> "$GITHUB_OUTPUT"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "task=:app:assembleDebug" >> "$GITHUB_OUTPUT"
+            echo "apk_glob=android/app/build/outputs/apk/debug/*.apk" >> "$GITHUB_OUTPUT"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Materialize release keystore (signed path only)
+        if: steps.variant.outputs.signed == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > android/app/release.keystore
+          # Gradle reads the keystore path via ORG_GRADLE_PROJECT_* env vars below.
+
+      - name: Gradle build
+        working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_HYENI_KEYSTORE: ${{ github.workspace }}/android/app/release.keystore
+          ORG_GRADLE_PROJECT_HYENI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_HYENI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_HYENI_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon ${{ steps.variant.outputs.task }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyeni-calendar-apk-${{ github.sha }}
+          path: ${{ steps.variant.outputs.apk_glob }}
+          if-no-files-found: error
+          retention-days: 14
