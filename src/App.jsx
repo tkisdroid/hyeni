@@ -2090,6 +2090,20 @@ function getDateSeparatorLabel(createdAt) {
 }
 
 /* UI-SPEC §4b — single-pass group builder: separators + bubbles in correct order */
+/* Codex P2 fix: use LOCAL calendar day for grouping/separators — created_at is a UTC ISO
+   string, and slicing the first 10 chars returns the UTC date. For users in KST (UTC+9)
+   that misgroups 00:00-09:00 local-time messages as the previous UTC day and can render
+   duplicate "오늘" separators. localDayKey() derives YYYY-MM-DD in the user's locale. */
+function localDayKey(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
 function buildMessageItems(replies) {
     if (!replies || replies.length === 0) return [];
     const items = [];
@@ -2100,8 +2114,8 @@ function buildMessageItems(replies) {
     for (let i = 0; i < replies.length; i++) {
         const r = replies[i];
         const prev = i > 0 ? replies[i - 1] : null;
-        const dk = r.created_at ? r.created_at.slice(0, 10) : "";
-        const prevDk = prev ? (prev.created_at ? prev.created_at.slice(0, 10) : "") : null;
+        const dk = localDayKey(r.created_at);
+        const prevDk = prev ? localDayKey(prev.created_at) : null;
         const sameGroup = prev &&
             prev.user_id === r.user_id &&
             dk === prevDk &&
@@ -2111,7 +2125,7 @@ function buildMessageItems(replies) {
 
     for (let i = 0; i < replies.length; i++) {
         const r = replies[i];
-        const dk = r.created_at ? r.created_at.slice(0, 10) : "";
+        const dk = localDayKey(r.created_at);
 
         // Emit date separator on date change
         if (dk !== prevDateKey) {
@@ -7049,6 +7063,17 @@ export default function KidsScheduler() {
                             // console.error is preserved inside .catch at the call site (MemoSection handleSend).
                             const sendPromise = sendMemo(familyId, dateKey, content, authUser.id, myRole, origin)
                                 .then(() => fetchMemoReplies(familyId, dateKey).then(setMemoReplies))
+                                .then(() => {
+                                    // Codex P1 fix: preserve child memo sentiment analysis.
+                                    // Legacy onMemoSend block (removed in Phase 5.5-01 Task 1) was the
+                                    // only caller. Child-sent replies are the typed-memo equivalent
+                                    // in the unified chat surface — run sentiment per message.
+                                    // Fire-and-forget: analyzeMemoSentiment handles its own errors
+                                    // and feature-flag/entitlement gates internally.
+                                    if (myRole === "child" && aiEnabled) {
+                                        try { analyzeMemoSentiment(content, ""); } catch (_) { /* ignore */ }
+                                    }
+                                })
                                 .catch(err => { console.error("[reply]", err); throw err; });
                             sendInstantPush({
                                 action: "new_memo",
