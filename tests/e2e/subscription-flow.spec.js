@@ -598,6 +598,45 @@ test.describe("subscription and premium flow", () => {
     await context.close();
   });
 
+  test("child sees microphone permission guidance when native mic access is denied", async ({ browser }) => {
+    const context = await browser.newContext({
+      permissions: ["geolocation"],
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+    });
+
+    const parentPage = await context.newPage();
+    await installMockBrowser(parentPage);
+    await parentPage.goto("/");
+
+    await parentPage.getByText("학부모").click();
+    await parentPage.getByText("새 가족 만들기").click();
+    await parentPage.getByText("가족 만들기").click();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+
+    const pairCodeText = await parentPage.locator("text=/KID-[A-Z0-9]{8}/").first().textContent();
+    const pairCode = extractPairCode(pairCodeText || "");
+
+    const childPage = await context.newPage();
+    await installMockBrowser(childPage);
+    await childPage.goto("/");
+    await childPage.getByRole("button", { name: /🐰 아이/ }).click();
+    await childPage.getByPlaceholder("XXXXXXXX").fill(pairCode);
+    await childPage.getByText("🔗 연결하기").click();
+    await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible();
+
+    await childPage.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("mic-permission-denied"));
+    });
+
+    await expect(childPage.getByRole("dialog", { name: "마이크 권한이 필요해요" })).toBeVisible();
+    await expect(childPage.getByText("주위 소리 듣기 연결이 중단됐어요")).toBeVisible();
+    await expect(childPage.getByText("Android 설정 > 앱 > 혜니캘린더 > 권한 > 마이크 > 허용")).toBeVisible();
+    await childPage.getByRole("button", { name: "확인" }).click();
+    await expect(childPage.getByRole("dialog", { name: "마이크 권한이 필요해요" })).toBeHidden();
+
+    await context.close();
+  });
+
   test("parent creates family, starts trial, child pairs, and remote audio starts", async ({ browser }) => {
     const context = await browser.newContext({
       permissions: ["geolocation", "microphone"],
