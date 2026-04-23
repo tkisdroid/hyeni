@@ -28,6 +28,10 @@
         android:theme="@style/AppTheme">
 
         <meta-data
+            android:name="isMonitoringTool"
+            android:value="child_monitoring" />
+
+        <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="hyeni_schedule_v4" />
 

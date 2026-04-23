@@ -81,9 +81,9 @@ jobs:
         working-directory: android
         run: chmod +x ./gradlew
 
-      # Release signing is opt-in. If ANDROID_KEYSTORE_BASE64 is present we
-      # decode it into android/app/release.keystore and run assembleRelease.
-      # Otherwise we run assembleDebug so CI stays green without secrets.
+      # Release signing is opt-in. If all four signing secrets are present we
+      # decode the keystore, then build both a signed release APK and Play-ready
+      # AAB. Otherwise we run assembleDebug so CI stays green without secrets.
       #
       # To enable signed release builds (Phase 7 / NATIVE-02), add these four
       # secrets to the repo (Settings -> Secrets and variables -> Actions):
@@ -91,17 +91,26 @@ jobs:
       #   ANDROID_KEYSTORE_PASSWORD  — password for the keystore
       #   ANDROID_KEY_ALIAS          — key alias inside the keystore
       #   ANDROID_KEY_PASSWORD       — password for the key alias
-      # Then add a matching signingConfigs block in android/app/build.gradle.
       - name: Decide build variant
         id: variant
+        env:
+          HAS_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+          HAS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+          HAS_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
+          HAS_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "task=:app:assembleRelease" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_ANDROID_KEYSTORE_BASE64" = "true" ] && \
+             [ "$HAS_ANDROID_KEYSTORE_PASSWORD" = "true" ] && \
+             [ "$HAS_ANDROID_KEY_ALIAS" = "true" ] && \
+             [ "$HAS_ANDROID_KEY_PASSWORD" = "true" ]; then
+            echo "task=:app:assembleRelease :app:bundleRelease" >> "$GITHUB_OUTPUT"
             echo "apk_glob=android/app/build/outputs/apk/release/*.apk" >> "$GITHUB_OUTPUT"
+            echo "aab_glob=android/app/build/outputs/bundle/release/*.aab" >> "$GITHUB_OUTPUT"
             echo "signed=true" >> "$GITHUB_OUTPUT"
           else
             echo "task=:app:assembleDebug" >> "$GITHUB_OUTPUT"
             echo "apk_glob=android/app/build/outputs/apk/debug/*.apk" >> "$GITHUB_OUTPUT"
+            echo "aab_glob=" >> "$GITHUB_OUTPUT"
             echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -130,6 +139,32 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon --stacktrace ${{ steps.variant.outputs.task }} 2>&1 | tee "${{ github.workspace }}/gradle-build.log"
 
+      - name: Inspect APK manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_PATH="$(find android/app/build/outputs/apk -name '*.apk' -type f | sort | head -n 1)"
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK found after Gradle build" >&2
+            exit 1
+          fi
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          if [ ! -x "$AAPT" ]; then
+            AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -n 1)"
+          fi
+          if [ -z "$AAPT" ] || [ ! -x "$AAPT" ]; then
+            echo "aapt not found in Android SDK build-tools" >&2
+            exit 1
+          fi
+          "$AAPT" dump badging "$APK_PATH" | tee "${{ github.workspace }}/apk-badging.txt"
+          "$AAPT" dump xmltree "$APK_PATH" AndroidManifest.xml | tee "${{ github.workspace }}/apk-manifest.xmltree.txt"
+          grep -q "package: name='com.hyeni.calendar'" "${{ github.workspace }}/apk-badging.txt"
+          grep -q "versionCode='2'" "${{ github.workspace }}/apk-badging.txt"
+          grep -q "AmbientListenService" "${{ github.workspace }}/apk-manifest.xmltree.txt"
+          grep -q "foregroundServiceType" "${{ github.workspace }}/apk-manifest.xmltree.txt"
+          grep -q "isMonitoringTool" "${{ github.workspace }}/apk-manifest.xmltree.txt"
+          grep -q "child_monitoring" "${{ github.workspace }}/apk-manifest.xmltree.txt"
+
       - name: Upload gradle log on failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -137,6 +172,8 @@ jobs:
           name: gradle-build-log-${{ github.sha }}
           path: |
             gradle-build.log
+            apk-badging.txt
+            apk-manifest.xmltree.txt
             android/app/build/outputs/logs/**
             android/build/reports/**
           if-no-files-found: warn
@@ -147,5 +184,14 @@ jobs:
         with:
           name: hyeni-calendar-apk-${{ github.sha }}
           path: ${{ steps.variant.outputs.apk_glob }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload AAB artifact
+        if: steps.variant.outputs.signed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyeni-calendar-aab-${{ github.sha }}
+          path: ${{ steps.variant.outputs.aab_glob }}
           if-no-files-found: error
           retention-days: 14
