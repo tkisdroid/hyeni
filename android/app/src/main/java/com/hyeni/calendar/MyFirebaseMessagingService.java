@@ -102,6 +102,28 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             return;
         }
 
+        if ("location_refresh".equals(type)) {
+            String myRole = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("role", "child");
+            if (!"child".equals(myRole)) {
+                Log.i(TAG, "Ignoring location refresh on non-child device");
+                return;
+            }
+            Log.i(TAG, "Location refresh request received");
+            Intent intent = new Intent(this, LocationService.class);
+            intent.setAction("REFRESH_NOW");
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent);
+                } else {
+                    startService(intent);
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Location refresh service start failed", e);
+                showNotification(title, body, true);
+            }
+            return;
+        }
+
         boolean isUrgent = "kkuk".equals(type)
             || "parent_alert".equals(type)
             || "emergency".equals(type)

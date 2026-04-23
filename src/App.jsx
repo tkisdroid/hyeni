@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
-import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
+import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, fetchDailySupplies, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertDailySupplies, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, getCachedDailySupplies, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, cacheDailySupplies, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, NOTIFICATION_MINUTE_OPTIONS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { FEATURES } from "./lib/features.js";
@@ -257,9 +257,9 @@ async function sendFeedbackSuggestion({ content, familyId, user, role }) {
     throw new Error("제안 전송 경로가 준비되지 않았어요");
 }
 
-function effectiveChildLocation(location, entitlement) {
+function effectiveChildLocation(location, entitlement, allowRealtime = false) {
     if (!location) return null;
-    if (entitlement?.canUse?.(FEATURES.REALTIME_LOCATION)) {
+    if (allowRealtime || entitlement?.canUse?.(FEATURES.REALTIME_LOCATION)) {
         return { ...location, isDelayed: false };
     }
     const updatedAtMs = new Date(location.updatedAt || location.updated_at || 0).getTime();
@@ -275,10 +275,10 @@ function effectiveChildLocation(location, entitlement) {
     };
 }
 
-function effectiveChildPositions(positions, entitlement) {
+function effectiveChildPositions(positions, entitlement, allowRealtime = false) {
     if (!Array.isArray(positions)) return [];
     return positions
-        .map((position) => effectiveChildLocation(position, entitlement))
+        .map((position) => effectiveChildLocation(position, entitlement, allowRealtime))
         .filter(Boolean);
 }
 
@@ -450,6 +450,37 @@ async function stopNativeLocationService() {
             console.log("[Native] Background location service stopped");
         }
     } catch { /* web mode */ }
+}
+
+async function requestNativeLocationRefresh(userId, familyId, accessToken, role) {
+    try {
+        const { Capacitor, registerPlugin } = await import("@capacitor/core");
+        if (!Capacitor.isNativePlatform()) return false;
+        const BackgroundLocation = registerPlugin("BackgroundLocation");
+        if (typeof BackgroundLocation.requestCurrentLocation === "function") {
+            await BackgroundLocation.requestCurrentLocation({
+                userId,
+                familyId,
+                supabaseUrl: SUPABASE_URL,
+                supabaseKey: SUPABASE_KEY,
+                accessToken: accessToken || "",
+                role: role || "child",
+            });
+        } else {
+            await BackgroundLocation.startService({
+                userId,
+                familyId,
+                supabaseUrl: SUPABASE_URL,
+                supabaseKey: SUPABASE_KEY,
+                accessToken: accessToken || "",
+                role: role || "child",
+            });
+        }
+        return true;
+    } catch (e) {
+        console.log("[Native] Current location refresh unavailable:", e.message);
+        return false;
+    }
 }
 
 function rememberParentPairingIntent() {
@@ -906,7 +937,7 @@ function RoleSetupModal({ onSelect, loading }) {
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
             <AppBrandLogo size={96} radius={28} />
-            <div style={{ fontSize: 32, fontWeight: 900, color: "#E879A0", marginTop: 20, marginBottom: 4, letterSpacing: -1, textAlign: "center" }}>
+            <div style={{ fontSize: 32, fontWeight: 900, color: "#E879A0", marginTop: 20, marginBottom: 4, letterSpacing: 0, textAlign: "center" }}>
                 혜니캘린더
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#F9A8D4", marginBottom: 24, letterSpacing: 2 }}>HYENI CALENDAR</div>
@@ -2161,6 +2192,154 @@ function buildMessageItems(replies) {
     return items;
 }
 
+function SimpleMemoHeart({ size = 32 }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <circle cx="16" cy="16" r="15" fill="#FFF1F2" stroke="#FFE4E6" strokeWidth="1.5" />
+            <path
+                d="M16 22.5s-6.5-3.8-6.5-8.1c0-2.1 1.5-3.7 3.5-3.7 1.2 0 2.3.6 3 1.6.7-1 1.8-1.6 3-1.6 2 0 3.5 1.6 3.5 3.7 0 4.3-6.5 8.1-6.5 8.1Z"
+                fill="#FB7185"
+            />
+        </svg>
+    );
+}
+
+function parseSupplyItems(value) {
+    return String(value || "")
+        .split(/[\n,]/)
+        .map(item => item.trim())
+        .filter(Boolean);
+}
+
+function DailySuppliesPanel({ value, isParentMode, dateLabel, onSave }) {
+    const [draft, setDraft] = useState(value || "");
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState("");
+    const items = useMemo(() => parseSupplyItems(value), [value]);
+
+    useEffect(() => {
+        setDraft(value || "");
+        setError("");
+    }, [value]);
+
+    const hasChanges = draft.trim() !== String(value || "").trim();
+
+    const handleSave = async () => {
+        if (!onSave || saving || !hasChanges) return;
+        setSaving(true);
+        setError("");
+        try {
+            await onSave(draft.trim());
+        } catch (err) {
+            console.error("[DailySuppliesPanel] save failed", err);
+            setError("준비물 저장에 실패했어요. 다시 시도해 주세요.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const shellStyle = {
+        width: "100%",
+        maxWidth: isParentMode ? "100%" : 420,
+        marginBottom: isParentMode ? 18 : 14,
+        background: isParentMode
+            ? "linear-gradient(135deg,#F8FAFC 0%,#F0FDFA 100%)"
+            : "linear-gradient(135deg,#ECFDF5 0%,#F0F9FF 100%)",
+        borderRadius: 22,
+        border: isParentMode ? "1.5px solid #CCFBF1" : "1.5px solid #BAE6FD",
+        padding: isParentMode ? 14 : 16,
+        boxShadow: isParentMode ? "0 8px 22px rgba(15,118,110,0.08)" : "0 10px 28px rgba(14,116,144,0.10)",
+        fontFamily: FF,
+    };
+
+    return (
+        <div style={shellStyle}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: isParentMode ? 10 : 12 }}>
+                <div>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: "#0F766E", letterSpacing: 0.1 }}>오늘의 준비물</div>
+                    <div style={{ fontSize: isParentMode ? 13 : 15, fontWeight: 900, color: "#0F172A", marginTop: 2 }}>{dateLabel}</div>
+                </div>
+                <div style={{ width: 40, height: 40, borderRadius: 14, background: "rgba(255,255,255,0.82)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.9)" }}>
+                    🎒
+                </div>
+            </div>
+
+            {isParentMode ? (
+                <>
+                    <textarea
+                        aria-label="오늘의 준비물 입력"
+                        placeholder="예) 체육복, 물병, 영어 숙제"
+                        value={draft}
+                        onChange={event => setDraft(event.target.value)}
+                        rows={3}
+                        style={{
+                            width: "100%",
+                            resize: "vertical",
+                            minHeight: 78,
+                            border: "1.5px solid #A7F3D0",
+                            borderRadius: 16,
+                            padding: "12px 14px",
+                            fontSize: 14,
+                            lineHeight: 1.45,
+                            color: "#134E4A",
+                            background: "rgba(255,255,255,0.88)",
+                            outline: "none",
+                            fontFamily: FF,
+                        }}
+                    />
+                    {error && <div style={{ marginTop: 8, fontSize: 11, color: "#DC2626", fontWeight: 700 }}>{error}</div>}
+                    <button
+                        type="button"
+                        aria-label="오늘의 준비물 저장"
+                        disabled={!hasChanges || saving}
+                        onClick={handleSave}
+                        style={{
+                            width: "100%",
+                            marginTop: 10,
+                            padding: "11px 14px",
+                            border: "none",
+                            borderRadius: 15,
+                            background: hasChanges ? "linear-gradient(135deg,#14B8A6,#0F766E)" : "#E5E7EB",
+                            color: "white",
+                            fontSize: 13,
+                            fontWeight: 900,
+                            fontFamily: FF,
+                            cursor: hasChanges && !saving ? "pointer" : "default",
+                            boxShadow: hasChanges ? "0 10px 18px rgba(20,184,166,0.18)" : "none",
+                        }}
+                    >
+                        {saving ? "저장 중..." : "준비물 저장"}
+                    </button>
+                </>
+            ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {items.length > 0 ? items.map((item, index) => (
+                        <div
+                            key={`${item}-${index}`}
+                            style={{
+                                padding: "8px 12px",
+                                borderRadius: 999,
+                                background: "rgba(255,255,255,0.92)",
+                                color: "#0F766E",
+                                fontSize: 13,
+                                fontWeight: 800,
+                                border: "1px solid rgba(20,184,166,0.18)",
+                                boxShadow: "0 4px 10px rgba(15,118,110,0.06)",
+                            }}
+                        >
+                            {item}
+                        </div>
+                    )) : (
+                        <div style={{ width: "100%", padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,0.76)", color: "#64748B", fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
+                            부모님이 준비물을 입력하면 여기에 보여요.
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, onReplyRef }) {
     /* UI-SPEC §5 — composer state */
     const [inputText, setInputText] = useState("");
@@ -2278,10 +2457,12 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                 {/* UI-SPEC §4g — empty state when no messages */}
                 {!hasMessages ? (
                     <div style={{ textAlign: "center", padding: "24px 16px", color: "#D1D5DB" }}>
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>💗</div>
+                        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                            <SimpleMemoHeart size={34} />
+                        </div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#9CA3AF" }}>아직 주고받은 메시지가 없어요</div>
                         <div style={{ fontSize: 13 }}>
-                            {isParentMode ? "아이에게 첫 메시지를 남겨보세요 💗" : "부모님께 오늘 하루를 전해봐~ 🐰"}
+                            {isParentMode ? "아이에게 첫 메시지를 남겨보세요" : "부모님께 오늘 하루를 전해봐~ 🐰"}
                         </div>
                     </div>
                 ) : (
@@ -2400,11 +2581,15 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                 display: "flex",
                 gap: 8,
                 alignItems: "center",
-                background: "#FAFAFA"
+                background: "#FAFAFA",
+                width: "100%",
+                minWidth: 0,
+                maxWidth: "100%",
+                boxSizing: "border-box"
             }}>
                 {/* UI-SPEC §5 — composer input: fontSize 16 prevents iOS auto-zoom */}
-                <input
-                    type="text"
+                <textarea
+                    rows={2}
                     aria-label={isParentMode ? "메모 입력" : "답글 입력"}
                     aria-required="false"
                     autoComplete="off"
@@ -2420,17 +2605,24 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                         if (e.key === "Enter" && !isMobile) { e.preventDefault(); handleSend(); }
                     }}
                     style={{
-                        flex: 1,
+                        flex: "1 1 auto",
+                        minWidth: 0,
+                        maxWidth: "100%",
+                        minHeight: 46,
+                        maxHeight: 92,
                         /* UI-SPEC §5 — focus border swap #E5E7EB → #E879A0 */
                         border: `1.5px solid ${isFocused ? "#E879A0" : "#E5E7EB"}`,
-                        borderRadius: 22,
-                        padding: "11px 16px",
+                        borderRadius: 18,
+                        padding: "10px 14px",
                         fontSize: 16,
+                        lineHeight: 1.35,
                         fontFamily: FF,
                         outline: "none",
                         background: "white",
                         boxSizing: "border-box",
-                        color: "#374151"
+                        color: "#374151",
+                        resize: "none",
+                        overflowY: "auto"
                     }}
                 />
                 {/* UI-SPEC §5 — send button: 44x44 touch target */}
@@ -2552,7 +2744,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
 // ─────────────────────────────────────────────────────────────────────────────
 // Day Timetable (kid-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
-function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onReplyRef }) {
+function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onReplyRef, suppliesValue, onSuppliesSave }) {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -2563,6 +2755,14 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                 <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "#D1D5DB" : "#F9A8D4" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
                 <div style={{ fontSize: isParentMode ? 13 : 14, color: "#E5E7EB", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
             </div>
+            {isParentMode && (
+                <DailySuppliesPanel
+                    value={suppliesValue}
+                    isParentMode={true}
+                    dateLabel={dateLabel}
+                    onSave={onSuppliesSave}
+                />
+            )}
             <MemoSection replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} onReplyRef={onReplyRef} />
         </div>
     );
@@ -2710,6 +2910,15 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                         ))}
                     </div>
                 </div>
+            )}
+
+            {isParentMode && (
+                <DailySuppliesPanel
+                    value={suppliesValue}
+                    isParentMode={true}
+                    dateLabel={dateLabel}
+                    onSave={onSuppliesSave}
+                />
             )}
 
             {/* Memo */}
@@ -4050,38 +4259,6 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Child Call Buttons (floating, child view only)
-// ─────────────────────────────────────────────────────────────────────────────
-function ChildCallButtons({ phones }) {
-    const [expanded, setExpanded] = useState(false);
-    const cleanNumber = (num) => (num || "").replace(/[^0-9+]/g, "");
-    const hasMom = phones.mom && phones.mom.length >= 8;
-    const hasDad = phones.dad && phones.dad.length >= 8;
-    if (!hasMom && !hasDad) return null;
-    const btnSt = { width: 56, height: 56, borderRadius: "50%", border: "none", fontSize: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 20px rgba(0,0,0,0.25)", transition: "all 0.2s" };
-    return (
-        <div style={{ position: "fixed", bottom: 100, right: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, zIndex: 200 }}>
-            {expanded && hasMom && (
-                <a href={`tel:${cleanNumber(phones.mom)}`} style={{ textDecoration: "none", animation: "kkukFadeIn 0.2s ease" }}>
-                    <div style={{ ...btnSt, background: "linear-gradient(135deg,#F9A8D4,#E879A0)" }}>👩</div>
-                    <div style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: "#E879A0", marginTop: 2 }}>엄마</div>
-                </a>
-            )}
-            {expanded && hasDad && (
-                <a href={`tel:${cleanNumber(phones.dad)}`} style={{ textDecoration: "none", animation: "kkukFadeIn 0.2s ease" }}>
-                    <div style={{ ...btnSt, background: "linear-gradient(135deg,#93C5FD,#3B82F6)" }}>👨</div>
-                    <div style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: "#3B82F6", marginTop: 2 }}>아빠</div>
-                </a>
-            )}
-            <button onClick={() => setExpanded(p => !p)}
-                style={{ ...btnSt, width: 52, height: 52, background: expanded ? "#F3F4F6" : "linear-gradient(135deg,#34D399,#059669)", color: expanded ? "#6B7280" : "white", fontSize: 22 }}>
-                {expanded ? "✕" : "📞"}
-            </button>
-        </div>
-    );
-}
-
 function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapReady, arrivedSet, onClose, locationTrail = [], locationHint = "" }) {
     const mapRef = useRef();
     const mapObj = useRef();
@@ -4257,11 +4434,11 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Header */}
-            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-                <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 14, padding: "10px 16px", cursor: "pointer", fontWeight: 800, fontSize: 14, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>← 돌아가기</button>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#1D4ED8", flex: 1 }}>📍 지금 우리 아이는?</div>
+            <div style={{ padding: "14px 14px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 18px)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0, minWidth: 0 }}>
+                <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 14, padding: "10px 12px", cursor: "pointer", fontWeight: 800, fontSize: 13, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", whiteSpace: "nowrap", flexShrink: 0 }}>← 돌아가기</button>
+                <div style={{ fontSize: 15, fontWeight: 900, color: "#1D4ED8", flex: "1 1 auto", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 지금 우리 아이는?</div>
                 {/* 범례 */}
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <div style={{ width: 20, height: 3, background: "#3B82F6", borderRadius: 2 }} />
                         <span style={{ fontSize: 10, color: "#6B7280" }}>이동</span>
@@ -4443,6 +4620,7 @@ export default function KidsScheduler() {
     const [selectedDate, setSelectedDate] = useState(today.getDate());
     const [events, setEvents] = useState(() => getCachedEvents());
     const [memos, setMemos] = useState(() => getCachedMemos());
+    const [dailySupplies, setDailySupplies] = useState(() => getCachedDailySupplies());
     const [memoReplies, setMemoReplies] = useState([]);
     const [memoReadBy, setMemoReadBy] = useState([]);
     const [globalNotif, setGlobalNotifState] = useState(DEFAULT_NOTIF);
@@ -4512,15 +4690,16 @@ export default function KidsScheduler() {
     // ── Refs ────────────────────────────────────────────────────────────────────
     const realtimeChannel = useRef(null);
     const dateKeyRef = useRef("");
+    const allowTrackerRealtime = isParent && showChildTracker;
     const displayChildPositions = useMemo(
-        () => effectiveChildPositions(allChildPositions, entitlement),
-        [allChildPositions, entitlement]
+        () => effectiveChildPositions(allChildPositions, entitlement, allowTrackerRealtime),
+        [allChildPositions, entitlement, allowTrackerRealtime]
     );
     const displayChildPos = useMemo(
-        () => effectiveChildLocation(childPos, entitlement) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
-        [childPos, displayChildPositions, entitlement]
+        () => effectiveChildLocation(childPos, entitlement, allowTrackerRealtime) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
+        [childPos, displayChildPositions, entitlement, allowTrackerRealtime]
     );
-    const locationGateHint = isParent && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
+    const locationGateHint = isParent && !allowTrackerRealtime && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
         ? "무료 플랜에서는 5분 지난 위치만 표시돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
         : "";
 
@@ -4586,6 +4765,10 @@ export default function KidsScheduler() {
     const kkukHoldStart = useRef(0);
     const kkukSentFromPressRef = useRef(false);
     const dateKey = `${currentYear}-${currentMonth}-${selectedDate}`;
+    const selectedDateLabel = `${currentMonth + 1}월 ${selectedDate}일`;
+    const todayDateKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+    const todaySupplies = dailySupplies[todayDateKey] || "";
+    const selectedSupplies = dailySupplies[dateKey] || "";
     dateKeyRef.current = dateKey;
 
     // ── Load memo replies when viewing a date ────────────────────────────────
@@ -5024,6 +5207,7 @@ export default function KidsScheduler() {
         fetchEvents(familyId).then(map => setEvents(map));
         fetchAcademies(familyId).then(list => setAcademies(list));
         fetchMemos(familyId).then(map => setMemos(map));
+        fetchDailySupplies(familyId).then(map => setDailySupplies(map));
         fetchSavedPlaces(familyId, { meta: true }).then(({ list, breaker }) => {
             setSavedPlaces(list);
             // RES-02: surface degraded state on initial load.
@@ -5090,6 +5274,18 @@ export default function KidsScheduler() {
                     return updated;
                 });
             },
+            onDailySuppliesChange: (type, newRow, _oldRow) => {
+                if (type === "DELETE") {
+                    fetchDailySupplies(familyId).then(map => setDailySupplies(map));
+                    return;
+                }
+                if (!newRow?.date_key) return;
+                setDailySupplies(prev => {
+                    const updated = { ...prev, [newRow.date_key]: newRow.content || "" };
+                    cacheDailySupplies(updated);
+                    return updated;
+                });
+            },
             onSavedPlacesChange: (type, newRow, oldRow) => {
                 setSavedPlaces(prev => {
                     let updated = [...prev];
@@ -5119,10 +5315,32 @@ export default function KidsScheduler() {
                 });
             },
             onLocationChange: (payload) => {
-                setChildPos({
+                const updatedAt = payload?.updatedAt || payload?.updated_at || new Date().toISOString();
+                const nextLocation = {
                     ...payload,
-                    updatedAt: payload?.updatedAt || payload?.updated_at || new Date().toISOString(),
+                    lat: Number(payload?.lat),
+                    lng: Number(payload?.lng),
+                    updatedAt,
+                };
+                setChildPos(nextLocation);
+                const locationUserId = payload?.userId || payload?.user_id || payload?.childUserId;
+                setAllChildPositions(prev => {
+                    if (!prev.length) return prev;
+                    if (locationUserId) {
+                        return prev.map(child => child.user_id === locationUserId
+                            ? { ...child, lat: nextLocation.lat, lng: nextLocation.lng, updatedAt }
+                            : child);
+                    }
+                    if (prev.length === 1) {
+                        return [{ ...prev[0], lat: nextLocation.lat, lng: nextLocation.lng, updatedAt }];
+                    }
+                    return prev;
                 });
+            },
+            onLocationRefreshRequest: (payload) => {
+                if (isParent) return;
+                if (payload?.senderId === authUser?.id) return;
+                window.dispatchEvent(new CustomEvent("hyeni-location-refresh-request", { detail: payload }));
             },
             onKkuk: (payload) => {
                 // Received '꾹' from the other party
@@ -5296,6 +5514,122 @@ export default function KidsScheduler() {
         if (notifTimer.current) clearTimeout(notifTimer.current);
         notifTimer.current = setTimeout(() => setNotification(null), 3500);
     }, []);
+
+    const updateChildLocationsFromRows = useCallback((locs = []) => {
+        if (!locs.length) return;
+        const children = familyInfo?.members?.filter(m => m.role === "child") || [];
+        const sorted = [...locs].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+        const latest = sorted[0];
+        setChildPos({
+            lat: Number(latest.lat),
+            lng: Number(latest.lng),
+            updatedAt: latest.updated_at,
+        });
+        setAllChildPositions(locs.map(loc => {
+            const member = children.find(c => c.user_id === loc.user_id);
+            return {
+                user_id: loc.user_id,
+                name: member?.name || "아이",
+                emoji: member?.emoji || "🐰",
+                lat: Number(loc.lat),
+                lng: Number(loc.lng),
+                updatedAt: loc.updated_at,
+            };
+        }));
+    }, [familyInfo]);
+
+    const refreshChildLocationNow = useCallback(async (reason = "parent_request") => {
+        if (myRole !== "child" || !authUser?.id || !familyId) return false;
+        const session = await getSession().catch(() => null);
+        const nativeRequested = await requestNativeLocationRefresh(
+            authUser.id,
+            familyId,
+            session?.access_token || "",
+            myRole,
+        );
+
+        if (!navigator.geolocation) return nativeRequested;
+
+        return new Promise(resolve => {
+            navigator.geolocation.getCurrentPosition(
+                async (p) => {
+                    const nowIso = new Date().toISOString();
+                    const newPos = {
+                        lat: p.coords.latitude,
+                        lng: p.coords.longitude,
+                        accuracy: p.coords.accuracy ?? null,
+                        updatedAt: nowIso,
+                        userId: authUser.id,
+                        familyId,
+                        refreshReason: reason,
+                    };
+                    setChildPos(newPos);
+                    try {
+                        await saveChildLocation(authUser.id, familyId, newPos.lat, newPos.lng);
+                        await saveLocationHistory(authUser.id, familyId, newPos.lat, newPos.lng);
+                    } catch (error) {
+                        console.error("[location-refresh] save failed:", error);
+                    }
+                    try {
+                        await sendBroadcastWhenReady(realtimeChannel.current, "child_location", newPos, {
+                            timeoutMs: 1500,
+                            pollMs: 50,
+                        });
+                    } catch (error) {
+                        console.warn("[location-refresh] realtime broadcast failed:", error);
+                    }
+                    resolve(true);
+                },
+                (err) => {
+                    if (err.code === 1) showNotif("📍 위치 권한이 꺼져 있어요. 설정에서 켜주세요!", "error");
+                    else if (err.code === 2) showNotif("📍 위치를 찾을 수 없어요. GPS를 확인해주세요", "error");
+                    else showNotif("📍 현재 위치를 새로 가져오지 못했어요", "error");
+                    resolve(nativeRequested);
+                },
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+            );
+        });
+    }, [authUser?.id, familyId, myRole, showNotif]);
+
+    useEffect(() => {
+        if (isParent) return;
+        const handleRefreshRequest = (event) => {
+            refreshChildLocationNow(event?.detail?.reason || "parent_request");
+        };
+        window.addEventListener("hyeni-location-refresh-request", handleRefreshRequest);
+        return () => window.removeEventListener("hyeni-location-refresh-request", handleRefreshRequest);
+    }, [isParent, refreshChildLocationNow]);
+
+    const requestChildLocationRefresh = useCallback(async () => {
+        if (!isParent || !familyId || !authUser?.id) return;
+        const payload = {
+            familyId,
+            senderId: authUser.id,
+            reason: "parent_tracker_open",
+            requestedAt: new Date().toISOString(),
+        };
+
+        try {
+            await sendBroadcastWhenReady(realtimeChannel.current, "location_refresh_request", payload, {
+                timeoutMs: 1600,
+                pollMs: 60,
+            });
+        } catch (error) {
+            console.warn("[location-refresh] realtime request failed:", error);
+        }
+
+        sendInstantPush({
+            action: "location_refresh",
+            familyId,
+            senderUserId: authUser.id,
+            title: "📍 위치 확인 요청",
+            message: "부모님이 현재 위치를 확인하고 있어요.",
+        }).catch(error => console.warn("[location-refresh] push request failed:", error));
+
+        fetchChildLocations(familyId)
+            .then(updateChildLocationsFromRows)
+            .catch(error => console.error("[location-refresh] fetch failed:", error));
+    }, [authUser?.id, familyId, isParent, updateChildLocationsFromRows]);
 
     const openMicPermissionHelp = useCallback(() => {
         setListeningSession(null);
@@ -5563,7 +5897,14 @@ export default function KidsScheduler() {
             let lastSave = 0;
             wid = navigator.geolocation.watchPosition(
                 p => {
-                    const newPos = { lat: p.coords.latitude, lng: p.coords.longitude };
+                    const newPos = {
+                        lat: p.coords.latitude,
+                        lng: p.coords.longitude,
+                        accuracy: p.coords.accuracy ?? null,
+                        updatedAt: new Date().toISOString(),
+                        userId: authUser.id,
+                        familyId,
+                    };
                     setChildPos(newPos);
                     if (realtimeChannel.current && realtimeChannel.current.state === "joined") {
                         realtimeChannel.current.send({ type: "broadcast", event: "child_location", payload: newPos });
@@ -5583,7 +5924,7 @@ export default function KidsScheduler() {
                     else if (err.code === 2) showNotif("📍 위치를 찾을 수 없어요. GPS를 확인해주세요", "error");
                     else showNotif("📍 위치 추적 오류가 발생했어요", "error");
                 },
-                { enableHighAccuracy: true, maximumAge: 5000 }
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
             );
         }
 
@@ -5597,23 +5938,16 @@ export default function KidsScheduler() {
     useEffect(() => {
         if (myRole !== "parent" || !familyId) return;
         let cancelled = false;
-        const children = familyInfo?.members?.filter(m => m.role === "child") || [];
         const load = () => {
             fetchChildLocations(familyId).then(locs => {
                 if (cancelled || !locs.length) return;
-                const latest = locs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
-                setChildPos({ lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at });
-                const positions = locs.map(loc => {
-                    const member = children.find(c => c.user_id === loc.user_id);
-                    return { user_id: loc.user_id, name: member?.name || "아이", emoji: member?.emoji || "🐰", lat: loc.lat, lng: loc.lng, updatedAt: loc.updated_at };
-                });
-                setAllChildPositions(positions);
+                updateChildLocationsFromRows(locs);
             }).catch(err => console.error("[fetchChildLocations] failed:", err));
         };
         load();
         const iv = setInterval(load, 10000);
         return () => { cancelled = true; clearInterval(iv); };
-    }, [myRole, familyId, familyInfo]);
+    }, [myRole, familyId, updateChildLocationsFromRows]);
 
     // ── Parent: fetch today's location trail ─────────────────────────────────────
     useEffect(() => {
@@ -6264,12 +6598,78 @@ export default function KidsScheduler() {
         }
     };
 
+    const saveDailySuppliesForSelectedDate = async (content) => {
+        if (!familyId || !authUser || !isParent) return;
+        const previous = dailySupplies[dateKey] || "";
+        const nextContent = content || "";
+        setDailySupplies(prev => {
+            const updated = { ...prev, [dateKey]: nextContent };
+            cacheDailySupplies(updated);
+            return updated;
+        });
+        try {
+            await upsertDailySupplies(familyId, dateKey, nextContent, authUser.id);
+            showNotif("🎒 오늘의 준비물이 저장됐어요!");
+        } catch (err) {
+            setDailySupplies(prev => {
+                const updated = { ...prev, [dateKey]: previous };
+                cacheDailySupplies(updated);
+                return updated;
+            });
+            throw err;
+        }
+    };
+
     const prevMonth = () => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); } else setCurrentMonth(m => m - 1); };
     const nextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); } else setCurrentMonth(m => m + 1); };
     const getDays = getDIM(currentYear, currentMonth);
     const firstDay = getFD(currentYear, currentMonth);
     const getEvs = (d) => events[`${currentYear}-${currentMonth}-${d}`] || [];
     const selectedEvs = events[dateKey] || [];
+    const findNextRouteEvent = useCallback((eventMap) => {
+        const nowMs = Date.now();
+        const candidates = [];
+        for (const [dk, dayEvents] of Object.entries(eventMap || {})) {
+            const [year, month, day] = dk.split("-").map(Number);
+            if (![year, month, day].every(Number.isFinite)) continue;
+            for (const ev of dayEvents || []) {
+                if (!ev?.location || !ev.time) continue;
+                const [hour, minute] = String(ev.time).split(":").map(Number);
+                if (![hour, minute].every(Number.isFinite)) continue;
+                const startsAt = new Date(year, month, day, hour, minute).getTime();
+                candidates.push({ ev, startsAt });
+            }
+        }
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => a.startsAt - b.startsAt);
+        return (candidates.find(item => item.startsAt >= nowMs) || candidates[0]).ev;
+    }, []);
+    const nextRouteEvent = useMemo(() => findNextRouteEvent(events), [events, findNextRouteEvent]);
+    const openNextRouteFromChild = useCallback(async () => {
+        let target = nextRouteEvent;
+        if (!target && familyId) {
+            try {
+                const freshEvents = await fetchEvents(familyId);
+                setEvents(freshEvents);
+                target = findNextRouteEvent(freshEvents);
+            } catch (err) {
+                console.error("[route-mode] refresh failed", err);
+            }
+        }
+        if (!target) {
+            showNotif("위치가 등록된 다음 일정이 없어요", "child");
+            return;
+        }
+        setRouteEvent(target);
+    }, [familyId, findNextRouteEvent, nextRouteEvent, showNotif]);
+    const cleanPhoneNumber = (num) => String(num || "").replace(/[^0-9+]/g, "");
+    const childCallTarget = (() => {
+        const mom = cleanPhoneNumber(parentPhones.mom);
+        const dad = cleanPhoneNumber(parentPhones.dad);
+        if (mom.length >= 8) return { label: "엄마", number: mom };
+        if (dad.length >= 8) return { label: "아빠", number: dad };
+        return null;
+    })();
 
     // CSS helpers
     const inputSt = { width: "100%", padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, color: "#374151", fontFamily: FF, outline: "none", boxSizing: "border-box" };
@@ -6307,15 +6707,18 @@ export default function KidsScheduler() {
             icon: "📍",
             label: "우리아이",
             ariaLabel: "📍 우리아이",
-            palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: "#1D4ED8", shadow: "rgba(59,130,246,0.16)" },
-            onClick: () => setShowChildTracker(true),
+            palette: { bg: "linear-gradient(135deg,#ECFEFF,#CFFAFE)", color: "#0E7490", shadow: "rgba(14,116,144,0.15)" },
+            onClick: () => {
+                setShowChildTracker(true);
+                requestChildLocationRefresh();
+            },
         } : null,
         isParent ? {
             key: "academy",
             icon: "🏫",
             label: "학원관리",
             ariaLabel: "🏫 학원관리",
-            palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(245,158,11,0.18)" },
+            palette: { bg: "linear-gradient(135deg,#EEF2FF,#E0E7FF)", color: "#4338CA", shadow: "rgba(99,102,241,0.14)" },
             onClick: () => {
                 if (academies.length === 0 && !entitlement.canUse(FEATURES.ACADEMY_SCHEDULE)) {
                     openFeatureLock(FEATURES.ACADEMY_SCHEDULE);
@@ -6329,7 +6732,9 @@ export default function KidsScheduler() {
             icon: "🏆",
             label: "스티커",
             ariaLabel: "🏆 스티커",
-            palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(251,191,36,0.16)" },
+            palette: isParent
+                ? { bg: "linear-gradient(135deg,#ECFDF5,#D1FAE5)", color: "#047857", shadow: "rgba(16,185,129,0.14)" }
+                : { bg: "linear-gradient(135deg,#FFF7ED,#FFEDD5)", color: "#C2410C", shadow: "rgba(249,115,22,0.16)" },
             onClick: () => {
                 setShowStickerBook(true);
                 if (familyId) {
@@ -6338,14 +6743,36 @@ export default function KidsScheduler() {
                 }
             },
         },
-        {
+        isParent ? {
             key: "notifications",
             icon: "🔔",
             label: "일정알림",
             ariaLabel: "🔔 일정알림",
-            palette: { bg: "linear-gradient(135deg,#EEF2FF,#E0E7FF)", color: "#4338CA", shadow: "rgba(99,102,241,0.16)" },
+            palette: { bg: "linear-gradient(135deg,#F0F9FF,#E0F2FE)", color: "#0369A1", shadow: "rgba(14,165,233,0.14)" },
             onClick: () => setShowNotifSettings(true),
-        },
+        } : null,
+        !isParent ? {
+            key: "direct-call",
+            icon: "📞",
+            label: "전화 바로걸기",
+            ariaLabel: "📞 전화 바로걸기",
+            palette: { bg: "linear-gradient(135deg,#ECFDF5,#CCFBF1)", color: "#0F766E", shadow: "rgba(20,184,166,0.16)" },
+            onClick: () => {
+                if (!childCallTarget) {
+                    showNotif("부모님 연락처가 아직 없어요", "child");
+                    return;
+                }
+                window.location.href = `tel:${childCallTarget.number}`;
+            },
+        } : null,
+        !isParent ? {
+            key: "route-mode",
+            icon: "🧭",
+            label: "길찾기 모드",
+            ariaLabel: "🧭 길찾기 모드",
+            palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: "#1D4ED8", shadow: "rgba(59,130,246,0.16)" },
+            onClick: openNextRouteFromChild,
+        } : null,
         isParent ? {
             key: "subscription",
             icon: "💎",
@@ -6359,7 +6786,7 @@ export default function KidsScheduler() {
             icon: "📞",
             label: "연락처",
             ariaLabel: "📞 연락처",
-            palette: { bg: "linear-gradient(135deg,#FDF2F8,#FCE7F3)", color: "#BE185D", shadow: "rgba(236,72,153,0.15)" },
+            palette: { bg: "linear-gradient(135deg,#FFF1F2,#FFE4E6)", color: "#BE123C", shadow: "rgba(244,63,94,0.14)" },
             onClick: () => setShowPhoneSettings(true),
         } : null,
         isParent ? {
@@ -6367,7 +6794,7 @@ export default function KidsScheduler() {
             icon: "🎙️",
             label: "주변소리",
             ariaLabel: "🎙️ 주변소리",
-            palette: { bg: "linear-gradient(135deg,#FEF2F2,#FEE2E2)", color: "#DC2626", shadow: "rgba(239,68,68,0.15)" },
+            palette: { bg: "linear-gradient(135deg,#F8FAFC,#E2E8F0)", color: "#475569", shadow: "rgba(71,85,105,0.13)" },
             onClick: () => {
                 if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
                     openFeatureLock(FEATURES.REMOTE_AUDIO);
@@ -6381,17 +6808,17 @@ export default function KidsScheduler() {
             icon: "⚠️",
             label: "위험지역",
             ariaLabel: "⚠️ 위험지역",
-            palette: { bg: "linear-gradient(135deg,#FFF1F2,#FFE4E6)", color: "#E11D48", shadow: "rgba(244,63,94,0.15)" },
+            palette: { bg: "linear-gradient(135deg,#FFF7ED,#FFEDD5)", color: "#C2410C", shadow: "rgba(249,115,22,0.14)" },
             onClick: () => setShowDangerZones(true),
         } : null,
-        {
+        isParent ? {
             key: "feedback",
             icon: "💌",
             label: "피드백",
             ariaLabel: "💌 피드백 보내기",
-            palette: { bg: "linear-gradient(135deg,#FDF2F8,#FCE7F3)", color: "#BE185D", shadow: "rgba(244,114,182,0.16)" },
+            palette: { bg: "linear-gradient(135deg,#F0FDFA,#CCFBF1)", color: "#0F766E", shadow: "rgba(20,184,166,0.14)" },
             onClick: () => setShowFeedbackModal(true),
-        },
+        } : null,
     ].filter(Boolean);
     const quickUtilityColumns = isParent ? "repeat(4, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))";
     const renderQuickAction = (action, type = "utility") => {
@@ -6413,7 +6840,7 @@ export default function KidsScheduler() {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: isMode ? 4 : 6,
+                    gap: isMode ? 4 : (isParent ? 7 : 6),
                     textAlign: "center",
                     whiteSpace: "normal",
                     lineHeight: 1.18,
@@ -6423,13 +6850,27 @@ export default function KidsScheduler() {
                     color: isMode ? (action.active ? "white" : "#6B7280") : action.palette.color,
                     boxShadow: isMode
                         ? (action.active ? "0 10px 20px rgba(232,121,160,0.22)" : "inset 0 0 0 1px rgba(226,232,240,0.85)")
-                        : `0 10px 22px ${action.palette.shadow}`,
+                        : `0 10px 22px ${action.palette.shadow}, inset 0 0 0 1px rgba(255,255,255,0.62)`,
                 }}
             >
-                <span aria-hidden="true" style={{ fontSize: isMode ? (isParent ? 18 : 20) : (isParent ? 20 : 22), lineHeight: 1 }}>
+                <span
+                    aria-hidden="true"
+                    style={{
+                        width: isMode ? "auto" : (isParent ? 34 : 36),
+                        height: isMode ? "auto" : (isParent ? 34 : 36),
+                        borderRadius: isMode ? 0 : 13,
+                        background: isMode ? "transparent" : "rgba(255,255,255,0.72)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: isMode ? (isParent ? 18 : 20) : (isParent ? 19 : 21),
+                        lineHeight: 1,
+                        boxShadow: isMode ? "none" : "inset 0 0 0 1px rgba(255,255,255,0.65)",
+                    }}
+                >
                     {action.icon}
                 </span>
-                <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 12), fontWeight: action.active ? 800 : 700, letterSpacing: -0.2, wordBreak: "keep-all" }}>
+                <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 12), fontWeight: action.active ? 800 : 700, letterSpacing: 0, wordBreak: "keep-all" }}>
                     {action.label}
                 </span>
             </button>
@@ -6954,7 +7395,7 @@ export default function KidsScheduler() {
                     </div>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "#E879A0", letterSpacing: -0.5, whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
+                            <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "#E879A0", letterSpacing: 0, whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
                             {isParent && (
                                 <span onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
                                     style={{ fontSize: 9, padding: "2px 6px", borderRadius: 5, fontWeight: 700, cursor: "pointer", background: "#DBEAFE", color: "#1D4ED8", whiteSpace: "nowrap", flexShrink: 0 }}>
@@ -7046,6 +7487,7 @@ export default function KidsScheduler() {
                                 setEvents({});
                                 setAcademies([]);
                                 setMemos({});
+                                setDailySupplies({});
                                 setParentPhones({ mom: "", dad: "" });
                                 showNotif("로그아웃 되었어요");
                             } catch (err) {
@@ -7075,7 +7517,7 @@ export default function KidsScheduler() {
                 >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                         <div>
-                            <div style={{ fontSize: 11, fontWeight: 900, color: isParent ? "#BE185D" : "#C2410C", letterSpacing: -0.2 }}>
+                            <div style={{ fontSize: 11, fontWeight: 900, color: isParent ? "#BE185D" : "#C2410C", letterSpacing: 0 }}>
                                 빠른 실행
                             </div>
                             <div style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>
@@ -7110,6 +7552,13 @@ export default function KidsScheduler() {
 
             {/* ── CALENDAR VIEW ── */}
             {activeView === "calendar" && <>
+                {!isParent && (
+                    <DailySuppliesPanel
+                        value={todaySupplies}
+                        isParentMode={false}
+                        dateLabel="오늘"
+                    />
+                )}
                 <div style={cardSt}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                         <button onClick={prevMonth} style={{ width: 36, height: 36, borderRadius: "50%", background: "#FFF0F7", border: "none", fontSize: 18, cursor: "pointer", color: "#E879A0", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
@@ -7180,7 +7629,7 @@ export default function KidsScheduler() {
                 <div style={{ ...cardSt, marginBottom: 0 }}>
                     <DayTimetable
                         events={selectedEvs}
-                        dateLabel={`${currentMonth + 1}월 ${selectedDate}일`}
+                        dateLabel={selectedDateLabel}
                         isToday={currentYear === new Date().getFullYear() && currentMonth === new Date().getMonth() && selectedDate === new Date().getDate()}
                         isFuture={new Date(currentYear, currentMonth, selectedDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0)}
                         childPos={displayChildPos}
@@ -7236,6 +7685,8 @@ export default function KidsScheduler() {
                         memoReadBy={memoReadBy}
                         myUserId={authUser?.id}
                         onReplyRef={registerMemoReplyNode}
+                        suppliesValue={selectedSupplies}
+                        onSuppliesSave={saveDailySuppliesForSelectedDate}
                     />
                 </div>
             </>}
@@ -7671,9 +8122,6 @@ export default function KidsScheduler() {
                 onSend={handleSendFeedback}
                 onClose={() => setShowFeedbackModal(false)}
             />
-
-            {/* ── Child Call Buttons (아이 전용, 화면 우하단 플로팅) ── */}
-            {!isParent && !routeEvent && <ChildCallButtons phones={parentPhones} />}
 
             {/* ── Sticker Book Modal ── */}
             {showStickerBook && <StickerBookModal

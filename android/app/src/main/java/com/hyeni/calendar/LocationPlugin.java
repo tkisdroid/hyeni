@@ -70,6 +70,33 @@ public class LocationPlugin extends Plugin {
         call.resolve(new JSObject().put("status", "started"));
     }
 
+    @PluginMethod
+    public void requestCurrentLocation(PluginCall call) {
+        String userId = call.getString("userId");
+        String familyId = call.getString("familyId");
+        String supabaseUrl = call.getString("supabaseUrl");
+        String supabaseKey = call.getString("supabaseKey");
+        String accessToken = call.getString("accessToken", "");
+        String role = call.getString("role", "child");
+
+        if (userId == null || familyId == null) {
+            call.reject("userId and familyId are required");
+            return;
+        }
+
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            call.reject("Location permission denied");
+            return;
+        }
+
+        getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putString("role", role).apply();
+
+        launchRefresh(userId, familyId, supabaseUrl, supabaseKey, accessToken);
+        call.resolve(new JSObject().put("status", "refresh_requested"));
+    }
+
     @PermissionCallback
     private void onLocationPermissionResult(PluginCall call) {
         if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION)
@@ -110,6 +137,26 @@ public class LocationPlugin extends Plugin {
             getContext().startService(intent);
         }
         Log.i(TAG, "Location service launched");
+    }
+
+    private void launchRefresh(String userId, String familyId, String supabaseUrl, String supabaseKey, String accessToken) {
+        String role = getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("role", "child");
+        Intent intent = new Intent(getContext(), LocationService.class);
+        intent.setAction("REFRESH_NOW");
+        intent.putExtra("userId", userId);
+        intent.putExtra("familyId", familyId);
+        intent.putExtra("supabaseUrl", supabaseUrl);
+        intent.putExtra("supabaseKey", supabaseKey);
+        intent.putExtra("accessToken", accessToken);
+        intent.putExtra("role", role);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(intent);
+        } else {
+            getContext().startService(intent);
+        }
+        Log.i(TAG, "Immediate location refresh requested");
     }
 
     @PluginMethod

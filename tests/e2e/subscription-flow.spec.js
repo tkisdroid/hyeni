@@ -12,9 +12,10 @@ async function installMockBrowser(page) {
   await page.addInitScript(() => {
     const originalLocalStorageClear = window.localStorage.clear.bind(window.localStorage);
     const originalFetch = window.fetch.bind(window);
-    const fixedPosition = { latitude: 37.5665, longitude: 126.978 };
+    let fixedPosition = { latitude: 37.5665, longitude: 126.978, accuracy: 12 };
     const watchers = new Map();
     let watcherId = 0;
+    let currentPositionCalls = 0;
 
     window.__mockQrValues = [];
     window.__mockFeedbackPayloads = [];
@@ -24,6 +25,10 @@ async function installMockBrowser(page) {
       }
     };
     window.__getMockFeedbackPayloads = () => [...window.__mockFeedbackPayloads];
+    window.__setMockGeoPosition = (latitude, longitude, accuracy = 12) => {
+      fixedPosition = { latitude, longitude, accuracy };
+    };
+    window.__getMockGeoCurrentCalls = () => currentPositionCalls;
 
     class FakeBarcodeDetector {
       static async getSupportedFormats() {
@@ -38,6 +43,7 @@ async function installMockBrowser(page) {
     }
 
     navigator.geolocation.getCurrentPosition = (success) => {
+      currentPositionCalls += 1;
       success({ coords: { ...fixedPosition } });
     };
 
@@ -710,8 +716,15 @@ test.describe("subscription and premium flow", () => {
     const pairCodeText = await parentPage.locator("text=/KID-[A-Z0-9]{8}/").first().textContent();
     const pairCode = extractPairCode(pairCodeText || "");
 
-    await seedMockRouteEvent(parentPage);
     await parentPage.getByText("닫기").click();
+    await parentPage.getByRole("button", { name: "📞 연락처", exact: true }).click();
+    await parentPage.getByPlaceholder("010-0000-0000").first().fill("010-1234-5678");
+    await parentPage.getByRole("button", { name: "저장", exact: true }).click();
+    await expect(parentPage.getByText("📞 연락처가 저장됐어요!")).toBeVisible();
+    await parentPage.getByLabel("오늘의 준비물 입력").fill("체육복, 물병");
+    await parentPage.getByRole("button", { name: "오늘의 준비물 저장", exact: true }).click();
+    await expect(parentPage.getByText("🎒 오늘의 준비물이 저장됐어요!")).toBeVisible();
+    await seedMockRouteEvent(parentPage);
 
     const childPage = await context.newPage();
     await installMockBrowser(childPage);
@@ -720,8 +733,14 @@ test.describe("subscription and premium flow", () => {
     await childPage.getByPlaceholder("XXXXXXXX").fill(pairCode);
     await childPage.getByText("🔗 연결하기").click();
     await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible();
+    await expect(childPage.getByText("오늘의 준비물").first()).toBeVisible();
+    await expect(childPage.getByText("체육복")).toBeVisible();
+    await expect(childPage.getByText("물병")).toBeVisible();
+    await expect(childPage.getByRole("button", { name: "📞 전화 바로걸기", exact: true })).toBeVisible();
+    await expect(childPage.getByRole("button", { name: "🔔 일정알림", exact: true })).toHaveCount(0);
+    await expect(childPage.getByRole("button", { name: "💌 피드백 보내기", exact: true })).toHaveCount(0);
 
-    const routeButton = childPage.getByRole("button", { name: /🧭 길찾기/ }).first();
+    const routeButton = childPage.getByRole("button", { name: "🧭 길찾기 모드", exact: true });
     await expect(routeButton).toBeVisible();
     await routeButton.click();
     await expect(childPage.getByText("토끼가 길 안내 중~ 🐰")).toBeVisible();
@@ -751,15 +770,33 @@ test.describe("subscription and premium flow", () => {
     await parentPage.getByText("가족 만들기").click();
     await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
 
-    await seedMockChildLocation(parentPage);
-    await parentPage.reload();
-    await expect(parentPage.getByRole("button", { name: "🔗 연동 (1명)" })).toBeVisible();
+    const pairCodeText = await parentPage.locator("text=/KID-[A-Z0-9]{8}/").first().textContent();
+    const pairCode = extractPairCode(pairCodeText || "");
+    await parentPage.getByRole("button", { name: "닫기" }).click();
+
+    const childPage = await context.newPage();
+    await installMockBrowser(childPage);
+    await childPage.goto("/");
+    await childPage.getByRole("button", { name: /🐰 아이/ }).click();
+    await childPage.getByPlaceholder("XXXXXXXX").fill(pairCode);
+    await childPage.getByText("🔗 연결하기").click();
+    await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible();
+    await childPage.evaluate(() => {
+      window.__setMockGeoPosition?.(37.5668, 126.9784, 8);
+    });
+    const locationCallsBefore = await childPage.evaluate(() => window.__getMockGeoCurrentCalls?.() || 0);
+
     await expect(parentPage.getByRole("button", { name: "📍 우리아이", exact: true })).toBeVisible();
 
     await parentPage.getByRole("button", { name: "📍 우리아이", exact: true }).click();
-    await expect(parentPage.getByText("아이 정밀 위치")).toBeVisible();
+    await expect(parentPage.getByText("지금 우리 아이는?")).toBeVisible();
+    await expect.poll(
+      () => childPage.evaluate(() => window.__getMockGeoCurrentCalls?.() || 0),
+      { timeout: 10_000 }
+    ).toBeGreaterThan(locationCallsBefore);
+    await expect(parentPage.getByText("아이 정밀 위치")).toBeVisible({ timeout: 10_000 });
     await expect(parentPage.getByText("도보 확인 반경 30m")).toBeVisible();
-    await expect(parentPage.getByText("37.56680, 126.97840")).toBeVisible();
+    await expect(parentPage.getByText("37.56680, 126.97840")).toBeVisible({ timeout: 10_000 });
     await expect(parentPage.getByRole("button", { name: "아이 위치로 이동" })).toBeVisible();
 
     const mapState = await parentPage.evaluate(() => ({

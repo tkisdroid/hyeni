@@ -139,6 +139,7 @@ public class LocationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean refreshNow = intent != null && "REFRESH_NOW".equals(intent.getAction());
 
         if (intent != null) {
             if (intent.hasExtra("userId")) {
@@ -206,6 +207,9 @@ public class LocationService extends Service {
         startNotificationPolling();
         startEventTimeChecking();
         startTokenRefresh();
+        if (refreshNow) {
+            forceSingleLocationUpload("parent_request");
+        }
 
         return START_STICKY;
     }
@@ -427,44 +431,7 @@ public class LocationService extends Service {
             @Override
             public void onLocationResult(LocationResult result) {
                 if (result == null || result.getLastLocation() == null) return;
-                Location location = result.getLastLocation();
-
-                // Reject wildly inaccurate fixes (accuracy > 100m)
-                float accuracy = location.getAccuracy();
-                if (accuracy > MAX_ACCURACY_M) {
-                    Log.w(TAG, "Location rejected: accuracy " + String.format("%.0f", accuracy)
-                        + "m exceeds " + (int) MAX_ACCURACY_M + "m threshold");
-                    return;
-                }
-
-                double rawLat = location.getLatitude();
-                double rawLng = location.getLongitude();
-
-                // Apply Kalman filter for GPS smoothing
-                double[] filtered = applyKalmanFilter(rawLat, rawLng, accuracy);
-                double lat = filtered[0];
-                double lng = filtered[1];
-
-                // Update stationary/moving detection for adaptive intervals
-                updateStationaryState(location);
-
-                // Only upload if moved more than 5m from last uploaded position
-                if (!Double.isNaN(lastUploadedLat)) {
-                    float distFromLast = distanceBetween(
-                        lat, lng, lastUploadedLat, lastUploadedLng);
-                    if (distFromLast < MIN_UPLOAD_DISTANCE_M) {
-                        Log.d(TAG, "Skipping upload: moved only "
-                            + String.format("%.1f", distFromLast) + "m (< "
-                            + (int) MIN_UPLOAD_DISTANCE_M + "m)");
-                        return;
-                    }
-                }
-
-                Log.d(TAG, "Location update: accuracy=" + String.format("%.0f", accuracy)
-                    + "m, stationary=" + isStationary);
-                lastUploadedLat = lat;
-                lastUploadedLng = lng;
-                uploadLocation(lat, lng);
+                handleLocation(result.getLastLocation(), false);
             }
         };
 
@@ -476,6 +443,68 @@ public class LocationService extends Service {
         } catch (SecurityException e) {
             Log.e(TAG, "Location permission not granted", e);
         }
+    }
+
+    private void forceSingleLocationUpload(String reason) {
+        try {
+            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        Log.i(TAG, "Immediate location refresh success: " + reason);
+                        handleLocation(location, true);
+                        return;
+                    }
+                    fusedClient.getLastLocation()
+                        .addOnSuccessListener(lastLocation -> {
+                            if (lastLocation != null) {
+                                Log.i(TAG, "Immediate location refresh using last known fix: " + reason);
+                                handleLocation(lastLocation, true);
+                            } else {
+                                Log.w(TAG, "Immediate location refresh failed: no location available");
+                            }
+                        })
+                        .addOnFailureListener(error -> Log.w(TAG, "Last location fallback failed", error));
+                })
+                .addOnFailureListener(error -> Log.w(TAG, "Immediate location refresh failed", error));
+        } catch (SecurityException e) {
+            Log.e(TAG, "Location permission not granted for immediate refresh", e);
+        }
+    }
+
+    private void handleLocation(Location location, boolean forceUpload) {
+        if (location == null) return;
+
+        float accuracy = location.hasAccuracy() ? location.getAccuracy() : MAX_ACCURACY_M;
+        if (accuracy > MAX_ACCURACY_M) {
+            Log.w(TAG, "Location rejected: accuracy " + String.format("%.0f", accuracy)
+                + "m exceeds " + (int) MAX_ACCURACY_M + "m threshold");
+            return;
+        }
+
+        double rawLat = location.getLatitude();
+        double rawLng = location.getLongitude();
+
+        double[] filtered = applyKalmanFilter(rawLat, rawLng, accuracy);
+        double lat = filtered[0];
+        double lng = filtered[1];
+
+        updateStationaryState(location);
+
+        if (!forceUpload && !Double.isNaN(lastUploadedLat)) {
+            float distFromLast = distanceBetween(lat, lng, lastUploadedLat, lastUploadedLng);
+            if (distFromLast < MIN_UPLOAD_DISTANCE_M) {
+                Log.d(TAG, "Skipping upload: moved only "
+                    + String.format("%.1f", distFromLast) + "m (< "
+                    + (int) MIN_UPLOAD_DISTANCE_M + "m)");
+                return;
+            }
+        }
+
+        Log.d(TAG, "Location update: accuracy=" + String.format("%.0f", accuracy)
+            + "m, stationary=" + isStationary + ", force=" + forceUpload);
+        lastUploadedLat = lat;
+        lastUploadedLng = lng;
+        uploadLocation(lat, lng);
     }
 
     private void uploadLocation(double lat, double lng) {
@@ -601,6 +630,21 @@ public class LocationService extends Service {
                     String sender = (data != null) ? data.optString("senderUserId", "") : "";
                     if (sender.equals(userId)) {
                         Log.d(TAG, "Skipping self-sent notification: " + id);
+                        continue;
+                    }
+
+                    String type = (data != null)
+                        ? data.optString("type", data.optString("action", ""))
+                        : "";
+                    if ("location_refresh".equals(type)) {
+                        String currentRole = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                            .getString("role", "child");
+                        if (!"child".equals(currentRole)) {
+                            Log.i(TAG, "Ignoring pending location refresh on non-child device");
+                            continue;
+                        }
+                        Log.i(TAG, "Pending location refresh request received");
+                        forceSingleLocationUpload("pending_notification");
                         continue;
                     }
 

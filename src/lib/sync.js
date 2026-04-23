@@ -5,6 +5,7 @@ const LS_EVENTS = "hyeni-events";
 const LS_ACADEMIES = "hyeni-academies";
 const LS_MEMOS = "hyeni-memos";
 const LS_SAVED_PLACES = "hyeni-saved-places";
+const LS_DAILY_SUPPLIES = "hyeni-daily-supplies";
 
 // ── Circuit breaker + exponential backoff (Phase 3 P1-5, D-B01/B02/B05) ─────
 // Module-scoped registry. One BreakerState per named caller (keyed by
@@ -310,6 +311,25 @@ export async function fetchSavedPlaces(familyId, opts = {}) {
   return list;
 }
 
+export async function fetchDailySupplies(familyId) {
+  const { data, error } = await supabase
+    .from("daily_supplies")
+    .select("date_key, content")
+    .eq("family_id", familyId);
+
+  if (error) {
+    console.error("[sync] fetchDailySupplies error:", error);
+    return lsGet(LS_DAILY_SUPPLIES, {});
+  }
+
+  const map = {};
+  for (const row of (data || [])) {
+    map[row.date_key] = row.content || "";
+  }
+  lsSet(LS_DAILY_SUPPLIES, map);
+  return map;
+}
+
 // ── CRUD: Events ────────────────────────────────────────────────────────────
 
 export async function insertEvent(ev, familyId, dateKey, userId) {
@@ -396,6 +416,20 @@ export async function upsertMemo(familyId, dateKey, content) {
       { family_id: familyId, date_key: dateKey, content },
       { onConflict: "family_id,date_key" }
     );
+  if (error) throw error;
+}
+
+export async function upsertDailySupplies(familyId, dateKey, content, userId) {
+  const row = {
+    family_id: familyId,
+    date_key: dateKey,
+    content: content || "",
+  };
+  if (userId) row.updated_by = userId;
+
+  const { error } = await supabase
+    .from("daily_supplies")
+    .upsert(row, { onConflict: "family_id,date_key" });
   if (error) throw error;
 }
 
@@ -569,6 +603,7 @@ export async function fetchChildLocations(familyId) {
 //   saved_places-{familyId}        — postgres_changes: saved_places  (RT-01)
 //   family_subscription-{familyId} — postgres_changes: family_subscription (RT-02)
 //   memo_replies-{familyId}        — postgres_changes: memo_replies  (RT-03)
+//   daily_supplies-{familyId}      — postgres_changes: daily_supplies
 //
 // Each channel has independent CHANNEL_ERROR retry with its own counter —
 // one broken binding never affects the others.
@@ -576,7 +611,7 @@ export async function fetchChildLocations(familyId) {
 // Caller contract preserved: subscribeFamily returns the broadcast channel
 // directly (same shape as before — .send(), .state, .subscribe() all work),
 // with _dispose() + _channels attached so unsubscribe() can tear down all
-// 7 channels in one call.
+// 8 channels in one call.
 
 function subscribeTableChanges(channelName, tableName, familyId, eventSpec, handler) {
   // eventSpec: "*" for all events, or "INSERT"/"UPDATE"/"DELETE"
@@ -633,12 +668,14 @@ export function subscribeFamily(familyId, callbacks) {
     onAcademiesChange,
     onMemosChange,
     onMemoRepliesChange,
+    onDailySuppliesChange,
     onSavedPlacesChange,
     onFamilySubscriptionChange,   // NEW — RT-02 consumer wiring is out of Phase 2
                                   // scope (Qonversion integration is a later phase);
                                   // the channel must subscribe regardless so the
                                   // postgres_changes path is exercised end-to-end.
     onLocationChange,
+    onLocationRefreshRequest,
     onKkuk,
     onRemoteListenStart,
     onRemoteListenStop,
@@ -678,6 +715,11 @@ export function subscribeFamily(familyId, callbacks) {
       : null
   );
 
+  const dailySuppliesCh = subscribeTableChanges(
+    `daily_supplies-${familyId}`, "daily_supplies", familyId, "*",
+    onDailySuppliesChange
+  );
+
   // ── Broadcast-only channel (D-B06) ───────────────────────────────────────
   // Kept under the exact pre-existing name `family-{familyId}` so kkuk/location/
   // remote_listen senders in App.jsx + the push-notify Edge Function keep
@@ -693,6 +735,9 @@ export function subscribeFamily(familyId, callbacks) {
     .channel(`family-${familyId}`)
     .on("broadcast", { event: "child_location" }, (payload) => {
       if (onLocationChange) onLocationChange(payload.payload);
+    })
+    .on("broadcast", { event: "location_refresh_request" }, (payload) => {
+      if (onLocationRefreshRequest) onLocationRefreshRequest(payload.payload);
     })
     .on("broadcast", { event: "kkuk" }, (payload) => {
       if (onKkuk) onKkuk(payload.payload);
@@ -734,7 +779,7 @@ export function subscribeFamily(familyId, callbacks) {
   // subscription. Stored on the broadcast channel itself so a single handle
   // (the broadcast channel — callers already use it as a channel for .send()
   // and .state checks) carries the full cleanup responsibility.
-  const postgresChannels = [eventsCh, academiesCh, memosCh, savedPlacesCh, familySubCh, memoRepliesCh];
+  const postgresChannels = [eventsCh, academiesCh, memosCh, savedPlacesCh, familySubCh, memoRepliesCh, dailySuppliesCh];
   broadcastCh._channels = postgresChannels;
   broadcastCh._dispose = () => {
     broadcastDisposed = true;
@@ -768,6 +813,7 @@ export function getCachedEvents() { return lsGet(LS_EVENTS, {}); }
 export function getCachedAcademies() { return lsGet(LS_ACADEMIES, []); }
 export function getCachedMemos() { return lsGet(LS_MEMOS, {}); }
 export function getCachedSavedPlaces() { return lsGet(LS_SAVED_PLACES, []); }
+export function getCachedDailySupplies() { return lsGet(LS_DAILY_SUPPLIES, {}); }
 
 // ── Cache writers (called after realtime updates) ───────────────────────────
 
@@ -775,6 +821,7 @@ export function cacheEvents(eventMap) { lsSet(LS_EVENTS, eventMap); }
 export function cacheAcademies(list) { lsSet(LS_ACADEMIES, list); }
 export function cacheMemos(memoMap) { lsSet(LS_MEMOS, memoMap); }
 export function cacheSavedPlaces(list) { lsSet(LS_SAVED_PLACES, list); }
+export function cacheDailySupplies(map) { lsSet(LS_DAILY_SUPPLIES, map); }
 
 // ── Stickers ────────────────────────────────────────────────────────────────
 

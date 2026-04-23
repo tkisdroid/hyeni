@@ -11,6 +11,7 @@ const TABLES = [
   "saved_places",
   "memos",
   "memo_replies",
+  "daily_supplies",
   "child_locations",
   "location_history",
   "danger_zones",
@@ -347,6 +348,7 @@ function resolveConflictFields(table, options) {
       .filter(Boolean);
   }
   if (table === "memos") return ["family_id", "date_key"];
+  if (table === "daily_supplies") return ["family_id", "date_key"];
   if (table === "push_subscriptions") return ["user_id", "endpoint"];
   if (table === "fcm_tokens") return ["user_id", "token"];
   if (table === "family_subscription") return ["family_id"];
@@ -394,6 +396,11 @@ function ensureRowDefaults(table, row) {
   if (table === "memo_replies") {
     next.id ||= randomId("reply");
     next.created_at ||= timestamp;
+  }
+  if (table === "daily_supplies") {
+    next.content ||= "";
+    next.created_at ||= timestamp;
+    next.updated_at ||= timestamp;
   }
   if (table === "child_locations") {
     next.updated_at ||= timestamp;

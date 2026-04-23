@@ -257,7 +257,7 @@ async function makeSplash(width, height) {
   const logo = await resizedLogo(Math.min(width, height) * 0.58, Math.min(width, height) * 0.58);
   return compositeWithShadow(splashBackgroundSvg(width, height), logo, width, height, {
     blur: Math.max(3, Math.round(Math.min(width, height) / 52)),
-    centerY: 0.48,
+    centerY: 0.5,
     offset: Math.max(2, Math.round(Math.min(width, height) / 64)),
     opacity: 0.13,
   });

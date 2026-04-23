@@ -172,7 +172,7 @@ async function sendFcmNotification(
   if (!accessToken) return "error";
 
   try {
-    const isRemoteListen = data.type === "remote_listen";
+    const isRealtimeCommand = data.type === "remote_listen" || data.type === "location_refresh";
     const stringData = Object.fromEntries(
       Object.entries({ title, body, type: data.type || "schedule", ...data }).map(([key, value]) => [key, String(value)])
     );
@@ -183,7 +183,7 @@ async function sendFcmNotification(
         data: stringData,
         android: {
           priority: "HIGH",
-          ttl: isRemoteListen ? "30s" : "120s",
+          ttl: isRealtimeCommand ? "30s" : "120s",
           direct_boot_ok: true,
         },
       },
@@ -310,7 +310,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* not JSON, proceed as cron */ }
     }
 
-    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen") {
+    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "location_refresh") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
 
@@ -472,7 +472,7 @@ async function handleInstantNotification(
       family_id: familyId,
       title,
       body: message,
-      data: { senderUserId: senderUserId || "" },
+      data: { senderUserId: senderUserId || "", type: action, action },
       delivery_status: deliveryStatus,
       idempotency_key: idempotencyKey || null,
     });
