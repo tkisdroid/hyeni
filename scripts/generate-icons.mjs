@@ -150,10 +150,48 @@ async function resizedLogo(maxWidth, maxHeight) {
     .toBuffer();
 }
 
+async function measureVisibleContent(buffer) {
+  const { data, info } = await sharp(buffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  let minX = info.width;
+  let minY = info.height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      const offset = (y * info.width + x) * info.channels;
+      const alpha = data[offset + 3];
+      if (alpha > 8) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return {
+      centerX: info.width / 2,
+      centerY: info.height / 2,
+    };
+  }
+
+  return {
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+  };
+}
+
 async function compositeWithShadow(base, logoBuffer, width, height, options) {
   const metadata = await sharp(logoBuffer).metadata();
-  const left = Math.round((width - metadata.width) / 2);
-  const top = Math.round(height * options.centerY - metadata.height / 2);
+  const visible = await measureVisibleContent(logoBuffer);
+  const left = Math.round(width / 2 - visible.centerX);
+  const top = Math.round(height * options.centerY - visible.centerY);
   const alpha = await sharp(logoBuffer)
     .extractChannel("alpha")
     .blur(options.blur)
