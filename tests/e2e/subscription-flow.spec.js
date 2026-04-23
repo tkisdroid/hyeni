@@ -140,6 +140,7 @@ async function installMockBrowser(page) {
         this.center = options.center || new FakeLatLng(fixedPosition.latitude, fixedPosition.longitude);
         this.level = options.level || 3;
         this.mapTypeId = options.mapTypeId || "roadmap";
+        window.__lastKakaoMap = this;
       }
 
       setCenter(center) {
@@ -195,6 +196,15 @@ async function installMockBrowser(page) {
       setMap(_map) {}
     }
 
+    class FakeCircle {
+      constructor(options = {}) {
+        this.options = options;
+        window.__lastKakaoCircle = this;
+      }
+
+      setMap(_map) {}
+    }
+
     class FakeCustomOverlay {
       constructor(options = {}) {
         this.position = options.position || null;
@@ -224,6 +234,7 @@ async function installMockBrowser(page) {
           Map: FakeMap,
           Marker: FakeMarker,
           Polyline: FakePolyline,
+          Circle: FakeCircle,
           CustomOverlay: FakeCustomOverlay,
           StaticMap: FakeStaticMap,
           MapTypeId: {
@@ -482,6 +493,79 @@ async function seedMockDuplicatePlaceEvents(page) {
   });
 }
 
+async function seedMockChildLocation(page) {
+  await page.evaluate(() => {
+    const dbKey = Object.keys(window.localStorage).find((key) => {
+      try {
+        const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
+        return (
+          parsed &&
+          Array.isArray(parsed.families) &&
+          Array.isArray(parsed.family_members) &&
+          Array.isArray(parsed.child_locations)
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    if (!dbKey) {
+      throw new Error("mock db key not found");
+    }
+
+    const db = JSON.parse(window.localStorage.getItem(dbKey) || "null");
+    if (!db?.families?.length) {
+      throw new Error("mock family not found");
+    }
+
+    const family = db.families[0];
+    const recordedAt = new Date(Date.now() - 6 * 60 * 1000).toISOString();
+    const childUserId = "child-walking-test";
+    const childMember = {
+      family_id: family.id,
+      user_id: childUserId,
+      role: "child",
+      name: "아이",
+      emoji: "🐰",
+      created_at: recordedAt,
+      updated_at: recordedAt,
+    };
+    const childLocation = {
+      family_id: family.id,
+      user_id: childUserId,
+      lat: 37.5668,
+      lng: 126.9784,
+      updated_at: recordedAt,
+    };
+
+    db.family_members = (db.family_members || []).filter((row) => row.user_id !== childUserId);
+    db.family_members.push(childMember);
+    db.child_locations = (db.child_locations || []).filter((row) => row.user_id !== childUserId);
+    db.child_locations.push(childLocation);
+    db.location_history = (db.location_history || []).filter((row) => row.user_id !== childUserId);
+    db.location_history.push(
+      {
+        id: "trail-walking-test-1",
+        family_id: family.id,
+        user_id: childUserId,
+        lat: 37.5665,
+        lng: 126.978,
+        recorded_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+      },
+      {
+        id: "trail-walking-test-2",
+        family_id: family.id,
+        user_id: childUserId,
+        lat: childLocation.lat,
+        lng: childLocation.lng,
+        recorded_at: recordedAt,
+      },
+    );
+
+    window.localStorage.setItem(dbKey, JSON.stringify(db));
+  });
+}
+
 test.describe("subscription and premium flow", () => {
   test("child can pair with parent immediately by scanning QR code", async ({ browser }) => {
     const context = await browser.newContext({
@@ -609,6 +693,49 @@ test.describe("subscription and premium flow", () => {
     await expect(parentPage.getByText("💗 꾹을 보냈어요!")).toBeVisible({ timeout: 2_000 });
     await expect(childPage.getByText("엄마가 꾹을 보냈어요")).toBeVisible({ timeout: 5_000 });
     await expect(childPage.getByText("화면을 터치하면 닫혀요")).toBeVisible();
+
+    await context.close();
+  });
+
+  test("parent can open child tracker in walking precision zoom", async ({ browser }) => {
+    const context = await browser.newContext({
+      permissions: ["geolocation", "microphone"],
+      geolocation: { latitude: 37.5665, longitude: 126.978 },
+    });
+
+    const parentPage = await context.newPage();
+    await installMockBrowser(parentPage);
+    await parentPage.goto("/");
+
+    await parentPage.getByText("학부모").click();
+    await parentPage.getByText("새 가족 만들기").click();
+    await parentPage.getByText("가족 만들기").click();
+    await expect(parentPage.getByText("아이 연동 관리")).toBeVisible();
+
+    await seedMockChildLocation(parentPage);
+    await parentPage.reload();
+    await expect(parentPage.getByRole("button", { name: "🔗 연동 (1명)" })).toBeVisible();
+    await expect(parentPage.getByRole("button", { name: "📍 우리아이", exact: true })).toBeVisible();
+
+    await parentPage.getByRole("button", { name: "📍 우리아이", exact: true }).click();
+    await expect(parentPage.getByText("아이 정밀 위치")).toBeVisible();
+    await expect(parentPage.getByText("도보 확인 반경 30m")).toBeVisible();
+    await expect(parentPage.getByText("37.56680, 126.97840")).toBeVisible();
+    await expect(parentPage.getByRole("button", { name: "아이 위치로 이동" })).toBeVisible();
+
+    const mapState = await parentPage.evaluate(() => ({
+      level: window.__lastKakaoMap?.level,
+      centerLat: window.__lastKakaoMap?.center?.lat,
+      centerLng: window.__lastKakaoMap?.center?.lng,
+      radius: window.__lastKakaoCircle?.options?.radius,
+    }));
+
+    expect(mapState).toMatchObject({
+      level: 2,
+      centerLat: 37.5668,
+      centerLng: 126.9784,
+      radius: 30,
+    });
 
     await context.close();
   });
