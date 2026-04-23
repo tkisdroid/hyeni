@@ -4410,6 +4410,7 @@ export default function KidsScheduler() {
     const [pendingProduct, setPendingProduct] = useState(null);
     const [showRemoteAudio, setShowRemoteAudio] = useState(false);
     const [showSubscriptionSettings, setShowSubscriptionSettings] = useState(false);
+    const [showMicPermissionHelp, setShowMicPermissionHelp] = useState(false);
     // Phase 5 RL-02: child-side persistent listening indicator. Holds the
     // start timestamp (number) when an ambient listen session is active, or
     // null when idle. Rendered as a fixed-top red banner the child cannot
@@ -5296,6 +5297,32 @@ export default function KidsScheduler() {
         notifTimer.current = setTimeout(() => setNotification(null), 3500);
     }, []);
 
+    const openMicPermissionHelp = useCallback(() => {
+        setListeningSession(null);
+        stopRemoteAudioCapture("permission_denied");
+        setShowMicPermissionHelp(true);
+        showNotif("🎤 마이크 권한이 필요해요. 설정에서 마이크를 허용해 주세요.", "error");
+    }, [setListeningSession, setShowMicPermissionHelp, showNotif]);
+
+    const openAppPermissionSettings = useCallback(async () => {
+        try {
+            const { Capacitor, registerPlugin } = await import("@capacitor/core");
+            if (!Capacitor.isNativePlatform()) return;
+            const BgLoc = registerPlugin("BackgroundLocation");
+            if (typeof BgLoc.openAppLocationSettings === "function") {
+                await BgLoc.openAppLocationSettings();
+            }
+        } catch (error) {
+            console.error("[mic-permission] open settings failed:", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isParent) return;
+        window.addEventListener("mic-permission-denied", openMicPermissionHelp);
+        return () => window.removeEventListener("mic-permission-denied", openMicPermissionHelp);
+    }, [isParent, openMicPermissionHelp]);
+
     const handleSendFeedback = useCallback(async () => {
         if (!feedbackDraft.trim() || feedbackBusy) return;
         setFeedbackBusy(true);
@@ -5430,7 +5457,7 @@ export default function KidsScheduler() {
     useEffect(() => {
         backStateRef.current = {
             routeEvent, showChildTracker, showMapPicker, showAddModal,
-            showAcademyMgr, showSavedPlaceMgr, showPhoneSettings, showNotifSettings, showFeedbackModal, showParentSetup, editingLocForEvent,
+            showAcademyMgr, showSavedPlaceMgr, showPhoneSettings, showNotifSettings, showFeedbackModal, showParentSetup, showMicPermissionHelp, editingLocForEvent,
             voicePreview, activeView, showPairing, showAlertPanel,
         };
     });
@@ -5450,6 +5477,7 @@ export default function KidsScheduler() {
                     if (s.showAlertPanel)      { setShowAlertPanel(false);      return; }
                     if (s.showPhoneSettings)   { setShowPhoneSettings(false);   return; }
                     if (s.showNotifSettings)   { setShowNotifSettings(false);   return; }
+                    if (s.showMicPermissionHelp) { setShowMicPermissionHelp(false); return; }
                     if (s.showFeedbackModal)   { setShowFeedbackModal(false);   return; }
                     if (s.showParentSetup)     { setShowParentSetup(false);     return; }
                     if (s.editingLocForEvent)  { setEditingLocForEvent(null);   return; }
@@ -7550,6 +7578,62 @@ export default function KidsScheduler() {
                     senderUserId={authUser?.id}
                     onClose={() => setShowRemoteAudio(false)}
                 />
+            )}
+
+            {showMicPermissionHelp && !isParent && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="mic-permission-title"
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        zIndex: 900,
+                        background: "rgba(15,23,42,0.46)",
+                        backdropFilter: "blur(4px)",
+                        display: "flex",
+                        alignItems: "flex-end",
+                        justifyContent: "center",
+                        padding: 20,
+                    }}
+                    onClick={(event) => {
+                        if (event.target === event.currentTarget) setShowMicPermissionHelp(false);
+                    }}
+                >
+                    <div style={{ width: "100%", maxWidth: 420, background: "white", borderRadius: 24, padding: "22px 20px 20px", boxShadow: "0 16px 42px rgba(15,23,42,0.24)", fontFamily: FF }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                            <div style={{ width: 46, height: 46, borderRadius: 16, background: "#FEE2E2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>🎤</div>
+                            <div>
+                                <div id="mic-permission-title" style={{ fontSize: 18, fontWeight: 900, color: "#991B1B" }}>마이크 권한이 필요해요</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", marginTop: 2 }}>주위 소리 듣기 연결이 중단됐어요</div>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: 13, lineHeight: 1.6, color: "#4B5563", fontWeight: 600, marginBottom: 14 }}>
+                            아이 기기에서 마이크 권한을 허용해야 부모님과 주위 소리 듣기 세션을 안전하게 연결할 수 있어요.
+                        </div>
+                        <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 16, padding: "12px 14px", color: "#7F1D1D", fontSize: 12, lineHeight: 1.55, fontWeight: 800, marginBottom: 16 }}>
+                            Android 설정 &gt; 앱 &gt; 혜니캘린더 &gt; 권한 &gt; 마이크 &gt; 허용
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                            {isNativeApp && (
+                                <button
+                                    type="button"
+                                    onClick={openAppPermissionSettings}
+                                    style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "#DC2626", color: "white", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
+                                >
+                                    설정 열기
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setShowMicPermissionHelp(false)}
+                                style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "#4B5563", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
+                            >
+                                확인
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ── Child Tracker (학부모 전용) ── */}
