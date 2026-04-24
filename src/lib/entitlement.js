@@ -110,17 +110,6 @@ export function useEntitlement(familyId) {
       const normalized = normalizeFromQonversion(external);
       if (!normalized) return applyRow(null);
 
-      if (supabase.__mock?.enabled) {
-        supabase.__mock.upsertFamilySubscription({
-          family_id: familyId,
-          status: normalized.status,
-          trial_ends_at: normalized.trial_ends_at,
-          current_period_end: normalized.current_period_end,
-          product_id: normalized.product_id,
-          qonversion_user_id: familyId,
-        });
-      }
-
       return applyRow(normalized);
     } catch (error) {
       console.warn("[entitlement] refresh failed:", error);

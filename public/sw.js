@@ -24,7 +24,7 @@ self.addEventListener("push", (e) => {
 
   const { title, body, data } = payload;
   if (data?.type === "remote_listen") return;
-  const isUrgent = data?.type === "kkuk" || data?.type === "parent_alert";
+  const isUrgent = data?.urgent === true || data?.urgent === "true";
 
   e.waitUntil(
     self.registration.showNotification(title || "혜니캘린더", {
@@ -32,7 +32,7 @@ self.addEventListener("push", (e) => {
       icon: APP_ICON,
       badge: APP_ICON,
       vibrate: isUrgent ? [300, 100, 300, 100, 500] : [200, 100, 200],
-      tag: data?.eventId ? `hyeni-${data.eventId}-${data.type}` : `hyeni-${Date.now()}`,
+      tag: data?.pushId || (data?.eventId ? `hyeni-${data.eventId}-${data.type}` : `hyeni-${Date.now()}`),
       requireInteraction: isUrgent,
       renotify: true,
       data: { url: "/", ...data },

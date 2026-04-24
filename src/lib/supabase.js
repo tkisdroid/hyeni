@@ -1,21 +1,33 @@
 import { createClient } from "@supabase/supabase-js";
-import { supabase as mockSupabase, isMockEnabled } from "./supabase.mock.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const useMock = (!supabaseUrl || !supabaseAnonKey) && isMockEnabled();
 
-if (useMock) {
-  console.warn("[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Falling back to local mock backend.");
-} else if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
+function clearLegacyMockStorage() {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  [
+    "hyeni-mock-db-v1",
+    "hyeni-mock-session-v1",
+    "hyeni-mock-enabled",
+    "hyeni-mock-realtime-v1",
+  ].forEach((key) => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // ignore storage cleanup failures
+    }
+  });
 }
 
-export const supabase = useMock
-  ? mockSupabase
-  : createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        detectSessionInUrl: true,
-        flowType: "implicit",
-      },
-    });
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error("[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Add them to .env.local and restart the dev server.");
+}
+
+clearLegacyMockStorage();
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    detectSessionInUrl: true,
+    flowType: "implicit",
+  },
+});

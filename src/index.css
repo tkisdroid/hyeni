@@ -1,14 +1,22 @@
 :root {
-  font-family: "Noto Sans KR", "Apple SD Gothic Neo", BlinkMacSystemFont, sans-serif;
+  font-family: "Pretendard Variable", "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", BlinkMacSystemFont, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1f2937;
-  background: #f7f8fc;
+  color: #38252d;
+  background: #fcf1eb;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
+}
+
+@font-face {
+  font-family: "Pretendard Variable";
+  font-style: normal;
+  font-weight: 45 920;
+  font-display: swap;
+  src: url("/fonts/PretendardVariable.woff2") format("woff2-variations");
 }
 
 html,
@@ -28,15 +36,17 @@ body,
 }
 
 html {
-  background: #f7f8fc;
+  background: #fcf1eb;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at top, rgba(255, 214, 232, 0.8), transparent 38%),
-    linear-gradient(180deg, #fff9fc 0%, #eef4ff 55%, #f6f8ff 100%);
+    radial-gradient(1400px 800px at 10% -10%, #ffdeec 0%, transparent 55%),
+    radial-gradient(1400px 800px at 90% 110%, #ffebbe 0%, transparent 55%),
+    radial-gradient(1200px 700px at 50% 50%, #d0e0fa 0%, transparent 60%),
+    linear-gradient(180deg, #fcf1eb 0%, #f5ebf3 100%);
   overscroll-behavior-y: none;
   touch-action: manipulation;
 }

@@ -26,6 +26,7 @@ public class MainActivity extends BridgeActivity {
     private static final String PREFS_NAME = "hyeni_location_prefs";
     private static final String CORE_PERMISSION_PROMPTED_KEY = "corePermissionPrompted";
     private boolean pendingRemoteListen = false;
+    private Intent pendingRemoteListenIntent = null;
     private boolean suppressNotificationPermissionPrompt = false;
 
     @Override
@@ -33,6 +34,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(LocationPlugin.class);
         registerPlugin(SpeechPlugin.class);
         registerPlugin(NotificationPlugin.class);
+        registerPlugin(AmbientListenPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Phase 5 RL-03: WebView WebChromeClient no longer auto-grants the
@@ -152,20 +154,25 @@ public class MainActivity extends BridgeActivity {
     private void handleRemoteListen(Intent intent) {
         if (intent == null || !intent.getBooleanExtra("remoteListen", false)) return;
         suppressNotificationPermissionPrompt = true;
+        Intent remoteListenIntent = new Intent(intent);
         intent.removeExtra("remoteListen"); // consume once
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             pendingRemoteListen = true;
+            pendingRemoteListenIntent = remoteListenIntent;
             ActivityCompat.requestPermissions(this,
                     new String[]{ Manifest.permission.RECORD_AUDIO },
                     MICROPHONE_PERMISSION_CODE);
             return;
         }
-        queueRemoteListenFlagInjection();
+        if (!startNativeAmbientListen(remoteListenIntent)) {
+            queueRemoteListenFlagInjection();
+        }
     }
 
     private void queueRemoteListenFlagInjection() {
         pendingRemoteListen = false;
+        pendingRemoteListenIntent = null;
         Log.i("MainActivity", "Remote listen intent - will inject JS flag");
         injectRemoteListenFlag(1000);
         injectRemoteListenFlag(3000);
@@ -240,11 +247,14 @@ public class MainActivity extends BridgeActivity {
             && grantResults[0] == PackageManager.PERMISSION_GRANTED;
 
         if (granted && pendingRemoteListen) {
-            queueRemoteListenFlagInjection();
+            if (!startNativeAmbientListen(pendingRemoteListenIntent)) {
+                queueRemoteListenFlagInjection();
+            }
             return;
         }
 
         pendingRemoteListen = false;
+        pendingRemoteListenIntent = null;
         Log.w("MainActivity", "Remote listen microphone permission denied");
     }
 
@@ -258,5 +268,76 @@ public class MainActivity extends BridgeActivity {
     private boolean hasRecordAudioPermissionGranted() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean startNativeAmbientListen(Intent sourceIntent) {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String userId = prefs.getString("userId", "");
+        String familyId = firstNonBlank(
+            sourceIntent != null ? sourceIntent.getStringExtra("familyId") : null,
+            prefs.getString("familyId", "")
+        );
+        String supabaseUrl = prefs.getString("supabaseUrl", "");
+        String supabaseKey = prefs.getString("supabaseKey", "");
+        String accessToken = prefs.getString("accessToken", "");
+
+        if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey)) {
+            Log.w("MainActivity", "Remote listen native start skipped: push context missing");
+            return false;
+        }
+
+        Intent serviceIntent = new Intent(this, AmbientListenService.class);
+        serviceIntent.setAction(AmbientListenService.ACTION_START);
+        serviceIntent.putExtra(AmbientListenService.EXTRA_USER_ID, userId);
+        serviceIntent.putExtra(AmbientListenService.EXTRA_FAMILY_ID, familyId);
+        serviceIntent.putExtra(AmbientListenService.EXTRA_SUPABASE_URL, supabaseUrl);
+        serviceIntent.putExtra(AmbientListenService.EXTRA_SUPABASE_KEY, supabaseKey);
+        serviceIntent.putExtra(AmbientListenService.EXTRA_ACCESS_TOKEN, accessToken);
+        serviceIntent.putExtra(AmbientListenService.EXTRA_DURATION_SEC, readDurationSec(sourceIntent));
+
+        String senderUserId = sourceIntent != null ? sourceIntent.getStringExtra("senderUserId") : null;
+        if (!isBlank(senderUserId)) {
+            serviceIntent.putExtra(AmbientListenService.EXTRA_INITIATOR_USER_ID, senderUserId);
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+            pendingRemoteListen = false;
+            pendingRemoteListenIntent = null;
+            Log.i("MainActivity", "Remote listen native foreground service started");
+            return true;
+        } catch (Exception error) {
+            Log.w("MainActivity", "Remote listen native service start failed", error);
+            return false;
+        }
+    }
+
+    private int readDurationSec(Intent intent) {
+        if (intent == null) return 30;
+        int durationSec = 30;
+        Object rawDuration = intent.getExtras() != null ? intent.getExtras().get("durationSec") : null;
+        if (rawDuration instanceof Number) {
+            durationSec = ((Number) rawDuration).intValue();
+        } else if (rawDuration != null) {
+            try {
+                durationSec = Integer.parseInt(String.valueOf(rawDuration));
+            } catch (Exception ignored) {
+                durationSec = 30;
+            }
+        }
+        if (durationSec < 5) return 30;
+        return Math.min(durationSec, 120);
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return !isBlank(first) ? first.trim() : (!isBlank(second) ? second.trim() : "");
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

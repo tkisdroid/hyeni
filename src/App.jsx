@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
-import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, fetchDailySupplies, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertDailySupplies, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, getCachedDailySupplies, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, cacheDailySupplies, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
+import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, NOTIFICATION_MINUTE_OPTIONS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { FEATURES } from "./lib/features.js";
@@ -15,7 +15,11 @@ import { AutoRenewalDisclosure } from "./components/paywall/AutoRenewalDisclosur
 import { SubscriptionManagement } from "./components/settings/SubscriptionManagement.jsx";
 import "./App.css";
 
-const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_APP_KEY;
+function normalizeKakaoAppKey(value) {
+    return String(value || "").trim().replace(/^['"]|['"]$/g, "");
+}
+
+const KAKAO_APP_KEY = normalizeKakaoAppKey(import.meta.env.VITE_KAKAO_APP_KEY);
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const PARENT_PAIRING_INTENT_KEY = "kids-app:parent-pairing-intent";
@@ -101,13 +105,14 @@ function getNativeSetupAction(health) {
 //   3. On 2xx → done. On network error / 5xx → single retry after 800ms with
 //      the SAME UUID so the server dedups it via push_idempotency. On final
 //      failure log once; no fallback chain.
-async function sendInstantPush({ action, familyId, senderUserId, title, message }) {
+async function sendInstantPush({ action, familyId, senderUserId, title, message, ...extraData }) {
     if (!familyId) return;
     const url = PUSH_FUNCTION_URL;
     if (!url) return;
     const idempotencyKey = crypto.randomUUID();
     const payload = JSON.stringify({
         action, familyId, senderUserId, title, message,
+        ...extraData,
         idempotency_key: idempotencyKey,
     });
     const session = await getSession().catch(() => null);
@@ -154,7 +159,7 @@ const REMOTE_AUDIO_MIME_TYPES = [
     "audio/ogg;codecs=opus",
 ];
 const REMOTE_AUDIO_LEVEL_BARS = [12, 18, 24, 20, 16];
-const CHILD_MARKER_COLORS = ["#3B82F6", "#EC4899", "#F59E0B", "#10B981"];
+const CHILD_MARKER_COLORS = ["#F779A8", "#60A5FA", "#F59E0B", "#34D399"];
 const CHILD_TRACKER_ZOOM_LEVEL = 2;
 const CHILD_TRACKER_WALK_RADIUS_M = 30;
 const CHILD_TRACKER_DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
@@ -188,7 +193,7 @@ async function closeRemoteListenSessionRow(endReason) {
     }
 }
 
-function stopRemoteAudioCapture(endReason) {
+function stopRemoteAudioCapture(endReason, options = {}) {
     if (window._remoteRecorderStopTimer) {
         clearTimeout(window._remoteRecorderStopTimer);
         window._remoteRecorderStopTimer = null;
@@ -201,6 +206,9 @@ function stopRemoteAudioCapture(endReason) {
     }
     window._remoteRecorder = null;
     window._remoteStream = null;
+    if (!options.skipNative) {
+        void stopNativeRemoteAudioCapture(endReason);
+    }
     // Phase 5 RL-01: close the session audit row. Fire-and-forget; errors logged.
     void closeRemoteListenSessionRow(endReason);
 }
@@ -257,9 +265,9 @@ async function sendFeedbackSuggestion({ content, familyId, user, role }) {
     throw new Error("제안 전송 경로가 준비되지 않았어요");
 }
 
-function effectiveChildLocation(location, entitlement, allowRealtime = false) {
+function effectiveChildLocation(location, entitlement) {
     if (!location) return null;
-    if (allowRealtime || entitlement?.canUse?.(FEATURES.REALTIME_LOCATION)) {
+    if (entitlement?.canUse?.(FEATURES.REALTIME_LOCATION)) {
         return { ...location, isDelayed: false };
     }
     const updatedAtMs = new Date(location.updatedAt || location.updated_at || 0).getTime();
@@ -275,10 +283,10 @@ function effectiveChildLocation(location, entitlement, allowRealtime = false) {
     };
 }
 
-function effectiveChildPositions(positions, entitlement, allowRealtime = false) {
+function effectiveChildPositions(positions, entitlement) {
     if (!Array.isArray(positions)) return [];
     return positions
-        .map((position) => effectiveChildLocation(position, entitlement, allowRealtime))
+        .map((position) => effectiveChildLocation(position, entitlement))
         .filter(Boolean);
 }
 
@@ -318,10 +326,60 @@ async function waitForRealtimeChannelReady(channel, timeoutMs = 20000) {
     });
 }
 
+function isMissingNativePluginError(error) {
+    const message = String(error?.message || error || "").toLowerCase();
+    return message.includes("not implemented")
+        || message.includes("not available")
+        || message.includes("plugin") && message.includes("ambientlisten");
+}
+
+async function startNativeRemoteAudioCapture(durationSec, options = {}) {
+    try {
+        const { Capacitor, registerPlugin } = await import("@capacitor/core");
+        if (!Capacitor.isNativePlatform()) return false;
+        if (!SUPABASE_URL || !SUPABASE_KEY) {
+            throw new Error("Supabase config unavailable");
+        }
+
+        const AmbientListen = registerPlugin("AmbientListen");
+        const session = await getSession().catch(() => null);
+        await AmbientListen.start({
+            userId: options.childUserId || "",
+            familyId: options.familyId || "",
+            initiatorUserId: options.initiatorUserId || "",
+            supabaseUrl: SUPABASE_URL,
+            supabaseKey: SUPABASE_KEY,
+            accessToken: session?.access_token || "",
+            durationSec: Math.max(5, durationSec || REMOTE_AUDIO_DEFAULT_DURATION_SEC),
+        });
+        console.log("[Audio] Native ambient listen service started");
+        return true;
+    } catch (error) {
+        if (isMissingNativePluginError(error)) {
+            console.warn("[Audio] Native ambient listen plugin unavailable, falling back to WebView recorder:", error?.message || error);
+            return false;
+        }
+        throw error;
+    }
+}
+
+async function stopNativeRemoteAudioCapture(endReason) {
+    try {
+        const { Capacitor, registerPlugin } = await import("@capacitor/core");
+        if (!Capacitor.isNativePlatform()) return false;
+        const AmbientListen = registerPlugin("AmbientListen");
+        await AmbientListen.stop({ reason: endReason || "stopped" });
+        return true;
+    } catch (error) {
+        if (!isMissingNativePluginError(error)) {
+            console.warn("[Audio] Native ambient listen stop skipped:", error?.message || error);
+        }
+        return false;
+    }
+}
+
 async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAULT_DURATION_SEC, options = {}) {
     if (!channel) throw new Error("Realtime channel unavailable");
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Audio capture unavailable");
-    if (typeof MediaRecorder === "undefined") throw new Error("MediaRecorder unavailable");
 
     const { familyId, initiatorUserId = null, childUserId = null } = options;
 
@@ -347,7 +405,9 @@ async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAU
     }
 
     await waitForRealtimeChannelReady(channel);
-    stopRemoteAudioCapture("restart");
+    stopRemoteAudioCapture("restart", { skipNative: true });
+    await stopNativeRemoteAudioCapture("restart");
+    const maxDurationMs = Math.max(5, durationSec || REMOTE_AUDIO_DEFAULT_DURATION_SEC) * 1000;
 
     // Phase 5 RL-01: open an audit row BEFORE the microphone capture begins, so
     // even a crash inside getUserMedia() leaves a started/never-ended row that
@@ -372,6 +432,25 @@ async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAU
         }
     }
 
+    const nativeStarted = await startNativeRemoteAudioCapture(durationSec, {
+        familyId,
+        initiatorUserId,
+        childUserId,
+    });
+    if (nativeStarted) {
+        window._remoteRecorderStopTimer = setTimeout(() => stopRemoteAudioCapture("timeout"), maxDurationMs);
+        return true;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+        void closeRemoteListenSessionRow("capture_unavailable");
+        throw new Error("Audio capture unavailable");
+    }
+    if (typeof MediaRecorder === "undefined") {
+        void closeRemoteListenSessionRow("recorder_unavailable");
+        throw new Error("MediaRecorder unavailable");
+    }
+
     let stream;
     try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -382,7 +461,6 @@ async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAU
     }
     const mimeType = getRemoteAudioMimeType();
     const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-    const maxDurationMs = Math.max(5, durationSec || REMOTE_AUDIO_DEFAULT_DURATION_SEC) * 1000;
 
     recorder.ondataavailable = async (event) => {
         if (!event.data?.size) return;
@@ -394,6 +472,7 @@ async function startRemoteAudioCapture(channel, durationSec = REMOTE_AUDIO_DEFAU
                 payload: {
                     data: base64,
                     mimeType: event.data.type || mimeType || "audio/webm",
+                    durationMs: REMOTE_AUDIO_CHUNK_MS,
                 }
             });
         } catch (error) {
@@ -452,37 +531,6 @@ async function stopNativeLocationService() {
     } catch { /* web mode */ }
 }
 
-async function requestNativeLocationRefresh(userId, familyId, accessToken, role) {
-    try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        if (!Capacitor.isNativePlatform()) return false;
-        const BackgroundLocation = registerPlugin("BackgroundLocation");
-        if (typeof BackgroundLocation.requestCurrentLocation === "function") {
-            await BackgroundLocation.requestCurrentLocation({
-                userId,
-                familyId,
-                supabaseUrl: SUPABASE_URL,
-                supabaseKey: SUPABASE_KEY,
-                accessToken: accessToken || "",
-                role: role || "child",
-            });
-        } else {
-            await BackgroundLocation.startService({
-                userId,
-                familyId,
-                supabaseUrl: SUPABASE_URL,
-                supabaseKey: SUPABASE_KEY,
-                accessToken: accessToken || "",
-                role: role || "child",
-            });
-        }
-        return true;
-    } catch (e) {
-        console.log("[Native] Current location refresh unavailable:", e.message);
-        return false;
-    }
-}
-
 function rememberParentPairingIntent() {
     if (typeof window !== "undefined") {
         window.sessionStorage.setItem(PARENT_PAIRING_INTENT_KEY, "1");
@@ -535,30 +583,221 @@ const AppBrandLogo = ({ size = 80, radius = 24, shadow = true }) => (
 // ─────────────────────────────────────────────────────────────────────────────
 // Parent Setup Screen (extracted component – hooks must be at top level)
 // ─────────────────────────────────────────────────────────────────────────────
-const FF = "'Noto Sans KR','Apple SD Gothic Neo',sans-serif";
+const FF = "'Pretendard Variable','Pretendard','Noto Sans KR','Apple SD Gothic Neo',sans-serif";
+
+const DESIGN = Object.freeze({
+    colors: {
+        brand: "#E65C92",
+        brandDark: "#C4447A",
+        pink: "#F779A8",
+        pinkDeep: "#E65C92",
+        pinkText: "#B0477A",
+        pinkSoft: "#FFF5FA",
+        pinkLine: "#FFE4EF",
+        pinkLineStrong: "#FFD4E7",
+        pale: "#FFFAF5",
+        cream: "#FCF1EB",
+        parent: "#3B82F6",
+        parentDeep: "#2563EB",
+        parentPale: "#EFF6FF",
+        ink: "#38252D",
+        inkSoft: "#75525C",
+        muted: "#9B7C85",
+        line: "#F3E9EC",
+        lineStrong: "#EFE9F1",
+        success: "#059669",
+        successPale: "#ECFDF5",
+        warning: "#D97706",
+        warningPale: "#FFFBEB",
+        danger: "#DC2626",
+        dangerPale: "#FEF2F2",
+        surface: "#FFFFFF",
+    },
+    gradients: {
+        shell: "radial-gradient(240px 160px at 10% 0%, rgba(255,200,220,0.80) 0%, transparent 60%), radial-gradient(240px 200px at 100% 100%, rgba(255,225,180,0.60) 0%, transparent 60%), #FFFAF5",
+        page: "radial-gradient(1400px 800px at 10% -10%, #FFDEEC 0%, transparent 55%), radial-gradient(1400px 800px at 90% 110%, #FFEBBE 0%, transparent 55%), radial-gradient(1200px 700px at 50% 50%, #D0E0FA 0%, transparent 60%), linear-gradient(180deg, #FCF1EB 0%, #F5EBF3 100%)",
+        primary: "linear-gradient(135deg,#F779A8 0%,#E65C92 100%)",
+        hero: "linear-gradient(135deg,#FFC2D9 0%,#FF9EBF 100%)",
+        parent: "linear-gradient(135deg,#60A5FA 0%,#3B82F6 100%)",
+        child: "linear-gradient(135deg,#F779A8 0%,#FF6B9D 100%)",
+        warm: "linear-gradient(135deg,#FFFFFF 0%,#FFF5FA 100%)",
+        onboard: "radial-gradient(500px 400px at 50% 0%, #FFDCEC 0%, transparent 60%), radial-gradient(400px 300px at 100% 100%, #FFEBC2 0%, transparent 60%), radial-gradient(400px 350px at 0% 80%, #D0E4FA 0%, transparent 60%), linear-gradient(180deg, #FFF8F2 0%, #F6E9F0 100%)",
+        map: "radial-gradient(200px 200px at 30% 30%, #FFE4EF 0%, transparent 60%), radial-gradient(300px 220px at 70% 60%, #E0F0FE 0%, transparent 60%), radial-gradient(200px 180px at 50% 90%, #FFEBBE 0%, transparent 60%), linear-gradient(180deg, #FDF5F0 0%, #F0E8F3 100%)",
+        danger: "linear-gradient(135deg,#EF4444,#B91C1C)",
+    },
+    radius: {
+        sm: 12,
+        md: 16,
+        lg: 20,
+        xl: 24,
+        hero: 32,
+        sheet: "32px 32px 0 0",
+    },
+    shadow: {
+        soft: "0 4px 12px rgba(180,120,150,0.10)",
+        card: "0 4px 12px rgba(180,120,150,0.10)",
+        elevated: "0 12px 32px rgba(247,121,168,0.30)",
+        sheet: "0 -16px 40px rgba(180,120,150,0.20)",
+        focus: "0 0 0 4px rgba(247,121,168,0.16)",
+    },
+});
+
+const modalBackdropStyle = {
+    background: "rgba(31,41,55,0.38)",
+    backdropFilter: "blur(12px)",
+};
+
+const makeCardStyle = (overrides = {}) => ({
+    background: DESIGN.colors.surface,
+    borderRadius: DESIGN.radius.xl,
+    border: `2px solid rgba(255,228,239,0.8)`,
+    boxShadow: DESIGN.shadow.card,
+    ...overrides,
+});
+
+const makeSheetStyle = (overrides = {}) => ({
+    background: DESIGN.colors.surface,
+    borderRadius: DESIGN.radius.sheet,
+    border: `1px solid ${DESIGN.colors.pinkLine}`,
+    boxShadow: DESIGN.shadow.sheet,
+    ...overrides,
+});
+
+const makeInputStyle = (overrides = {}) => ({
+    width: "100%",
+    padding: "12px 14px",
+    border: `1.5px solid ${DESIGN.colors.line}`,
+    borderRadius: DESIGN.radius.md,
+    fontSize: 15,
+    color: DESIGN.colors.ink,
+    background: DESIGN.colors.surface,
+    fontFamily: FF,
+    outline: "none",
+    boxSizing: "border-box",
+    ...overrides,
+});
+
+const makePrimaryButtonStyle = (overrides = {}) => ({
+    width: "100%",
+    minHeight: 48,
+    padding: "14px 16px",
+    background: DESIGN.gradients.primary,
+    color: "white",
+    border: "none",
+    borderRadius: DESIGN.radius.lg,
+    fontSize: 15,
+    fontWeight: 900,
+    cursor: "pointer",
+    fontFamily: FF,
+    boxShadow: "0 12px 26px rgba(190,24,93,0.22)",
+    ...overrides,
+});
+
+const makeSecondaryButtonStyle = (overrides = {}) => ({
+    width: "100%",
+    minHeight: 44,
+    padding: "12px 14px",
+    background: DESIGN.colors.surface,
+    color: DESIGN.colors.muted,
+    border: `1.5px solid ${DESIGN.colors.line}`,
+    borderRadius: DESIGN.radius.lg,
+    fontSize: 14,
+    fontWeight: 800,
+    cursor: "pointer",
+    fontFamily: FF,
+    ...overrides,
+});
 
 function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
     const [joinCode, setJoinCode] = useState("");
+    const [joinError, setJoinError] = useState("");
     const [mode, setMode] = useState(null); // null | "create" | "join"
     const [busy, setBusy] = useState(false);
+    const normalizedJoinCode = normalizePairCodeInput(joinCode) || normalizePairCodeInput(`KID-${joinCode}`);
+    const canJoin = !busy && !!normalizedJoinCode;
+
+    const handleJoinCodeChange = (event) => {
+        setJoinError("");
+        const rawValue = event.target.value;
+        const normalized = normalizePairCodeInput(rawValue);
+        if (normalized) {
+            setJoinCode(normalized);
+            return;
+        }
+
+        const cleaned = rawValue.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+        if (cleaned.startsWith("KID-")) {
+            setJoinCode(cleaned.slice(0, 12));
+            return;
+        }
+
+        const compact = cleaned.replace(/-/g, "");
+        if ("KID".startsWith(compact)) {
+            setJoinCode(compact);
+            return;
+        }
+        if (compact.startsWith("KID")) {
+            setJoinCode(`KID-${compact.slice(3, 11)}`);
+            return;
+        }
+
+        setJoinCode(compact.slice(0, 8));
+    };
+
+    const handleCreateClick = async () => {
+        setBusy(true);
+        try {
+            await onCreateFamily();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleJoinClick = async () => {
+        if (!normalizedJoinCode) {
+            setJoinError("KID-로 시작하는 8자리 연동코드를 입력해 주세요");
+            return;
+        }
+
+        setBusy(true);
+        setJoinError("");
+        try {
+            await onJoinAsParent(normalizedJoinCode);
+        } catch (err) {
+            const rawMessage = err?.message || "";
+            const message = rawMessage.includes("Invalid pair code") || rawMessage.includes("연동 코드를 찾지 못했습니다")
+                ? "연동코드를 찾지 못했어요. 코드를 다시 확인해 주세요"
+                : rawMessage.includes("Too many")
+                    ? "시도 횟수가 많아요. 1시간 후 다시 시도해 주세요"
+                    : rawMessage || "합류에 실패했어요. 연동코드를 확인해 주세요";
+            setJoinError(message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
     return (
-        <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", fontFamily: FF, padding: 20 }}>
-            <div style={{ background: "white", borderRadius: 28, padding: "40px 28px", maxWidth: 380, width: "100%", boxShadow: "0 12px 40px rgba(232,121,160,0.15)", textAlign: "center" }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>👨‍👩‍👧</div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#E879A0", marginBottom: 6 }}>환영합니다!</div>
-                <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 28 }}>
-                    처음이시면 가족을 만들고,<br/>배우자가 이미 만들었다면 코드로 합류하세요
+        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF, padding: 20 }}>
+            <div style={makeCardStyle({ padding: "32px 24px", maxWidth: 380, width: "100%", textAlign: "center" })}>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+                    <AppBrandLogo size={76} radius={22} />
+                </div>
+                <div style={{ fontSize: 21, fontWeight: 900, color: "#BE185D", marginBottom: 6, letterSpacing: -0.4 }}>가족 연결을 시작해요</div>
+                <div style={{ fontSize: 13, color: "#64748B", marginBottom: 26, lineHeight: 1.55, fontWeight: 600 }}>
+                    새 가족을 만들거나<br/>이미 받은 연동코드로 합류하세요
                 </div>
 
                 {!mode && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <button onClick={() => setMode("create")}
-                            style={{ padding: "16px", background: "linear-gradient(135deg,#E879A0,#FF6B9D)", color: "white", border: "none", borderRadius: 16, fontSize: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
-                            🏠 새 가족 만들기
+                            style={{ ...makePrimaryButtonStyle({ padding: "16px 18px" }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                            <span>새 가족 만들기</span>
+                            <span aria-hidden="true">→</span>
                         </button>
                         <button onClick={() => setMode("join")}
-                            style={{ padding: "16px", background: "linear-gradient(135deg,#60A5FA,#3B82F6)", color: "white", border: "none", borderRadius: 16, fontSize: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
-                            🔗 기존 가족에 합류
+                            style={{ ...makeSecondaryButtonStyle({ padding: "16px 18px", background: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep, border: "1.5px solid #BFDBFE" }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                            <span>기존 가족에 합류</span>
+                            <span aria-hidden="true">→</span>
                         </button>
                     </div>
                 )}
@@ -568,8 +807,8 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                         <div style={{ fontSize: 14, color: "#374151", marginBottom: 16, fontWeight: 600 }}>
                             새 가족을 만들면 연동코드가 생성됩니다.<br/>이 코드로 배우자와 아이가 합류할 수 있어요.
                         </div>
-                        <button disabled={busy} onClick={async () => { setBusy(true); await onCreateFamily(); setBusy(false); }}
-                            style={{ padding: "14px 32px", background: "#E879A0", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: FF, opacity: busy ? 0.6 : 1 }}>
+                        <button disabled={busy} onClick={handleCreateClick}
+                            style={{ padding: "14px 32px", background: "#BE185D", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: FF, opacity: busy ? 0.6 : 1, boxShadow: busy ? "none" : "0 10px 22px rgba(190,24,93,0.18)" }}>
                             {busy ? "생성 중..." : "가족 만들기"}
                         </button>
                         <div style={{ marginTop: 12 }}>
@@ -583,14 +822,14 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                         <div style={{ fontSize: 14, color: "#374151", marginBottom: 12, fontWeight: 600 }}>
                             배우자에게 받은 연동코드를 입력하세요
                         </div>
-                        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                            <span style={{ fontSize: 15, fontWeight: 800, color: "#9CA3AF", lineHeight: "44px" }}>KID-</span>
-                            <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
-                                placeholder="코드 8자리"
-                                style={{ flex: 1, padding: "10px 14px", border: "2px solid #E5E7EB", borderRadius: 12, fontSize: 16, fontWeight: 800, fontFamily: "monospace", textAlign: "center", letterSpacing: 2 }} />
+                        <div style={{ marginBottom: joinError ? 8 : 12 }}>
+                            <input value={joinCode} onChange={handleJoinCodeChange}
+                                placeholder="KID-804DF582 또는 804DF582"
+                                style={{ width: "100%", padding: "11px 14px", border: `2px solid ${joinError ? "#FCA5A5" : "#E5E7EB"}`, borderRadius: 12, fontSize: 16, fontWeight: 800, fontFamily: "monospace", textAlign: "center", letterSpacing: 1, boxSizing: "border-box", outline: "none", color: "#111827", background: "white" }} />
                         </div>
-                        <button disabled={busy || joinCode.length < 4} onClick={async () => { setBusy(true); await onJoinAsParent("KID-" + joinCode); setBusy(false); }}
-                            style={{ padding: "14px 32px", background: "#3B82F6", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: (busy || joinCode.length < 4) ? "default" : "pointer", fontFamily: FF, opacity: (busy || joinCode.length < 4) ? 0.6 : 1 }}>
+                        {joinError && <div style={{ fontSize: 13, color: "#EF4444", fontWeight: 700, marginBottom: 12 }}>{joinError}</div>}
+                        <button disabled={!canJoin} onClick={handleJoinClick}
+                            style={{ padding: "14px 32px", background: "#2563EB", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: canJoin ? "pointer" : "default", fontFamily: FF, opacity: canJoin ? 1 : 0.6, boxShadow: canJoin ? "0 10px 22px rgba(37,99,235,0.18)" : "none" }}>
                             {busy ? "합류 중..." : "합류하기"}
                         </button>
                         <div style={{ marginTop: 12 }}>
@@ -660,6 +899,46 @@ function haversineM(la1, lo1, la2, lo2) {
     const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+function formatLatLngLabel(position) {
+    if (!Number.isFinite(position?.lat) || !Number.isFinite(position?.lng)) return "";
+    return `좌표 ${position.lat.toFixed(5)}, ${position.lng.toFixed(5)}`;
+}
+
+function isDetailedKoreanAddress(label, source = {}) {
+    const text = String(label || "").trim();
+    if (!text) return false;
+    return Boolean(
+        source?.road_name
+        || source?.building_name
+        || source?.main_building_no
+        || source?.main_address_no
+        || /\d/.test(text)
+    );
+}
+
+function extractPreciseAddressFromKakao(resultItem, fallbackPosition) {
+    const road = resultItem?.road_address || null;
+    const lot = resultItem?.address || null;
+    const roadLabel = road?.address_name || "";
+    if (roadLabel && isDetailedKoreanAddress(roadLabel, road)) {
+        return {
+            label: [roadLabel, road?.building_name].filter(Boolean).join(" · "),
+            precise: true,
+        };
+    }
+
+    const lotLabel = lot?.address_name || "";
+    if (lotLabel && isDetailedKoreanAddress(lotLabel, lot)) {
+        return { label: lotLabel, precise: true };
+    }
+
+    return {
+        label: formatLatLngLabel(fallbackPosition) || "정확한 위치 확인 중",
+        precise: false,
+    };
+}
+
 const getDIM = (y, m) => new Date(y, m + 1, 0).getDate();
 const getFD = (y, m) => new Date(y, m, 1).getDay();
 const fmtT = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -667,18 +946,49 @@ const fmtT = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinu
 // Kakao Maps
 let kakaoReady = null; // shared promise
 function loadKakaoMap(appKey) {
+    const normalizedKey = normalizeKakaoAppKey(appKey);
     if (kakaoReady) return kakaoReady;
     kakaoReady = new Promise((res, rej) => {
         if (window.kakao?.maps?.LatLng) { res(); return; }
+        if (!normalizedKey) {
+            kakaoReady = null;
+            rej(new Error("missing Kakao app key"));
+            return;
+        }
         const s = document.createElement("script");
-        s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services`;
-        s.onload = () => {
-            window.kakao.maps.load(() => {
-                console.log("[KakaoMap] SDK ready");
-                res();
-            });
+        let settled = false;
+        const finish = (callback) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            callback();
         };
-        s.onerror = () => { kakaoReady = null; rej(new Error("script load failed")); };
+        const timer = setTimeout(() => {
+            s.remove();
+            kakaoReady = null;
+            finish(() => rej(new Error("Kakao 지도 SDK 로딩 시간이 초과됐어요")));
+        }, 10000);
+        s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(normalizedKey)}&autoload=false&libraries=services`;
+        s.onload = () => {
+            if (!window.kakao?.maps?.load) {
+                kakaoReady = null;
+                finish(() => rej(new Error("Kakao 지도 SDK가 초기화되지 않았어요")));
+                return;
+            }
+            try {
+                window.kakao.maps.load(() => {
+                    console.log("[KakaoMap] SDK ready");
+                    finish(res);
+                });
+            } catch (error) {
+                kakaoReady = null;
+                finish(() => rej(error));
+            }
+        };
+        s.onerror = () => {
+            kakaoReady = null;
+            finish(() => rej(new Error("Kakao 지도 SDK 스크립트를 불러오지 못했어요")));
+        };
         document.head.appendChild(s);
     });
     return kakaoReady;
@@ -718,6 +1028,226 @@ function MapZoomControls({ mapObj, style }) {
     );
 }
 
+function toLatLngPoint(point) {
+    if (!point) return null;
+    const lat = Number(point.lat ?? point.location?.lat);
+    const lng = Number(point.lng ?? point.location?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+}
+
+function clampPercent(value, min = 8, max = 92) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function projectFallbackMapPoint(point, center) {
+    const p = toLatLngPoint(point);
+    const c = toLatLngPoint(center) || { lat: 37.5665, lng: 126.9780 };
+    if (!p) return null;
+    const latOffset = (c.lat - p.lat) * 8500;
+    const lngOffset = (p.lng - c.lng) * 6500;
+    return {
+        left: clampPercent(50 + lngOffset),
+        top: clampPercent(50 + latOffset),
+    };
+}
+
+function FallbackMapCanvas({
+    center,
+    children = [],
+    eventPlaces = [],
+    savedPlaces = [],
+    routePoints = [],
+    selectedKey = "",
+    onSelect,
+    title = "위치 지도",
+    subtitle = "",
+    height = "100%",
+    showRadius = false,
+}) {
+    const normalizedCenter = toLatLngPoint(center) || { lat: 37.5665, lng: 126.9780 };
+    const hasSdkKey = Boolean(KAKAO_APP_KEY);
+    const childMarkers = children
+        .map((child, index) => {
+            const point = toLatLngPoint(child);
+            const pos = projectFallbackMapPoint(point, normalizedCenter);
+            if (!point || !pos) return null;
+            return {
+                key: child.key || child.trackerKey || child.user_id || child.id || `child-${index}`,
+                type: "child",
+                pos,
+                emoji: child.emoji || "🧒",
+                label: child.name || "아이",
+                color: child.color || CHILD_MARKER_COLORS[index % CHILD_MARKER_COLORS.length],
+            };
+        })
+        .filter(Boolean);
+    const eventMarkers = eventPlaces
+        .map((place, index) => {
+            const point = toLatLngPoint(place.location || place);
+            const pos = projectFallbackMapPoint(point, normalizedCenter);
+            if (!point || !pos) return null;
+            return {
+                key: place.key || place.id || `event-${index}`,
+                type: "event",
+                pos,
+                emoji: place.emoji || place.nextEvent?.emoji || "📍",
+                label: place.title || place.nextEvent?.title || "일정 장소",
+                color: place.color || place.nextEvent?.color || DESIGN.colors.pink,
+            };
+        })
+        .filter(Boolean);
+    const savedMarkers = savedPlaces
+        .map((place, index) => {
+            const point = toLatLngPoint(place.location || place);
+            const pos = projectFallbackMapPoint(point, normalizedCenter);
+            if (!point || !pos) return null;
+            return {
+                key: place.key || place.id || `saved-${index}`,
+                type: "saved",
+                pos,
+                emoji: place.emoji || "⭐",
+                label: place.name || place.title || "저장 장소",
+                color: DESIGN.colors.brand,
+            };
+        })
+        .filter(Boolean);
+    const route = routePoints
+        .map(point => projectFallbackMapPoint(point, normalizedCenter))
+        .filter(Boolean);
+    const allMarkers = [...eventMarkers, ...savedMarkers, ...childMarkers];
+    const sdkFailed = /실패|초과|오류|등록/i.test(subtitle || "");
+    const sdkBadge = sdkFailed ? "간이 지도" : hasSdkKey ? "SDK 대기" : "지도키 필요";
+
+    return (
+        <div
+            data-testid="hyeni-fallback-map"
+            style={{
+                position: "relative",
+                width: "100%",
+                height,
+                minHeight: typeof height === "number" ? height : undefined,
+                overflow: "hidden",
+                background: "linear-gradient(145deg,#EFF6FF 0%,#FFF9FC 52%,#FFF8F2 100%)",
+                fontFamily: FF,
+            }}
+        >
+            <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+                <path d="M-5 74 C20 62 28 44 54 44 C73 44 83 31 105 25" fill="none" stroke="#FFFFFF" strokeWidth="9" strokeLinecap="round" opacity="0.92" />
+                <path d="M-5 74 C20 62 28 44 54 44 C73 44 83 31 105 25" fill="none" stroke="#FED7AA" strokeWidth="2" strokeLinecap="round" opacity="0.9" strokeDasharray="2 4" />
+                <path d="M14 -5 C23 19 40 29 38 52 C36 72 49 84 72 105" fill="none" stroke="#FFFFFF" strokeWidth="8" strokeLinecap="round" opacity="0.86" />
+                <path d="M14 -5 C23 19 40 29 38 52 C36 72 49 84 72 105" fill="none" stroke="#BFDBFE" strokeWidth="2" strokeLinecap="round" opacity="0.9" strokeDasharray="2 4" />
+                <path d="M-5 20 C21 22 29 12 48 17 C68 22 77 45 105 48" fill="none" stroke="#FFFFFF" strokeWidth="6" strokeLinecap="round" opacity="0.76" />
+                <path d="M4 92 L96 8" stroke="#FFFFFF" strokeWidth="2" opacity="0.45" strokeDasharray="1 5" />
+                {route.length >= 2 && (
+                    <polyline
+                        points={route.map(point => `${point.left},${point.top}`).join(" ")}
+                        fill="none"
+                        stroke={DESIGN.colors.parent}
+                        strokeWidth="2.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity="0.95"
+                    />
+                )}
+            </svg>
+
+            {showRadius && childMarkers[0] && (
+                <div
+                    aria-hidden="true"
+                    style={{
+                        position: "absolute",
+                        left: `${childMarkers[0].pos.left}%`,
+                        top: `${childMarkers[0].pos.top}%`,
+                        width: 180,
+                        height: 180,
+                        borderRadius: "50%",
+                        transform: "translate(-50%, -50%)",
+                        background: "rgba(37,99,235,0.10)",
+                        border: "2px dashed rgba(37,99,235,0.34)",
+                    }}
+                />
+            )}
+
+            <div style={{ position: "absolute", left: 14, top: 14, right: 14, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, zIndex: 3 }}>
+                <div style={{ minWidth: 0, padding: "9px 12px", borderRadius: 16, background: "rgba(255,255,255,0.90)", border: `1px solid ${DESIGN.colors.pinkLine}`, boxShadow: "0 8px 22px rgba(31,41,55,0.08)" }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: DESIGN.colors.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: DESIGN.colors.muted, marginTop: 2 }}>{subtitle || (hasSdkKey ? "지도 SDK 연결 중" : "간이 지도 모드")}</div>
+                </div>
+                <div style={{ padding: "8px 10px", borderRadius: 999, background: sdkFailed ? "#FFF7ED" : hasSdkKey ? "#EFF6FF" : "#FFFBEB", color: sdkFailed ? "#C2410C" : hasSdkKey ? DESIGN.colors.parentDeep : "#92400E", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(31,41,55,0.08)" }}>
+                    {sdkBadge}
+                </div>
+            </div>
+
+            {allMarkers.map(marker => {
+                const isSelected = selectedKey === marker.key || selectedKey === `${marker.type}:${marker.key}`;
+                const isChild = marker.type === "child";
+                return (
+                    <button
+                        key={`${marker.type}-${marker.key}`}
+                        type="button"
+                        onClick={() => onSelect?.(marker)}
+                        style={{
+                            position: "absolute",
+                            left: `${marker.pos.left}%`,
+                            top: `${marker.pos.top}%`,
+                            transform: "translate(-50%, -100%)",
+                            border: "none",
+                            background: "transparent",
+                            padding: 0,
+                            cursor: onSelect ? "pointer" : "default",
+                            zIndex: isChild ? 5 : 4,
+                            fontFamily: FF,
+                        }}
+                    >
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", filter: isSelected ? `drop-shadow(0 8px 16px ${marker.color}55)` : "drop-shadow(0 4px 10px rgba(31,41,55,0.18))" }}>
+                            <div style={{
+                                minWidth: isChild ? 42 : 34,
+                                height: isChild ? 42 : 34,
+                                padding: isChild ? "0 8px" : "0 7px",
+                                borderRadius: isChild ? 16 : 14,
+                                background: marker.color,
+                                color: "white",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "3px solid white",
+                                fontSize: isChild ? 18 : 15,
+                                fontWeight: 900,
+                                boxShadow: isSelected ? `0 0 0 7px ${marker.color}24` : `0 0 0 4px ${marker.color}18`,
+                            }}>
+                                {marker.emoji}
+                            </div>
+                            <div style={{
+                                marginTop: 5,
+                                maxWidth: 116,
+                                padding: "5px 9px",
+                                borderRadius: 999,
+                                background: "rgba(255,255,255,0.94)",
+                                color: marker.color,
+                                border: `1px solid ${marker.color}33`,
+                                fontSize: 10,
+                                fontWeight: 900,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                            }}>
+                                {marker.label}
+                            </div>
+                        </div>
+                    </button>
+                );
+            })}
+
+            {allMarkers.length === 0 && (
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: DESIGN.colors.muted, fontSize: 13, fontWeight: 800 }}>
+                    표시할 위치가 아직 없습니다.
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Map Picker (Kakao Maps)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -731,6 +1261,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
     const [err, setErr] = useState(() => (hasPreloadedKakao || KAKAO_APP_KEY ? "" : "카카오 앱 키가 설정되지 않았어요. (.env 파일 확인)"));
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
+    const [searchMessage, setSearchMessage] = useState("");
 
     const reverseGeocode = useCallback((lat, lng) => {
         const gc = new window.kakao.maps.services.Geocoder();
@@ -784,13 +1315,26 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
     }, [defaultCenter.lat, defaultCenter.lng, initial?.address, reverseGeocode]);
 
     const doSearch = () => {
-        if (!query.trim() || !window.kakao?.maps) return;
+        const keyword = query.trim();
+        setSearchMessage("");
+        if (!keyword) {
+            setSearchMessage("검색할 학원 이름이나 주소를 입력해 주세요.");
+            return;
+        }
+        if (!window.kakao?.maps?.services?.Places) {
+            setResults([]);
+            setSearchMessage("장소 검색을 사용하려면 카카오 지도 앱 키가 필요해요.");
+            return;
+        }
         const ps = new window.kakao.maps.services.Places();
-        ps.keywordSearch(query.trim(), (data, status) => {
+        ps.keywordSearch(keyword, (data, status) => {
             if (status === window.kakao.maps.services.Status.OK) {
-                setResults(data.slice(0, 8));
+                const nextResults = data.slice(0, 8);
+                setResults(nextResults);
+                setSearchMessage(nextResults.length ? "" : "검색 결과가 없어요. 다른 이름이나 주소로 다시 검색해 주세요.");
             } else {
                 setResults([]);
+                setSearchMessage("검색 결과가 없어요. 다른 이름이나 주소로 다시 검색해 주세요.");
             }
         });
     };
@@ -805,6 +1349,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
         setAddress(place.road_address_name || place.address_name);
         setResults([]);
         setQuery("");
+        setSearchMessage("");
     };
 
     return (
@@ -813,7 +1358,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
                 <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 닫기</button>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "#374151" }}>{title}</div>
             </div>
-            <div style={{ padding: "12px 16px", background: "#FAFAFA", position: "relative" }}>
+            <div style={{ padding: "12px 16px", background: "#FAFAFA", position: "relative", zIndex: 40 }}>
                 <div style={{ display: "flex", gap: 8 }}>
                     <input value={query} onChange={e => setQuery(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") doSearch(); }}
@@ -822,7 +1367,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
                     <button onClick={doSearch} style={{ padding: "10px 16px", background: "#E879A0", color: "white", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}>검색</button>
                 </div>
                 {results.length > 0 && (
-                    <div style={{ position: "absolute", left: 16, right: 16, top: "100%", background: "white", borderRadius: "0 0 16px 16px", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", zIndex: 20, maxHeight: 240, overflowY: "auto" }}>
+                    <div style={{ position: "absolute", left: 16, right: 16, top: "100%", background: "white", borderRadius: "0 0 16px 16px", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", zIndex: 60, maxHeight: 240, overflowY: "auto" }}>
                         {results.map((r, i) => (
                             <div key={i} onClick={() => pickResult(r)}
                                 style={{ padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid #F3F4F6", fontSize: 13, lineHeight: 1.5 }}
@@ -834,12 +1379,25 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
                         ))}
                     </div>
                 )}
+                {searchMessage && (
+                    <div role="status" style={{ marginTop: 8, color: "#BE185D", fontSize: 12, fontWeight: 700, lineHeight: 1.4 }}>
+                        {searchMessage}
+                    </div>
+                )}
             </div>
             <div style={{ flex: 1, position: "relative" }}>
                 {loading && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#FFF0F7", zIndex: 10, fontSize: 15, fontWeight: 700, color: "#E879A0", fontFamily: FF }}>🗺️ 지도 불러오는 중...</div>}
-                {err && <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#FFF0F7", zIndex: 10, gap: 12, padding: 24, fontFamily: FF }}><div style={{ fontSize: 36 }}>😢</div><div style={{ fontSize: 14, fontWeight: 700, color: "#E879A0", textAlign: "center", whiteSpace: "pre-line", lineHeight: 1.8 }}>{err}</div></div>}
-                <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
-                <MapZoomControls mapObj={mapObj} />
+                {err && (
+                    <FallbackMapCanvas
+                        center={pos}
+                        children={pos ? [{ ...pos, name: "선택 위치", emoji: "📍", color: DESIGN.colors.pink }] : []}
+                        title="장소 선택"
+                        subtitle={KAKAO_APP_KEY ? "Kakao 지도 연결 실패" : "Kakao 지도 키가 없어 현재 좌표로 설정"}
+                        showRadius
+                    />
+                )}
+                <div ref={mapRef} style={{ width: "100%", height: "100%", display: err ? "none" : "block" }} />
+                {!err && <MapZoomControls mapObj={mapObj} />}
             </div>
             <div style={{ padding: "16px 20px", borderTop: "1px solid #F3F4F6", fontFamily: FF }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 4 }}>선택된 장소</div>
@@ -858,7 +1416,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
 // ─────────────────────────────────────────────────────────────────────────────
 function AlertBanner({ alerts, onDismiss }) {
     if (!alerts.length) return null;
-    const BG = { parent: "linear-gradient(135deg,#1E40AF,#2563EB)", child: "linear-gradient(135deg,#7C3AED,#A78BFA)", friend: "linear-gradient(135deg,#059669,#10B981)", emergency: "linear-gradient(135deg,#DC2626,#EF4444)", sync: "linear-gradient(135deg,#0369A1,#0EA5E9)" };
+    const BG = { parent: DESIGN.gradients.parent, child: DESIGN.gradients.primary, friend: "linear-gradient(135deg,#059669,#10B981)", emergency: DESIGN.gradients.danger, sync: "linear-gradient(135deg,#0369A1,#0EA5E9)" };
     const ICON = { parent: "👨‍👩‍👧", child: "🐰", friend: "👫", emergency: "🚨", sync: "📅" };
     const LABEL = { parent: "부모님 알림", child: "아이 알림", friend: "친구 알림", emergency: "⚠️ 긴급 미도착", sync: "📅 일정 동기화" };
     return (
@@ -935,29 +1493,39 @@ function RoleSetupModal({ onSelect, loading }) {
     const handleChild = () => { onSelect("child"); };
 
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
-            <AppBrandLogo size={96} radius={28} />
-            <div style={{ fontSize: 32, fontWeight: 900, color: "#E879A0", marginTop: 20, marginBottom: 4, letterSpacing: 0, textAlign: "center" }}>
-                혜니캘린더
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#F9A8D4", marginBottom: 24, letterSpacing: 2 }}>HYENI CALENDAR</div>
-            <div style={{ fontSize: 15, color: "#6B7280", marginBottom: 36, textAlign: "center", lineHeight: 1.6 }}>
-                {loading ? "로딩 중..." : isReturning ? "다시 오셨군요! 반가워요 😊" : "처음 사용하시는군요!"}
-                <br />사용자 유형을 선택해 주세요
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 340 }}>
-                <button onClick={handleParent} disabled={busy}
-                    style={{ padding: "22px", background: "linear-gradient(135deg,#2563EB,#1D4ED8)", color: "white", border: "none", borderRadius: 24, cursor: busy ? "wait" : "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 8px 24px rgba(37,99,235,0.35)", opacity: busy ? 0.7 : 1 }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>👨‍👩‍👧</div>
-                    <div style={{ fontSize: 18, fontWeight: 900 }}>{busy ? "카카오 로그인 중..." : "학부모"}</div>
-                    <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4, lineHeight: 1.5 }}>카카오 계정으로 로그인하여<br />아이 일정을 관리해요</div>
-                </button>
-                <button onClick={handleChild}
-                    style={{ padding: "22px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 24, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 8px 24px rgba(232,121,160,0.35)" }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>🐰</div>
-                    <div style={{ fontSize: 18, fontWeight: 900 }}>아이</div>
-                    <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4, lineHeight: 1.5 }}>부모님 코드로 연결하고<br />내 일정을 확인해요</div>
-                </button>
+        <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", fontFamily: FF, overflowY: "auto" }}>
+            <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <AppBrandLogo size={96} radius={26} />
+                <div style={{ fontSize: 31, fontWeight: 900, color: "#BE185D", marginTop: 20, marginBottom: 4, letterSpacing: -0.8, textAlign: "center" }}>
+                    혜니캘린더
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 20, letterSpacing: 1.8 }}>HYENI CALENDAR</div>
+                <div style={{ borderRadius: 999, padding: "7px 12px", background: "rgba(255,255,255,0.86)", border: "1px solid rgba(244,114,182,0.20)", color: "#BE185D", fontSize: 12, fontWeight: 800, marginBottom: 22 }}>
+                    {loading ? "로딩 중..." : isReturning ? "다시 오셨군요" : "처음 사용하시나요?"}
+                </div>
+                <div style={{ fontSize: 15, color: "#475569", marginBottom: 30, textAlign: "center", lineHeight: 1.55, fontWeight: 600 }}>
+                    사용할 역할을 선택해 주세요
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
+                    <button onClick={handleParent} disabled={busy}
+                        style={{ padding: "18px", background: "white", color: "#1E3A8A", border: "1.5px solid #DBEAFE", borderRadius: DESIGN.radius.lg, cursor: busy ? "wait" : "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 14px 34px rgba(37,99,235,0.12)", opacity: busy ? 0.7 : 1, display: "flex", alignItems: "center", gap: 14 }}>
+                        <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 16, background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>👨‍👩‍👧</span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>{busy ? "카카오 로그인 중..." : "학부모"}</span>
+                            <span style={{ display: "block", fontSize: 13, color: "#64748B", marginTop: 4, lineHeight: 1.45, fontWeight: 600 }}>카카오 계정으로 로그인하여 아이 일정을 관리해요</span>
+                        </span>
+                        <span aria-hidden="true" style={{ color: "#2563EB", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
+                    </button>
+                    <button onClick={handleChild}
+                        style={{ padding: "18px", background: DESIGN.gradients.primary, color: "white", border: "none", borderRadius: DESIGN.radius.lg, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 16px 34px rgba(190,24,93,0.22)", display: "flex", alignItems: "center", gap: 14 }}>
+                        <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 16, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>🐰</span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>아이</span>
+                            <span style={{ display: "block", fontSize: 13, opacity: 0.86, marginTop: 4, lineHeight: 1.45, fontWeight: 600 }}>부모님 코드로 연결하고 내 일정을 확인해요</span>
+                        </span>
+                        <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -1077,9 +1645,9 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
     const [editName, setEditName] = useState("");
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
+        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 460, maxHeight: "80vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
+            <div style={makeSheetStyle({ padding: "28px 24px 40px", width: "100%", maxWidth: 460, maxHeight: "80vh", overflowY: "auto" })}>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: "#374151" }}>🔗 {isParent ? "아이 연동 관리" : "부모님 연동"}</div>
@@ -1210,17 +1778,6 @@ function QrPairScanner({ onDetected, onClose }) {
         };
 
         const startScanner = async () => {
-            const queuedMockValue = Array.isArray(window.__mockQrValues)
-                ? window.__mockQrValues.shift()
-                : "";
-            if (typeof queuedMockValue === "string" && queuedMockValue.trim()) {
-                setLoading(false);
-                handledRef.current = true;
-                await onDetected(queuedMockValue.trim());
-                stopScanner();
-                return;
-            }
-
             if (!navigator.mediaDevices?.getUserMedia) {
                 setError("이 기기에서는 카메라를 사용할 수 없어요. 코드를 직접 입력해 주세요.");
                 setLoading(false);
@@ -1333,7 +1890,7 @@ function ChildPairInput({ userId, onPaired }) {
     };
 
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
+        <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
             <AppBrandLogo size={78} radius={24} />
             <div style={{ fontSize: 24, fontWeight: 900, color: "#E879A0", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
             <div style={{ fontSize: 14, color: "#6B7280", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
@@ -1345,14 +1902,14 @@ function ChildPairInput({ userId, onPaired }) {
             </div>
             {error && <div style={{ fontSize: 13, color: "#EF4444", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
             <button onClick={() => { void handleJoin(); }} disabled={busy}
-                style={{ width: "100%", maxWidth: 320, padding: "16px", background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", border: "none", borderRadius: 20, fontSize: 16, fontWeight: 800, cursor: busy ? "wait" : "pointer", fontFamily: FF, marginTop: 8, opacity: busy ? 0.7 : 1 }}>
+                style={{ ...makePrimaryButtonStyle({ maxWidth: 320, padding: "16px", fontSize: 16, marginTop: 8, opacity: busy ? 0.7 : 1 }), cursor: busy ? "wait" : "pointer" }}>
                 {busy ? "연결 중..." : "🔗 연결하기"}
             </button>
             <button
                 type="button"
                 onClick={() => { if (!busy) setShowScanner(true); }}
                 disabled={busy}
-                style={{ width: "100%", maxWidth: 320, padding: "14px", background: "white", color: "#7C3AED", border: "2px solid #DDD6FE", borderRadius: 20, fontSize: 15, fontWeight: 800, cursor: busy ? "wait" : "pointer", fontFamily: FF, marginTop: 10, boxShadow: "0 6px 18px rgba(124,58,237,0.08)" }}
+                style={{ ...makeSecondaryButtonStyle({ maxWidth: 320, padding: "14px", color: DESIGN.colors.parentDeep, border: "1.5px solid #BFDBFE", background: DESIGN.colors.parentPale, fontSize: 15, marginTop: 10 }), cursor: busy ? "wait" : "pointer" }}
             >
                 📷 QR로 연결하기
             </button>
@@ -1530,9 +2087,9 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Route Overlay (current position → destination with OSRM walking route)
+// Route Overlay (current position → destination in-app guidance)
 // ─────────────────────────────────────────────────────────────────────────────
-function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) {
+function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isChildMode = false }) {
     const mapRef = useRef();
     const mapInst = useRef();
     const myMarkerRef = useRef(null);
@@ -1547,6 +2104,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     const [gpsError, setGpsError] = useState(() => typeof navigator !== "undefined" && !navigator.geolocation);   // GPS failure flag
     const [centered, setCentered] = useState(true);
     const [mapType, setMapType] = useState("roadmap"); // "hybrid" or "roadmap"
+    const [guidanceStarted, setGuidanceStarted] = useState(false);
     const [heading, setHeading] = useState(null); // device compass heading in degrees
     const watchIdRef = useRef(null);
     const routeInitDoneRef = useRef(false);
@@ -1655,35 +2213,80 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         return arrows;
     }, []);
 
+    const clearRouteDrawing = useCallback(() => {
+        if (polylineRef.current) { polylineRef.current.setMap(null); polylineRef.current = null; }
+        if (shadowPolyRef.current) { shadowPolyRef.current.setMap(null); shadowPolyRef.current = null; }
+        arrowOverlaysRef.current.forEach(o => o.setMap(null));
+        arrowOverlaysRef.current = [];
+    }, []);
+
+    const fitRouteBounds = useCallback((path, startLL, destLL, padding = 80) => {
+        if (!mapInst.current || !path?.length) return;
+        const bounds = new window.kakao.maps.LatLngBounds();
+        path.forEach(p => bounds.extend(p));
+        if (startLL) bounds.extend(startLL);
+        if (destLL) bounds.extend(destLL);
+        mapInst.current.setBounds(bounds, padding);
+    }, []);
+
+    const drawRoutePath = useCallback((path, { dashed = false, fit = false, startLL = null, destLL = null } = {}) => {
+        if (!mapInst.current || !path?.length) return;
+        clearRouteDrawing();
+        routePathRef.current = path;
+
+        shadowPolyRef.current = new window.kakao.maps.Polyline({
+            map: mapInst.current,
+            path,
+            strokeWeight: dashed ? 10 : 14,
+            strokeColor: "#FFFFFF",
+            strokeOpacity: 0.9,
+            strokeStyle: "solid"
+        });
+
+        polylineRef.current = new window.kakao.maps.Polyline({
+            map: mapInst.current,
+            path,
+            strokeWeight: dashed ? 6 : 8,
+            strokeColor: "#4285F4",
+            strokeOpacity: dashed ? 0.8 : 0.95,
+            strokeStyle: dashed ? "shortdash" : "solid"
+        });
+
+        if (!dashed) {
+            arrowOverlaysRef.current = createWalkingArrows(mapInst.current, path, "#4285F4");
+        }
+        if (fit) fitRouteBounds(path, startLL, destLL);
+    }, [clearRouteDrawing, createWalkingArrows, fitRouteBounds]);
+
+    const drawDirectRoute = useCallback((start, destination, { fit = false } = {}) => {
+        if (!mapInst.current || !start || !destination) return;
+        const startLL = new window.kakao.maps.LatLng(start.lat, start.lng);
+        const destLL = new window.kakao.maps.LatLng(destination.lat, destination.lng);
+        drawRoutePath([startLL, destLL], { dashed: true, fit, startLL, destLL });
+        setRouteInfo({
+            distance: haversineM(start.lat, start.lng, destination.lat, destination.lng),
+            duration: null,
+            loading: false,
+            error: true
+        });
+    }, [drawRoutePath]);
+
     const lastRoutePosRef = useRef(null);
     useEffect(() => {
-        if (!livePos || !ev.location || !mapInst.current || routeInfo?.loading) return;
+        if (!livePos || !ev.location || !mapInst.current) return;
         if (lastRoutePosRef.current) {
             const moved = haversineM(livePos.lat, livePos.lng, lastRoutePosRef.current.lat, lastRoutePosRef.current.lng);
             if (moved < 50) return;
         }
-        lastRoutePosRef.current = { ...livePos };
-        const osrmUrl = `https://router.project-osrm.org/route/v1/foot/${livePos.lng},${livePos.lat};${ev.location.lng},${ev.location.lat}?overview=full&geometries=geojson`;
-        fetch(osrmUrl).then(r => r.json()).then(data => {
-            if (data.code !== "Ok" || !data.routes?.length) return;
-            const route = data.routes[0];
-            const coords = route.geometry.coordinates;
-            const path = coords.map(([lng, lat]) => new window.kakao.maps.LatLng(lat, lng));
-            routePathRef.current = path;
-            // Update polylines
-            if (polylineRef.current) polylineRef.current.setPath(path);
-            if (shadowPolyRef.current) shadowPolyRef.current.setPath(path);
-            // Update direction arrows
-            arrowOverlaysRef.current.forEach(o => o.setMap(null));
-            arrowOverlaysRef.current = createWalkingArrows(mapInst.current, path, "#4285F4");
-            setRouteInfo({ distance: route.distance, duration: route.duration, loading: false, error: false });
-        }).catch(() => {});
-    }, [livePos, ev.location, routeInfo?.loading, createWalkingArrows]);
+        const startPos = { ...livePos };
+        const destination = ev.location;
+        lastRoutePosRef.current = startPos;
+        drawDirectRoute(startPos, destination);
+    }, [livePos, ev.location, drawDirectRoute]);
 
     // Initialize map + route
     useEffect(() => {
         if (!mapReady || !mapRef.current || !ev.location) return;
-        let cancelled = false;
 
         const destLL = new window.kakao.maps.LatLng(ev.location.lat, ev.location.lng);
 
@@ -1754,87 +2357,9 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         startOverlayRef.current = startOv;
 
          
-        setRouteInfo({ loading: true });
         lastRoutePosRef.current = { ...startPos };
-
-        const osrmUrl = `https://router.project-osrm.org/route/v1/foot/${startPos.lng},${startPos.lat};${ev.location.lng},${ev.location.lat}?overview=full&geometries=geojson&steps=true`;
-
-        fetch(osrmUrl)
-            .then(r => r.json())
-            .then(data => {
-                if (cancelled) return;
-                if (data.code !== "Ok" || !data.routes?.length) throw new Error("No route");
-
-                const route = data.routes[0];
-                const coords = route.geometry.coordinates;
-                const path = coords.map(([lng, lat]) => new window.kakao.maps.LatLng(lat, lng));
-                routePathRef.current = path;
-
-                // ── 도보 경로 — 파란색 실선 (잘 보이게) ──
-                // Shadow polyline (white border effect)
-                const sp = new window.kakao.maps.Polyline({
-                    map: mapInst.current, path,
-                    strokeWeight: 14, strokeColor: "#FFFFFF",
-                    strokeOpacity: 0.9, strokeStyle: "solid"
-                });
-                shadowPolyRef.current = sp;
-
-                // Main route line — bright blue
-                const pl = new window.kakao.maps.Polyline({
-                    map: mapInst.current, path,
-                    strokeWeight: 8, strokeColor: "#4285F4",
-                    strokeOpacity: 0.95, strokeStyle: "solid"
-                });
-                polylineRef.current = pl;
-
-                // ── 방향 화살표 오버레이 ──
-                arrowOverlaysRef.current = createWalkingArrows(mapInst.current, path, "#4285F4");
-
-                // Fit route bounds (출발 + 도착 + 경로 전체)
-                const bounds = new window.kakao.maps.LatLngBounds();
-                path.forEach(p => bounds.extend(p));
-                bounds.extend(myLL);
-                bounds.extend(destLL);
-                mapInst.current.setBounds(bounds, 80);
-
-                setRouteInfo({
-                    distance: route.distance,
-                    duration: route.duration,
-                    loading: false,
-                    error: false
-                });
-            })
-            .catch(() => {
-                if (cancelled) return;
-                // Fallback: 직선 경로
-                const sp = new window.kakao.maps.Polyline({
-                    map: mapInst.current,
-                    path: [myLL, destLL],
-                    strokeWeight: 10, strokeColor: "#FFFFFF",
-                    strokeOpacity: 0.9, strokeStyle: "solid"
-                });
-                shadowPolyRef.current = sp;
-
-                const pl = new window.kakao.maps.Polyline({
-                    map: mapInst.current,
-                    path: [myLL, destLL],
-                    strokeWeight: 6, strokeColor: "#4285F4",
-                    strokeOpacity: 0.8, strokeStyle: "shortdash"
-                });
-                polylineRef.current = pl;
-
-                const bounds = new window.kakao.maps.LatLngBounds();
-                bounds.extend(myLL);
-                bounds.extend(destLL);
-                mapInst.current.setBounds(bounds, 80);
-
-                setRouteInfo({ loading: false, error: true });
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [mapReady, ev, currentPos, createWalkingArrows]);
+        drawDirectRoute(startPos, ev.location, { fit: true });
+    }, [mapReady, ev, currentPos, drawDirectRoute]);
 
     const recenterMap = () => {
         if (!mapInst.current || !currentPos) return;
@@ -1854,11 +2379,20 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
     const fitFullRoute = () => {
         if (!mapInst.current || !currentPos || !ev.location) return;
         setCentered(false);
+        if (!routePathRef.current) {
+            drawDirectRoute(currentPos, ev.location, { fit: true });
+            return;
+        }
         const bounds = new window.kakao.maps.LatLngBounds();
         bounds.extend(new window.kakao.maps.LatLng(currentPos.lat, currentPos.lng));
         bounds.extend(new window.kakao.maps.LatLng(ev.location.lat, ev.location.lng));
         if (routePathRef.current) routePathRef.current.forEach(p => bounds.extend(p));
         mapInst.current.setBounds(bounds, 60);
+    };
+
+    const startInAppGuidance = () => {
+        setGuidanceStarted(true);
+        fitFullRoute();
     };
 
     // Cleanup overlays on unmount
@@ -1892,9 +2426,10 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
         backdropFilter: "blur(18px)",
         border: "1px solid rgba(255,255,255,0.8)",
     };
+    const fallbackMapSubtitle = mapLoadError || (KAKAO_APP_KEY ? "Kakao 지도 연결 중" : "Kakao 지도 키가 없어 간이 지도 표시");
 
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#F0F4F8", display: "flex", flexDirection: "column", fontFamily: FF }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: DESIGN.gradients.map, display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Navigation Header */}
             <div style={{ padding: "12px 16px", paddingTop: "max(12px, env(safe-area-inset-top))", background: "white", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, zIndex: 2 }}>
                 <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, width: 40, height: 40, cursor: "pointer", fontWeight: 800, fontSize: 18, fontFamily: FF, display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280", flexShrink: 0 }}>←</button>
@@ -1932,8 +2467,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                             <>
                                 <div style={{ fontWeight: 900, fontSize: 20, color: ev.color }}>{distLabel}</div>
                                 <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
-                                    도보 약 {timeLabel}
-                                    {routeInfo?.error && " (직선거리)"}
+                                    {routeInfo?.error ? `예상 직선거리 · 도보 약 ${timeLabel}` : `도보 약 ${timeLabel}`}
                                 </div>
                                 {bunnyEncouragement && (
                                     <div style={{ fontSize: 12, fontWeight: 700, color: "#E879A0", marginTop: 4 }}>
@@ -1943,7 +2477,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                             </>
                         )}
                     </div>
-                    {!arrived && displayMin != null && (
+                    {!arrived && displayMin != null && !routeInfo?.error && (
                         <div style={{ textAlign: "center", flexShrink: 0 }}>
                             <div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600 }}>도착 예정</div>
                             <div style={{ fontSize: 16, fontWeight: 900, color: "#374151", marginTop: 2 }}>
@@ -1964,9 +2498,20 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
             )}
 
             {/* Map */}
-            <div style={{ flex: 1, margin: "10px 16px", borderRadius: 24, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.1)", position: "relative", minHeight: 0 }}>
-                <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
-                <MapZoomControls mapObj={mapInst} />
+            <div style={{ flex: 1, margin: "10px 16px", borderRadius: 24, overflow: "hidden", boxShadow: "0 4px 20px rgba(247,121,168,0.10)", position: "relative", minHeight: 0, border: "2px solid rgba(255,228,239,0.8)" }}>
+                {!mapReady && (
+                    <FallbackMapCanvas
+                        center={currentPos || ev.location}
+                        children={currentPos ? [{ ...currentPos, name: "내 위치", emoji: isChildMode ? "🐰" : "👨‍👩‍👧", color: DESIGN.colors.pink }] : []}
+                        eventPlaces={ev.location ? [{ key: ev.id || "destination", title: ev.title, emoji: ev.emoji || "📍", color: ev.color || DESIGN.colors.pink, location: ev.location }] : []}
+                        routePoints={currentPos && ev.location ? [currentPos, ev.location] : []}
+                        title={ev.title || "경로"}
+                        subtitle={fallbackMapSubtitle}
+                        showRadius={Boolean(currentPos)}
+                    />
+                )}
+                <div ref={mapRef} style={{ width: "100%", height: "100%", display: mapReady ? "block" : "none" }} />
+                {mapReady && <MapZoomControls mapObj={mapInst} />}
 
                 {/* GPS 위치 찾는 중 / 오류 오버레이 */}
                 {!currentPos && (
@@ -2015,7 +2560,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                 )}
 
                 {/* Heading compass indicator (top-right) */}
-                {heading != null && (
+                {mapReady && heading != null && (
                     <div style={{ position: "absolute", left: 14, top: 14, zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center" }}>
                         <div style={{
                             width: 48, height: 48, borderRadius: "50%", background: "white",
@@ -2035,7 +2580,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                 )}
 
                 {/* Map overlay buttons */}
-                <div style={{ position: "absolute", right: 12, bottom: 12, display: "flex", flexDirection: "column", gap: 8, zIndex: 5 }}>
+                {mapReady && <div style={{ position: "absolute", right: 12, bottom: 12, display: "flex", flexDirection: "column", gap: 8, zIndex: 5 }}>
                     <button onClick={toggleMapType} title="지도 타입"
                         style={{ width: 44, height: 44, borderRadius: 14, background: "white", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#6B7280", fontFamily: FF }}>
                         {mapType === "hybrid" ? "🛣️" : "🛰️"}
@@ -2056,7 +2601,7 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                         style={{ width: 44, height: 44, borderRadius: 14, background: "white", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#6B7280" }}>
                         🗺️
                     </button>
-                </div>
+                </div>}
             </div>
 
             {/* Bottom route sheet */}
@@ -2068,16 +2613,21 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
                             <div style={{ fontSize: 16, fontWeight: 900, color: "#111827", marginTop: 2 }}>
                                 {arrived
                                     ? (isChildMode ? "도착! 잘했어! 💕" : "도착 완료")
-                                    : (isChildMode ? "토끼가 길 안내 중~ 🐰" : "앱 안에서 길찾기 안내 중")}
+                                    : (guidanceStarted ? "길안내를 시작했어요" : "안전하게 가자")}
                             </div>
                         </div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                             <div style={{ padding: "7px 10px", borderRadius: 999, background: arrived ? "#DCFCE7" : ev.bg, color: arrived ? "#166534" : ev.color, fontSize: 11, fontWeight: 800 }}>
                                 {arrived ? "근처 도착" : distLabel || "경로 확인"}
                             </div>
-                            {displayMin != null && (
+                            {displayMin != null && !routeInfo?.error && (
                                 <div style={{ padding: "7px 10px", borderRadius: 999, background: "#EEF2FF", color: "#4338CA", fontSize: 11, fontWeight: 800 }}>
                                     도보 {timeLabel}
+                                </div>
+                            )}
+                            {routeInfo?.error && (
+                                <div style={{ padding: "7px 10px", borderRadius: 999, background: "#DBEAFE", color: "#1D4ED8", fontSize: 11, fontWeight: 800 }}>
+                                    위치 확인
                                 </div>
                             )}
                         </div>
@@ -2085,10 +2635,11 @@ function RouteOverlay({ ev, childPos, mapReady, onClose, isChildMode = false }) 
 
                     <div style={{ display: "flex", gap: 10 }}>
                         <button
-                            onClick={fitFullRoute}
-                            style={{ flex: 1, padding: "15px 14px", borderRadius: 18, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "white", background: "linear-gradient(135deg, #EC4899, #BE185D)", boxShadow: "0 12px 24px rgba(236,72,153,0.26)" }}
+                            onClick={startInAppGuidance}
+                            disabled={!currentPos || !ev.location}
+                            style={{ flex: 1, padding: "15px 14px", borderRadius: 18, border: "none", cursor: currentPos && ev.location ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "white", background: currentPos && ev.location ? "linear-gradient(135deg, #EC4899, #BE185D)" : "#D1D5DB", boxShadow: currentPos && ev.location ? "0 12px 24px rgba(236,72,153,0.26)" : "none" }}
                         >
-                            전체 경로 보기
+                            {guidanceStarted ? "전체 경로 보기" : "길안내 시작"}
                         </button>
                         <button
                             onClick={onClose}
@@ -2190,154 +2741,6 @@ function buildMessageItems(replies) {
         items.push({ type: "bubble", r, isFirstInGroup, isLastInGroup, key: r.id });
     }
     return items;
-}
-
-function SimpleMemoHeart({ size = 32 }) {
-    return (
-        <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-            <circle cx="16" cy="16" r="15" fill="#FFF1F2" stroke="#FFE4E6" strokeWidth="1.5" />
-            <path
-                d="M16 22.5s-6.5-3.8-6.5-8.1c0-2.1 1.5-3.7 3.5-3.7 1.2 0 2.3.6 3 1.6.7-1 1.8-1.6 3-1.6 2 0 3.5 1.6 3.5 3.7 0 4.3-6.5 8.1-6.5 8.1Z"
-                fill="#FB7185"
-            />
-        </svg>
-    );
-}
-
-function parseSupplyItems(value) {
-    return String(value || "")
-        .split(/[\n,]/)
-        .map(item => item.trim())
-        .filter(Boolean);
-}
-
-function DailySuppliesPanel({ value, isParentMode, dateLabel, onSave }) {
-    const [draft, setDraft] = useState(value || "");
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState("");
-    const items = useMemo(() => parseSupplyItems(value), [value]);
-
-    useEffect(() => {
-        setDraft(value || "");
-        setError("");
-    }, [value]);
-
-    const hasChanges = draft.trim() !== String(value || "").trim();
-
-    const handleSave = async () => {
-        if (!onSave || saving || !hasChanges) return;
-        setSaving(true);
-        setError("");
-        try {
-            await onSave(draft.trim());
-        } catch (err) {
-            console.error("[DailySuppliesPanel] save failed", err);
-            setError("준비물 저장에 실패했어요. 다시 시도해 주세요.");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const shellStyle = {
-        width: "100%",
-        maxWidth: isParentMode ? "100%" : 420,
-        marginBottom: isParentMode ? 18 : 14,
-        background: isParentMode
-            ? "linear-gradient(135deg,#F8FAFC 0%,#F0FDFA 100%)"
-            : "linear-gradient(135deg,#ECFDF5 0%,#F0F9FF 100%)",
-        borderRadius: 22,
-        border: isParentMode ? "1.5px solid #CCFBF1" : "1.5px solid #BAE6FD",
-        padding: isParentMode ? 14 : 16,
-        boxShadow: isParentMode ? "0 8px 22px rgba(15,118,110,0.08)" : "0 10px 28px rgba(14,116,144,0.10)",
-        fontFamily: FF,
-    };
-
-    return (
-        <div style={shellStyle}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: isParentMode ? 10 : 12 }}>
-                <div>
-                    <div style={{ fontSize: 11, fontWeight: 900, color: "#0F766E", letterSpacing: 0.1 }}>오늘의 준비물</div>
-                    <div style={{ fontSize: isParentMode ? 13 : 15, fontWeight: 900, color: "#0F172A", marginTop: 2 }}>{dateLabel}</div>
-                </div>
-                <div style={{ width: 40, height: 40, borderRadius: 14, background: "rgba(255,255,255,0.82)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.9)" }}>
-                    🎒
-                </div>
-            </div>
-
-            {isParentMode ? (
-                <>
-                    <textarea
-                        aria-label="오늘의 준비물 입력"
-                        placeholder="예) 체육복, 물병, 영어 숙제"
-                        value={draft}
-                        onChange={event => setDraft(event.target.value)}
-                        rows={3}
-                        style={{
-                            width: "100%",
-                            resize: "vertical",
-                            minHeight: 78,
-                            border: "1.5px solid #A7F3D0",
-                            borderRadius: 16,
-                            padding: "12px 14px",
-                            fontSize: 14,
-                            lineHeight: 1.45,
-                            color: "#134E4A",
-                            background: "rgba(255,255,255,0.88)",
-                            outline: "none",
-                            fontFamily: FF,
-                        }}
-                    />
-                    {error && <div style={{ marginTop: 8, fontSize: 11, color: "#DC2626", fontWeight: 700 }}>{error}</div>}
-                    <button
-                        type="button"
-                        aria-label="오늘의 준비물 저장"
-                        disabled={!hasChanges || saving}
-                        onClick={handleSave}
-                        style={{
-                            width: "100%",
-                            marginTop: 10,
-                            padding: "11px 14px",
-                            border: "none",
-                            borderRadius: 15,
-                            background: hasChanges ? "linear-gradient(135deg,#14B8A6,#0F766E)" : "#E5E7EB",
-                            color: "white",
-                            fontSize: 13,
-                            fontWeight: 900,
-                            fontFamily: FF,
-                            cursor: hasChanges && !saving ? "pointer" : "default",
-                            boxShadow: hasChanges ? "0 10px 18px rgba(20,184,166,0.18)" : "none",
-                        }}
-                    >
-                        {saving ? "저장 중..." : "준비물 저장"}
-                    </button>
-                </>
-            ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {items.length > 0 ? items.map((item, index) => (
-                        <div
-                            key={`${item}-${index}`}
-                            style={{
-                                padding: "8px 12px",
-                                borderRadius: 999,
-                                background: "rgba(255,255,255,0.92)",
-                                color: "#0F766E",
-                                fontSize: 13,
-                                fontWeight: 800,
-                                border: "1px solid rgba(20,184,166,0.18)",
-                                boxShadow: "0 4px 10px rgba(15,118,110,0.06)",
-                            }}
-                        >
-                            {item}
-                        </div>
-                    )) : (
-                        <div style={{ width: "100%", padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,0.76)", color: "#64748B", fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
-                            부모님이 준비물을 입력하면 여기에 보여요.
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
 }
 
 function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, onReplyRef }) {
@@ -2457,12 +2860,10 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                 {/* UI-SPEC §4g — empty state when no messages */}
                 {!hasMessages ? (
                     <div style={{ textAlign: "center", padding: "24px 16px", color: "#D1D5DB" }}>
-                        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                            <SimpleMemoHeart size={34} />
-                        </div>
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>💗</div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#9CA3AF" }}>아직 주고받은 메시지가 없어요</div>
                         <div style={{ fontSize: 13 }}>
-                            {isParentMode ? "아이에게 첫 메시지를 남겨보세요" : "부모님께 오늘 하루를 전해봐~ 🐰"}
+                            {isParentMode ? "아이에게 첫 메시지를 남겨보세요 💗" : "부모님께 오늘 하루를 전해봐~ 🐰"}
                         </div>
                     </div>
                 ) : (
@@ -2581,15 +2982,11 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                 display: "flex",
                 gap: 8,
                 alignItems: "center",
-                background: "#FAFAFA",
-                width: "100%",
-                minWidth: 0,
-                maxWidth: "100%",
-                boxSizing: "border-box"
+                background: "#FAFAFA"
             }}>
                 {/* UI-SPEC §5 — composer input: fontSize 16 prevents iOS auto-zoom */}
-                <textarea
-                    rows={2}
+                <input
+                    type="text"
                     aria-label={isParentMode ? "메모 입력" : "답글 입력"}
                     aria-required="false"
                     autoComplete="off"
@@ -2605,24 +3002,17 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                         if (e.key === "Enter" && !isMobile) { e.preventDefault(); handleSend(); }
                     }}
                     style={{
-                        flex: "1 1 auto",
-                        minWidth: 0,
-                        maxWidth: "100%",
-                        minHeight: 46,
-                        maxHeight: 92,
+                        flex: 1,
                         /* UI-SPEC §5 — focus border swap #E5E7EB → #E879A0 */
                         border: `1.5px solid ${isFocused ? "#E879A0" : "#E5E7EB"}`,
-                        borderRadius: 18,
-                        padding: "10px 14px",
+                        borderRadius: 22,
+                        padding: "11px 16px",
                         fontSize: 16,
-                        lineHeight: 1.35,
                         fontFamily: FF,
                         outline: "none",
                         background: "white",
                         boxSizing: "border-box",
-                        color: "#374151",
-                        resize: "none",
-                        overflowY: "auto"
+                        color: "#374151"
                     }}
                 />
                 {/* UI-SPEC §5 — send button: 44x44 touch target */}
@@ -2744,7 +3134,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
 // ─────────────────────────────────────────────────────────────────────────────
 // Day Timetable (kid-friendly)
 // ─────────────────────────────────────────────────────────────────────────────
-function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onReplyRef, suppliesValue, onSuppliesSave }) {
+function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onReplyRef }) {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -2755,14 +3145,6 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                 <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "#D1D5DB" : "#F9A8D4" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
                 <div style={{ fontSize: isParentMode ? 13 : 14, color: "#E5E7EB", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
             </div>
-            {isParentMode && (
-                <DailySuppliesPanel
-                    value={suppliesValue}
-                    isParentMode={true}
-                    dateLabel={dateLabel}
-                    onSave={onSuppliesSave}
-                />
-            )}
             <MemoSection replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} onReplyRef={onReplyRef} />
         </div>
     );
@@ -2782,7 +3164,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
             {/* Timeline */}
             <div style={{ position: "relative", paddingLeft: 28 }}>
                 {/* Vertical line */}
-                <div style={{ position: "absolute", left: 11, top: 8, bottom: 8, width: 3, background: "linear-gradient(to bottom, #F9A8D4, #A78BFA, #60A5FA)", borderRadius: 4 }} />
+                <div style={{ position: "absolute", left: 11, top: 8, bottom: 8, width: 3, background: "linear-gradient(to bottom, #E879A0, #F9A8D4, #60A5FA)", borderRadius: 4 }} />
 
                 {events.map((ev, i) => {
                     const [h, m] = ev.time.split(":").map(Number);
@@ -2840,7 +3222,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                                         : <span style={{ fontSize: 13, fontWeight: 800, color: "white", background: ev.color, padding: "3px 10px", borderRadius: 10, animation: "pulse 1.5s infinite" }}>지금 갈 시간! 🏃</span>
                                     )}
                                     {isFuture && !isCurrent && (
-                                        <span style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6", background: "#EDE9FE", padding: "2px 8px", borderRadius: 8 }}>예정</span>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: DESIGN.colors.parentDeep, background: DESIGN.colors.parentPale, padding: "2px 8px", borderRadius: 8 }}>예정</span>
                                     )}
                                     {arrived && <span style={{ fontSize: isParentMode ? 11 : 13, fontWeight: 700, color: "#059669" }}>✅ 도착</span>}
                                     {emergency && isParentMode && <span style={{ fontSize: 11, fontWeight: 800, color: "#DC2626", animation: "pulse 1s infinite" }}>🚨 미도착</span>}
@@ -2912,15 +3294,6 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                 </div>
             )}
 
-            {isParentMode && (
-                <DailySuppliesPanel
-                    value={suppliesValue}
-                    isParentMode={true}
-                    dateLabel={dateLabel}
-                    onSave={onSuppliesSave}
-                />
-            )}
-
             {/* Memo */}
             <MemoSection
                 replies={memoReplies}
@@ -2951,8 +3324,8 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
     ];
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ background: "white", borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 460, maxHeight: "85vh", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            <div style={makeSheetStyle({ width: "100%", maxWidth: 460, maxHeight: "85vh", display: "flex", flexDirection: "column" })}>
                 {/* 헤더 + 요약 (고정) */}
                 <div style={{ padding: "20px 20px 0", flexShrink: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -2970,7 +3343,7 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                     <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
                         {[
                             { emoji: "🌟", count: earlyCount, label: "일찍", bg: "#FEF3C7", color: "#F59E0B" },
-                            { emoji: "⭐", count: onTimeCount, label: "정시", bg: "#EDE9FE", color: "#7C3AED" },
+                            { emoji: "⭐", count: onTimeCount, label: "정시", bg: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep },
                             { emoji: "😢", count: lateCount, label: "아쉬워", bg: "#F3F4F6", color: "#9CA3AF" },
                             { emoji: "💕", count: stickers.filter(s => s.sticker_type === "praise").length, label: "칭찬", bg: "#FFF0F5", color: "#EC4899" },
                         ].map((item, i) => (
@@ -2993,7 +3366,7 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))", gap: 8 }}>
                             {stickers.map((s, i) => (
                                 <div key={s.id || i} style={{
-                                    background: s.sticker_type === "early" ? "#FEF3C7" : s.sticker_type === "late" ? "#F3F4F6" : s.sticker_type === "praise" ? "#FFF0F5" : "#EDE9FE",
+                                    background: s.sticker_type === "early" ? "#FEF3C7" : s.sticker_type === "late" ? "#F3F4F6" : s.sticker_type === "praise" ? "#FFF0F5" : DESIGN.colors.parentPale,
                                     borderRadius: 14, padding: "8px 6px", textAlign: "center",
                                     border: `1.5px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : s.sticker_type === "praise" ? "#F9A8D4" : "#C4B5FD"}`,
                                     opacity: s.sticker_type === "late" ? 0.6 : 1,
@@ -3045,25 +3418,70 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
 function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, onClose }) {
     const [status, setStatus] = useState("idle"); // idle, waiting, listening
     const [duration, setDuration] = useState(0);
+    const [errorMessage, setErrorMessage] = useState("");
     const [, setAudioChunks] = useState([]);
     const timerRef = useRef(null);
     const playbackRef = useRef(Promise.resolve());
+    const audioContextRef = useRef(null);
+    const nextPlayAtRef = useRef(0);
 
     const startListening = () => {
-        if (!channel) return;
+        setErrorMessage("");
+        if (!recFamilyId || !senderUserId) {
+            setErrorMessage("가족 연결 정보가 없어 주변음성듣기를 시작할 수 없어요.");
+            return;
+        }
+        const durationSec = REMOTE_AUDIO_DEFAULT_DURATION_SEC;
+        try {
+            const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextCtor && !audioContextRef.current) {
+                audioContextRef.current = new AudioContextCtor();
+            }
+            audioContextRef.current?.resume?.();
+            nextPlayAtRef.current = audioContextRef.current?.currentTime || 0;
+        } catch (error) {
+            console.warn("[Audio] AudioContext unlock failed:", error?.message || error);
+        }
         setStatus("waiting");
         setDuration(0);
         setAudioChunks([]);
         // 1. Broadcast for when child app is already open
-        channel.send({ type: "broadcast", event: "remote_listen_start", payload: { duration: 30 } });
+        const startPayload = {
+            duration: durationSec,
+            durationSec,
+            initiatorUserId: senderUserId,
+            initiator_user_id: senderUserId,
+        };
+        if (channel?.send) {
+            channel.send({
+                type: "broadcast",
+                event: "remote_listen_start",
+                payload: startPayload,
+            });
+        } else {
+            setErrorMessage("실시간 채널 연결 대기 중입니다. 아이 기기에는 깨우기 알림을 보냈어요.");
+        }
         // 2. FCM push to wake up child app if closed
-        sendInstantPush({ action: "remote_listen", familyId: recFamilyId || "", senderUserId: senderUserId || "", title: "", message: "" });
-        timerRef.current = setTimeout(() => stopListening(), 35000);
+        sendInstantPush({
+            action: "remote_listen",
+            familyId: recFamilyId,
+            senderUserId,
+            title: "",
+            message: "",
+            durationSec,
+        });
+        timerRef.current = setTimeout(() => stopListening(), (durationSec + 5) * 1000);
     };
 
     const stopListening = () => {
         if (channel) channel.send({ type: "broadcast", event: "remote_listen_stop", payload: {} });
+        setErrorMessage("");
         setStatus("idle");
+        nextPlayAtRef.current = 0;
+        if (audioContextRef.current) {
+            try { audioContextRef.current.close(); } catch { /* ignore */ }
+            audioContextRef.current = null;
+        }
         if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     };
 
@@ -3076,6 +3494,28 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                     const binary = atob(base64);
                     const bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    const audioContext = audioContextRef.current;
+                    if (audioContext && audioContext.state !== "closed") {
+                        try {
+                            if (audioContext.state === "suspended") {
+                                await audioContext.resume();
+                            }
+                            const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+                            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                            await new Promise((resolve) => {
+                                const source = audioContext.createBufferSource();
+                                const startAt = Math.max(audioContext.currentTime + 0.02, nextPlayAtRef.current || 0);
+                                nextPlayAtRef.current = startAt + audioBuffer.duration;
+                                source.buffer = audioBuffer;
+                                source.connect(audioContext.destination);
+                                source.onended = resolve;
+                                source.start(startAt);
+                            });
+                            return;
+                        } catch (webAudioError) {
+                            console.warn("[Audio] WebAudio playback fallback:", webAudioError?.message || webAudioError);
+                        }
+                    }
                     const blob = new Blob([bytes], { type: mimeType || "audio/webm" });
                     const url = URL.createObjectURL(blob);
                     const audio = new Audio(url);
@@ -3106,7 +3546,8 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
         const handleChunk = (e) => {
             if (status === "idle") return;
             setStatus("listening");
-            setDuration(d => d + 2);
+            const chunkMs = Number(e.detail?.durationMs) || REMOTE_AUDIO_CHUNK_MS;
+            setDuration(d => d + Math.max(1, Math.round(chunkMs / 1000)));
             setAudioChunks(prev => [...prev, e.detail]);
             playChunk(e.detail.data, e.detail.mimeType);
         };
@@ -3114,12 +3555,20 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
         return () => window.removeEventListener("remote-audio-chunk", handleChunk);
     }, [status, playChunk]);
 
-    useEffect(() => { return () => { if (timerRef.current) clearTimeout(timerRef.current); }; }, []);
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            if (audioContextRef.current) {
+                try { audioContextRef.current.close(); } catch { /* ignore */ }
+                audioContextRef.current = null;
+            }
+        };
+    }, []);
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, fontFamily: FF }}
+        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, fontFamily: FF }}
             onClick={e => { if (e.target === e.currentTarget && status === "idle") onClose(); }}>
-            <div style={{ background: "white", borderRadius: 28, padding: "24px 20px", width: "90%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", textAlign: "center" }}>
+            <div style={makeCardStyle({ padding: "24px 20px", width: "90%", maxWidth: 360, textAlign: "center" })}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>{status === "listening" ? "🔊" : status === "waiting" ? "📡" : "🎤"}</div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: "#374151", marginBottom: 8 }}>
                     {status === "listening" ? "아이 주변 소리 듣는 중..." : status === "waiting" ? "아이 기기 연결 중..." : "주변 소리 듣기"}
@@ -3136,6 +3585,11 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                 )}
                 {status === "waiting" && (
                     <div style={{ marginBottom: 16, fontSize: 12, color: "#F59E0B", fontWeight: 700 }}>아이 기기를 깨우고 연결 중입니다. 몇 초 걸릴 수 있어요.</div>
+                )}
+                {errorMessage && (
+                    <div role="alert" style={{ marginBottom: 16, fontSize: 12, color: "#B91C1C", fontWeight: 800, lineHeight: 1.45 }}>
+                        {errorMessage}
+                    </div>
                 )}
                 <div style={{ display: "flex", gap: 10 }}>
                     {status === "idle" && (
@@ -3394,16 +3848,28 @@ function LocationMapView({
     return (
         <div style={{ width: "100%", maxWidth: 420, marginBottom: 0 }}>
             {/* Map */}
-            <div style={{ width: "100%", height: 300, borderRadius: 24, overflow: "hidden", boxShadow: "0 8px 32px rgba(232,121,160,0.12)", marginBottom: 14, position: "relative", background: "#F3F4F6" }}>
-                {!mapReady && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#9CA3AF", fontFamily: FF }}>🗺️ 지도 로딩 중...</div>}
-                <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
-                <MapZoomControls mapObj={mapObj} />
+            <div style={{ width: "100%", height: 300, borderRadius: 24, overflow: "hidden", boxShadow: "0 4px 12px rgba(180,120,150,0.10)", marginBottom: 14, position: "relative", background: DESIGN.gradients.map, border: "2px solid rgba(255,228,239,0.8)" }}>
+                {!mapReady && (
+                    <FallbackMapCanvas
+                        center={center}
+                        children={childPos ? [{ ...childPos, name: "내 위치", emoji: "🐰", color: DESIGN.colors.pink }] : []}
+                        eventPlaces={eventPlaceItems.map(place => ({ ...place, key: `event:${place.key}` }))}
+                        savedPlaces={savedPlaceItems.map(place => ({ ...place, key: `saved:${place.id}` }))}
+                        selectedKey={selected || ""}
+                        onSelect={(marker) => setSelected(marker.key)}
+                        title="아이 위치 · 안전"
+                        subtitle={KAKAO_APP_KEY ? "Kakao 지도 연결 중" : "Kakao 지도 키가 없어 간이 지도 표시"}
+                        showRadius={Boolean(childPos)}
+                    />
+                )}
+                <div ref={mapRef} style={{ width: "100%", height: "100%", display: mapReady ? "block" : "none" }} />
+                {mapReady && <MapZoomControls mapObj={mapObj} />}
                 {childPos && (
-                    <div style={{ position: "absolute", top: 12, left: 12, background: "white", borderRadius: 12, padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "#3B82F6", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", fontFamily: FF, display: "flex", alignItems: "center", gap: 4 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#3B82F6" }} /> 내 위치
+                    <div style={{ position: "absolute", top: 12, left: 12, background: "white", borderRadius: 999, padding: "8px 14px", fontSize: 11, fontWeight: 800, color: DESIGN.colors.ink, boxShadow: "0 6px 20px rgba(180,120,150,0.15)", fontFamily: FF, display: mapReady ? "flex" : "none", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 0 3px rgba(16,185,129,0.25)" }} /> 실시간
                     </div>
                 )}
-                <div style={{ position: "absolute", top: 12, right: 12, background: "white", borderRadius: 12, padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "#6B7280", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", fontFamily: FF }}>
+                <div style={{ position: "absolute", top: 12, right: 12, background: "white", borderRadius: 999, padding: "8px 12px", fontSize: 11, fontWeight: 800, color: DESIGN.colors.inkSoft, boxShadow: "0 6px 20px rgba(180,120,150,0.15)", fontFamily: FF, display: mapReady ? "block" : "none" }}>
                     📍 {eventPlaceItems.length + savedPlaceItems.length}개 장소
                 </div>
                 {isParentMode && (
@@ -3657,7 +4123,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         } finally { setLoading(false); }
     };
 
-    const CATS = { school: { emoji: "📚", color: "#E879A0", bg: "#FFF0F5" }, sports: { emoji: "⚽", color: "#F59E0B", bg: "#FFFBEB" }, hobby: { emoji: "🎨", color: "#8B5CF6", bg: "#F5F3FF" }, family: { emoji: "👨‍👩‍👧", color: "#10B981", bg: "#ECFDF5" }, friend: { emoji: "👫", color: "#3B82F6", bg: "#EFF6FF" }, other: { emoji: "📌", color: "#6B7280", bg: "#F9FAFB" } };
+    const CATS = { school: { emoji: "📚", color: "#A78BFA", bg: "#EDE9FE" }, sports: { emoji: "⚽", color: "#34D399", bg: "#D1FAE5" }, hobby: { emoji: "🎨", color: "#F59E0B", bg: "#FEF3C7" }, family: { emoji: "👨‍👩‍👧", color: "#F87171", bg: "#FEE2E2" }, friend: { emoji: "👫", color: "#60A5FA", bg: "#DBEAFE" }, other: { emoji: "📌", color: "#EC4899", bg: "#FCE7F3" } };
 
     const saveOne = async (ev, idx) => {
         if (savedIds.has(idx)) return;
@@ -3704,9 +4170,9 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
     const btnSt = { width: 64, height: 64, borderRadius: 20, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: FF, fontWeight: 700, fontSize: 10 };
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
+        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
+            <div style={makeSheetStyle({ padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto" })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                     <div style={{ fontSize: 18, fontWeight: 900, color: "#374151" }}>🤖 AI로 일정입력</div>
                     <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
@@ -3727,7 +4193,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                         </button>
                         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageSelect} style={{ display: "none" }} />
                         <button onClick={() => document.getElementById("ai-text-input")?.focus()}
-                            style={{ ...btnSt, background: "linear-gradient(135deg,#A78BFA,#7C3AED)", color: "white", boxShadow: "0 4px 12px rgba(124,58,237,0.3)" }}>
+                            style={{ ...btnSt, background: DESIGN.gradients.primary, color: "white", boxShadow: "0 4px 12px rgba(190,24,93,0.22)" }}>
                             <span style={{ fontSize: 24 }}>✏️</span>
                             텍스트
                         </button>
@@ -3752,7 +4218,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
 
                 {/* 분석 버튼 */}
                 <button onClick={() => analyze()} disabled={loading || (!inputText.trim() && !imageData)}
-                    style={{ width: "100%", marginTop: 10, padding: "14px 16px", borderRadius: 16, border: "none", fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: FF, color: "white", background: loading ? "#9CA3AF" : "linear-gradient(135deg, #8B5CF6, #6D28D9)", boxShadow: loading ? "none" : "0 4px 16px rgba(109,40,217,0.3)" }}>
+                    style={{ width: "100%", marginTop: 10, padding: "14px 16px", borderRadius: 16, border: "none", fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: FF, color: "white", background: loading ? "#9CA3AF" : DESIGN.gradients.primary, boxShadow: loading ? "none" : "0 4px 16px rgba(190,24,93,0.22)" }}>
                     {loading ? "🔍 AI가 분석하고 있어요..." : "✅ 다 입력했어요^^"}
                 </button>
 
@@ -3871,9 +4337,9 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
     };
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
+        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
+            <div style={makeSheetStyle({ padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto" })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                     <div style={{ fontSize: 18, fontWeight: 900, color: "#374151" }}>⚠️ 위험지역 관리</div>
                     <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
@@ -3954,10 +4420,10 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
 function PhoneSettingsModal({ phones, onSave, onClose }) {
     const [mom, setMom] = useState(phones.mom || "");
     const [dad, setDad] = useState(phones.dad || "");
-    const inputSt = { width: "100%", padding: "14px 16px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 16, color: "#374151", fontFamily: FF, outline: "none", boxSizing: "border-box", letterSpacing: 1 };
+    const inputSt = makeInputStyle({ padding: "14px 16px", fontSize: 16, letterSpacing: 1 });
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
-            <div style={{ background: "white", borderRadius: 28, padding: "28px 24px", width: "100%", maxWidth: 360, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+            <div style={makeCardStyle({ padding: "28px 24px", width: "100%", maxWidth: 360 })} onClick={e => e.stopPropagation()}>
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#374151", textAlign: "center", marginBottom: 20 }}>📞 비상 연락처 설정</div>
                 <div style={{ fontSize: 13, color: "#6B7280", textAlign: "center", marginBottom: 20 }}>아이 화면에서 바로 전화할 수 있어요</div>
 
@@ -4192,9 +4658,9 @@ function NotificationSettingsModal({ settings, isParentMode, onSave, onClose }) 
                                 style={{
                                     padding: "12px 14px",
                                     borderRadius: 14,
-                                    border: selected ? "2px solid #7C3AED" : "1.5px solid #E5E7EB",
-                                    background: selected ? "#F5F3FF" : "white",
-                                    color: selected ? "#6D28D9" : "#4B5563",
+                                    border: selected ? `2px solid ${DESIGN.colors.brand}` : "1.5px solid #E5E7EB",
+                                    background: selected ? DESIGN.colors.pinkSoft : "white",
+                                    color: selected ? DESIGN.colors.brand : "#4B5563",
                                     cursor: "pointer",
                                     fontWeight: 800,
                                     fontSize: 13,
@@ -4210,7 +4676,7 @@ function NotificationSettingsModal({ settings, isParentMode, onSave, onClose }) 
 
                 <div style={{ display: "flex", gap: 10 }}>
                     <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "#6B7280", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>취소</button>
-                    <button onClick={() => onSave(normalizeNotifSettings(draft, DEFAULT_NOTIF))} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#8B5CF6,#6D28D9)", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>저장</button>
+                    <button onClick={() => onSave(normalizeNotifSettings(draft, DEFAULT_NOTIF))} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: DESIGN.gradients.primary, color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>저장</button>
                 </div>
             </div>
         </div>
@@ -4221,8 +4687,8 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
     if (!open) return null;
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 655, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 16, fontFamily: FF }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-            <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "28px 22px 34px", width: "100%", maxWidth: 420, boxShadow: "0 -24px 64px rgba(15,23,42,0.18)" }}>
+        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, zIndex: 655, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 16, fontFamily: FF }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+            <div style={makeSheetStyle({ padding: "28px 22px 34px", width: "100%", maxWidth: 420 })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
                     <div>
                         <div style={{ fontSize: 20, fontWeight: 900, color: "#1F2937" }}>💌 피드백 보내기</div>
@@ -4255,6 +4721,38 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
                     </button>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Child Call Buttons (floating, child view only)
+// ─────────────────────────────────────────────────────────────────────────────
+function ChildCallButtons({ phones }) {
+    const [expanded, setExpanded] = useState(false);
+    const cleanNumber = (num) => (num || "").replace(/[^0-9+]/g, "");
+    const hasMom = phones.mom && phones.mom.length >= 8;
+    const hasDad = phones.dad && phones.dad.length >= 8;
+    if (!hasMom && !hasDad) return null;
+    const btnSt = { width: 56, height: 56, borderRadius: "50%", border: "none", fontSize: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 20px rgba(0,0,0,0.25)", transition: "all 0.2s" };
+    return (
+        <div style={{ position: "fixed", bottom: 100, right: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, zIndex: 200 }}>
+            {expanded && hasMom && (
+                <a href={`tel:${cleanNumber(phones.mom)}`} style={{ textDecoration: "none", animation: "kkukFadeIn 0.2s ease" }}>
+                    <div style={{ ...btnSt, background: "linear-gradient(135deg,#F9A8D4,#E879A0)" }}>👩</div>
+                    <div style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: "#E879A0", marginTop: 2 }}>엄마</div>
+                </a>
+            )}
+            {expanded && hasDad && (
+                <a href={`tel:${cleanNumber(phones.dad)}`} style={{ textDecoration: "none", animation: "kkukFadeIn 0.2s ease" }}>
+                    <div style={{ ...btnSt, background: "linear-gradient(135deg,#93C5FD,#3B82F6)" }}>👨</div>
+                    <div style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: "#3B82F6", marginTop: 2 }}>아빠</div>
+                </a>
+            )}
+            <button onClick={() => setExpanded(p => !p)}
+                style={{ ...btnSt, width: 52, height: 52, background: expanded ? "#F3F4F6" : "linear-gradient(135deg,#34D399,#059669)", color: expanded ? "#6B7280" : "white", fontSize: 22 }}>
+                {expanded ? "✕" : "📞"}
+            </button>
         </div>
     );
 }
@@ -4432,13 +4930,13 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
     const distLabel = (m) => m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", display: "flex", flexDirection: "column", fontFamily: FF }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: DESIGN.gradients.map, display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Header */}
-            <div style={{ padding: "14px 14px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 18px)", display: "flex", alignItems: "center", gap: 8, flexShrink: 0, minWidth: 0 }}>
-                <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 14, padding: "10px 12px", cursor: "pointer", fontWeight: 800, fontSize: 13, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", whiteSpace: "nowrap", flexShrink: 0 }}>← 돌아가기</button>
-                <div style={{ fontSize: 15, fontWeight: 900, color: "#1D4ED8", flex: "1 1 auto", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📍 지금 우리 아이는?</div>
+            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 14, padding: "10px 16px", cursor: "pointer", fontWeight: 800, fontSize: 14, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>← 돌아가기</button>
+                <div style={{ fontSize: 16, fontWeight: 800, color: DESIGN.colors.ink, flex: 1 }}>아이 위치 · 안전</div>
                 {/* 범례 */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <div style={{ width: 20, height: 3, background: "#3B82F6", borderRadius: 2 }} />
                         <span style={{ fontSize: 10, color: "#6B7280" }}>이동</span>
@@ -4451,22 +4949,40 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
             </div>
 
             {/* Map */}
-            <div style={{ flex: 1, margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "0 8px 32px rgba(59,130,246,0.15)", position: "relative", minHeight: 0 }}>
-                {!mapReady && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#3B82F6", fontFamily: FF, background: "#EFF6FF" }}>🗺️ 지도 불러오는 중...</div>}
-                <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
-                <MapZoomControls mapObj={mapObj} />
+            <div style={{ flex: 1, margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "0 4px 20px rgba(247,121,168,0.10)", position: "relative", minHeight: 0, border: "2px solid rgba(255,228,239,0.8)" }}>
+                {!mapReady && (
+                    <FallbackMapCanvas
+                        center={center}
+                        children={childLocations.map((child, index) => ({ ...child, key: child.trackerKey, color: CHILD_MARKER_COLORS[index % CHILD_MARKER_COLORS.length] }))}
+                        eventPlaces={todayLocEvents.map((event) => ({ key: event.id, title: event.title, emoji: event.emoji, color: event.color, location: event.location }))}
+                        routePoints={locationTrail.length >= 2 ? locationTrail : (selectedChild && nextEvent?.location ? [selectedChild, nextEvent.location] : [])}
+                        selectedKey={selectedChild?.trackerKey || ""}
+                        onSelect={(marker) => {
+                            if (marker.type === "child") setSelectedChildId(marker.key);
+                            if (marker.type === "event") {
+                                const event = todayLocEvents.find(item => item.id === marker.key);
+                                if (event) setSelectedEvent(event);
+                            }
+                        }}
+                        title="아이 위치 · 안전"
+                        subtitle={KAKAO_APP_KEY ? "Kakao 지도 연결 중" : "Kakao 지도 키가 없어 간이 지도 표시"}
+                        showRadius={Boolean(selectedChild)}
+                    />
+                )}
+                <div ref={mapRef} style={{ width: "100%", height: "100%", display: mapReady ? "block" : "none" }} />
+                {mapReady && <MapZoomControls mapObj={mapObj} />}
                 {selectedChild && (
                     <>
-                        <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, background: "rgba(255,255,255,0.94)", borderRadius: 16, padding: "10px 12px", boxShadow: "0 4px 16px rgba(37,99,235,0.16)", border: "1px solid rgba(37,99,235,0.14)", maxWidth: "calc(100% - 92px)" }}>
-                            <div style={{ fontSize: 12, fontWeight: 900, color: "#1D4ED8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedChild.name} 정밀 위치</div>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: "#64748B", marginTop: 2 }}>도보 확인 반경 {CHILD_TRACKER_WALK_RADIUS_M}m</div>
+                        <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, background: "rgba(255,255,255,0.94)", borderRadius: 999, padding: "8px 14px", boxShadow: "0 6px 20px rgba(180,120,150,0.15)", border: "1px solid rgba(255,228,239,0.8)", maxWidth: "calc(100% - 92px)", display: mapReady ? "block" : "none" }}>
+                            <div style={{ fontSize: 12, fontWeight: 900, color: DESIGN.colors.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedChild.name} 실시간</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: DESIGN.colors.muted, marginTop: 2 }}>도보 확인 반경 {CHILD_TRACKER_WALK_RADIUS_M}m</div>
                         </div>
                         <button
                             type="button"
                             aria-label={`${selectedChild.name} 위치로 이동`}
                             title={`${selectedChild.name} 위치로 이동`}
                             onClick={() => focusChildLocation(selectedChild)}
-                            style={{ position: "absolute", top: 12, right: 12, zIndex: 10, width: 48, height: 48, borderRadius: 14, border: "none", background: "#2563EB", color: "white", fontSize: 22, fontWeight: 900, cursor: "pointer", boxShadow: "0 4px 16px rgba(37,99,235,0.28)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FF }}
+                            style={{ position: "absolute", top: 12, right: 12, zIndex: 10, width: 48, height: 48, borderRadius: 16, border: "none", background: DESIGN.gradients.primary, color: "white", fontSize: 22, fontWeight: 900, cursor: "pointer", boxShadow: "0 6px 16px rgba(247,121,168,0.35)", display: mapReady ? "flex" : "none", alignItems: "center", justifyContent: "center", fontFamily: FF }}
                         >
                             🎯
                         </button>
@@ -4620,7 +5136,6 @@ export default function KidsScheduler() {
     const [selectedDate, setSelectedDate] = useState(today.getDate());
     const [events, setEvents] = useState(() => getCachedEvents());
     const [memos, setMemos] = useState(() => getCachedMemos());
-    const [dailySupplies, setDailySupplies] = useState(() => getCachedDailySupplies());
     const [memoReplies, setMemoReplies] = useState([]);
     const [memoReadBy, setMemoReadBy] = useState([]);
     const [globalNotif, setGlobalNotifState] = useState(DEFAULT_NOTIF);
@@ -4642,6 +5157,7 @@ export default function KidsScheduler() {
     const [emergencies, setEmergencies] = useState([]);
     const [bounce, setBounce] = useState(false);
     const [mapReady, setMapReady] = useState(false);
+    const [mapLoadError, setMapLoadError] = useState("");
     const [activeView, setActiveView] = useState("calendar");
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
@@ -4657,6 +5173,7 @@ export default function KidsScheduler() {
     const [firedEmergencies, setFiredEmergencies] = useState(new Set());
     const [firedExactStatuses, setFiredExactStatuses] = useState(new Set());
     const [childPos, setChildPos] = useState(null);
+    const [childLocationInfo, setChildLocationInfo] = useState({ label: "", precise: false, updatedAt: null });
     const [allChildPositions, setAllChildPositions] = useState([]); // [{user_id, name, emoji, lat, lng, updatedAt}]
     const [locationTrail, setLocationTrail] = useState([]); // 오늘 아이 이동경로
     const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
@@ -4690,16 +5207,16 @@ export default function KidsScheduler() {
     // ── Refs ────────────────────────────────────────────────────────────────────
     const realtimeChannel = useRef(null);
     const dateKeyRef = useRef("");
-    const allowTrackerRealtime = isParent && showChildTracker;
+    const lastGeocodePosRef = useRef(null);
     const displayChildPositions = useMemo(
-        () => effectiveChildPositions(allChildPositions, entitlement, allowTrackerRealtime),
-        [allChildPositions, entitlement, allowTrackerRealtime]
+        () => effectiveChildPositions(allChildPositions, entitlement),
+        [allChildPositions, entitlement]
     );
     const displayChildPos = useMemo(
-        () => effectiveChildLocation(childPos, entitlement, allowTrackerRealtime) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
-        [childPos, displayChildPositions, entitlement, allowTrackerRealtime]
+        () => effectiveChildLocation(childPos, entitlement) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
+        [childPos, displayChildPositions, entitlement]
     );
-    const locationGateHint = isParent && !allowTrackerRealtime && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
+    const locationGateHint = isParent && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
         ? "무료 플랜에서는 5분 지난 위치만 표시돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
         : "";
 
@@ -4765,10 +5282,6 @@ export default function KidsScheduler() {
     const kkukHoldStart = useRef(0);
     const kkukSentFromPressRef = useRef(false);
     const dateKey = `${currentYear}-${currentMonth}-${selectedDate}`;
-    const selectedDateLabel = `${currentMonth + 1}월 ${selectedDate}일`;
-    const todayDateKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-    const todaySupplies = dailySupplies[todayDateKey] || "";
-    const selectedSupplies = dailySupplies[dateKey] || "";
     dateKeyRef.current = dateKey;
 
     // ── Load memo replies when viewing a date ────────────────────────────────
@@ -4875,10 +5388,23 @@ export default function KidsScheduler() {
     useEffect(() => {
         if (window.kakao?.maps?.LatLng) {
             setMapReady(true);
+            setMapLoadError("");
             return;
         }
-        if (!KAKAO_APP_KEY) return;
-        loadKakaoMap(KAKAO_APP_KEY).then(() => setMapReady(true)).catch(() => {});
+        if (!KAKAO_APP_KEY) {
+            setMapLoadError("Kakao 지도 키가 없어 간이 지도로 표시해요");
+            return;
+        }
+        loadKakaoMap(KAKAO_APP_KEY)
+            .then(() => {
+                setMapReady(true);
+                setMapLoadError("");
+            })
+            .catch((error) => {
+                console.warn("[KakaoMap] SDK load failed:", error?.message || error);
+                setMapReady(false);
+                setMapLoadError("Kakao 지도 연결 실패 — 간이 지도로 경로를 표시해요");
+            });
     }, []);
 
 
@@ -5207,7 +5733,6 @@ export default function KidsScheduler() {
         fetchEvents(familyId).then(map => setEvents(map));
         fetchAcademies(familyId).then(list => setAcademies(list));
         fetchMemos(familyId).then(map => setMemos(map));
-        fetchDailySupplies(familyId).then(map => setDailySupplies(map));
         fetchSavedPlaces(familyId, { meta: true }).then(({ list, breaker }) => {
             setSavedPlaces(list);
             // RES-02: surface degraded state on initial load.
@@ -5274,18 +5799,6 @@ export default function KidsScheduler() {
                     return updated;
                 });
             },
-            onDailySuppliesChange: (type, newRow, _oldRow) => {
-                if (type === "DELETE") {
-                    fetchDailySupplies(familyId).then(map => setDailySupplies(map));
-                    return;
-                }
-                if (!newRow?.date_key) return;
-                setDailySupplies(prev => {
-                    const updated = { ...prev, [newRow.date_key]: newRow.content || "" };
-                    cacheDailySupplies(updated);
-                    return updated;
-                });
-            },
             onSavedPlacesChange: (type, newRow, oldRow) => {
                 setSavedPlaces(prev => {
                     let updated = [...prev];
@@ -5316,31 +5829,29 @@ export default function KidsScheduler() {
             },
             onLocationChange: (payload) => {
                 const updatedAt = payload?.updatedAt || payload?.updated_at || new Date().toISOString();
-                const nextLocation = {
+                const nextPosition = {
                     ...payload,
-                    lat: Number(payload?.lat),
-                    lng: Number(payload?.lng),
                     updatedAt,
                 };
-                setChildPos(nextLocation);
-                const locationUserId = payload?.userId || payload?.user_id || payload?.childUserId;
-                setAllChildPositions(prev => {
-                    if (!prev.length) return prev;
-                    if (locationUserId) {
-                        return prev.map(child => child.user_id === locationUserId
-                            ? { ...child, lat: nextLocation.lat, lng: nextLocation.lng, updatedAt }
-                            : child);
-                    }
-                    if (prev.length === 1) {
-                        return [{ ...prev[0], lat: nextLocation.lat, lng: nextLocation.lng, updatedAt }];
-                    }
-                    return prev;
-                });
-            },
-            onLocationRefreshRequest: (payload) => {
-                if (isParent) return;
-                if (payload?.senderId === authUser?.id) return;
-                window.dispatchEvent(new CustomEvent("hyeni-location-refresh-request", { detail: payload }));
+                setChildPos(nextPosition);
+                const childUserId = payload?.user_id || payload?.userId;
+                if (childUserId) {
+                    setAllChildPositions(prev => {
+                        const member = familyInfoRef.current?.members?.find(m => m.user_id === childUserId);
+                        const nextChild = {
+                            user_id: childUserId,
+                            name: member?.name || payload?.name || "Child",
+                            emoji: member?.emoji || payload?.emoji || "",
+                            lat: payload.lat,
+                            lng: payload.lng,
+                            updatedAt,
+                        };
+                        const found = prev.some(item => item.user_id === childUserId);
+                        return found
+                            ? prev.map(item => item.user_id === childUserId ? { ...item, ...nextChild } : item)
+                            : [...prev, nextChild];
+                    });
+                }
             },
             onKkuk: (payload) => {
                 // Received '꾹' from the other party
@@ -5390,10 +5901,10 @@ export default function KidsScheduler() {
                 try {
                     await startRemoteAudioCapture(
                         realtimeChannel.current,
-                        payload.duration || REMOTE_AUDIO_DEFAULT_DURATION_SEC,
+                        payload?.durationSec || payload?.duration || REMOTE_AUDIO_DEFAULT_DURATION_SEC,
                         {
                             familyId,
-                            initiatorUserId: payload?.initiator_user_id || payload?.initiatorId || null,
+                            initiatorUserId: payload?.initiatorUserId || payload?.initiator_user_id || payload?.initiatorId || null,
                             childUserId: authUser?.id || null,
                         }
                     );
@@ -5514,122 +6025,6 @@ export default function KidsScheduler() {
         if (notifTimer.current) clearTimeout(notifTimer.current);
         notifTimer.current = setTimeout(() => setNotification(null), 3500);
     }, []);
-
-    const updateChildLocationsFromRows = useCallback((locs = []) => {
-        if (!locs.length) return;
-        const children = familyInfo?.members?.filter(m => m.role === "child") || [];
-        const sorted = [...locs].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
-        const latest = sorted[0];
-        setChildPos({
-            lat: Number(latest.lat),
-            lng: Number(latest.lng),
-            updatedAt: latest.updated_at,
-        });
-        setAllChildPositions(locs.map(loc => {
-            const member = children.find(c => c.user_id === loc.user_id);
-            return {
-                user_id: loc.user_id,
-                name: member?.name || "아이",
-                emoji: member?.emoji || "🐰",
-                lat: Number(loc.lat),
-                lng: Number(loc.lng),
-                updatedAt: loc.updated_at,
-            };
-        }));
-    }, [familyInfo]);
-
-    const refreshChildLocationNow = useCallback(async (reason = "parent_request") => {
-        if (myRole !== "child" || !authUser?.id || !familyId) return false;
-        const session = await getSession().catch(() => null);
-        const nativeRequested = await requestNativeLocationRefresh(
-            authUser.id,
-            familyId,
-            session?.access_token || "",
-            myRole,
-        );
-
-        if (!navigator.geolocation) return nativeRequested;
-
-        return new Promise(resolve => {
-            navigator.geolocation.getCurrentPosition(
-                async (p) => {
-                    const nowIso = new Date().toISOString();
-                    const newPos = {
-                        lat: p.coords.latitude,
-                        lng: p.coords.longitude,
-                        accuracy: p.coords.accuracy ?? null,
-                        updatedAt: nowIso,
-                        userId: authUser.id,
-                        familyId,
-                        refreshReason: reason,
-                    };
-                    setChildPos(newPos);
-                    try {
-                        await saveChildLocation(authUser.id, familyId, newPos.lat, newPos.lng);
-                        await saveLocationHistory(authUser.id, familyId, newPos.lat, newPos.lng);
-                    } catch (error) {
-                        console.error("[location-refresh] save failed:", error);
-                    }
-                    try {
-                        await sendBroadcastWhenReady(realtimeChannel.current, "child_location", newPos, {
-                            timeoutMs: 1500,
-                            pollMs: 50,
-                        });
-                    } catch (error) {
-                        console.warn("[location-refresh] realtime broadcast failed:", error);
-                    }
-                    resolve(true);
-                },
-                (err) => {
-                    if (err.code === 1) showNotif("📍 위치 권한이 꺼져 있어요. 설정에서 켜주세요!", "error");
-                    else if (err.code === 2) showNotif("📍 위치를 찾을 수 없어요. GPS를 확인해주세요", "error");
-                    else showNotif("📍 현재 위치를 새로 가져오지 못했어요", "error");
-                    resolve(nativeRequested);
-                },
-                { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-            );
-        });
-    }, [authUser?.id, familyId, myRole, showNotif]);
-
-    useEffect(() => {
-        if (isParent) return;
-        const handleRefreshRequest = (event) => {
-            refreshChildLocationNow(event?.detail?.reason || "parent_request");
-        };
-        window.addEventListener("hyeni-location-refresh-request", handleRefreshRequest);
-        return () => window.removeEventListener("hyeni-location-refresh-request", handleRefreshRequest);
-    }, [isParent, refreshChildLocationNow]);
-
-    const requestChildLocationRefresh = useCallback(async () => {
-        if (!isParent || !familyId || !authUser?.id) return;
-        const payload = {
-            familyId,
-            senderId: authUser.id,
-            reason: "parent_tracker_open",
-            requestedAt: new Date().toISOString(),
-        };
-
-        try {
-            await sendBroadcastWhenReady(realtimeChannel.current, "location_refresh_request", payload, {
-                timeoutMs: 1600,
-                pollMs: 60,
-            });
-        } catch (error) {
-            console.warn("[location-refresh] realtime request failed:", error);
-        }
-
-        sendInstantPush({
-            action: "location_refresh",
-            familyId,
-            senderUserId: authUser.id,
-            title: "📍 위치 확인 요청",
-            message: "부모님이 현재 위치를 확인하고 있어요.",
-        }).catch(error => console.warn("[location-refresh] push request failed:", error));
-
-        fetchChildLocations(familyId)
-            .then(updateChildLocationsFromRows)
-            .catch(error => console.error("[location-refresh] fetch failed:", error));
-    }, [authUser?.id, familyId, isParent, updateChildLocationsFromRows]);
 
     const openMicPermissionHelp = useCallback(() => {
         setListeningSession(null);
@@ -5881,6 +6276,29 @@ export default function KidsScheduler() {
         let wid = null;
         let iv = null;
         let lastHistorySave = 0;
+        let lastSave = 0;
+
+        const applyPosition = (p) => {
+            const newPos = {
+                lat: p.coords.latitude,
+                lng: p.coords.longitude,
+                accuracy: Number.isFinite(p.coords.accuracy) ? p.coords.accuracy : null,
+                updatedAt: new Date().toISOString(),
+            };
+            setChildPos(newPos);
+            if (realtimeChannel.current && realtimeChannel.current.state === "joined") {
+                realtimeChannel.current.send({ type: "broadcast", event: "child_location", payload: newPos });
+            }
+            const now = Date.now();
+            if (now - lastSave >= 10000) {
+                lastSave = now;
+                saveChildLocation(authUser.id, familyId, newPos.lat, newPos.lng);
+            }
+            if (now - lastHistorySave >= 60000) {
+                lastHistorySave = now;
+                saveLocationHistory(authUser.id, familyId, newPos.lat, newPos.lng);
+            }
+        };
 
         // Try to start native background service (APK only)
         getSession().then(session => {
@@ -5894,37 +6312,19 @@ export default function KidsScheduler() {
 
         // Web GPS as supplement (updates UI in real-time when app is visible)
         if (navigator.geolocation) {
-            let lastSave = 0;
+            navigator.geolocation.getCurrentPosition(
+                applyPosition,
+                () => {},
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+            );
             wid = navigator.geolocation.watchPosition(
-                p => {
-                    const newPos = {
-                        lat: p.coords.latitude,
-                        lng: p.coords.longitude,
-                        accuracy: p.coords.accuracy ?? null,
-                        updatedAt: new Date().toISOString(),
-                        userId: authUser.id,
-                        familyId,
-                    };
-                    setChildPos(newPos);
-                    if (realtimeChannel.current && realtimeChannel.current.state === "joined") {
-                        realtimeChannel.current.send({ type: "broadcast", event: "child_location", payload: newPos });
-                    }
-                    const now = Date.now();
-                    if (now - lastSave >= 10000) {
-                        lastSave = now;
-                        saveChildLocation(authUser.id, familyId, newPos.lat, newPos.lng);
-                    }
-                    if (now - lastHistorySave >= 60000) {
-                        lastHistorySave = now;
-                        saveLocationHistory(authUser.id, familyId, newPos.lat, newPos.lng);
-                    }
-                },
+                applyPosition,
                 (err) => {
                     if (err.code === 1) showNotif("📍 위치 권한이 꺼져 있어요. 설정에서 켜주세요!", "error");
                     else if (err.code === 2) showNotif("📍 위치를 찾을 수 없어요. GPS를 확인해주세요", "error");
                     else showNotif("📍 위치 추적 오류가 발생했어요", "error");
                 },
-                { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+                { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
             );
         }
 
@@ -5934,20 +6334,67 @@ export default function KidsScheduler() {
         };
     }, [myRole, authUser?.id, familyId, showNotif]);
 
+    // ── Child: resolve the device's current GPS coordinate to a precise label ──
+    useEffect(() => {
+        if (myRole !== "child" || !childPos) return;
+
+        const fallback = {
+            label: formatLatLngLabel(childPos) || "정확한 위치 확인 중",
+            precise: false,
+            updatedAt: childPos.updatedAt || new Date().toISOString(),
+        };
+
+        if (!mapReady || !window.kakao?.maps?.services?.Geocoder) {
+            return;
+        }
+
+        if (lastGeocodePosRef.current) {
+            const moved = haversineM(childPos.lat, childPos.lng, lastGeocodePosRef.current.lat, lastGeocodePosRef.current.lng);
+            if (moved < 20 && childLocationInfo.label) return;
+        }
+        lastGeocodePosRef.current = { lat: childPos.lat, lng: childPos.lng };
+
+        let cancelled = false;
+        const geocoder = new window.kakao.maps.services.Geocoder();
+        geocoder.coord2Address(childPos.lng, childPos.lat, (result, status) => {
+            if (cancelled) return;
+            if (status === window.kakao.maps.services.Status.OK && result?.[0]) {
+                const resolved = extractPreciseAddressFromKakao(result[0], childPos);
+                setChildLocationInfo({
+                    ...resolved,
+                    updatedAt: childPos.updatedAt || new Date().toISOString(),
+                });
+                return;
+            }
+            setChildLocationInfo(fallback);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [myRole, childPos, mapReady, childLocationInfo.label]);
+
     // ── Parent: fetch child's last known location from DB ─────────────────────
     useEffect(() => {
         if (myRole !== "parent" || !familyId) return;
         let cancelled = false;
+        const children = familyInfo?.members?.filter(m => m.role === "child") || [];
         const load = () => {
             fetchChildLocations(familyId).then(locs => {
                 if (cancelled || !locs.length) return;
-                updateChildLocationsFromRows(locs);
+                const latest = locs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+                setChildPos({ lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at });
+                const positions = locs.map(loc => {
+                    const member = children.find(c => c.user_id === loc.user_id);
+                    return { user_id: loc.user_id, name: member?.name || "아이", emoji: member?.emoji || "🐰", lat: loc.lat, lng: loc.lng, updatedAt: loc.updated_at };
+                });
+                setAllChildPositions(positions);
             }).catch(err => console.error("[fetchChildLocations] failed:", err));
         };
         load();
         const iv = setInterval(load, 10000);
         return () => { cancelled = true; clearInterval(iv); };
-    }, [myRole, familyId, updateChildLocationsFromRows]);
+    }, [myRole, familyId, familyInfo]);
 
     // ── Parent: fetch today's location trail ─────────────────────────────────────
     useEffect(() => {
@@ -5990,6 +6437,8 @@ export default function KidsScheduler() {
                 addAlert(`⚠️ ${childName}이(가) 위험지역 '${zone.name}' 근처에 있어요! (${Math.round(dist)}m)`, "parent");
                 sendInstantPush({
                     action: "parent_alert", familyId, senderUserId: authUser?.id,
+                    severity: "emergency",
+                    alertType: "danger_zone",
                     title: `⚠️ 위험지역 접근 알림`,
                     message: `${childName}이(가) '${zone.name}' 근처(${Math.round(dist)}m)에 있어요!`,
                 });
@@ -6066,8 +6515,10 @@ export default function KidsScheduler() {
                                 setDepartedAlerts(prev => new Set([...prev, ev.id]));
                                 if (isParent) addAlert(`🚨 긴급! 혜니가 ${ev.title} 장소를 벗어났어요!`, "emergency");
                                 sendInstantPush({
-                                    action: "new_event",
+                                    action: "parent_alert",
                                     familyId, senderUserId: authUser?.id,
+                                    severity: "emergency",
+                                    alertType: "danger_exit",
                                     title: `🚨 이탈 알림`,
                                     message: `혜니가 ${ev.title} 장소에서 벗어났어요! 확인해주세요.`,
                                 });
@@ -6145,23 +6596,29 @@ export default function KidsScheduler() {
                             action: "parent_alert",
                             familyId,
                             senderUserId: authUser.id,
+                            severity: "info",
+                            alertType: "arrived",
                             title: `✅ ${ev.emoji} 도착 확인`,
                             message: `${ev.emoji} ${ev.title}에 잘 도착했어요! (${ev.time})`,
                         });
                     }
 
-                    if (isParent && globalNotif.parentEnabled && !systemNotificationsActive) {
+                    if (isParent && globalNotif.parentEnabled) {
                         addAlert(`✅ 혜니가 ${ev.title}에 잘 도착했어요 (${ev.time})`, "parent");
-                        showArrivalNotification(ev, "도착 확인", myRole);
+                        if (!systemNotificationsActive) {
+                            showArrivalNotification(ev, "도착 확인", myRole);
+                        }
                     }
                     return;
                 }
 
                 if (myRole === "child" && familyId && authUser?.id) {
                     sendInstantPush({
-                        action: "new_event",
+                        action: "parent_alert",
                         familyId,
                         senderUserId: authUser.id,
+                        severity: "emergency",
+                        alertType: "not_arrived",
                         title: `🚨 미도착 긴급 알림`,
                         message: `${ev.emoji} ${ev.title} 시작 시간인데 아직 도착하지 않았어요! (${ev.time})`,
                     });
@@ -6171,11 +6628,16 @@ export default function KidsScheduler() {
                     setFiredEmergencies(prev => new Set([...prev, ev.id]));
                 }
 
-                if (isParent && globalNotif.parentEnabled && !systemNotificationsActive) {
+                if (isParent && globalNotif.parentEnabled) {
                     const shortAddr = (ev.location.address || "").split(" ").slice(0, 4).join(" ");
-                    setEmergencies(prev => [...prev, { id: Date.now() + Math.random(), emoji: ev.emoji, title: ev.title, time: ev.time, location: shortAddr, eventId: ev.id }]);
+                    setEmergencies(prev => {
+                        if (prev.some(item => item.eventId === ev.id)) return prev;
+                        return [...prev, { id: Date.now() + Math.random(), emoji: ev.emoji, title: ev.title, time: ev.time, location: shortAddr, eventId: ev.id }];
+                    });
                     addAlert(`🚨 긴급! ${ev.emoji} ${ev.title} 시간인데 아직 미도착!`, "emergency");
-                    showEmergencyNotification(ev);
+                    if (!systemNotificationsActive) {
+                        showEmergencyNotification(ev);
+                    }
                 }
             });
         };
@@ -6598,90 +7060,58 @@ export default function KidsScheduler() {
         }
     };
 
-    const saveDailySuppliesForSelectedDate = async (content) => {
-        if (!familyId || !authUser || !isParent) return;
-        const previous = dailySupplies[dateKey] || "";
-        const nextContent = content || "";
-        setDailySupplies(prev => {
-            const updated = { ...prev, [dateKey]: nextContent };
-            cacheDailySupplies(updated);
-            return updated;
-        });
-        try {
-            await upsertDailySupplies(familyId, dateKey, nextContent, authUser.id);
-            showNotif("🎒 오늘의 준비물이 저장됐어요!");
-        } catch (err) {
-            setDailySupplies(prev => {
-                const updated = { ...prev, [dateKey]: previous };
-                cacheDailySupplies(updated);
-                return updated;
-            });
-            throw err;
-        }
-    };
-
     const prevMonth = () => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); } else setCurrentMonth(m => m - 1); };
     const nextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); } else setCurrentMonth(m => m + 1); };
     const getDays = getDIM(currentYear, currentMonth);
     const firstDay = getFD(currentYear, currentMonth);
     const getEvs = (d) => events[`${currentYear}-${currentMonth}-${d}`] || [];
     const selectedEvs = events[dateKey] || [];
-    const findNextRouteEvent = useCallback((eventMap) => {
-        const nowMs = Date.now();
-        const candidates = [];
-        for (const [dk, dayEvents] of Object.entries(eventMap || {})) {
-            const [year, month, day] = dk.split("-").map(Number);
-            if (![year, month, day].every(Number.isFinite)) continue;
-            for (const ev of dayEvents || []) {
-                if (!ev?.location || !ev.time) continue;
-                const [hour, minute] = String(ev.time).split(":").map(Number);
-                if (![hour, minute].every(Number.isFinite)) continue;
-                const startsAt = new Date(year, month, day, hour, minute).getTime();
-                candidates.push({ ev, startsAt });
-            }
-        }
-        if (candidates.length === 0) return null;
-        candidates.sort((a, b) => a.startsAt - b.startsAt);
-        return (candidates.find(item => item.startsAt >= nowMs) || candidates[0]).ev;
-    }, []);
-    const nextRouteEvent = useMemo(() => findNextRouteEvent(events), [events, findNextRouteEvent]);
-    const openNextRouteFromChild = useCallback(async () => {
-        let target = nextRouteEvent;
-        if (!target && familyId) {
-            try {
-                const freshEvents = await fetchEvents(familyId);
-                setEvents(freshEvents);
-                target = findNextRouteEvent(freshEvents);
-            } catch (err) {
-                console.error("[route-mode] refresh failed", err);
-            }
-        }
-        if (!target) {
-            showNotif("위치가 등록된 다음 일정이 없어요", "child");
-            return;
-        }
-        setRouteEvent(target);
-    }, [familyId, findNextRouteEvent, nextRouteEvent, showNotif]);
-    const cleanPhoneNumber = (num) => String(num || "").replace(/[^0-9+]/g, "");
-    const childCallTarget = (() => {
-        const mom = cleanPhoneNumber(parentPhones.mom);
-        const dad = cleanPhoneNumber(parentPhones.dad);
-        if (mom.length >= 8) return { label: "엄마", number: mom };
-        if (dad.length >= 8) return { label: "아빠", number: dad };
-        return null;
-    })();
 
     // CSS helpers
-    const inputSt = { width: "100%", padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, color: "#374151", fontFamily: FF, outline: "none", boxSizing: "border-box" };
-    const labelSt = { fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" };
-    const cardSt = { width: "100%", maxWidth: 420, background: "white", borderRadius: 28, boxShadow: "0 8px 32px rgba(232,121,160,0.12)", padding: 20, marginBottom: 14 };
-    const primBtn = { width: "100%", padding: "15px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 20, fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: FF, marginTop: 16 };
-    const secBtn = { width: "100%", padding: "12px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 20, fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8, fontFamily: FF };
+    const contentMaxWidth = isParent ? 720 : 460;
+    const inputSt = makeInputStyle();
+    const labelSt = { fontSize: 12, fontWeight: 800, color: DESIGN.colors.muted, marginBottom: 6, display: "block" };
+    const cardSt = makeCardStyle({ width: "100%", maxWidth: contentMaxWidth, padding: 20, marginBottom: 14 });
+    const primBtn = makePrimaryButtonStyle({ marginTop: 16 });
+    const secBtn = makeSecondaryButtonStyle({ marginTop: 8, background: "#F8FAFC" });
+    const todayDateKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+    const todayEvents = events[todayDateKey] || [];
+    const todayDateLabel = today.toLocaleDateString("ko-KR", { weekday: "long", month: "long", day: "numeric" });
+    const nowMinutes = today.getHours() * 60 + today.getMinutes();
+    const nextTodayEvent = todayEvents.find((event) => {
+        const [hour, minute] = String(event.time || "00:00").split(":").map(Number);
+        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return true;
+        return (hour * 60 + minute) >= nowMinutes;
+    }) || todayEvents[0] || null;
+    const childHeroRemaining = todayEvents.filter((event) => {
+        const [hour, minute] = String(event.time || "00:00").split(":").map(Number);
+        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return true;
+        return (hour * 60 + minute) >= nowMinutes;
+    }).length;
+    const heroChildrenText = pairedChildren.length > 0
+        ? pairedChildren.map(child => child.name || "아이").join(" · ")
+        : (familyInfo?.myName || "가족");
+    const heroTitle = isParent ? "오늘의 가족" : "오늘은 뭐해?";
+    const childCurrentLocationLabel = childPos
+        ? (childLocationInfo.label || formatLatLngLabel(childPos) || "정확한 위치 확인 중")
+        : "GPS 위치 확인 중";
+    const childCurrentLocationMeta = childPos
+        ? [
+            childLocationInfo.precise ? "도로명 기준" : "좌표 기준",
+            childPos.updatedAt ? `${getRelativeTime(childPos.updatedAt)} 업데이트` : "",
+        ].filter(Boolean).join(" · ")
+        : "위치 권한을 허용하면 현재 위치를 바로 확인해요";
+    const heroLine = isParent
+        ? (displayChildPos ? "· 실시간 추적중" : "· 위치 연결 대기")
+        : "지금 나는 어디에 있나요?";
+    const heroSubLine = isParent
+        ? (displayChildPos ? "아이 위치가 연결되어 있어요" : "아이 위치를 기다리고 있어요")
+        : childCurrentLocationLabel;
 
     const TABS = [["calendar", "📅 달력"], ["maplist", "📍 장소"]];
     const quickPanelTone = isParent
-        ? { bg: "linear-gradient(180deg,#FFF9FC 0%, #FFF2F7 100%)", border: "rgba(244,114,182,0.14)" }
-        : { bg: "linear-gradient(180deg,#FFFDF8 0%, #FFF7ED 100%)", border: "rgba(251,146,60,0.16)" };
+        ? { bg: "rgba(255,255,255,0.88)", border: DESIGN.colors.pinkLine, color: DESIGN.colors.brand }
+        : { bg: "rgba(255,255,255,0.88)", border: "#FED7AA", color: "#C2410C" };
     const quickModeActions = TABS.map(([view, label]) => {
         const [icon, text] = label.split(" ");
         return {
@@ -6707,18 +7137,15 @@ export default function KidsScheduler() {
             icon: "📍",
             label: "우리아이",
             ariaLabel: "📍 우리아이",
-            palette: { bg: "linear-gradient(135deg,#ECFEFF,#CFFAFE)", color: "#0E7490", shadow: "rgba(14,116,144,0.15)" },
-            onClick: () => {
-                setShowChildTracker(true);
-                requestChildLocationRefresh();
-            },
+            palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: "#1D4ED8", shadow: "rgba(59,130,246,0.16)" },
+            onClick: () => setShowChildTracker(true),
         } : null,
         isParent ? {
             key: "academy",
             icon: "🏫",
             label: "학원관리",
             ariaLabel: "🏫 학원관리",
-            palette: { bg: "linear-gradient(135deg,#EEF2FF,#E0E7FF)", color: "#4338CA", shadow: "rgba(99,102,241,0.14)" },
+            palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(245,158,11,0.18)" },
             onClick: () => {
                 if (academies.length === 0 && !entitlement.canUse(FEATURES.ACADEMY_SCHEDULE)) {
                     openFeatureLock(FEATURES.ACADEMY_SCHEDULE);
@@ -6732,9 +7159,7 @@ export default function KidsScheduler() {
             icon: "🏆",
             label: "스티커",
             ariaLabel: "🏆 스티커",
-            palette: isParent
-                ? { bg: "linear-gradient(135deg,#ECFDF5,#D1FAE5)", color: "#047857", shadow: "rgba(16,185,129,0.14)" }
-                : { bg: "linear-gradient(135deg,#FFF7ED,#FFEDD5)", color: "#C2410C", shadow: "rgba(249,115,22,0.16)" },
+            palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(251,191,36,0.16)" },
             onClick: () => {
                 setShowStickerBook(true);
                 if (familyId) {
@@ -6743,42 +7168,20 @@ export default function KidsScheduler() {
                 }
             },
         },
-        isParent ? {
+        {
             key: "notifications",
             icon: "🔔",
             label: "일정알림",
             ariaLabel: "🔔 일정알림",
-            palette: { bg: "linear-gradient(135deg,#F0F9FF,#E0F2FE)", color: "#0369A1", shadow: "rgba(14,165,233,0.14)" },
+            palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: DESIGN.colors.parentDeep, shadow: "rgba(37,99,235,0.16)" },
             onClick: () => setShowNotifSettings(true),
-        } : null,
-        !isParent ? {
-            key: "direct-call",
-            icon: "📞",
-            label: "전화 바로걸기",
-            ariaLabel: "📞 전화 바로걸기",
-            palette: { bg: "linear-gradient(135deg,#ECFDF5,#CCFBF1)", color: "#0F766E", shadow: "rgba(20,184,166,0.16)" },
-            onClick: () => {
-                if (!childCallTarget) {
-                    showNotif("부모님 연락처가 아직 없어요", "child");
-                    return;
-                }
-                window.location.href = `tel:${childCallTarget.number}`;
-            },
-        } : null,
-        !isParent ? {
-            key: "route-mode",
-            icon: "🧭",
-            label: "길찾기 모드",
-            ariaLabel: "🧭 길찾기 모드",
-            palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: "#1D4ED8", shadow: "rgba(59,130,246,0.16)" },
-            onClick: openNextRouteFromChild,
-        } : null,
+        },
         isParent ? {
             key: "subscription",
             icon: "💎",
             label: "구독",
             ariaLabel: "💎 구독",
-            palette: { bg: "linear-gradient(135deg,#F5F3FF,#EDE9FE)", color: "#7C3AED", shadow: "rgba(139,92,246,0.16)" },
+            palette: { bg: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: DESIGN.colors.brand, shadow: "rgba(190,24,93,0.14)" },
             onClick: () => setShowSubscriptionSettings(true),
         } : null,
         isParent ? {
@@ -6786,7 +7189,7 @@ export default function KidsScheduler() {
             icon: "📞",
             label: "연락처",
             ariaLabel: "📞 연락처",
-            palette: { bg: "linear-gradient(135deg,#FFF1F2,#FFE4E6)", color: "#BE123C", shadow: "rgba(244,63,94,0.14)" },
+            palette: { bg: "linear-gradient(135deg,#FDF2F8,#FCE7F3)", color: "#BE185D", shadow: "rgba(236,72,153,0.15)" },
             onClick: () => setShowPhoneSettings(true),
         } : null,
         isParent ? {
@@ -6794,7 +7197,7 @@ export default function KidsScheduler() {
             icon: "🎙️",
             label: "주변소리",
             ariaLabel: "🎙️ 주변소리",
-            palette: { bg: "linear-gradient(135deg,#F8FAFC,#E2E8F0)", color: "#475569", shadow: "rgba(71,85,105,0.13)" },
+            palette: { bg: "linear-gradient(135deg,#FEF2F2,#FEE2E2)", color: "#DC2626", shadow: "rgba(239,68,68,0.15)" },
             onClick: () => {
                 if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
                     openFeatureLock(FEATURES.REMOTE_AUDIO);
@@ -6808,17 +7211,17 @@ export default function KidsScheduler() {
             icon: "⚠️",
             label: "위험지역",
             ariaLabel: "⚠️ 위험지역",
-            palette: { bg: "linear-gradient(135deg,#FFF7ED,#FFEDD5)", color: "#C2410C", shadow: "rgba(249,115,22,0.14)" },
+            palette: { bg: "linear-gradient(135deg,#FFF1F2,#FFE4E6)", color: "#E11D48", shadow: "rgba(244,63,94,0.15)" },
             onClick: () => setShowDangerZones(true),
         } : null,
-        isParent ? {
+        {
             key: "feedback",
             icon: "💌",
             label: "피드백",
             ariaLabel: "💌 피드백 보내기",
-            palette: { bg: "linear-gradient(135deg,#F0FDFA,#CCFBF1)", color: "#0F766E", shadow: "rgba(20,184,166,0.14)" },
+            palette: { bg: "linear-gradient(135deg,#FDF2F8,#FCE7F3)", color: "#BE185D", shadow: "rgba(244,114,182,0.16)" },
             onClick: () => setShowFeedbackModal(true),
-        } : null,
+        },
     ].filter(Boolean);
     const quickUtilityColumns = isParent ? "repeat(4, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))";
     const renderQuickAction = (action, type = "utility") => {
@@ -6830,47 +7233,33 @@ export default function KidsScheduler() {
                 aria-label={action.ariaLabel}
                 onClick={action.onClick}
                 style={{
-                    border: "none",
+                    border: isMode ? "none" : `1px solid ${DESIGN.colors.pinkLine}`,
                     cursor: "pointer",
                     fontFamily: FF,
-                    borderRadius: isMode ? 18 : 20,
+                    borderRadius: isMode ? DESIGN.radius.lg : DESIGN.radius.xl,
                     minHeight: isMode ? 68 : (isParent ? 82 : 88),
                     padding: isMode ? "12px 10px" : (isParent ? "12px 6px 10px" : "14px 8px 12px"),
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: isMode ? 4 : (isParent ? 7 : 6),
+                    gap: isMode ? 4 : 6,
                     textAlign: "center",
                     whiteSpace: "normal",
                     lineHeight: 1.18,
                     background: isMode
-                        ? (action.active ? "linear-gradient(135deg,#E879A0,#BE185D)" : "rgba(255,255,255,0.88)")
+                        ? (action.active ? DESIGN.gradients.primary : "rgba(255,255,255,0.88)")
                         : action.palette.bg,
-                    color: isMode ? (action.active ? "white" : "#6B7280") : action.palette.color,
+                    color: isMode ? (action.active ? "white" : DESIGN.colors.muted) : action.palette.color,
                     boxShadow: isMode
                         ? (action.active ? "0 10px 20px rgba(232,121,160,0.22)" : "inset 0 0 0 1px rgba(226,232,240,0.85)")
-                        : `0 10px 22px ${action.palette.shadow}, inset 0 0 0 1px rgba(255,255,255,0.62)`,
+                        : `0 10px 22px ${action.palette.shadow}`,
                 }}
             >
-                <span
-                    aria-hidden="true"
-                    style={{
-                        width: isMode ? "auto" : (isParent ? 34 : 36),
-                        height: isMode ? "auto" : (isParent ? 34 : 36),
-                        borderRadius: isMode ? 0 : 13,
-                        background: isMode ? "transparent" : "rgba(255,255,255,0.72)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: isMode ? (isParent ? 18 : 20) : (isParent ? 19 : 21),
-                        lineHeight: 1,
-                        boxShadow: isMode ? "none" : "inset 0 0 0 1px rgba(255,255,255,0.65)",
-                    }}
-                >
+                <span aria-hidden="true" style={{ fontSize: isMode ? (isParent ? 18 : 20) : (isParent ? 20 : 22), lineHeight: 1 }}>
                     {action.icon}
                 </span>
-                <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 12), fontWeight: action.active ? 800 : 700, letterSpacing: 0, wordBreak: "keep-all" }}>
+                <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 12), fontWeight: action.active ? 800 : 700, letterSpacing: -0.2, wordBreak: "keep-all" }}>
                     {action.label}
                 </span>
             </button>
@@ -6909,19 +7298,22 @@ export default function KidsScheduler() {
     };
 
     const handleJoinAsParent = async (code) => {
-        if (!authUser || !code.trim()) return;
+        const normalizedCode = normalizePairCodeInput(code);
+        if (!authUser) throw new Error("로그인 후 다시 시도해 주세요");
+        if (!normalizedCode) throw new Error("연동 코드를 정확히 입력해주세요");
+
         try {
-            await joinFamilyAsParent(code.trim(), authUser.id, authUser.user_metadata?.name || "부모");
+            await joinFamilyAsParent(normalizedCode, authUser.id, authUser.user_metadata?.name || "부모");
             const fam = await getMyFamily(authUser.id);
-            if (fam) {
-                setFamilyInfo(fam);
-                setMyRole(fam.myRole);
-                setShowParentSetup(false);
-                showNotif("가족에 합류했어요! 🎉");
-            }
+            if (!fam) throw new Error("합류 후 가족 정보를 불러오지 못했어요. 앱을 새로고침해 주세요.");
+            setFamilyInfo(fam);
+            setMyRole(fam.myRole);
+            setShowParentSetup(false);
+            showNotif("가족에 합류했어요! 🎉");
         } catch (err) {
             console.error("[joinAsParent]", err);
             showNotif("합류 실패: 코드를 확인해주세요", "error");
+            throw err;
         }
     };
 
@@ -6934,7 +7326,7 @@ export default function KidsScheduler() {
 
     // ── Render ─────────────────────────────────────────────────────────────────
     if (authLoading) return (
-        <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#FFF0F7,#E8F4FD)", fontFamily: FF }}>
+        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF }}>
             <div style={{ textAlign: "center" }}>
                 <AppBrandLogo size={84} radius={26} />
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#E879A0", marginTop: 16 }}>혜니캘린더</div>
@@ -7149,7 +7541,7 @@ export default function KidsScheduler() {
     );
 
     return (
-        <div style={{ minHeight: "100dvh", background: "linear-gradient(135deg,#FFF0F7 0%,#E8F4FD 50%,#FFF8E7 100%)", fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 28px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)", position: "relative", overflow: "hidden", width: "100%", boxSizing: "border-box" }}>
+        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 28px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)", position: "relative", overflowX: "hidden", overflowY: "auto", width: "100%", boxSizing: "border-box" }}>
             <style>{`
         *,*::before,*::after{box-sizing:border-box}
         html,body,#root{margin:0;padding:0;width:100%;min-height:100vh}
@@ -7163,9 +7555,9 @@ export default function KidsScheduler() {
         @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
         @keyframes emergencyPulse{0%{transform:scale(0.9);opacity:0}100%{transform:scale(1);opacity:1}}
         @keyframes shake{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
-        @media(hover:hover){button:hover{transform:scale(1.03)!important}}
-        button:active{transform:scale(0.97)!important}
-        input:focus,textarea:focus{border-color:#F9A8D4!important}
+        @media(hover:hover){button:hover{filter:brightness(0.99)}}
+        button:active{transform:scale(0.98)!important}
+        input:focus,textarea:focus{border-color:#E879A0!important;box-shadow:0 0 0 4px rgba(232,121,160,0.12)}
         ::-webkit-scrollbar{display:none}
         *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
       `}</style>
@@ -7175,8 +7567,8 @@ export default function KidsScheduler() {
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "#FEE2E2" : notification.type === "child" ? "#EDE9FE" : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
-                    color: notification.type === "error" ? "#DC2626" : notification.type === "child" ? "#6D28D9" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
+                    background: notification.type === "error" ? "#FEE2E2" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
+                    color: notification.type === "error" ? "#DC2626" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {notification.msg}
@@ -7200,9 +7592,9 @@ export default function KidsScheduler() {
 
             {/* AI Alert Panel (parent only) */}
             {showAlertPanel && isParent && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 500, fontFamily: FF, paddingTop: 60 }}
+                <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 500, fontFamily: FF, paddingTop: 60 }}
                     onClick={e => { if (e.target === e.currentTarget) setShowAlertPanel(false); }}>
-                    <div style={{ background: "white", borderRadius: 24, width: "92%", maxWidth: 420, maxHeight: "75vh", overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+                    <div style={makeCardStyle({ width: "92%", maxWidth: 420, maxHeight: "75vh", overflow: "hidden" })}>
                         <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
                                 <div style={{ fontSize: 17, fontWeight: 900, color: "#1F2937" }}>🤖 AI 알림</div>
@@ -7277,7 +7669,7 @@ export default function KidsScheduler() {
                         <div style={{ padding: "16px 18px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                                 <div style={{ fontSize: 11, fontWeight: 800, color: "#10B981", background: "#D1FAE5", padding: "4px 10px", borderRadius: 8 }}>{voicePreview.aiParsed ? "🤖 AI 저장 완료" : "🎤 음성 저장 완료"}</div>
-                                {voicePreview.academyMatched && <div style={{ fontSize: 11, fontWeight: 700, color: "#7C3AED", background: "#EDE9FE", padding: "4px 10px", borderRadius: 8 }}>🏫 학원 자동 매칭</div>}
+                                {voicePreview.academyMatched && <div style={{ fontSize: 11, fontWeight: 700, color: DESIGN.colors.parentDeep, background: DESIGN.colors.parentPale, padding: "4px 10px", borderRadius: 8 }}>🏫 학원 자동 매칭</div>}
                                 <div style={{ fontSize: 11, color: "#9CA3AF", flex: 1, textAlign: "right" }}>8초 후 닫힘</div>
                             </div>
                             <div style={{ background: voicePreview.ev.bg, borderRadius: 16, padding: "12px 14px", borderLeft: `4px solid ${voicePreview.ev.color}`, marginBottom: 12 }}>
@@ -7295,7 +7687,7 @@ export default function KidsScheduler() {
                                 <button onClick={() => { setVoicePreview(null); setCurrentYear(parseInt(voicePreview.dateKey.split("-")[0])); setCurrentMonth(parseInt(voicePreview.dateKey.split("-")[1])); setSelectedDate(parseInt(voicePreview.dateKey.split("-")[2])); setActiveView("calendar"); }}
                                     style={{ flex: 1, padding: "11px", background: "linear-gradient(135deg,#10B981,#059669)", color: "white", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✅ 달력에서 보기</button>
                                 <button onClick={() => { setVoicePreview(null); setNewTitle(voicePreview.ev.title); setNewTime(voicePreview.ev.time); setNewEndTime(voicePreview.ev.endTime || ""); setNewCategory(voicePreview.ev.category); setNewLocation(voicePreview.ev.location); setEvents(prev => ({ ...prev, [voicePreview.dateKey]: (prev[voicePreview.dateKey] || []).filter(e => e.id !== voicePreview.ev.id) })); setShowAddModal(true); }}
-                                    style={{ flex: 1, padding: "11px", background: "#EDE9FE", color: "#7C3AED", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✏️ 수정</button>
+                                    style={{ flex: 1, padding: "11px", background: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep, border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✏️ 수정</button>
                                 <button onClick={undoVoiceEvent} style={{ padding: "11px 14px", background: "#FEE2E2", color: "#DC2626", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>↩</button>
                             </div>
                         </div>
@@ -7308,7 +7700,7 @@ export default function KidsScheduler() {
 
             {/* ── Background location permission banner (child mode) ── */}
             {isNativeApp && !isParent && !bgLocationGranted && (
-                <div style={{ width: "100%", maxWidth: 420, marginBottom: 8, padding: "14px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FEF2F2, #FEE2E2)", border: "1.5px solid #FECACA", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(239,68,68,0.12)" }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "14px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FEF2F2, #FEE2E2)", border: "1.5px solid #FECACA", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(239,68,68,0.12)" }}>
                     <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📍</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 800, color: "#DC2626" }}>위치 권한을 "항상 허용"으로 바꿔주세요</div>
@@ -7334,7 +7726,7 @@ export default function KidsScheduler() {
 
             {/* ── Push notification permission banner ── */}
             {isNativeApp && !isParent && nativeSetupAction && (
-                <div style={{ width: "100%", maxWidth: 420, marginBottom: 8, padding: "12px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FFF7ED, #FEF3C7)", border: "1px solid #FCD34D", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(245,158,11,0.12)" }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "12px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FFF7ED, #FEF3C7)", border: "1px solid #FCD34D", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(245,158,11,0.12)" }}>
                     <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🔔</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 800, color: "#9A3412" }}>앱이 꺼져도 알림이 바로 보이도록 설정이 더 필요해요</div>
@@ -7353,7 +7745,7 @@ export default function KidsScheduler() {
                 </div>
             )}
             {!isNativeApp && pushPermission !== "granted" && pushPermission !== "unsupported" && pushPermission !== "denied" && (
-                <div style={{ width: "100%", maxWidth: 420, marginBottom: 8, padding: "10px 14px", borderRadius: 14, background: "linear-gradient(135deg, #DBEAFE, #EDE9FE)", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "10px 14px", borderRadius: 14, background: "linear-gradient(135deg, #DBEAFE, #EFF6FF)", display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontSize: 22 }}>🔔</span>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#1E40AF" }}>푸시 알림을 켜주세요!</div>
@@ -7374,7 +7766,7 @@ export default function KidsScheduler() {
                 </div>
             )}
             {!isNativeApp && pushPermission === "denied" && (
-                <div style={{ width: "100%", maxWidth: 420, marginBottom: 8, padding: "8px 14px", borderRadius: 14, background: "#FEF3C7", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "8px 14px", borderRadius: 14, background: "#FEF3C7", display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 18 }}>🔕</span>
                     <div style={{ fontSize: 11, color: "#92400E", fontWeight: 600 }}>푸시 알림이 차단됨 — 브라우저 설정에서 이 사이트의 알림을 허용해주세요</div>
                 </div>
@@ -7388,14 +7780,14 @@ export default function KidsScheduler() {
             />
 
             {/* ── Header Row 1: Logo + 꾹 + 로그아웃 ── */}
-            <div style={{ width: "100%", maxWidth: 420, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "10px 12px", background: "rgba(255,255,255,0.88)", border: `1px solid ${DESIGN.colors.pinkLine}`, borderRadius: DESIGN.radius.xl, boxShadow: DESIGN.shadow.soft }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
                         <AppBrandLogo size={isParent ? 38 : 44} radius={isParent ? 12 : 14} shadow={false} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "#E879A0", letterSpacing: 0, whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
+                            <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: DESIGN.colors.pinkText, whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
                             {isParent && (
                                 <span onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
                                     style={{ fontSize: 9, padding: "2px 6px", borderRadius: 5, fontWeight: 700, cursor: "pointer", background: "#DBEAFE", color: "#1D4ED8", whiteSpace: "nowrap", flexShrink: 0 }}>
@@ -7487,7 +7879,6 @@ export default function KidsScheduler() {
                                 setEvents({});
                                 setAcademies([]);
                                 setMemos({});
-                                setDailySupplies({});
                                 setParentPhones({ mom: "", dad: "" });
                                 showNotif("로그아웃 되었어요");
                             } catch (err) {
@@ -7502,22 +7893,137 @@ export default function KidsScheduler() {
                 </div>
             </div>
 
+            {activeView === "calendar" && (
+                <section
+                    aria-label={heroTitle}
+                    style={{
+                        width: "100%",
+                        maxWidth: contentMaxWidth,
+                        background: DESIGN.gradients.hero,
+                        padding: "20px 22px 24px",
+                        borderRadius: DESIGN.radius.hero,
+                        color: "white",
+                        position: "relative",
+                        overflow: "hidden",
+                        marginBottom: 18,
+                        boxShadow: DESIGN.shadow.elevated,
+                        minHeight: isParent ? 168 : 246,
+                    }}
+                >
+                    <div
+                        aria-hidden="true"
+                        style={{
+                            position: "absolute",
+                            top: -30,
+                            right: -30,
+                            width: 160,
+                            height: 160,
+                            borderRadius: "50%",
+                            background: "radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%)",
+                        }}
+                    />
+                    <div
+                        aria-hidden="true"
+                        style={{
+                            position: "absolute",
+                            right: 16,
+                            bottom: -20,
+                            width: 100,
+                            height: 100,
+                            borderRadius: 28,
+                            transform: "rotate(-8deg)",
+                            boxShadow: "0 8px 24px rgba(196,68,122,0.45), 0 0 0 5px rgba(255,255,255,0.4)",
+                            overflow: "hidden",
+                            background: "rgba(255,255,255,0.18)",
+                        }}
+                    >
+                        <AppBrandLogo size={100} radius={28} shadow={false} />
+                    </div>
+                    <div style={{ position: "relative", zIndex: 1, maxWidth: isParent ? 250 : 240 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.85, marginBottom: 6 }}>
+                            {todayDateLabel}
+                        </div>
+                        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, lineHeight: 1.15, maxWidth: 220 }}>
+                            {isParent ? `${heroChildrenText},` : "오늘은"}
+                            <br />
+                            {isParent ? `오늘 일정 ${todayEvents.length}개!` : "재밌는 하루!"}
+                        </h1>
+                        <div style={{ marginTop: 14, fontSize: 13, fontWeight: 700, opacity: 0.92 }}>
+                            {heroLine}
+                        </div>
+                        <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, maxWidth: 240 }}>
+                            <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(255,255,255,0.22)", fontSize: 11, fontWeight: 800 }}>
+                                {heroSubLine}
+                            </span>
+                            {!isParent && (
+                                <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(255,255,255,0.22)", fontSize: 11, fontWeight: 800 }}>
+                                    남은 일정 {childHeroRemaining}개
+                                </span>
+                            )}
+                        </div>
+                        {!isParent && (
+                            <div style={{
+                                marginTop: 10,
+                                padding: "10px 12px",
+                                borderRadius: 18,
+                                background: "rgba(255,255,255,0.20)",
+                                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.22)",
+                                maxWidth: 270,
+                            }}>
+                                <div style={{ fontSize: 11, fontWeight: 900, opacity: 0.9, marginBottom: 4 }}>
+                                    지금 나는 어디에 있나요?
+                                </div>
+                                <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.35, wordBreak: "keep-all", overflowWrap: "anywhere" }}>
+                                    {childCurrentLocationLabel}
+                                </div>
+                                <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.82, lineHeight: 1.4, marginTop: 4 }}>
+                                    {childCurrentLocationMeta}
+                                </div>
+                            </div>
+                        )}
+                        {!isParent && nextTodayEvent?.location && (
+                            <button
+                                type="button"
+                                onClick={() => setRouteEvent(nextTodayEvent)}
+                                style={{
+                                    marginTop: 14,
+                                    border: "none",
+                                    borderRadius: 18,
+                                    padding: "10px 14px",
+                                    background: "rgba(255,255,255,0.94)",
+                                    color: DESIGN.colors.pinkText,
+                                    fontSize: 12,
+                                    fontWeight: 900,
+                                    cursor: "pointer",
+                                    boxShadow: "0 6px 16px rgba(196,68,122,0.18)",
+                                    fontFamily: FF,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    maxWidth: "100%",
+                                }}
+                            >
+                                길 안내 보기
+                            </button>
+                        )}
+                    </div>
+                </section>
+            )}
+
             {/* ── Header Row 2: Quick action buttons ── */}
-            <div style={{ width: "100%", maxWidth: 420, marginBottom: 12 }}>
+            <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 12 }}>
                 <div
                     style={{
                         background: quickPanelTone.bg,
-                        borderRadius: 28,
+                        borderRadius: DESIGN.radius.xl,
                         border: `1px solid ${quickPanelTone.border}`,
-                        boxShadow: isParent
-                            ? "0 16px 34px rgba(236,72,153,0.10)"
-                            : "0 16px 34px rgba(249,115,22,0.10)",
+                        boxShadow: DESIGN.shadow.card,
                         padding: 12,
                     }}
                 >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                         <div>
-                            <div style={{ fontSize: 11, fontWeight: 900, color: isParent ? "#BE185D" : "#C2410C", letterSpacing: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 900, color: quickPanelTone.color }}>
                                 빠른 실행
                             </div>
                             <div style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>
@@ -7529,7 +8035,7 @@ export default function KidsScheduler() {
                                 padding: "6px 10px",
                                 borderRadius: 999,
                                 background: "rgba(255,255,255,0.84)",
-                                color: isParent ? "#BE185D" : "#C2410C",
+                                color: quickPanelTone.color,
                                 fontSize: 10,
                                 fontWeight: 800,
                                 whiteSpace: "nowrap",
@@ -7552,35 +8058,64 @@ export default function KidsScheduler() {
 
             {/* ── CALENDAR VIEW ── */}
             {activeView === "calendar" && <>
-                {!isParent && (
-                    <DailySuppliesPanel
-                        value={todaySupplies}
-                        isParentMode={false}
-                        dateLabel="오늘"
-                    />
-                )}
-                <div style={cardSt}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                        <button onClick={prevMonth} style={{ width: 36, height: 36, borderRadius: "50%", background: "#FFF0F7", border: "none", fontSize: 18, cursor: "pointer", color: "#E879A0", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: "#374151" }}>{currentYear}년 {MONTHS_KO[currentMonth]}</div>
-                        <button onClick={nextMonth} style={{ width: 36, height: 36, borderRadius: "50%", background: "#FFF0F7", border: "none", fontSize: 18, cursor: "pointer", color: "#E879A0", display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
+                <div style={{ ...cardSt, padding: "18px 14px 16px", borderRadius: DESIGN.radius.xl }}>
+                    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14, padding: "0 6px" }}>
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: DESIGN.colors.pinkText }}>
+                                {currentYear}
+                            </div>
+                            <div style={{ fontSize: 28, fontWeight: 800, color: DESIGN.colors.ink, lineHeight: 1 }}>
+                                {MONTHS_KO[currentMonth]}
+                            </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={prevMonth} aria-label="이전 달" style={{ width: 36, height: 36, borderRadius: "50%", background: "white", border: "none", fontSize: 18, cursor: "pointer", color: DESIGN.colors.pinkText, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 10px rgba(247,121,168,0.15)", fontWeight: 800 }}>‹</button>
+                            <button onClick={nextMonth} aria-label="다음 달" style={{ width: 36, height: 36, borderRadius: "50%", background: "white", border: "none", fontSize: 18, cursor: "pointer", color: DESIGN.colors.pinkText, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 10px rgba(247,121,168,0.15)", fontWeight: 800 }}>›</button>
+                        </div>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
-                        {DAYS_KO.map((d, i) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, padding: "4px 0", color: i === 0 ? "#F87171" : i === 6 ? "#60A5FA" : "#9CA3AF" }}>{d}</div>)}
-                        {Array(firstDay).fill(null).map((_, i) => <div key={`e${i}`} />)}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", padding: "0 2px 6px", fontSize: 10, fontWeight: 800, textAlign: "center", color: DESIGN.colors.pinkText }}>
+                        {DAYS_KO.map((d, i) => <div key={d} style={{ padding: "4px 0", color: i === 0 ? "#F87171" : i === 6 ? DESIGN.colors.parent : DESIGN.colors.pinkText }}>{d}</div>)}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, padding: "12px 8px", background: "white", borderRadius: DESIGN.radius.xl, boxShadow: "0 6px 20px rgba(180,120,150,0.10)", border: "2px solid rgba(255,228,239,0.8)" }}>
+                        {Array(firstDay).fill(null).map((_, i) => <div key={`e${i}`} style={{ minHeight: 44 }} />)}
                         {Array(getDays).fill(null).map((_, i) => {
-                            const day = i + 1, isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
-                            const isSel = day === selectedDate, isSun = (firstDay + i) % 7 === 0, isSat = (firstDay + i) % 7 === 6;
+                            const day = i + 1;
+                            const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+                            const isSel = day === selectedDate;
+                            const isSun = (firstDay + i) % 7 === 0;
+                            const isSat = (firstDay + i) % 7 === 6;
                             const dayEvs = getEvs(day);
+                            const activeCell = isSel || isToday;
                             return (
-                                <div key={day} onClick={() => setSelectedDate(day)}
+                                <button
+                                    key={day}
+                                    type="button"
+                                    onClick={() => setSelectedDate(day)}
                                     style={{
-                                        aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 14, cursor: "pointer", transition: "all 0.15s",
-                                        background: isSel ? "#E879A0" : isToday ? "#FFF0F7" : "transparent", border: isToday && !isSel ? "2px solid #F9A8D4" : "2px solid transparent"
-                                    }}>
-                                    <span style={{ fontSize: 16, fontWeight: isSel ? 800 : 600, color: isSel ? "white" : isSun ? "#F87171" : isSat ? "#60A5FA" : "#374151" }}>{day}</span>
-                                    {dayEvs.length > 0 && <div style={{ display: "flex", gap: 3, marginTop: 2 }}>{dayEvs.slice(0, 3).map(e => <div key={e.id} style={{ width: 6, height: 6, borderRadius: "50%", background: isSel ? "rgba(255,255,255,0.8)" : e.color }} />)}</div>}
-                                </div>
+                                        minHeight: 44,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 2,
+                                        borderRadius: 12,
+                                        cursor: "pointer",
+                                        transition: "all 0.15s",
+                                        background: activeCell ? DESIGN.gradients.primary : "transparent",
+                                        border: "none",
+                                        color: activeCell ? "white" : isSun ? "#F87171" : isSat ? DESIGN.colors.parent : DESIGN.colors.ink,
+                                        fontFamily: FF,
+                                    }}
+                                >
+                                    <span style={{ fontSize: 12.5, fontWeight: 700 }}>{day}</span>
+                                    {dayEvs.length > 0 && (
+                                        <span style={{ display: "flex", gap: 2, marginTop: 1 }}>
+                                            {dayEvs.slice(0, 3).map(e => (
+                                                <span key={e.id} style={{ width: 4, height: 4, borderRadius: "50%", background: activeCell ? "rgba(255,255,255,0.9)" : e.color }} />
+                                            ))}
+                                        </span>
+                                    )}
+                                </button>
                             );
                         })}
                     </div>
@@ -7588,7 +8123,7 @@ export default function KidsScheduler() {
 
                 {/* Academy quick pick */}
                 {academies.length > 0 && (
-                    <div style={{ width: "100%", maxWidth: 420, marginBottom: 14 }}>
+                    <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 14 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", marginBottom: 8, paddingLeft: 4 }}>🏫 학원 빠른 추가</div>
                         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
                             {academies.map((ac, i) => (
@@ -7608,16 +8143,16 @@ export default function KidsScheduler() {
                 )}
 
                 {/* 배너 — 추후 광고 배치용 */}
-                <div style={{ width: "100%", maxWidth: 420, background: "linear-gradient(135deg, #FFF0F7, #FCE7F3)", borderRadius: 20, padding: "14px 18px", marginBottom: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#BE185D", fontFamily: FF, border: "1.5px solid #FBCFE8" }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, background: "linear-gradient(135deg, #FFF0F7, #FCE7F3)", borderRadius: 20, padding: "14px 18px", marginBottom: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#BE185D", fontFamily: FF, border: "1.5px solid #FBCFE8" }}>
                     혜니캘린더는 아이와 함께 만들어갑니다
                 </div>
 
                 {/* AI 일정입력 + 수동 추가 */}
-                <div style={{ width: "100%", maxWidth: 420, display: "flex", gap: 8, marginBottom: 14 }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", gap: 8, marginBottom: 14 }}>
                     <button onClick={openAiSchedule}
                         style={{
                             flex: 1, padding: "10px 16px", height: 44, color: "white", border: "none", borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: FF,
-                            background: "linear-gradient(135deg,#8B5CF6,#6D28D9)", boxShadow: "0 3px 12px rgba(109,40,217,0.25)"
+                            background: DESIGN.gradients.parent, boxShadow: "0 3px 12px rgba(37,99,235,0.22)"
                         }}>
                         🤖 AI로 일정입력
                     </button>
@@ -7629,7 +8164,7 @@ export default function KidsScheduler() {
                 <div style={{ ...cardSt, marginBottom: 0 }}>
                     <DayTimetable
                         events={selectedEvs}
-                        dateLabel={selectedDateLabel}
+                        dateLabel={`${currentMonth + 1}월 ${selectedDate}일`}
                         isToday={currentYear === new Date().getFullYear() && currentMonth === new Date().getMonth() && selectedDate === new Date().getDate()}
                         isFuture={new Date(currentYear, currentMonth, selectedDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0)}
                         childPos={displayChildPos}
@@ -7685,8 +8220,6 @@ export default function KidsScheduler() {
                         memoReadBy={memoReadBy}
                         myUserId={authUser?.id}
                         onReplyRef={registerMemoReplyNode}
-                        suppliesValue={selectedSupplies}
-                        onSuppliesSave={saveDailySuppliesForSelectedDate}
                     />
                 </div>
             </>}
@@ -7704,8 +8237,8 @@ export default function KidsScheduler() {
 
             {/* ── ADD MODAL ── */}
             {showAddModal && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
-                    <div style={{ background: "white", borderRadius: "28px 28px 0 0", padding: "24px 20px 36px", width: "100%", maxWidth: 460, boxShadow: "0 -8px 40px rgba(0,0,0,0.15)", maxHeight: "90vh", overflowY: "auto" }}>
+                <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
+                    <div style={makeSheetStyle({ padding: "24px 20px 36px", width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" })}>
                         <div style={{ fontSize: 20, fontWeight: 800, color: "#374151", marginBottom: 4 }}>✨ 새 일정 추가</div>
                         {isParent && pairedChildren.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EFF6FF", borderRadius: 10, padding: "6px 12px", marginBottom: 14, display: "inline-block" }}>📡 저장 시 {pairedChildren.map(c => c.name).join(", ")}에게 자동 전송</div>}
 
@@ -7882,7 +8415,7 @@ export default function KidsScheduler() {
 
             {/* Route Overlay */}
             {routeEvent && (
-                <RouteOverlay ev={routeEvent} childPos={displayChildPos} mapReady={mapReady} isChildMode={!isParent} onClose={() => setRouteEvent(null)} />
+                <RouteOverlay ev={routeEvent} childPos={displayChildPos} mapReady={mapReady} mapLoadError={mapLoadError} isChildMode={!isParent} onClose={() => setRouteEvent(null)} />
             )}
 
             {/* Map Picker */}
@@ -8122,6 +8655,9 @@ export default function KidsScheduler() {
                 onSend={handleSendFeedback}
                 onClose={() => setShowFeedbackModal(false)}
             />
+
+            {/* ── Child Call Buttons (아이 전용, 화면 우하단 플로팅) ── */}
+            {!isParent && !routeEvent && <ChildCallButtons phones={parentPhones} />}
 
             {/* ── Sticker Book Modal ── */}
             {showStickerBook && <StickerBookModal

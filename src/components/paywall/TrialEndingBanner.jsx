@@ -26,6 +26,7 @@ export function TrialEndingBanner({ trialDaysLeft, isTrial, onContinue, isChild 
         borderRadius: 18,
         background: danger ? "#FFF1F2" : "#FEFCE8",
         border: `1.5px solid ${danger ? "#FB7185" : "#FACC15"}`,
+        boxShadow: "0 10px 24px rgba(180,120,150,0.08)",
         display: "flex",
         alignItems: "center",
         gap: 12,

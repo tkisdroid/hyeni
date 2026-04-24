@@ -103,7 +103,7 @@ public final class NotificationScheduleManager {
         String title = intent.getStringExtra(EXTRA_TITLE);
         String body = intent.getStringExtra(EXTRA_BODY);
         String channel = intent.getStringExtra(EXTRA_CHANNEL);
-        boolean wakeScreen = intent.getBooleanExtra(EXTRA_WAKE_SCREEN, true);
+        boolean wakeScreen = intent.getBooleanExtra(EXTRA_WAKE_SCREEN, false);
         boolean fullScreen = intent.getBooleanExtra(EXTRA_FULL_SCREEN, false);
 
         NotificationHelper.showNotification(
@@ -151,7 +151,7 @@ public final class NotificationScheduleManager {
         intent.putExtra(EXTRA_TITLE, item.optString("title", "혜니캘린더"));
         intent.putExtra(EXTRA_BODY, item.optString("body", ""));
         intent.putExtra(EXTRA_CHANNEL, item.optString("channel", "schedule"));
-        intent.putExtra(EXTRA_WAKE_SCREEN, item.optBoolean("wakeScreen", true));
+        intent.putExtra(EXTRA_WAKE_SCREEN, item.optBoolean("wakeScreen", false));
         intent.putExtra(EXTRA_FULL_SCREEN, item.optBoolean("fullScreen", false));
 
         return PendingIntent.getBroadcast(

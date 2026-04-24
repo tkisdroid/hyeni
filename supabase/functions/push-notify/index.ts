@@ -62,6 +62,33 @@ interface PushPayload {
   data: Record<string, unknown>;
 }
 
+const EMERGENCY_ACTIONS = new Set(["emergency", "sos"]);
+const EMERGENCY_ALERT_TYPES = new Set([
+  "not_arrived",
+  "missed_arrival",
+  "danger_zone",
+  "danger_enter",
+  "danger_entry",
+  "danger_exit",
+]);
+
+function toStringValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isEmergencyNotification(type: string, data: Record<string, unknown> = {}): boolean {
+  if (EMERGENCY_ACTIONS.has(type)) return true;
+  if (String(data.urgent || "").toLowerCase() === "true") return true;
+  if (type !== "parent_alert") return false;
+
+  const severity = toStringValue(data.severity).toLowerCase();
+  const alertType = toStringValue(data.alertType || data.alert_type).toLowerCase();
+  return severity === "emergency"
+    || severity === "critical"
+    || severity === "urgent"
+    || EMERGENCY_ALERT_TYPES.has(alertType);
+}
+
 async function getNativeRecipientIds(
   supabase: ReturnType<typeof createClient>,
   familyId: string
@@ -172,7 +199,7 @@ async function sendFcmNotification(
   if (!accessToken) return "error";
 
   try {
-    const isRealtimeCommand = data.type === "remote_listen" || data.type === "location_refresh";
+    const isRemoteListen = data.type === "remote_listen";
     const stringData = Object.fromEntries(
       Object.entries({ title, body, type: data.type || "schedule", ...data }).map(([key, value]) => [key, String(value)])
     );
@@ -183,7 +210,7 @@ async function sendFcmNotification(
         data: stringData,
         android: {
           priority: "HIGH",
-          ttl: isRealtimeCommand ? "30s" : "120s",
+          ttl: isRemoteListen ? "30s" : "120s",
           direct_boot_ok: true,
         },
       },
@@ -225,7 +252,8 @@ async function sendFcmToFamily(
   senderUserId: string | null,
   title: string,
   body: string,
-  type: string
+  type: string,
+  extraData: Record<string, string> = {},
 ): Promise<number> {
   const { data: tokens, error: tokenErr } = await supabase
     .from("fcm_tokens")
@@ -239,17 +267,23 @@ async function sendFcmToFamily(
 
   if (!tokens?.length) return 0;
 
-  const isUrgent = true; // all notifications are urgent for guaranteed delivery
   let sent = 0;
   const expiredIds: string[] = [];
 
   for (const t of tokens) {
     if (t.user_id === senderUserId) continue;
+    const pushData: Record<string, string> = {
+      type,
+      familyId,
+      senderUserId: senderUserId || "",
+      ...extraData,
+    };
+    pushData.urgent = isEmergencyNotification(type, pushData) ? "true" : "false";
     const result = await sendFcmNotification(
       t.fcm_token,
       title,
       body,
-      { type, familyId, senderUserId: senderUserId || "", ...(isUrgent ? { urgent: "true" } : {}) }
+      pushData
     );
     if (result === "sent") {
       sent++;
@@ -310,7 +344,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* not JSON, proceed as cron */ }
     }
 
-    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "location_refresh") {
+    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "emergency" || body?.action === "sos") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
 
@@ -399,7 +433,22 @@ async function handleInstantNotification(
     }
   }
 
+  const pushId = idempotencyKey || crypto.randomUUID();
+  const severity = toStringValue(body.severity);
+  const alertType = toStringValue(body.alertType || body.alert_type);
+  const urgencyProbe: Record<string, unknown> = { severity, alertType, urgent: body.urgent };
+  const urgent = isEmergencyNotification(action, urgencyProbe);
+
   const nativeRecipientIds = await getNativeRecipientIds(supabase, familyId);
+  const fcmExtraData: Record<string, string> = {
+    pushId,
+    urgent: urgent ? "true" : "false",
+  };
+  if (severity) fcmExtraData.severity = severity;
+  if (alertType) fcmExtraData.alertType = alertType;
+  if (isRemoteListen && body.durationSec !== undefined && body.durationSec !== null) {
+    fcmExtraData.durationSec = String(body.durationSec);
+  }
 
   // ── Web Push (VAPID) ────────────────────────────────────────────────
   const { data: subs } = isRemoteListen
@@ -414,7 +463,14 @@ async function handleInstantNotification(
     body: message,
     icon: "/icon-192.png",
     badge: "/icon-192.png",
-    data: { type: body.action as string, familyId },
+    data: {
+      type: action,
+      familyId,
+      pushId,
+      urgent,
+      ...(severity ? { severity } : {}),
+      ...(alertType ? { alertType } : {}),
+    },
   };
 
   let webSent = 0;
@@ -449,7 +505,8 @@ async function handleInstantNotification(
     senderUserId,
     title,
     message,
-    action
+    action,
+    fcmExtraData,
   );
 
   // ── PUSH-03 / PUSH-04 (D-A04): always record pending_notifications with
@@ -472,7 +529,15 @@ async function handleInstantNotification(
       family_id: familyId,
       title,
       body: message,
-      data: { senderUserId: senderUserId || "", type: action, action },
+      data: {
+        senderUserId: senderUserId || "",
+        type: action,
+        action,
+        pushId,
+        urgent,
+        ...(severity ? { severity } : {}),
+        ...(alertType ? { alertType } : {}),
+      },
       delivery_status: deliveryStatus,
       idempotency_key: idempotencyKey || null,
     });
@@ -529,6 +594,7 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
       if (diff < -1 || diff > 1) continue;
 
       const sentKey = `${window.key}-${dateKey}`;
+      const pushId = `${event.id}-${sentKey}`;
       const { data: existing } = await supabase
         .from("push_sent")
         .select("id")
@@ -550,7 +616,7 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
         body: bodyMap[window.key],
         icon: "/icon-192.png",
         badge: "/icon-192.png",
-        data: { eventId: event.id, type: window.key },
+        data: { eventId: event.id, type: window.key, pushId, urgent: false },
       };
 
       // ── Web Push ──────────────────────────────────────────────────
@@ -595,7 +661,8 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
         null,
         payload.title,
         bodyMap[window.key],
-        window.key
+        window.key,
+        { eventId: String(event.id), pushId, urgent: "false" },
       );
       totalFcmSent += fcmSent;
 
@@ -609,6 +676,7 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
         family_id: event.family_id,
         title: payload.title,
         body: payload.body,
+        data: { eventId: event.id, type: window.key, pushId, urgent: false },
       });
 
       if (pendingErr) {

@@ -1,4 +1,4 @@
-# Supabase Integration Design — Kids Scheduler
+﻿# Supabase Integration Design — Kids Scheduler
 
 ## Overview
 
@@ -420,7 +420,7 @@ src/
 
 ```
 VITE_SUPABASE_URL=https://xxxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGci...
+VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
 VITE_KAKAO_APP_KEY=d9917812629a13b6fe351fa025be439c   (existing)
 ```
 

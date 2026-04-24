@@ -29,6 +29,7 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+import com.google.android.gms.tasks.CancellationTokenSource;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -51,7 +52,7 @@ public class LocationService extends Service {
 
     private static final String TAG = "LocationService";
     private static final String CHANNEL_ID = "hyeni_location_v4";
-    private static final String ALERT_CHANNEL_ID = "hyeni_alert_v4";
+    private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
     private static final int NOTIFICATION_ID = 9001;
     private static final int ALERT_NOTIFICATION_BASE = 10000;
     private static final long NOTIF_POLL_INTERVAL_MS = 15_000;
@@ -59,13 +60,14 @@ public class LocationService extends Service {
     private static final String PREFS_NAME = "hyeni_location_prefs";
 
     // Location tracking constants
-    private static final long LOCATION_INTERVAL_MOVING_MS = 10_000;
-    private static final long LOCATION_INTERVAL_STATIONARY_MS = 60_000;
+    private static final long LOCATION_INTERVAL_MOVING_MS = 5_000;
+    private static final long LOCATION_INTERVAL_STATIONARY_MS = 15_000;
     private static final float STATIONARY_THRESHOLD_M = 15f;  // 15m 이내 이동 = 정지로 간주
     private static final long STATIONARY_WINDOW_MS = 60_000; // 60초 동안 정지 시 저전력 모드
-    private static final float MIN_UPLOAD_DISTANCE_M = 5f;
-    private static final float MIN_UPDATE_DISTANCE_M = 3f;
+    private static final float MIN_UPLOAD_DISTANCE_M = 2f;
+    private static final float MIN_UPDATE_DISTANCE_M = 0f;
     private static final float MAX_ACCURACY_M = 100f;
+    private static final long MAX_UPLOAD_AGE_MS = 15_000L;
 
     // WakeLock: 6 hours with auto-renewal
     private static final long WAKELOCK_TIMEOUT_MS = 6 * 60 * 60 * 1000L;
@@ -112,6 +114,7 @@ public class LocationService extends Service {
     // Last uploaded position for minimum distance filter
     private double lastUploadedLat = Double.NaN;
     private double lastUploadedLng = Double.NaN;
+    private long lastUploadedAtMs = 0L;
 
     private String supabaseUrl;
     private String supabaseKey;
@@ -139,7 +142,6 @@ public class LocationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        boolean refreshNow = intent != null && "REFRESH_NOW".equals(intent.getAction());
 
         if (intent != null) {
             if (intent.hasExtra("userId")) {
@@ -207,9 +209,6 @@ public class LocationService extends Service {
         startNotificationPolling();
         startEventTimeChecking();
         startTokenRefresh();
-        if (refreshNow) {
-            forceSingleLocationUpload("parent_request");
-        }
 
         return START_STICKY;
     }
@@ -387,9 +386,7 @@ public class LocationService extends Service {
 
         fusedClient.removeLocationUpdates(locationCallback);
 
-        int priority = lowPower
-            ? Priority.PRIORITY_BALANCED_POWER_ACCURACY
-            : Priority.PRIORITY_HIGH_ACCURACY;
+        int priority = Priority.PRIORITY_HIGH_ACCURACY;
         long interval = lowPower
             ? LOCATION_INTERVAL_STATIONARY_MS
             : LOCATION_INTERVAL_MOVING_MS;
@@ -437,6 +434,7 @@ public class LocationService extends Service {
 
         try {
             fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper());
+            requestImmediateLocationFix();
             Log.i(TAG, "Location tracking started (HIGH_ACCURACY, "
                 + (LOCATION_INTERVAL_MOVING_MS / 1000) + "s interval, "
                 + (int) MIN_UPDATE_DISTANCE_M + "m min distance)");
@@ -445,36 +443,25 @@ public class LocationService extends Service {
         }
     }
 
-    private void forceSingleLocationUpload(String reason) {
+    private void requestImmediateLocationFix() {
         try {
-            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, tokenSource.getToken())
                 .addOnSuccessListener(location -> {
                     if (location != null) {
-                        Log.i(TAG, "Immediate location refresh success: " + reason);
                         handleLocation(location, true);
-                        return;
                     }
-                    fusedClient.getLastLocation()
-                        .addOnSuccessListener(lastLocation -> {
-                            if (lastLocation != null) {
-                                Log.i(TAG, "Immediate location refresh using last known fix: " + reason);
-                                handleLocation(lastLocation, true);
-                            } else {
-                                Log.w(TAG, "Immediate location refresh failed: no location available");
-                            }
-                        })
-                        .addOnFailureListener(error -> Log.w(TAG, "Last location fallback failed", error));
                 })
-                .addOnFailureListener(error -> Log.w(TAG, "Immediate location refresh failed", error));
+                .addOnFailureListener(error -> Log.w(TAG, "Immediate location request failed", error));
         } catch (SecurityException e) {
-            Log.e(TAG, "Location permission not granted for immediate refresh", e);
+            Log.e(TAG, "Location permission not granted for immediate fix", e);
         }
     }
 
     private void handleLocation(Location location, boolean forceUpload) {
         if (location == null) return;
 
-        float accuracy = location.hasAccuracy() ? location.getAccuracy() : MAX_ACCURACY_M;
+        float accuracy = location.getAccuracy();
         if (accuracy > MAX_ACCURACY_M) {
             Log.w(TAG, "Location rejected: accuracy " + String.format("%.0f", accuracy)
                 + "m exceeds " + (int) MAX_ACCURACY_M + "m threshold");
@@ -490,24 +477,24 @@ public class LocationService extends Service {
 
         updateStationaryState(location);
 
+        long now = System.currentTimeMillis();
         if (!forceUpload && !Double.isNaN(lastUploadedLat)) {
             float distFromLast = distanceBetween(lat, lng, lastUploadedLat, lastUploadedLng);
-            if (distFromLast < MIN_UPLOAD_DISTANCE_M) {
-                Log.d(TAG, "Skipping upload: moved only "
-                    + String.format("%.1f", distFromLast) + "m (< "
-                    + (int) MIN_UPLOAD_DISTANCE_M + "m)");
+            long ageMs = now - lastUploadedAtMs;
+            if (distFromLast < MIN_UPLOAD_DISTANCE_M && ageMs < MAX_UPLOAD_AGE_MS) {
+                Log.d(TAG, "Skipping upload: moved "
+                    + String.format("%.1f", distFromLast) + "m, age="
+                    + (ageMs / 1000) + "s");
                 return;
             }
         }
 
         Log.d(TAG, "Location update: accuracy=" + String.format("%.0f", accuracy)
             + "m, stationary=" + isStationary + ", force=" + forceUpload);
-        lastUploadedLat = lat;
-        lastUploadedLng = lng;
-        uploadLocation(lat, lng);
+        uploadLocation(lat, lng, accuracy, now);
     }
 
-    private void uploadLocation(double lat, double lng) {
+    private void uploadLocation(double lat, double lng, float accuracy, long capturedAtMs) {
         new Thread(() -> {
             try {
                 JSONObject body = new JSONObject();
@@ -520,6 +507,7 @@ public class LocationService extends Service {
                 String bodyStr = body.toString();
                 MediaType jsonType = MediaType.get("application/json");
                 String bearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+                boolean uploaded = false;
 
                 // 1차 시도: 현재 토큰
                 Response response = httpClient.newCall(new Request.Builder()
@@ -527,6 +515,7 @@ public class LocationService extends Service {
                     .header("Authorization", "Bearer " + bearer)
                     .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
                 int code = response.code();
+                uploaded = code >= 200 && code < 300;
                 response.close();
 
                 if (code == 401 || code == 403) {
@@ -539,6 +528,7 @@ public class LocationService extends Service {
                         .header("Authorization", "Bearer " + freshToken)
                         .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
                     int code2 = retry1.code();
+                    uploaded = code2 >= 200 && code2 < 300;
                     retry1.close();
 
                     if (code2 == 401 || code2 == 403) {
@@ -548,24 +538,90 @@ public class LocationService extends Service {
                             .url(url).header("apikey", supabaseKey).header("Content-Type", "application/json")
                             .header("Authorization", "Bearer " + supabaseKey)
                             .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
-                        if (!retry2.isSuccessful()) {
+                        uploaded = retry2.isSuccessful();
+                        if (!uploaded) {
                             Log.e(TAG, "Location upload ALL retries failed: " + retry2.code());
                         } else {
                             Log.i(TAG, "Location uploaded with apikey fallback");
                         }
                         retry2.close();
-                    } else if (code2 >= 200 && code2 < 300) {
+                    } else if (uploaded) {
                         Log.i(TAG, "Location uploaded with refreshed token");
                     }
-                } else if (code >= 200 && code < 300) {
+                } else if (uploaded) {
                     // 성공
                 } else {
                     Log.w(TAG, "Location upload failed: " + code);
+                }
+                if (uploaded) {
+                    lastUploadedLat = lat;
+                    lastUploadedLng = lng;
+                    lastUploadedAtMs = capturedAtMs;
+                    broadcastLocation(lat, lng, accuracy, capturedAtMs);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Location upload error", e);
             }
         }).start();
+    }
+
+    private void broadcastLocation(double lat, double lng, float accuracy, long capturedAtMs) {
+        try {
+            java.text.SimpleDateFormat iso = new java.text.SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+            iso.setTimeZone(TimeZone.getTimeZone("UTC"));
+            String updatedAt = iso.format(new java.util.Date(capturedAtMs));
+            JSONObject payload = new JSONObject()
+                .put("user_id", userId)
+                .put("userId", userId)
+                .put("family_id", familyId)
+                .put("lat", lat)
+                .put("lng", lng)
+                .put("accuracy", accuracy)
+                .put("updated_at", updatedAt)
+                .put("updatedAt", updatedAt)
+                .put("source", "native-location");
+
+            JSONObject message = new JSONObject()
+                .put("topic", "family-" + familyId)
+                .put("event", "child_location")
+                .put("payload", payload);
+
+            JSONObject broadcastBody = new JSONObject()
+                .put("messages", new JSONArray().put(message));
+
+            String bearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+            boolean sent = postRealtimeBroadcast(broadcastBody, bearer);
+            if (!sent && bearer != null && !bearer.equals(supabaseKey)) {
+                postRealtimeBroadcast(broadcastBody, supabaseKey);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Location broadcast error", e);
+        }
+    }
+
+    private boolean postRealtimeBroadcast(JSONObject body, String bearerToken) {
+        try {
+            String token = (bearerToken != null && !bearerToken.isEmpty()) ? bearerToken : supabaseKey;
+            Request request = new Request.Builder()
+                .url(supabaseUrl.replaceAll("/+$", "") + "/realtime/v1/api/broadcast")
+                .header("apikey", supabaseKey)
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + token)
+                .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+                .build();
+
+            Response response = httpClient.newCall(request).execute();
+            boolean ok = response.isSuccessful();
+            if (!ok) {
+                Log.w(TAG, "Location broadcast failed: " + response.code());
+            }
+            response.close();
+            return ok;
+        } catch (Exception e) {
+            Log.w(TAG, "Location broadcast request error", e);
+            return false;
+        }
     }
 
     // ── Notification Polling (instant alerts from parent) ───────────────────────
@@ -633,24 +689,14 @@ public class LocationService extends Service {
                         continue;
                     }
 
-                    String type = (data != null)
-                        ? data.optString("type", data.optString("action", ""))
-                        : "";
-                    if ("location_refresh".equals(type)) {
-                        String currentRole = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                            .getString("role", "child");
-                        if (!"child".equals(currentRole)) {
-                            Log.i(TAG, "Ignoring pending location refresh on non-child device");
-                            continue;
-                        }
-                        Log.i(TAG, "Pending location refresh request received");
-                        forceSingleLocationUpload("pending_notification");
-                        continue;
-                    }
-
                     String title = notif.optString("title", "혜니캘린더");
                     String notifBody = notif.optString("body", "");
-                    showHeadsUpNotification(title, notifBody);
+                    String type = data != null ? data.optString("type", data.optString("action", "schedule")) : "schedule";
+                    boolean emergency = isEmergencyNotification(type, data);
+                    String stableId = data != null
+                        ? data.optString("pushId", data.optString("idempotencyKey", id))
+                        : id;
+                    showPolledNotification(title, notifBody, type, emergency, stableId);
                 }
 
                 markDelivered(deliveredIds);
@@ -868,6 +914,9 @@ public class LocationService extends Service {
                 pushBody.put("senderUserId", userId);
                 pushBody.put("title", title);
                 pushBody.put("message", message);
+                pushBody.put("alertType", alertType);
+                pushBody.put("severity", severity);
+                if (eventId != null) pushBody.put("eventId", eventId);
 
                 String pushUrl = supabaseUrl + "/functions/v1/push-notify";
                 Request pushReq = new Request.Builder()
@@ -965,19 +1014,45 @@ public class LocationService extends Service {
     }
 
     // ── Heads-Up Notification (popup) ───────────────────────────────────────────
-    private void showHeadsUpNotification(String title, String body) {
-        int currentAlert = alertCounter.incrementAndGet();
+    private void showPolledNotification(String title, String body, String type, boolean emergency, String stableId) {
+        String channel = emergency ? "emergency" : ("kkuk".equals(type) ? "kkuk" : "schedule");
+        int notificationId = NotificationHelper.stableRequestCode(stableId);
         NotificationHelper.showNotification(
             this,
             title,
             body,
-            "emergency",
-            true,
-            true,
-            ALERT_NOTIFICATION_BASE + currentAlert
+            channel,
+            emergency,
+            emergency,
+            notificationId
         );
 
-        Log.i(TAG, "Heads-up notification: " + title);
+        Log.i(TAG, "Polled notification: " + title + ", emergency=" + emergency);
+    }
+
+    private boolean isEmergencyNotification(String type, @Nullable JSONObject data) {
+        if ("emergency".equals(type) || "sos".equals(type)) {
+            return true;
+        }
+        if (data != null && "true".equalsIgnoreCase(data.optString("urgent", "false"))) {
+            return true;
+        }
+        if (!"parent_alert".equals(type)) {
+            return false;
+        }
+        String severity = data != null ? data.optString("severity", "") : "";
+        String alertType = data != null ? data.optString("alertType", data.optString("alert_type", "")) : "";
+        if ("emergency".equalsIgnoreCase(severity)
+                || "critical".equalsIgnoreCase(severity)
+                || "urgent".equalsIgnoreCase(severity)) {
+            return true;
+        }
+        return "not_arrived".equals(alertType)
+                || "missed_arrival".equals(alertType)
+                || "danger_zone".equals(alertType)
+                || "danger_enter".equals(alertType)
+                || "danger_entry".equals(alertType)
+                || "danger_exit".equals(alertType);
     }
 
     // ── Notification Channels ───────────────────────────────────────────────────

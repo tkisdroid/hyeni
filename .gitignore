@@ -12,6 +12,25 @@ dist
 dist-ssr
 *.local
 
+# Local agent/workspace caches
+.agents/
+.codex/
+.android/
+.playwright-mcp/
+.tmp-design-examples/
+
+# Android/Gradle generated files
+.gradle/
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+
+# Third-party APK analysis artifacts: keep notes, do not publish binaries
+findmykids_analysis/*.apk
+findmykids_analysis/dex/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

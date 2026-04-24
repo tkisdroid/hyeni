@@ -134,30 +134,15 @@ export async function joinFamily(pairCode, userId, childName) {
 export async function joinFamilyAsParent(pairCode, userId, parentName) {
   if (!pairCode || typeof pairCode !== "string") throw new Error("연동 코드를 입력해주세요");
   const normalizedCode = pairCode.toUpperCase().trim();
-  const { data: family, error: familyError } = await supabase
-    .from("families")
-    .select("id")
-    .eq("pair_code", normalizedCode)
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("join_family_as_parent", {
+    p_pair_code: normalizedCode,
+    p_user_id: userId,
+    p_name: parentName || "부모",
+  });
 
-  if (familyError) throw familyError;
-  if (!family?.id) throw new Error("연동 코드를 찾지 못했습니다");
-
-  const { error: memberError } = await supabase
-    .from("family_members")
-    .upsert(
-      {
-        family_id: family.id,
-        user_id: userId,
-        role: "parent",
-        name: parentName || "부모",
-      },
-      { onConflict: "family_id,user_id" }
-    );
-
-  if (memberError) throw memberError;
-  return family.id;
+  if (error) throw error;
+  if (!data) throw new Error("연동 코드를 찾지 못했습니다");
+  return data;
 }
 
 // ── Get family info for current user ────────────────────────────────────────
