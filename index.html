@@ -7,16 +7,85 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#E879A0" />
+    <meta name="theme-color" content="#FFFAF5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="혜니캘린더" />
     <title>혜니캘린더</title>
+    <!-- ═══════ v4-C · Splash Minimal (pre-React boot screen) ═══════ -->
+    <style>
+      #hy-boot-splash{
+        position:fixed; inset:0; z-index:99999;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        background:#FFFAF5;
+        font-family:"Pretendard Variable","Pretendard","Noto Sans KR","Apple SD Gothic Neo",sans-serif;
+        transition:opacity 0.35s ease-out;
+      }
+      #hy-boot-splash.hy-hidden{ opacity:0; pointer-events:none; }
+      #hy-boot-splash .hy-splash-logo{
+        width:108px; height:108px; border-radius:30px;
+        background:url('/icon-192.png') center/cover no-repeat;
+        box-shadow:0 20px 44px rgba(247,121,168,0.25), 0 0 0 5px rgba(247,121,168,0.08);
+        margin-bottom:20px;
+      }
+      #hy-boot-splash .hy-splash-name{
+        font-size:22px; font-weight:800; letter-spacing:-0.03em; color:#1F1A22;
+      }
+      #hy-boot-splash .hy-splash-name b{
+        font-weight:800;
+        background:linear-gradient(135deg,#F779A8,#E65C92);
+        -webkit-background-clip:text; background-clip:text; color:transparent;
+      }
+      #hy-boot-splash .hy-splash-tag{
+        font-size:12px; color:#9B7C85; font-weight:600; margin-top:6px; letter-spacing:0.04em;
+      }
+      #hy-boot-splash .hy-splash-spin{
+        position:absolute; bottom:42px; left:50%; transform:translateX(-50%);
+        width:32px; height:32px; border-radius:50%;
+        border:3px solid rgba(247,121,168,0.15);
+        border-top-color:#F779A8;
+        animation:hy-spin 0.85s linear infinite;
+      }
+      @keyframes hy-spin { to { transform:translateX(-50%) rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        #hy-boot-splash .hy-splash-spin { animation: none; }
+      }
+    </style>
   </head>
   <body>
+    <!-- Minimal splash displayed until React mounts; hy-hidden class triggers fade-out -->
+    <div id="hy-boot-splash" role="img" aria-label="혜니캘린더 로딩 중">
+      <div class="hy-splash-logo"></div>
+      <div class="hy-splash-name">혜니<b>캘린더</b></div>
+      <div class="hy-splash-tag">가족이 함께 쓰는 스케줄러</div>
+      <div class="hy-splash-spin" aria-hidden="true"></div>
+    </div>
     <div id="root"></div>
+    <script>
+      // Remove splash once React has mounted content into #root.
+      // Hard timeout fallback to avoid stuck splash.
+      (function(){
+        var removed = false;
+        function hideSplash(){
+          if (removed) return;
+          removed = true;
+          var el = document.getElementById('hy-boot-splash');
+          if (!el) return;
+          el.classList.add('hy-hidden');
+          setTimeout(function(){ if (el && el.parentNode) el.parentNode.removeChild(el); }, 400);
+        }
+        var root = document.getElementById('root');
+        var mo = new MutationObserver(function(){
+          if (root && root.firstElementChild) { hideSplash(); mo.disconnect(); }
+        });
+        if (root) mo.observe(root, { childList: true });
+        setTimeout(hideSplash, 6000);
+        window.addEventListener('load', function(){ setTimeout(hideSplash, 1500); });
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

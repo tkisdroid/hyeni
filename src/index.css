@@ -1,19 +1,112 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   혜니캘린더 Design Tokens (v4 · B · Illustrated Warm)
+   디자인 프로토타입 출처: design/Redesign v4-*.html
+   모든 컴포넌트가 var(--hy-*)를 참조하도록 일관 토큰화.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Pretendard web font (brand font) */
+@font-face {
+  font-family: "Pretendard Variable";
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/woff2/PretendardVariable.woff2") format("woff2-variations");
+}
+
 :root {
-  font-family: "Noto Sans KR", "Apple SD Gothic Neo", BlinkMacSystemFont, sans-serif;
+  /* ── Brand · Pink ── */
+  --hy-pink-50:  #FFF5F9;
+  --hy-pink-100: #FFE4EF;
+  --hy-pink-200: #FFC2D9;
+  --hy-pink-300: #FF9EBF;
+  --hy-pink-400: #F779A8;
+  --hy-pink-500: #E65C92;
+  --hy-pink-600: #C4447A;
+
+  /* ── Brand · Blue (secondary) ── */
+  --hy-blue-50:  #EFF6FF;
+  --hy-blue-100: #DBEAFE;
+  --hy-blue-300: #93C5FD;
+  --hy-blue-400: #60A5FA;
+  --hy-blue-500: #3B82F6;
+  --hy-blue-600: #2563EB;
+
+  /* ── Category palette (프로덕션 호환) ── */
+  --hy-cat-school: #A78BFA;  --hy-cat-school-bg: #EDE9FE;
+  --hy-cat-sports: #34D399;  --hy-cat-sports-bg: #D1FAE5;
+  --hy-cat-hobby:  #F59E0B;  --hy-cat-hobby-bg:  #FEF3C7;
+  --hy-cat-family: #F87171;  --hy-cat-family-bg: #FEE2E2;
+  --hy-cat-friend: #60A5FA;  --hy-cat-friend-bg: #DBEAFE;
+  --hy-cat-other:  #EC4899;  --hy-cat-other-bg:  #FCE7F3;
+
+  /* ── Neutral (warm) ── */
+  --hy-ink-900: #1F1A22;
+  --hy-ink-700: #38252D;
+  --hy-ink-500: #75525C;
+  --hy-ink-400: #9B7C85;
+  --hy-ink-300: #B5ADBA;
+  --hy-ink-100: #EFE9F1;
+  --hy-surface-0: #FFFFFF;
+  --hy-surface-1: #FDFAFB;
+  --hy-surface-2: #F6F0F3;
+  --hy-surface-warm: #FFFAF5;
+
+  /* ── Semantic ── */
+  --hy-success: #10B981; --hy-success-deep: #059669; --hy-success-soft: #D1FAE5;
+  --hy-warning: #F59E0B; --hy-warning-deep: #D97706; --hy-warning-soft: #FEF3C7;
+  --hy-danger:  #DC2626; --hy-danger-deep:  #991B1B; --hy-danger-soft:  #FEE2E2;
+
+  /* ── Radius ── */
+  --hy-r-xs: 8px;  --hy-r-sm: 12px; --hy-r-md: 16px;
+  --hy-r-lg: 20px; --hy-r-xl: 24px; --hy-r-2xl: 28px; --hy-r-3xl: 32px;
+  --hy-r-pill: 999px;
+
+  /* ── Elevation ── */
+  --hy-shadow-xs: 0 1px 2px rgba(232,121,160,0.06);
+  --hy-shadow-sm: 0 2px 8px rgba(232,121,160,0.10);
+  --hy-shadow-md: 0 8px 24px rgba(232,121,160,0.12);
+  --hy-shadow-lg: 0 16px 48px rgba(232,121,160,0.18);
+  --hy-shadow-xl: 0 24px 64px rgba(232,121,160,0.22);
+
+  /* ── Gradients ── */
+  --hy-grad-primary: linear-gradient(135deg, #F779A8 0%, #E65C92 100%);
+  --hy-grad-accent:  linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+  --hy-grad-hero:    linear-gradient(135deg, #FFC2D9 0%, #FF9EBF 100%);
+  --hy-grad-signature: linear-gradient(135deg, #FFF0F7 0%, #E8F4FD 100%);
+
+  /* ── Typography ── */
+  --hy-font-sans: "Pretendard Variable","Pretendard","Noto Sans KR","Apple SD Gothic Neo",sans-serif;
+  --hy-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --hy-fs-display: 26px;
+  --hy-fs-h1: 20px;
+  --hy-fs-h2: 17px;
+  --hy-fs-body: 14px;
+  --hy-fs-small: 12px;
+  --hy-fs-tiny: 11px;
+  --hy-fs-child-h1: 22px;
+  --hy-fs-child-h2: 19px;
+  --hy-fs-child-body: 16px;
+
+  --hy-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --hy-ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Legacy defaults */
+  font-family: var(--hy-font-sans);
   line-height: 1.5;
   font-weight: 400;
-  color: #1f2937;
-  background: #f7f8fc;
+  color: var(--hy-ink-900);
+  background: var(--hy-surface-warm);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
 }
 
-html,
-body,
-#root {
+html, body, #root {
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
@@ -21,33 +114,114 @@ body,
 }
 
 @media (display-mode: standalone) {
-  html, body, #root {
-    min-height: 100vh;
-    height: 100%;
-  }
+  html, body, #root { min-height: 100vh; height: 100%; }
 }
 
-html {
-  background: #f7f8fc;
-}
+html { background: var(--hy-surface-warm); }
 
 body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at top, rgba(255, 214, 232, 0.8), transparent 38%),
-    linear-gradient(180deg, #fff9fc 0%, #eef4ff 55%, #f6f8ff 100%);
+    radial-gradient(circle at 15% 0%, rgba(255, 220, 236, 0.55), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(208, 228, 250, 0.55), transparent 50%),
+    linear-gradient(180deg, #FFF8F2 0%, #F6E9F0 55%, #EFF3FB 100%);
+  background-attachment: fixed;
   overscroll-behavior-y: none;
   touch-action: manipulation;
 }
 
-* {
-  box-sizing: border-box;
+* { box-sizing: border-box; }
+button, input, textarea, select { font: inherit; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   B · Illustrated Warm · 공통 유틸리티 클래스 (namespaced `hy-`)
+   ═══════════════════════════════════════════════════════════════════════ */
+.hy-card       { background: var(--hy-surface-0); border-radius: var(--hy-r-xl); box-shadow: var(--hy-shadow-sm); border: 2px solid rgba(255, 228, 239, 0.7); }
+.hy-card-flat  { background: var(--hy-surface-0); border-radius: var(--hy-r-lg); border: 1.5px solid var(--hy-ink-100); }
+.hy-dot-pattern{ background-image: radial-gradient(circle, rgba(247, 121, 168, 0.08) 1px, transparent 1.5px); background-size: 22px 22px; }
+
+.hy-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 16px; border-radius: var(--hy-r-md);
+  font-size: var(--hy-fs-body); font-weight: 800;
+  font-family: var(--hy-font-sans); letter-spacing: -0.01em;
+  border: none; cursor: pointer;
+  transition: transform 0.15s var(--hy-ease-out);
+}
+.hy-btn:active      { transform: scale(0.97); }
+.hy-btn-primary     { background: var(--hy-grad-primary); color: white; box-shadow: 0 6px 16px rgba(247,121,168,0.35); }
+.hy-btn-accent      { background: var(--hy-grad-accent);  color: white; box-shadow: 0 6px 16px rgba(59,130,246,0.30); }
+.hy-btn-ghost       { background: var(--hy-surface-0); color: var(--hy-ink-700); border: 2px solid var(--hy-pink-100); }
+
+.hy-chip          { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: var(--hy-r-pill); font-size: var(--hy-fs-tiny); font-weight: 700; color: var(--hy-ink-700); background: var(--hy-surface-2); }
+.hy-chip-primary  { background: var(--hy-pink-100); color: var(--hy-pink-600); }
+.hy-chip-success  { background: var(--hy-success-soft); color: var(--hy-success-deep); }
+.hy-chip-warning  { background: var(--hy-warning-soft); color: var(--hy-warning-deep); }
+.hy-chip-danger   { background: var(--hy-danger-soft);  color: var(--hy-danger-deep); }
+
+.hy-sec-title {
+  font-size: 13px; font-weight: 800; color: var(--hy-pink-600);
+  letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.hy-sec-title::before { content: "✦"; color: var(--hy-pink-400); font-size: 14px; }
+
+.hy-hero-card {
+  background: var(--hy-grad-hero); color: white;
+  padding: 22px 22px 24px; border-radius: var(--hy-r-3xl);
+  position: relative; overflow: hidden;
+  box-shadow: 0 12px 32px rgba(247, 121, 168, 0.3);
+}
+.hy-hero-card::before {
+  content: ""; position: absolute; top: -30px; right: -30px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
+/* SOS Heart Shield pulse ring */
+.hy-sos-pulse { position: relative; }
+.hy-sos-pulse::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5);
+  animation: hy-sos-pulse 2s ease-out infinite;
+  pointer-events: none;
 }
+@keyframes hy-sos-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
+  70%  { box-shadow: 0 0 0 18px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+/* Alert toast (bottom) */
+.hy-alert-toast {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; background: var(--hy-surface-0);
+  border-radius: var(--hy-r-xl);
+  box-shadow: 0 20px 40px rgba(56, 37, 45, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+.hy-alert-toast-ic {
+  width: 44px; height: 44px; border-radius: var(--hy-r-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 22px;
+}
+.hy-alert-toast-title { font-size: var(--hy-fs-body); font-weight: 800; letter-spacing: -0.01em; }
+.hy-alert-toast-sub   { font-size: var(--hy-fs-tiny); color: var(--hy-ink-500); font-weight: 600; margin-top: 2px; line-height: 1.4; }
+
+/* Modal common */
+.hy-modal-backdrop { background: rgba(56, 37, 45, 0.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.hy-modal-sheet {
+  background: white;
+  border-top-left-radius: var(--hy-r-3xl);
+  border-top-right-radius: var(--hy-r-3xl);
+  box-shadow: 0 -20px 40px rgba(180, 120, 150, 0.25);
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.hy-modal-handle {
+  width: 38px; height: 5px; background: #FFD4E7; border-radius: 3px;
+  margin: 8px auto 10px; flex-shrink: 0;
+}
+
+/* Scrollbar subtle */
+.hy-scroll::-webkit-scrollbar { width: 4px; }
+.hy-scroll::-webkit-scrollbar-thumb { background: rgba(176, 155, 170, 0.35); border-radius: 4px; }
