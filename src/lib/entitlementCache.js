@@ -1,20 +1,35 @@
 const CACHE_KEY = "hyeni-entitlement-cache-v1";
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+let memoryStore = {};
+
+function getLocalStorage() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage || null;
+  } catch {
+    return null;
+  }
+}
 
 function readStore() {
-  if (typeof window === "undefined" || !window.localStorage) return {};
+  const storage = getLocalStorage();
+  if (!storage) return { ...memoryStore };
   try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = storage.getItem(CACHE_KEY);
+    const store = raw ? JSON.parse(raw) : {};
+    memoryStore = store && typeof store === "object" ? store : {};
+    return memoryStore;
   } catch {
-    return {};
+    return { ...memoryStore };
   }
 }
 
 function writeStore(store) {
-  if (typeof window === "undefined" || !window.localStorage) return;
+  memoryStore = store && typeof store === "object" ? { ...store } : {};
+  const storage = getLocalStorage();
+  if (!storage) return;
   try {
-    window.localStorage.setItem(CACHE_KEY, JSON.stringify(store));
+    storage.setItem(CACHE_KEY, JSON.stringify(store));
   } catch {
     // ignore storage failures
   }
@@ -24,7 +39,7 @@ export function readEntitlementCache(familyId) {
   if (!familyId) return null;
   const store = readStore();
   const entry = store[familyId];
-  if (!entry?.savedAt || !entry?.value) return null;
+  if (!entry?.value || typeof entry.savedAt !== "number") return null;
   if (Date.now() - entry.savedAt > CACHE_TTL_MS) {
     delete store[familyId];
     writeStore(store);

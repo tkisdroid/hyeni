@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@capacitor/app": "^8.0.1",
-    "@capacitor/browser": "^8.0.3",
     "@qonversion/capacitor-plugin": "^1.4.0",
     "@supabase/supabase-js": "^2.99.1",
     "dotenv": "^17.3.1",

@@ -233,12 +233,14 @@ async function showNotification(title, body, tag, data) {
   const native = getNativeNotifPlugin();
   if (native) {
     try {
-      const channel = data?.kkuk ? "kkuk" : (data?.urgent ? "emergency" : (silent ? "silent" : "schedule"));
+      const urgent = !!data?.urgent || !!data?.emergency;
+      const channel = urgent ? "emergency" : (data?.kkuk ? "kkuk" : (silent ? "silent" : "schedule"));
       await native.show({
         title, body, channel,
-        wakeScreen: !silent,
-        fullScreen: !!data?.kkuk || !!data?.urgent,
+        wakeScreen: urgent && !silent,
+        fullScreen: urgent,
         silent,
+        tag: tag || data?.pushId || data?.idempotencyKey,
       });
       return;
     } catch (err) {
@@ -387,7 +389,7 @@ export function showKkukNotification(senderLabel) {
     "💗 꾹!",
     `${senderLabel}가 꾹을 보냈어요!`,
     `hyeni-kkuk-${Date.now()}`,
-    { kkuk: true, urgent: true }
+    { kkuk: true, urgent: false }
   );
 }
 
@@ -420,7 +422,7 @@ export function buildAlarmPayloads(events, notifSettings, role) {
           ? parentNotifMsg(ev.emoji, ev.title, mins, ev.time)
           : childNotifMsg(ev.emoji, ev.title, mins),
         channel: "schedule",
-        wakeScreen: !(isParentRole && mins < 15),
+        wakeScreen: false,
         fullScreen: false,
       });
     }
@@ -433,7 +435,7 @@ export function buildAlarmPayloads(events, notifSettings, role) {
         title: `${ev.emoji} ${ev.title}`,
         body: childStartMsg(ev.emoji, ev.title),
         channel: "schedule",
-        wakeScreen: true,
+        wakeScreen: false,
         fullScreen: false,
       });
     }

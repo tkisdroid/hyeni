@@ -44,11 +44,10 @@ export async function kakaoLogin() {
       throw new Error("카카오 로그인 URL을 생성하지 못했습니다.");
     }
 
-    // Open OAuth flow in an in-app Custom Tabs overlay (stays within the app
-    // context). The deep-link handler (hyenicalendar://auth-callback) closes
-    // the overlay after Supabase exchanges the code.
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({ url: data.url, presentationStyle: "popover" });
+    // Force the OAuth flow to leave the current app screen only temporarily.
+    // The redirect target is the app's custom scheme, so Android should route
+    // back into the native activity rather than staying in Chrome.
+    window.location.assign(data.url);
   }
 }
 
@@ -135,30 +134,15 @@ export async function joinFamily(pairCode, userId, childName) {
 export async function joinFamilyAsParent(pairCode, userId, parentName) {
   if (!pairCode || typeof pairCode !== "string") throw new Error("연동 코드를 입력해주세요");
   const normalizedCode = pairCode.toUpperCase().trim();
-  const { data: family, error: familyError } = await supabase
-    .from("families")
-    .select("id")
-    .eq("pair_code", normalizedCode)
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("join_family_as_parent", {
+    p_pair_code: normalizedCode,
+    p_user_id: userId,
+    p_name: parentName || "부모",
+  });
 
-  if (familyError) throw familyError;
-  if (!family?.id) throw new Error("연동 코드를 찾지 못했습니다");
-
-  const { error: memberError } = await supabase
-    .from("family_members")
-    .upsert(
-      {
-        family_id: family.id,
-        user_id: userId,
-        role: "parent",
-        name: parentName || "부모",
-      },
-      { onConflict: "family_id,user_id" }
-    );
-
-  if (memberError) throw memberError;
-  return family.id;
+  if (error) throw error;
+  if (!data) throw new Error("연동 코드를 찾지 못했습니다");
+  return data;
 }
 
 // ── Get family info for current user ────────────────────────────────────────
@@ -182,17 +166,12 @@ export async function getMyFamily(userId) {
     if (!parentFamily) return null;
 
     let finalPairCode = parentFamily.pair_code;
-    let finalExpiresAt = parentFamily.pair_code_expires_at;
     if (!finalPairCode) {
-      const { data: rpcData, error: rpcError } = await supabase.rpc("regenerate_pair_code", { p_family_id: parentFamily.id });
-      if (rpcError) {
-        console.error("[getMyFamily] auto-heal via regenerate_pair_code failed:", rpcError);
-      } else {
-        const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-        if (row?.pair_code) {
-          finalPairCode = row.pair_code;
-          finalExpiresAt = row.pair_code_expires_at;
-        }
+      finalPairCode = "KID-" + generateUUID().replace(/-/g, "").substring(0, 8).toUpperCase();
+      try {
+        await supabase.from("families").update({ pair_code: finalPairCode }).eq("id", parentFamily.id);
+      } catch (e) {
+        console.error("Failed to auto-heal pair code:", e);
       }
     }
 
@@ -209,7 +188,7 @@ export async function getMyFamily(userId) {
       myName: parentFamily.parent_name || "부모",
       members: members || [],
       phones: { mom: parentFamily.mom_phone || "", dad: parentFamily.dad_phone || "" },
-      pairCodeExpiresAt: finalExpiresAt ? new Date(finalExpiresAt) : null,
+      pairCodeExpiresAt: parentFamily.pair_code_expires_at ? new Date(parentFamily.pair_code_expires_at) : null,
     };
   }
 
@@ -221,17 +200,12 @@ export async function getMyFamily(userId) {
   if (familyError) console.warn("[getMyFamily] family query failed:", familyError);
 
   let finalPairCode = family?.pair_code || "";
-  let finalExpiresAt = family?.pair_code_expires_at || null;
   if (!finalPairCode && membership.role === "parent") {
-    const { data: rpcData, error: rpcError } = await supabase.rpc("regenerate_pair_code", { p_family_id: membership.family_id });
-    if (rpcError) {
-      console.error("[getMyFamily] auto-heal via regenerate_pair_code failed:", rpcError);
-    } else {
-      const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-      if (row?.pair_code) {
-        finalPairCode = row.pair_code;
-        finalExpiresAt = row.pair_code_expires_at;
-      }
+    finalPairCode = "KID-" + generateUUID().replace(/-/g, "").substring(0, 8).toUpperCase();
+    try {
+      await supabase.from("families").update({ pair_code: finalPairCode }).eq("id", membership.family_id);
+    } catch (e) {
+      console.error("Failed to auto-heal pair code:", e);
     }
   }
 
@@ -248,7 +222,7 @@ export async function getMyFamily(userId) {
     myName: membership.name,
     members: members || [],
     phones: { mom: family?.mom_phone || "", dad: family?.dad_phone || "" },
-    pairCodeExpiresAt: finalExpiresAt ? new Date(finalExpiresAt) : null,
+    pairCodeExpiresAt: family?.pair_code_expires_at ? new Date(family.pair_code_expires_at) : null,
   };
 }
 

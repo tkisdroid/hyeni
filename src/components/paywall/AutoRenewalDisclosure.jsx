@@ -11,8 +11,8 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
         position: "fixed",
         inset: 0,
         zIndex: 710,
-        background: "rgba(15,23,42,0.4)",
-        backdropFilter: "blur(4px)",
+        background: "rgba(31,41,55,0.38)",
+        backdropFilter: "blur(12px)",
         display: "flex",
         alignItems: "flex-end",
         justifyContent: "center",
@@ -26,8 +26,10 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
           width: "100%",
           maxWidth: 460,
           background: "white",
-          borderRadius: "28px 28px 0 0",
+          borderRadius: "24px 24px 0 0",
           padding: "24px 20px 32px",
+          boxShadow: "0 -18px 48px rgba(31,41,55,0.16)",
+          border: "1px solid #FFE4EF",
         }}
       >
         <div style={{ fontSize: 20, fontWeight: 900, color: "#1F2937" }}>{AUTO_RENEWAL_DISCLOSURE.title}</div>

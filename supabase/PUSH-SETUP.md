@@ -1,4 +1,4 @@
-# 서버사이드 Web Push 설정 가이드
+﻿# 서버사이드 Web Push 설정 가이드
 
 ## 1단계: Supabase 테이블 생성
 
@@ -19,7 +19,7 @@ supabase login
 ### 프로젝트 연결
 ```bash
 cd kids-app
-supabase link --project-ref qzrrscryacxhprnrtpjd
+supabase link --project-ref <your-project-ref>
 ```
 
 ### VAPID 키 설정 (Secrets)
@@ -57,7 +57,7 @@ supabase functions deploy push-notify --no-verify-jwt
 
 1. https://cron-job.org 가입
 2. 새 크론잡 생성:
-   - **URL**: `https://qzrrscryacxhprnrtpjd.supabase.co/functions/v1/push-notify`
+   - **URL**: `https://<your-project-ref>.supabase.co/functions/v1/push-notify`
    - **Method**: POST
    - **Schedule**: 매 1분
    - **Headers**: (불필요 - --no-verify-jwt로 배포했으므로)
@@ -72,7 +72,7 @@ SELECT cron.schedule(
   '* * * * *',
   $$
   SELECT net.http_post(
-    url := 'https://qzrrscryacxhprnrtpjd.supabase.co/functions/v1/push-notify',
+    url := 'https://<your-project-ref>.supabase.co/functions/v1/push-notify',
     headers := '{"Content-Type": "application/json"}'::jsonb,
     body := '{}'::jsonb
   );
@@ -84,7 +84,7 @@ SELECT cron.schedule(
 
 Edge Function URL을 직접 호출해서 테스트:
 ```bash
-curl -X POST https://qzrrscryacxhprnrtpjd.supabase.co/functions/v1/push-notify
+curl -X POST https://<your-project-ref>.supabase.co/functions/v1/push-notify
 ```
 
 응답 예시:

@@ -5,8 +5,8 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.AudioAttributes;
-import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
@@ -15,9 +15,13 @@ import androidx.core.app.NotificationCompat;
 
 public final class NotificationHelper {
 
-    public static final String CHANNEL_SCHEDULE = "hyeni_schedule_v4";
-    public static final String CHANNEL_EMERGENCY = "hyeni_alert_v4";
-    public static final String CHANNEL_KKUK = "hyeni_kkuk_v4";
+    public static final String CHANNEL_SCHEDULE = "hyeni_schedule_v5";
+    public static final String CHANNEL_EMERGENCY = "hyeni_alert_v5";
+    public static final String CHANNEL_KKUK = "hyeni_kkuk_v5";
+
+    private static final String DEDUPE_PREFS_NAME = "hyeni_notification_dedupe";
+    private static final long DEDUPE_WINDOW_MS = 90_000L;
+
     private static final String[] LEGACY_CHANNELS = {
             "hyeni_schedule",
             "hyeni_emergency",
@@ -29,7 +33,10 @@ public final class NotificationHelper {
             "hyeni_kkuk_v2",
             "hyeni_schedule_v3",
             "hyeni_alert_v3",
-            "hyeni_kkuk_v3"
+            "hyeni_kkuk_v3",
+            "hyeni_schedule_v4",
+            "hyeni_alert_v4",
+            "hyeni_kkuk_v4"
     };
 
     private NotificationHelper() {}
@@ -50,52 +57,57 @@ public final class NotificationHelper {
             }
         }
 
-        Uri cuteSound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.hyeni_notification);
+        Uri sound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.hyeni_notification);
         AudioAttributes audioAttr = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
 
-        // Delete old channels to apply new sound
-        nm.deleteNotificationChannel(CHANNEL_SCHEDULE);
-        nm.deleteNotificationChannel(CHANNEL_EMERGENCY);
-        nm.deleteNotificationChannel(CHANNEL_KKUK);
-
         NotificationChannel schedule = new NotificationChannel(
-                CHANNEL_SCHEDULE, "일정 알림", NotificationManager.IMPORTANCE_HIGH);
-        schedule.setDescription("일정 시작 전 알림");
-        schedule.enableVibration(true);
-        schedule.setVibrationPattern(new long[]{0, 100, 60, 100});
-        schedule.setSound(cuteSound, audioAttr);
+                CHANNEL_SCHEDULE,
+                "Schedule notifications",
+                NotificationManager.IMPORTANCE_DEFAULT
+        );
+        schedule.setDescription("General schedule and reminder notifications");
+        schedule.enableVibration(false);
+        schedule.setSound(sound, audioAttr);
         schedule.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
         schedule.setShowBadge(true);
         nm.createNotificationChannel(schedule);
 
         NotificationChannel emergency = new NotificationChannel(
-                CHANNEL_EMERGENCY, "긴급 알림", NotificationManager.IMPORTANCE_HIGH);
-        emergency.setDescription("긴급 알림 (미도착, 안전 등)");
+                CHANNEL_EMERGENCY,
+                "Emergency alerts",
+                NotificationManager.IMPORTANCE_HIGH
+        );
+        emergency.setDescription("Full-screen emergency alerts");
         emergency.enableVibration(true);
-        emergency.setVibrationPattern(new long[]{0, 100, 60, 100});
-        emergency.setSound(cuteSound, audioAttr);
+        emergency.setVibrationPattern(new long[]{0, 300, 120, 300, 120, 600});
+        emergency.setSound(sound, audioAttr);
         emergency.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
         emergency.setShowBadge(true);
         emergency.setBypassDnd(true);
         nm.createNotificationChannel(emergency);
 
         NotificationChannel kkuk = new NotificationChannel(
-                CHANNEL_KKUK, "꾹 알림", NotificationManager.IMPORTANCE_HIGH);
-        kkuk.setDescription("꾹 긴급 핑");
+                CHANNEL_KKUK,
+                "Kkuk notifications",
+                NotificationManager.IMPORTANCE_DEFAULT
+        );
+        kkuk.setDescription("General kkuk notifications");
         kkuk.enableVibration(true);
-        kkuk.setVibrationPattern(new long[]{0, 100, 60, 100});
-        kkuk.setSound(cuteSound, audioAttr);
+        kkuk.setVibrationPattern(new long[]{0, 120, 80, 120});
+        kkuk.setSound(sound, audioAttr);
         kkuk.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
         kkuk.setShowBadge(true);
-        kkuk.setBypassDnd(true);
         nm.createNotificationChannel(kkuk);
     }
 
     public static int stableRequestCode(String stableId) {
-        return 20_000 + (stableId == null ? 0 : (stableId.hashCode() & 0x7fffffff));
+        if (stableId == null || stableId.trim().isEmpty()) {
+            return 20_000;
+        }
+        return 20_000 + Math.floorMod(stableId.hashCode(), 1_000_000_000);
     }
 
     public static void showNotification(
@@ -108,7 +120,15 @@ public final class NotificationHelper {
             int notificationId
     ) {
         createChannels(context);
-        Uri cuteSound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.hyeni_notification);
+
+        int requestCode = Math.max(1, notificationId);
+        if (isDuplicate(context, requestCode)) {
+            return;
+        }
+
+        Uri sound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.hyeni_notification);
+        boolean emergency = "emergency".equals(channel) || fullScreen;
+        boolean kkuk = "kkuk".equals(channel);
 
         if (wakeScreen) {
             PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
@@ -124,7 +144,6 @@ public final class NotificationHelper {
             }
         }
 
-        int requestCode = Math.max(1, notificationId);
         Intent contentIntent = new Intent(context, MainActivity.class);
         contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         contentIntent.putExtra("fromPush", true);
@@ -158,26 +177,31 @@ public final class NotificationHelper {
                 break;
         }
 
-        long[] vibration = new long[]{0, 100, 60, 100};
-
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setPriority(emergency ? NotificationCompat.PRIORITY_MAX : NotificationCompat.PRIORITY_DEFAULT)
+                .setCategory(emergency
+                        ? NotificationCompat.CATEGORY_ALARM
+                        : (kkuk ? NotificationCompat.CATEGORY_MESSAGE : NotificationCompat.CATEGORY_REMINDER))
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
                 .setContentIntent(contentPi)
-                .setVibrate(vibration)
                 .setWhen(System.currentTimeMillis());
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            builder.setSound(cuteSound);
+        if (emergency) {
+            builder.setVibrate(new long[]{0, 300, 120, 300, 120, 600});
+        } else if (kkuk) {
+            builder.setVibrate(new long[]{0, 120, 80, 120});
         }
 
-        if (fullScreen || wakeScreen) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            builder.setSound(sound);
+        }
+
+        if (fullScreen) {
             builder.setFullScreenIntent(fullScreenPi, true);
         }
 
@@ -185,5 +209,17 @@ public final class NotificationHelper {
         if (nm != null) {
             nm.notify(requestCode, builder.build());
         }
+    }
+
+    private static boolean isDuplicate(Context context, int notificationId) {
+        long now = System.currentTimeMillis();
+        SharedPreferences prefs = context.getSharedPreferences(DEDUPE_PREFS_NAME, Context.MODE_PRIVATE);
+        String key = "n_" + notificationId;
+        long lastShownAt = prefs.getLong(key, 0L);
+        if (lastShownAt > 0L && now - lastShownAt < DEDUPE_WINDOW_MS) {
+            return true;
+        }
+        prefs.edit().putLong(key, now).apply();
+        return false;
     }
 }
