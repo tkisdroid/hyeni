@@ -39,6 +39,10 @@ public class NotificationPlugin extends Plugin {
         String channel = call.getString("channel", "schedule");
         boolean wakeScreen = call.getBoolean("wakeScreen", false);
         boolean fullScreen = call.getBoolean("fullScreen", false);
+        String stableId = call.getString("id", call.getString("tag", null));
+        int notificationId = stableId != null && !stableId.trim().isEmpty()
+                ? NotificationHelper.stableRequestCode(stableId)
+                : notifId.incrementAndGet();
 
         NotificationHelper.showNotification(
                 getContext(),
@@ -47,7 +51,7 @@ public class NotificationPlugin extends Plugin {
                 channel,
                 wakeScreen,
                 fullScreen,
-                notifId.incrementAndGet()
+                notificationId
         );
 
         call.resolve(new JSObject().put("success", true));

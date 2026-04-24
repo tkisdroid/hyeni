@@ -6,10 +6,10 @@ export function SubscriptionManagement({ entitlement, role, onRefresh, onStartTr
     return (
       <section
         style={{
-          background: "#F8FAFC",
-          borderRadius: 18,
-          padding: "18px 16px",
-          border: "1px solid #E2E8F0",
+        background: "#FFF9FC",
+        borderRadius: 18,
+        padding: "18px 16px",
+        border: "1.5px solid #FFE4EF",
         }}
       >
         <div style={{ fontSize: 16, fontWeight: 900, color: "#1F2937" }}>구독 상태</div>
@@ -33,8 +33,8 @@ export function SubscriptionManagement({ entitlement, role, onRefresh, onStartTr
         background: "white",
         borderRadius: 22,
         padding: "20px 18px",
-        boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
-        border: "1px solid #F1F5F9",
+        boxShadow: "0 14px 34px rgba(180,120,150,0.12)",
+        border: "1.5px solid #FFE4EF",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>

@@ -26,10 +26,6 @@ function readEnv(key) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function addDays(days) {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-}
-
 function isNativeRuntime() {
   return typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
 }
@@ -121,7 +117,7 @@ export function normalizeLegacyFamilyEntitlement(row) {
   };
 }
 
-function normalizeMockSubscription(row) {
+function normalizeSubscriptionEntitlement(row) {
   const status = row?.status || "expired";
   const isPremium = ["trial", "active", "grace"].includes(status);
   return {
@@ -264,14 +260,6 @@ export async function identify(userId) {
     }
     return;
   }
-
-  if (supabase.__mock?.enabled) {
-    try {
-      window.localStorage.setItem("hyeni-qonversion-user-id", userId || "");
-    } catch {
-      // ignore
-    }
-  }
 }
 
 export async function checkEntitlements(familyId) {
@@ -285,10 +273,6 @@ export async function checkEntitlements(familyId) {
     }
   }
 
-  if (supabase.__mock?.enabled && familyId) {
-    return normalizeMockSubscription(supabase.__mock.getFamilySubscription(familyId));
-  }
-
   if (familyId) {
     try {
       const legacyEntitlement = await readLegacyFamilyEntitlement(familyId);
@@ -300,7 +284,7 @@ export async function checkEntitlements(familyId) {
     }
   }
 
-  return normalizeMockSubscription(null);
+  return normalizeSubscriptionEntitlement(null);
 }
 
 export async function purchase(productId, { familyId } = {}) {
@@ -338,46 +322,14 @@ export async function purchase(productId, { familyId } = {}) {
     throw new Error("구독을 시작할 가족 정보가 없습니다");
   }
 
-  if (!supabase.__mock?.enabled) {
-    const entitlement = await activateLegacyFamilyPremium(familyId, productId);
-    return {
-      success: true,
-      productId: entitlement.productId,
-      entitlement,
-      status: entitlement.status,
-      isTrial: entitlement.isTrial,
-      source: entitlement.source,
-    };
-  }
-
-  const now = new Date();
-  const trialEndsAt = addDays(7);
-  const currentPeriodEnd =
-    productId === "premium_yearly" ? addDays(365) : addDays(30);
-
-  supabase.__mock.upsertFamilySubscription({
-    family_id: familyId,
-    status: "trial",
-    product_id: productId || "premium_monthly",
-    qonversion_user_id: familyId,
-    started_at: now.toISOString(),
-    trial_ends_at: trialEndsAt.toISOString(),
-    current_period_end: currentPeriodEnd.toISOString(),
-  });
-
+  const entitlement = await activateLegacyFamilyPremium(familyId, productId);
   return {
     success: true,
-    productId,
-    entitlement: normalizeMockSubscription({
-      status: "trial",
-      product_id: productId || "premium_monthly",
-      trial_ends_at: trialEndsAt.toISOString(),
-      current_period_end: currentPeriodEnd.toISOString(),
-    }),
-    status: "trial",
-    isTrial: true,
-    trialEndsAt,
-    currentPeriodEnd,
+    productId: entitlement.productId,
+    entitlement,
+    status: entitlement.status,
+    isTrial: entitlement.isTrial,
+    source: entitlement.source,
   };
 }
 
@@ -386,10 +338,6 @@ export async function restore(familyId) {
   if (instance) {
     const entitlements = await instance.restore();
     return normalizeNativeEntitlement(pickPremiumEntitlement(entitlements));
-  }
-
-  if (supabase.__mock?.enabled && familyId) {
-    return normalizeMockSubscription(supabase.__mock.getFamilySubscription(familyId));
   }
 
   if (familyId) {
@@ -403,17 +351,7 @@ export async function restore(familyId) {
     }
   }
 
-  return normalizeMockSubscription(null);
-}
-
-export async function refreshMockSubscription(familyId, patch) {
-  if (!supabase.__mock?.enabled || !familyId) return null;
-  const current = supabase.__mock.getFamilySubscription(familyId) || {
-    family_id: familyId,
-    product_id: patch?.product_id || "premium_monthly",
-  };
-  supabase.__mock.upsertFamilySubscription({ ...current, ...patch, family_id: familyId });
-  return normalizeMockSubscription(supabase.__mock.getFamilySubscription(familyId));
+  return normalizeSubscriptionEntitlement(null);
 }
 
 export function manageSubscriptionLink(productId = "premium_monthly") {
