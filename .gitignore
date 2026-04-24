@@ -51,6 +51,7 @@ findmykids_analysis/dex/
 .env
 .env.txt
 env
+*.download
 
 # Firebase Admin SDK keys (secrets)
 *-firebase-adminsdk-*.json

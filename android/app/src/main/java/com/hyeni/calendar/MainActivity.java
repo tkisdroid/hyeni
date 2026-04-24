@@ -35,6 +35,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SpeechPlugin.class);
         registerPlugin(NotificationPlugin.class);
         registerPlugin(AmbientListenPlugin.class);
+        registerPlugin(KakaoMapLauncherPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Phase 5 RL-03: WebView WebChromeClient no longer auto-grants the

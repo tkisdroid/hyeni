@@ -2364,7 +2364,9 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
     const recenterMap = () => {
         if (!mapInst.current || !currentPos) return;
         setCentered(true);
-        mapInst.current.panTo(new window.kakao.maps.LatLng(currentPos.lat, currentPos.lng));
+        const latlng = new window.kakao.maps.LatLng(currentPos.lat, currentPos.lng);
+        mapInst.current.setLevel(1, { animate: true });
+        mapInst.current.panTo(latlng);
     };
 
     const toggleMapType = () => {
@@ -2390,9 +2392,38 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
         mapInst.current.setBounds(bounds, 60);
     };
 
-    const startInAppGuidance = () => {
+    const startInAppGuidance = async () => {
         setGuidanceStarted(true);
-        fitFullRoute();
+        if (!currentPos || !ev?.location) {
+            fitFullRoute();
+            return;
+        }
+
+        const sp = `${currentPos.lat},${currentPos.lng}`;
+        const ep = `${ev.location.lat},${ev.location.lng}`;
+        const startName = encodeURIComponent("내 위치");
+        const destName = encodeURIComponent(ev.title || "목적지");
+        const webUrl = `https://map.kakao.com/link/from/${startName},${currentPos.lat},${currentPos.lng}/to/${destName},${ev.location.lat},${ev.location.lng}`;
+
+        let openedNative = false;
+        try {
+            const { registerPlugin } = await import("@capacitor/core");
+            const KakaoMapLauncher = registerPlugin("KakaoMapLauncher");
+            const result = await KakaoMapLauncher.openRouteFoot({ sp, ep });
+            if (result?.opened) openedNative = true;
+        } catch (err) {
+            console.warn("[Guidance] Native Kakao Map launcher failed:", err);
+        }
+
+        if (openedNative) return;
+
+        try {
+            const { Browser } = await import("@capacitor/browser");
+            await Browser.open({ url: webUrl, presentationStyle: "popover" });
+        } catch (err) {
+            console.warn("[Guidance] Web fallback failed:", err);
+            fitFullRoute();
+        }
     };
 
     // Cleanup overlays on unmount
@@ -2635,7 +2666,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
 
                     <div style={{ display: "flex", gap: 10 }}>
                         <button
-                            onClick={startInAppGuidance}
+                            onClick={guidanceStarted ? fitFullRoute : startInAppGuidance}
                             disabled={!currentPos || !ev.location}
                             style={{ flex: 1, padding: "15px 14px", borderRadius: 18, border: "none", cursor: currentPos && ev.location ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "white", background: currentPos && ev.location ? "linear-gradient(135deg, #EC4899, #BE185D)" : "#D1D5DB", boxShadow: currentPos && ev.location ? "0 12px 24px rgba(236,72,153,0.26)" : "none" }}
                         >
@@ -5470,14 +5501,22 @@ export default function KidsScheduler() {
         let handle;
         (async () => {
             try {
-                const { App: CapApp } = await import("@capacitor/app");
+                const [{ App: CapApp }, { Browser }] = await Promise.all([
+                    import("@capacitor/app"),
+                    import("@capacitor/browser"),
+                ]);
+                const closeBrowserSafely = async () => {
+                    try { await Browser.close(); } catch (e) { void e; }
+                };
                 const launch = await CapApp.getLaunchUrl();
                 if (launch?.url) {
-                    await handleNativeAuthCallback(launch.url);
+                    const handled = await handleNativeAuthCallback(launch.url);
+                    if (handled) await closeBrowserSafely();
                 }
 
                 handle = await CapApp.addListener("appUrlOpen", async (event) => {
-                    await handleNativeAuthCallback(event.url);
+                    const handled = await handleNativeAuthCallback(event.url);
+                    if (handled) await closeBrowserSafely();
                 });
             } catch (error) {
                 void error;
