@@ -18,6 +18,7 @@ dist-ssr
 .android/
 .playwright-mcp/
 .tmp-design-examples/
+.superpowers/
 
 # Android/Gradle generated files
 .gradle/
