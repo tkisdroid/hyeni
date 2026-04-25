@@ -59,6 +59,10 @@ public class AmbientListenService extends Service {
     public static final String EXTRA_SUPABASE_KEY = "supabaseKey";
     public static final String EXTRA_ACCESS_TOKEN = "accessToken";
     public static final String EXTRA_DURATION_SEC = "durationSec";
+    public static final String EXTRA_REQUEST_ID = "requestId";
+    private static final String EVENT_DUPLICATE_START = "duplicate_start";
+    private static final Object SESSION_LOCK = new Object();
+    private static String activeRequestId = "";
 
     private static final int SAMPLE_RATE = 16_000;
     private static final int CHUNK_MS = 1_000;
@@ -81,6 +85,7 @@ public class AmbientListenService extends Service {
     private String supabaseUrl;
     private String supabaseKey;
     private String accessToken;
+    private String requestId;
     private int durationSec;
 
     @Override
@@ -126,7 +131,7 @@ public class AmbientListenService extends Service {
         }
 
         startCaptureIfNeeded();
-        return START_NOT_STICKY;
+        return START_REDELIVER_INTENT;
     }
 
     @Override
@@ -142,6 +147,7 @@ public class AmbientListenService extends Service {
         supabaseUrl = readExtraOrPrefs(intent, EXTRA_SUPABASE_URL, "supabaseUrl");
         supabaseKey = readExtraOrPrefs(intent, EXTRA_SUPABASE_KEY, "supabaseKey");
         accessToken = readExtraOrPrefs(intent, EXTRA_ACCESS_TOKEN, "accessToken");
+        requestId = intent != null ? intent.getStringExtra(EXTRA_REQUEST_ID) : "";
         durationSec = intent != null ? intent.getIntExtra(EXTRA_DURATION_SEC, 30) : 30;
         if (durationSec < 5) durationSec = 30;
         if (durationSec > 120) durationSec = 120;
@@ -171,8 +177,24 @@ public class AmbientListenService extends Service {
     }
 
     private void startCaptureIfNeeded() {
+        String nextRequestId = notBlank(requestId) ? requestId.trim() : "legacy-" + System.currentTimeMillis();
+        synchronized (SESSION_LOCK) {
+            if (recording.get()) {
+                if (nextRequestId.equals(activeRequestId)) {
+                    Log.i(TAG, EVENT_DUPLICATE_START + " ignored for requestId=" + nextRequestId);
+                } else {
+                    Log.i(TAG, "Ambient listen already running; " + EVENT_DUPLICATE_START + " ignored for requestId=" + nextRequestId);
+                }
+                requestId = activeRequestId;
+                return;
+            }
+            activeRequestId = nextRequestId;
+            requestId = nextRequestId;
+        }
+
         if (!recording.compareAndSet(false, true)) {
             Log.i(TAG, "Ambient listen capture already running");
+            clearActiveRequest();
             return;
         }
 
@@ -194,6 +216,7 @@ public class AmbientListenService extends Service {
             recording.set(false);
             releaseWakeLock();
             shutdownUploader();
+            clearActiveRequest();
             stopSelf();
             return;
         }
@@ -260,7 +283,16 @@ public class AmbientListenService extends Service {
             }
             releaseWakeLock();
             shutdownUploader();
+            clearActiveRequest();
             stopSelf();
+        }
+    }
+
+    private void clearActiveRequest() {
+        synchronized (SESSION_LOCK) {
+            if (!notBlank(requestId) || requestId.equals(activeRequestId)) {
+                activeRequestId = "";
+            }
         }
     }
 
@@ -326,7 +358,8 @@ public class AmbientListenService extends Service {
                 .put("sequenceNumber", seq)
                 .put("source", "native-audiorecord")
                 .put("childUserId", childUserId)
-                .put("initiatorUserId", initiatorUserId);
+                .put("initiatorUserId", initiatorUserId)
+                .put("requestId", requestId);
 
             JSONObject message = new JSONObject()
                 .put("topic", "family-" + familyId)
@@ -378,6 +411,7 @@ public class AmbientListenService extends Service {
         } else {
             stopForeground(true);
         }
+        clearActiveRequest();
     }
 
     private void acquireWakeLock() {
@@ -412,7 +446,8 @@ public class AmbientListenService extends Service {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("\uC8FC\uBCC0 \uC18C\uB9AC \uC5F0\uACB0 \uC911")
             .setContentText("\uBD80\uBAA8\uB2D8\uACFC \uC5F0\uACB0\uB41C \uC8FC\uBCC0 \uC18C\uB9AC \uB4E3\uAE30 \uC138\uC158\uC774 \uC2E4\uD589 \uC911\uC785\uB2C8\uB2E4")
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(R.drawable.ic_hyeni_notification)
+            .setColor(0xFFFF6B9D)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)

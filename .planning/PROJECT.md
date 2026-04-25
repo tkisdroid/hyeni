@@ -10,23 +10,30 @@
 
 ## Requirements
 
-### Validated (v1.0에서 shipped)
+### Validated (v1.0 + v1.1 shipped)
 
-- ✓ v1.0 마일스톤 전체 (28 REQ) — `.planning/milestones/v1.0/` 아카이브 참고
-  - PUSH-01..04, RT-01..04, PAIR-01..04, RES-01..02, MEMO-01..03, GATE-01..02, RL-01..04, KKUK-01..03, SOS-01
+**v1.0 (28 REQ + SEC-01 핫픽스)** — `.planning/milestones/v1.0/` 아카이브 참고
+- ✓ PUSH-01..04, RT-01..04, PAIR-01..04, RES-01..02, MEMO-01..03, GATE-01..02, RL-01..04, KKUK-01..03, SOS-01
 - ✓ SEC-01 (재감사 중 발견 후 핫픽스) — push-notify sender∈family 검증
 
-### Active (v1.1)
+**v1.1 (8 REQ)** — Phase 5.5 + Phase 6, 2026-04-22 verified
+- ✓ MEMO-FIX-01..05 — legacy `public.memos` textarea 경로 제거 + X/Thread 스타일 말풍선 UI (Phase 5.5)
+- ✓ CI-01 — `.github/workflows/android-apk.yml` JDK 21 + Android SDK 36 + 서명 APK 8.97MB (Phase 6)
+- ✓ PWA-01 — `hyenicalendar.com/manifest.json` HTTP 200 + `application/manifest+json` MIME (Phase 6)
+- ✓ IDEMP-TTL-01 — `push_idempotency` 24h 리텐션 pg_cron `cleanup_push_idempotency` hourly (Phase 6)
 
-**P0 — Android 실기기 end-to-end:**
-- [ ] **NATIVE-01** — Android APK 리빌드 (Capacitor 8 sync + FGS-microphone + AmbientListenService 작동화 + WebView mic-permission-denied DOM 이벤트 JS 핸들러)
-- [ ] **NATIVE-02** — Google Play 내부 테스트 트랙 업로드 (family-exception 정책 제출 copy 포함)
-- [ ] **NATIVE-03** — 아이 단말 재설치 후 remote_listen end-to-end 라이브 검증 (parent trigger → child FCM → 앱 깨우기 → 빨간 배너 → getUserMedia → audio_chunk → parent 재생 + `remote_listen_sessions` DB row)
+### Deferred to v1.2+ (NATIVE-*)
 
-**P1 — 서버·인프라 폴리싱:**
-- [ ] **CI-01** — `.github/workflows/android-apk.yml` (JDK17 + Android SDK runner, main push 시 APK artifact 자동 업로드)
-- [ ] **PWA-01** — `/manifest.json` 403 수정 (Vercel rewrites 또는 public/manifest.json 경로 검증 → 200)
-- [ ] **IDEMP-TTL-01** — `push_idempotency` 24h 리텐션 cron (pg_cron 또는 Edge Function scheduled)
+v1.1 에서 hold 됨. v1.2 또는 v1.3 milestone 에서 재검토:
+- **NATIVE-01** — Android APK 리빌드 + AmbientListenService FGS-microphone + MainActivity onPermissionRequest + JS `mic-permission-denied` 핸들러
+- **NATIVE-02** — Google Play Console 내부 테스트 트랙 업로드 + Family-exception 정책 제출
+- **NATIVE-03** — 아이 단말 재설치 + end-to-end remote_listen 라이브 검증
+
+> Native 코드는 이미 Phase 5 Stream B 에서 commit 됨. 미진행 = keystore secrets 등록 + Play Console 제출 + 실기기 검증.
+
+### Active (none)
+
+v1.1 종료 (2026-04-25). 다음 milestone 킥오프 시 Active 섹션 갱신.
 
 ### Out of Scope (v1.2+ 이월)
 
@@ -97,4 +104,4 @@
 3. `memos` DROP 트리거 일정 확인 (2026-05-21 이후)
 
 ---
-*Last updated: 2026-04-22 after v1.1 initialization*
+*Last updated: 2026-04-25 after v1.1 1차 마무리 (NATIVE-* 이월)*

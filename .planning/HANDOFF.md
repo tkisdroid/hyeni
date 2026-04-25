@@ -10,7 +10,7 @@ Next session: read this file + `.planning/STATE.md` + most recent 5.5/06-*-SUMMA
    - Legacy `public.memos` textarea removal + X/Thread-style bubble UI + 2 toasts (onboarding + send-failure)
    - Commits `7c9ba2b..7699715` (8 commits), `npm run build` PASS, codex review rounds 1+2 PASS
    - User 2-device live smoke PASS on hyenicalendar.com
-   - `.planning/phases/05.5-memo-ux-cleanup/05.5-01-SUMMARY.md` + `05.5-02-SUMMARY.md`
+   - `.planning/phases/5.5-memo-ux-cleanup/05.5-01-SUMMARY.md` + `05.5-02-SUMMARY.md`
 
 2. **Phase 6 Infrastructure & Polish** — ✅ 3/3 VERIFIED live
    - CI-01: `.github/workflows/android-apk.yml` green at `df656b9` after 5 iterative fixes (cap sync → SDK 36 → log artifact → cordova dir commit → JDK 21). APK artifact 8.97MB available for 14 days.

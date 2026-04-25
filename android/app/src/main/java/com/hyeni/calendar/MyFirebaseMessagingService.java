@@ -94,8 +94,26 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             }
         }
 
+        if ("request_location".equals(type)) {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            if (!shouldHandleChildCommand(prefs)) {
+                Log.i(TAG, "Location refresh skipped: this device is not child mode");
+                return;
+            }
+            if (startLocationRefreshService(data)) {
+                return;
+            }
+            Log.w(TAG, "Location refresh request could not start native service");
+            return;
+        }
+
         // Remote listen: silently launch app for mic recording
         if ("remote_listen".equals(type)) {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            if (!shouldHandleChildCommand(prefs)) {
+                Log.i(TAG, "Remote listen skipped: this device is not child mode");
+                return;
+            }
             Log.i(TAG, "Remote listen request - launching app");
             wakeScreen();
             if (startAmbientListenService(data)) {
@@ -172,6 +190,63 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 || "danger_enter".equals(alertType)
                 || "danger_entry".equals(alertType)
                 || "danger_exit".equals(alertType);
+    }
+
+    private boolean shouldHandleChildCommand(SharedPreferences prefs) {
+        String role = prefs != null ? prefs.getString("role", "") : "";
+        return isBlank(role) || "child".equalsIgnoreCase(role);
+    }
+
+    private boolean startLocationRefreshService(Map<String, String> data) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "Location refresh skipped: ACCESS_FINE_LOCATION permission missing");
+            return false;
+        }
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String userId = prefs.getString("userId", "");
+        String prefsFamilyId = prefs.getString("familyId", "");
+        String pushFamilyId = data != null ? data.get("familyId") : null;
+        if (!isBlank(pushFamilyId) && !isBlank(prefsFamilyId) && !pushFamilyId.equals(prefsFamilyId)) {
+            Log.w(TAG, "Location refresh skipped: family mismatch");
+            return false;
+        }
+
+        String familyId = firstNonBlank(pushFamilyId, prefsFamilyId);
+        String supabaseUrl = prefs.getString("supabaseUrl", "");
+        String supabaseKey = prefs.getString("supabaseKey", "");
+        String accessToken = prefs.getString("accessToken", "");
+
+        if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey)) {
+            Log.w(TAG, "Location refresh skipped: push context missing");
+            return false;
+        }
+
+        Intent intent = new Intent(this, LocationService.class);
+        intent.setAction(LocationService.ACTION_REFRESH_NOW);
+        intent.putExtra("userId", userId);
+        intent.putExtra("familyId", familyId);
+        intent.putExtra("supabaseUrl", supabaseUrl);
+        intent.putExtra("supabaseKey", supabaseKey);
+        intent.putExtra("accessToken", accessToken);
+        intent.putExtra("role", "child");
+        if (data != null && !isBlank(data.get("requestId"))) {
+            intent.putExtra("requestId", data.get("requestId"));
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
+            Log.i(TAG, "Location refresh foreground service started from FCM");
+            return true;
+        } catch (Exception error) {
+            Log.w(TAG, "Location refresh service start failed from FCM", error);
+            return false;
+        }
     }
 
     private void showRemoteListenLauncher(Map<String, String> data) {
@@ -277,6 +352,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (!isBlank(senderUserId)) {
             intent.putExtra(AmbientListenService.EXTRA_INITIATOR_USER_ID, senderUserId);
         }
+        String requestId = data != null ? data.get("requestId") : null;
+        if (!isBlank(requestId)) {
+            intent.putExtra(AmbientListenService.EXTRA_REQUEST_ID, requestId);
+        }
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -297,6 +376,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         putIfPresent(intent, "familyId", data.get("familyId"));
         putIfPresent(intent, "senderUserId", data.get("senderUserId"));
         putIfPresent(intent, "durationSec", data.get("durationSec"));
+        putIfPresent(intent, "requestId", data.get("requestId"));
     }
 
     private void putIfPresent(Intent intent, String key, String value) {

@@ -143,7 +143,7 @@ public class LocationPlugin extends Plugin {
         String role = getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
             .getString("role", "child");
         Intent intent = new Intent(getContext(), LocationService.class);
-        intent.setAction("REFRESH_NOW");
+        intent.setAction(LocationService.ACTION_REFRESH_NOW);
         intent.putExtra("userId", userId);
         intent.putExtra("familyId", familyId);
         intent.putExtra("supabaseUrl", supabaseUrl);
@@ -216,6 +216,7 @@ public class LocationPlugin extends Plugin {
     public void setPushContext(PluginCall call) {
         String userId = call.getString("userId");
         String familyId = call.getString("familyId");
+        String role = call.getString("role", "");
         String supabaseUrl = call.getString("supabaseUrl");
         String supabaseKey = call.getString("supabaseKey");
         String accessToken = call.getString("accessToken", "");
@@ -230,6 +231,7 @@ public class LocationPlugin extends Plugin {
             .edit()
             .putString("userId", userId)
             .putString("familyId", familyId)
+            .putString("role", role)
             .putString("supabaseUrl", supabaseUrl)
             .putString("supabaseKey", supabaseKey)
             .putString("accessToken", accessToken)

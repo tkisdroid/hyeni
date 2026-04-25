@@ -52,6 +52,7 @@ public class AmbientListenPlugin extends Plugin {
         String supabaseKey = call.getString("supabaseKey");
         String accessToken = call.getString("accessToken", "");
         String initiatorUserId = call.getString("initiatorUserId", "");
+        String requestId = call.getString("requestId", "");
         int durationSec = call.getInt("durationSec", 30);
 
         if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey)) {
@@ -67,6 +68,7 @@ public class AmbientListenPlugin extends Plugin {
         intent.putExtra(AmbientListenService.EXTRA_SUPABASE_KEY, supabaseKey);
         intent.putExtra(AmbientListenService.EXTRA_ACCESS_TOKEN, accessToken);
         intent.putExtra(AmbientListenService.EXTRA_INITIATOR_USER_ID, initiatorUserId);
+        intent.putExtra(AmbientListenService.EXTRA_REQUEST_ID, requestId);
         intent.putExtra(AmbientListenService.EXTRA_DURATION_SEC, durationSec);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -2,13 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Native Deploy & Polish
-status: active
+status: complete
 started_at: 2026-04-22
-current_phase: 7
-current_phase_name: Android Native Build & Submit
-total_phases: 4
+closed_at: 2026-04-25
+current_phase: null
+current_phase_name: (closed — Native deploy 작업 v1.2+ 이월)
+total_phases: 2
 phases_complete: 2
-total_plans_in_milestone: 8
+total_plans_in_milestone: 5
 plans_complete: 5
 ---
 
@@ -16,19 +17,20 @@ plans_complete: 5
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-22 for v1.1)
+See: .planning/PROJECT.md (updated 2026-04-25 for v1.1 1차 마무리)
 
 **Core value:** 아이 단말이 켜져 있지 않거나 앱이 닫힌 상태에서도 SOS·주위소리듣기가 실제 동작한다.
-**Current focus:** Phase 7 — Android Native Build & Submit (APK rebuild + mic-permission DOM event handler + Play internal track)
+**Current focus:** (none — v1.1 종료, 다음 milestone 킥오프 대기)
 
 ## Current Position
 
-Milestone: **v1.1** — Native Deploy & Polish (active)
-Phase: 7 of 8 (3 of 4 in v1.1)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
+Milestone: **v1.1** — Native Deploy & Polish (✅ closed 2026-04-25, 1차 마무리)
+Phase: 모든 진행 phase 종료 (5.5 + 6)
+Plan: —
+Status: Closed
 
-Progress (v1.1): `[██████░░░░] 55%` (6 / 11 REQs closed — Phase 5.5 MEMO-FIX-01/03/05 shipped 2026-04-22; MEMO-FIX-02/04 effectively covered by same diff + E2E spec)
+Progress (v1.1): `[██████████] 100%` (8 REQ closed — Phase 5.5 MEMO-FIX-01..05 + Phase 6 CI-01/PWA-01/IDEMP-TTL-01)
+Deferred: NATIVE-01/02/03 → v1.2+
 
 ## Accumulated Context
 
@@ -48,7 +50,7 @@ Progress (v1.1): `[██████░░░░] 55%` (6 / 11 REQs closed — 
 | Milestone | Status | Completed | Archive |
 |-----------|--------|-----------|---------|
 | v1.0 Production Stabilization | ✅ complete (tech_debt → passed-with-v1.1-deferrals) | 2026-04-21 | `.planning/milestones/v1.0/` |
-| v1.1 Native Deploy & Polish | 🏃 active | — | (this milestone) |
+| v1.1 Native Deploy & Polish | ✅ closed (1차 마무리, NATIVE-* 이월) | 2026-04-25 | (this milestone — Phase 5.5 + 6 only) |
 
 ## Performance Metrics (v1.1)
 

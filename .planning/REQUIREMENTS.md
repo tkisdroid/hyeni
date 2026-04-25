@@ -5,28 +5,29 @@
 
 > v1.0 아카이브: `.planning/milestones/v1.0/REQUIREMENTS.md` (28 REQ 전부 closed, SEC-01 핫픽스 포함)
 
-## v1.1 Requirements (6)
+## v1.1 Requirements (Closed 2026-04-25)
 
-모든 REQ는 Playwright real-services 또는 Android 실기기 smoke 를 통해 검증. Supabase branch 미사용(MCP 직배포 유지).
+v1.1 은 8 REQ 로 종료 (Phase 5.5 의 5개 + Phase 6 의 3개). Native deploy 작업 (NATIVE-01/02/03) 은 v1.2+ 로 이월.
 
-### Android Native Deploy (P0 — v1.0 deferred)
+### Phase 5.5: Memo UX Cleanup ✅
 
-- [ ] **NATIVE-01**: Android APK 리빌드로 Capacitor 8 `assets/public` 에 최신 `dist/` 번들 포함 + `AmbientListenService` FGS 서비스가 `foregroundServiceType="microphone"` 으로 작동 + `MainActivity.java` 의 WebView `onPermissionRequest` 가 auto-grant 제거 + JS 측에 `window.addEventListener('mic-permission-denied', ...)` 핸들러 존재해 아이 단말에 "마이크 권한이 필요해요" UI 표시.
-- [ ] **NATIVE-02**: Google Play Console 내부 테스트 트랙에 APK 또는 AAB 업로드. Family-exception 카테고리 설명(`가족 안전 앱 — 부모-자녀 명시 동의 하에 주위 소리 듣기 기능 제공, persistent notification 표시`) 제출 양식 완료.
-- [ ] **NATIVE-03**: 아이 단말(1대 이상) 재설치 후 end-to-end 라이브 검증:
-  - [ ] 부모가 주위소리듣기 트리거 → `push-notify` 200 + 아이 단말 FCM 수신
-  - [ ] 아이 단말 앱 깨어나기 (백그라운드→포그라운드 또는 native FGS 시작)
-  - [ ] 아이 화면에 빨간 배너 `🎤 부모님이 주위 소리를 듣고 있어요`
-  - [ ] Persistent 알림 `주변 소리 연결 중` 표시 (AmbientListenService)
-  - [ ] `getUserMedia({audio:true})` 권한 프롬프트 후 스트림 캡처
-  - [ ] `audio_chunk` broadcast → 부모 기기에서 실제 오디오 재생
-  - [ ] `remote_listen_sessions` 테이블에 started_at + ended_at + duration_ms + end_reason 채워진 row 1개 생성
+- [x] **MEMO-FIX-01..05**: legacy `public.memos` textarea 경로 제거 + X/Thread 스타일 말풍선 UI + ghost typing cursor 버그 제거 (2026-04-22 verified, 2-device live smoke PASS)
 
-### Server & Infra Polish (P1)
+### Phase 6: Server & Infra Polish ✅
 
-- [ ] **CI-01**: `.github/workflows/android-apk.yml` 작성 — JDK 17 + Android SDK 34 + `npm ci` + `npm run build` + `npx cap sync android` + `./gradlew assembleRelease` + APK artifact 업로드. main push 트리거. 첫 run 5-10분, 이후 2-3분.
-- [ ] **PWA-01**: `hyenicalendar.com/manifest.json` → HTTP 200 응답. Vercel output configuration 또는 `public/manifest.json` 위치 수정. 브라우저 콘솔 `Manifest fetch ... 403` 경고 소멸.
-- [ ] **IDEMP-TTL-01**: `public.push_idempotency` 테이블에 24시간 이상 경과한 row 자동 삭제. 구현: (a) pg_cron extension + `cron.schedule('cleanup_idempotency', '0 * * * *', 'DELETE FROM push_idempotency WHERE created_at < now() - interval 24 hours')` — 매시간 실행. 또는 (b) Supabase Edge Function scheduled. (a) 권장.
+- [x] **CI-01**: `.github/workflows/android-apk.yml` — JDK 21 + Android SDK 36 + signed APK artifact 8.97MB. main push 트리거 자동. 5 iterative fixes 후 green at `df656b9` (2026-04-22 verified).
+- [x] **PWA-01**: `hyenicalendar.com/manifest.json` → HTTP 200 + `application/manifest+json` MIME (2026-04-22 verified, Vercel rewrites 적용).
+- [x] **IDEMP-TTL-01**: `public.push_idempotency` 24h 리텐션 cron (`cleanup_push_idempotency` job, hourly). Supabase MCP 적용 commit `4c62f53` (2026-04-22 verified).
+
+### Deferred to v1.2+ (NATIVE-*)
+
+다음은 v1.1 에서 hold 됨. v1.2 또는 v1.3 milestone 에서 재검토:
+
+- **NATIVE-01**: Android APK 리빌드 + AmbientListenService FGS-microphone + MainActivity onPermissionRequest 수정 + JS `mic-permission-denied` 핸들러
+- **NATIVE-02**: Google Play Console 내부 테스트 트랙 업로드 + Family-exception 정책 제출
+- **NATIVE-03**: 아이 단말 재설치 + end-to-end remote_listen 라이브 검증
+
+> Native 코드는 이미 Phase 5 Stream B 에서 commit 됨 (`android/app/src/main/java/com/hyeni/calendar/AmbientListenService.java`, `MainActivity.java`). 미진행 작업은 keystore secrets 등록 + Play Console 제출 + 실기기 검증.
 
 ## v1.2+ Backlog
 
@@ -71,20 +72,19 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CI-01 | Phase 6 | Pending |
-| PWA-01 | Phase 6 | Pending |
-| IDEMP-TTL-01 | Phase 6 | Pending |
-| NATIVE-01 | Phase 7 | Pending |
-| NATIVE-02 | Phase 7 | Pending |
-| NATIVE-03 | Phase 8 | Pending |
+| MEMO-FIX-01..05 | Phase 5.5 | ✅ Complete (2026-04-22) |
+| CI-01 | Phase 6 | ✅ Complete (2026-04-22) |
+| PWA-01 | Phase 6 | ✅ Complete (2026-04-22) |
+| IDEMP-TTL-01 | Phase 6 | ✅ Complete (2026-04-22) |
+| NATIVE-01 | (deferred) | ⏸ v1.2+ |
+| NATIVE-02 | (deferred) | ⏸ v1.2+ |
+| NATIVE-03 | (deferred) | ⏸ v1.2+ |
 
 **Coverage:**
-- v1.1 requirements: **6 total**
-- Mapped to phases: 6
-- Unmapped: 0
-
-**Phase 번호 규약**: v1.0 이 1-5 사용. v1.1 은 6-8 이어감.
+- v1.1 closed requirements: **8** (Phase 5.5: MEMO-FIX-01..05 · Phase 6: CI-01/PWA-01/IDEMP-TTL-01)
+- Deferred: 3 (NATIVE-01/02/03)
 
 ---
 *Requirements defined: 2026-04-22*
+*Closed: 2026-04-25 (v1.1 1차 마무리, NATIVE-* 이월)*
 *v1.0 archive: `.planning/milestones/v1.0/REQUIREMENTS.md`*

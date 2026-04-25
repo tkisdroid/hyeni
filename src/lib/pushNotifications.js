@@ -384,12 +384,15 @@ export function showEmergencyNotification(ev) {
   );
 }
 
-export function showKkukNotification(senderLabel) {
+export function showKkukNotification(senderLabel, dedupKey = "") {
+  const stableTag = typeof dedupKey === "string" && dedupKey.trim()
+    ? dedupKey.trim()
+    : `hyeni-kkuk-${Date.now()}`;
   showNotification(
     "💗 꾹!",
     `${senderLabel}가 꾹을 보냈어요!`,
-    `hyeni-kkuk-${Date.now()}`,
-    { kkuk: true, urgent: false }
+    stableTag,
+    { kkuk: true, urgent: false, pushId: stableTag }
   );
 }
 

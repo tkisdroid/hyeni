@@ -6,6 +6,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
@@ -129,6 +131,7 @@ public final class NotificationHelper {
         Uri sound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.hyeni_notification);
         boolean emergency = "emergency".equals(channel) || fullScreen;
         boolean kkuk = "kkuk".equals(channel);
+        Bitmap largeIcon = BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher_foreground);
 
         if (wakeScreen) {
             PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
@@ -178,7 +181,9 @@ public final class NotificationHelper {
         }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                .setSmallIcon(R.drawable.ic_hyeni_notification)
+                .setLargeIcon(largeIcon)
+                .setColor(0xFFFF6B9D)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body))

@@ -112,6 +112,31 @@ async function getNativeRecipientIds(
   );
 }
 
+async function getFamilyMemberIdsByRole(
+  supabase: ReturnType<typeof createClient>,
+  familyId: string,
+  role: string,
+): Promise<Set<string>> {
+  if (!familyId || !role) return new Set<string>();
+
+  const { data, error } = await supabase
+    .from("family_members")
+    .select("user_id")
+    .eq("family_id", familyId)
+    .eq("role", role);
+
+  if (error) {
+    console.error(`Failed to load ${role} recipients:`, error);
+    return new Set<string>();
+  }
+
+  return new Set(
+    (data || [])
+      .map((row) => row.user_id)
+      .filter((userId): userId is string => typeof userId === "string" && userId.length > 0)
+  );
+}
+
 // ── FCM OAuth2 token cache ──────────────────────────────────────────────────
 let fcmAccessToken: string | null = null;
 let fcmTokenExpiry = 0;
@@ -200,6 +225,7 @@ async function sendFcmNotification(
 
   try {
     const isRemoteListen = data.type === "remote_listen";
+    const isLocationRefresh = data.type === "request_location";
     const stringData = Object.fromEntries(
       Object.entries({ title, body, type: data.type || "schedule", ...data }).map(([key, value]) => [key, String(value)])
     );
@@ -210,7 +236,7 @@ async function sendFcmNotification(
         data: stringData,
         android: {
           priority: "HIGH",
-          ttl: isRemoteListen ? "30s" : "120s",
+          ttl: isRemoteListen ? "300s" : (isLocationRefresh ? "120s" : "120s"),
           direct_boot_ok: true,
         },
       },
@@ -254,6 +280,7 @@ async function sendFcmToFamily(
   body: string,
   type: string,
   extraData: Record<string, string> = {},
+  recipientUserIds: Set<string> | null = null,
 ): Promise<number> {
   const { data: tokens, error: tokenErr } = await supabase
     .from("fcm_tokens")
@@ -272,6 +299,7 @@ async function sendFcmToFamily(
 
   for (const t of tokens) {
     if (t.user_id === senderUserId) continue;
+    if (recipientUserIds && !recipientUserIds.has(t.user_id)) continue;
     const pushData: Record<string, string> = {
       type,
       familyId,
@@ -344,7 +372,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* not JSON, proceed as cron */ }
     }
 
-    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "emergency" || body?.action === "sos") {
+    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "request_location" || body?.action === "emergency" || body?.action === "sos") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
 
@@ -377,6 +405,8 @@ async function handleInstantNotification(
   const title = body.title as string || "새 알림";
   const message = body.message as string || "";
   const isRemoteListen = action === "remote_listen";
+  const isLocationRefresh = action === "request_location";
+  const isChildNativeCommand = isRemoteListen || isLocationRefresh;
 
   if (!familyId) return jsonResponse({ error: "familyId required" }, 400);
 
@@ -440,18 +470,35 @@ async function handleInstantNotification(
   const urgent = isEmergencyNotification(action, urgencyProbe);
 
   const nativeRecipientIds = await getNativeRecipientIds(supabase, familyId);
+  const childNativeRecipientIds = isChildNativeCommand
+    ? await getFamilyMemberIdsByRole(supabase, familyId, "child")
+    : null;
   const fcmExtraData: Record<string, string> = {
     pushId,
     urgent: urgent ? "true" : "false",
   };
   if (severity) fcmExtraData.severity = severity;
   if (alertType) fcmExtraData.alertType = alertType;
-  if (isRemoteListen && body.durationSec !== undefined && body.durationSec !== null) {
-    fcmExtraData.durationSec = String(body.durationSec);
+  if (isChildNativeCommand) {
+    fcmExtraData.targetRole = "child";
+    if (body.requestId !== undefined && body.requestId !== null) {
+      fcmExtraData.requestId = String(body.requestId);
+    }
+    if (body.reason !== undefined && body.reason !== null) {
+      fcmExtraData.reason = String(body.reason);
+    }
+    if (body.requestedAt !== undefined && body.requestedAt !== null) {
+      fcmExtraData.requestedAt = String(body.requestedAt);
+    }
+  }
+  if (isRemoteListen) {
+    if (body.durationSec !== undefined && body.durationSec !== null) {
+      fcmExtraData.durationSec = String(body.durationSec);
+    }
   }
 
   // ── Web Push (VAPID) ────────────────────────────────────────────────
-  const { data: subs } = isRemoteListen
+  const { data: subs } = isChildNativeCommand
     ? { data: [] as Array<{ id: string; endpoint: string; subscription: unknown; user_id: string }> }
     : await supabase
         .from("push_subscriptions")
@@ -507,12 +554,15 @@ async function handleInstantNotification(
     message,
     action,
     fcmExtraData,
+    childNativeRecipientIds,
   );
 
   // ── PUSH-03 / PUSH-04 (D-A04): always record pending_notifications with
   // observability payload, even when zero recipients. Previously we skipped
   // insertion in that case, losing the trail entirely.
-  const totalRecipients = (subs?.length || 0);
+  const totalRecipients = isChildNativeCommand
+    ? (childNativeRecipientIds?.size || 0)
+    : (subs?.length || 0);
   const deliveryStatus: Record<string, unknown> = {
     webSent,
     fcmSent,
@@ -522,29 +572,45 @@ async function handleInstantNotification(
     deliveryStatus.note = "no subscribers";
   }
 
-  if (!isRemoteListen) {
-    // Also queue for Android native polling (fallback)
-    // senderUserId를 data에 포함 → 수신 측에서 자기 알림 필터링
-    const { error: pendingErr } = await supabase.from("pending_notifications").insert({
-      family_id: familyId,
-      title,
-      body: message,
-      data: {
-        senderUserId: senderUserId || "",
-        type: action,
-        action,
-        pushId,
-        urgent,
-        ...(severity ? { severity } : {}),
-        ...(alertType ? { alertType } : {}),
-      },
-      delivery_status: deliveryStatus,
-      idempotency_key: idempotencyKey || null,
-    });
+  // Also queue for Android native polling fallback. For remote_listen and
+  // request_location the child LocationService consumes this row as a native
+  // command instead of showing a normal notification.
+  const { error: pendingErr } = await supabase.from("pending_notifications").insert({
+    family_id: familyId,
+    title,
+    body: message,
+    data: {
+      senderUserId: senderUserId || "",
+      familyId,
+      type: action,
+      action,
+      pushId,
+      urgent,
+      ...(isRemoteListen ? { targetRole: "child" } : {}),
+      ...(isLocationRefresh ? { targetRole: "child" } : {}),
+      ...(isChildNativeCommand && body.requestId !== undefined && body.requestId !== null
+        ? { requestId: String(body.requestId) }
+        : {}),
+      ...(isLocationRefresh && body.reason !== undefined && body.reason !== null
+        ? { reason: String(body.reason) }
+        : {}),
+      ...(isLocationRefresh && body.requestedAt !== undefined && body.requestedAt !== null
+        ? { requestedAt: String(body.requestedAt) }
+        : {}),
+      ...(isRemoteListen && body.durationSec !== undefined && body.durationSec !== null
+        ? { durationSec: String(body.durationSec) }
+        : {}),
+      ...(severity ? { severity } : {}),
+      ...(alertType ? { alertType } : {}),
+    },
+    delivery_status: deliveryStatus,
+    idempotency_key: idempotencyKey || null,
+    ...(isRemoteListen ? { expires_at: new Date(Date.now() + 5 * 60_000).toISOString() } : {}),
+    ...(isLocationRefresh ? { expires_at: new Date(Date.now() + 2 * 60_000).toISOString() } : {}),
+  });
 
-    if (pendingErr) {
-      console.error("Failed to queue pending notification:", pendingErr);
-    }
+  if (pendingErr) {
+    console.error("Failed to queue pending notification:", pendingErr);
   }
 
   return jsonResponse({ webSent, fcmSent, total: totalRecipients, key: idempotencyKey || null });

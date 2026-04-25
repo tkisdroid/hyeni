@@ -27,9 +27,9 @@ function currentDateParts() {
   };
 }
 
-function buildEventRow({ insideArrivalZone = false } = {}) {
+function buildEventRow({ insideArrivalZone = false, ...overrides } = {}) {
   const { dateKey, time } = currentDateParts();
-  return {
+  const eventRow = {
     id: "event-current",
     family_id: FAMILY_ID,
     date_key: dateKey,
@@ -47,6 +47,50 @@ function buildEventRow({ insideArrivalZone = false } = {}) {
     end_time: null,
     created_by: PARENT_ID,
   };
+  return { ...eventRow, ...overrides };
+}
+
+function buildFutureEventRow({ id, title, offsetMinutes }) {
+  const eventDate = new Date(Date.now() + offsetMinutes * 60_000);
+  return buildEventRow({
+    id,
+    title,
+    date_key: `${eventDate.getFullYear()}-${eventDate.getMonth()}-${eventDate.getDate()}`,
+    time: `${String(eventDate.getHours()).padStart(2, "0")}:${String(eventDate.getMinutes()).padStart(2, "0")}`,
+    end_time: null,
+    location: null,
+  });
+}
+
+async function selectParentCalendarDate(page, dateKey) {
+  const [targetYear, targetMonth, targetDay] = dateKey.split("-").map(Number);
+  const calendarPage = page.getByRole("region", { name: "부모 캘린더" });
+  const calendarCard = calendarPage.locator(".hyeni-v5-calendar-card").first();
+
+  for (let guard = 0; guard < 14; guard += 1) {
+    const visible = await calendarCard.evaluate((card) => {
+      const year = Number(card.querySelector(".hyeni-v5-calendar-year")?.textContent);
+      const monthText = card.querySelector(".hyeni-v5-calendar-month")?.textContent || "";
+      return {
+        year,
+        month: Number(monthText.replace("월", "")) - 1,
+      };
+    });
+    if (visible.year === targetYear && visible.month === targetMonth) break;
+
+    const visibleIndex = visible.year * 12 + visible.month;
+    const targetIndex = targetYear * 12 + targetMonth;
+    await calendarPage.getByRole("button", { name: visibleIndex < targetIndex ? "다음 달" : "이전 달" }).click();
+  }
+
+  await calendarPage.getByRole("button", { name: new RegExp(`${targetMonth + 1}월 ${targetDay}일`) }).click();
+}
+
+async function expectCalendarEventStatus(page, eventRow, expectedStatus) {
+  await selectParentCalendarDate(page, eventRow.date_key);
+  const card = page.locator(".hyeni-v5-event-card").filter({ hasText: eventRow.title }).first();
+  await expect(card).toBeVisible();
+  await expect(card.locator(".hyeni-v5-event-tag")).toHaveText(expectedStatus);
 }
 
 async function installCriticalMocks(page, options = {}) {
@@ -55,6 +99,7 @@ async function installCriticalMocks(page, options = {}) {
     initiallyPaired = true,
     insideArrivalZone = false,
     walkingRoute = "success",
+    seedEvents = [],
   } = options;
   const state = {
     paired: role === "parent" ? true : initiallyPaired,
@@ -342,7 +387,7 @@ async function installCriticalMocks(page, options = {}) {
 
     const table = url.pathname.split("/").pop();
     const query = url.searchParams;
-    const eventRow = buildEventRow({ insideArrivalZone });
+    const eventRows = [buildEventRow({ insideArrivalZone }), ...seedEvents];
 
     if (table === "family_members") {
       if (query.get("user_id")) {
@@ -386,7 +431,7 @@ async function installCriticalMocks(page, options = {}) {
 
     if (table === "events") {
       if (method === "POST") state.insertedEvents.push(request.postDataJSON());
-      return fulfillJson(method === "GET" ? [eventRow] : []);
+      return fulfillJson(method === "GET" ? eventRows : []);
     }
 
     if (table === "saved_places") {
@@ -500,6 +545,295 @@ test.describe("critical Hyeni flows", () => {
     expect(state.insertedEvents.length).toBeGreaterThanOrEqual(2);
     expect(state.functionCalls.some((call) => call.name === "ai-voice-parse")).toBeTruthy();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "remote_listen")).toBeTruthy();
+  });
+
+  test("parent bottom navigation opens a stable calendar page with active tab state", async ({ page }) => {
+    await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
+    await expect(mainTabbar.getByRole("button", { name: "캘린더" })).toBeVisible();
+
+    await mainTabbar.getByRole("button", { name: "캘린더" }).click();
+
+    await expect(page.getByRole("region", { name: "부모 캘린더" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toHaveCount(0);
+
+    const navState = await page.evaluate(() => {
+      const nav = document.querySelector(".hyeni-v5-tabbar-fixed");
+      const active = nav?.querySelector("button.active");
+      const rect = nav?.getBoundingClientRect();
+      return {
+        activeText: active?.innerText || "",
+        position: nav ? getComputedStyle(nav).position : "",
+        bottomGap: rect ? Math.round(window.innerHeight - rect.bottom) : null,
+        scrollY: Math.round(window.scrollY),
+      };
+    });
+    expect(navState.activeText).toContain("캘린더");
+    expect(navState.position).toBe("fixed");
+    expect(navState.bottomGap).toBeLessThanOrEqual(16);
+    expect(navState.scrollY).toBe(0);
+  });
+
+  test("parent child tracker sends a native location refresh push fallback", async ({ page }) => {
+    const state = await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    await page.getByRole("button", { name: "📍 우리아이" }).click();
+    await expect(page.getByText("아이 위치 · 안전")).toBeVisible();
+
+    await expect.poll(() => state.functionCalls.find((call) => call.body?.action === "request_location")?.body).toMatchObject({
+      action: "request_location",
+      familyId: FAMILY_ID,
+      targetRole: "child",
+    });
+  });
+
+  test("parent main calendar selection uses distinct colors and filters the schedule list", async ({ page }) => {
+    const now = new Date();
+    const targetDay = now.getDate() === 1 ? 2 : now.getDate() - 1;
+    const visibleMonth = now.getMonth() + 1;
+    await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
+    await mainCalendar.getByRole("button", { name: new RegExp(`${visibleMonth}월 ${targetDay}일`) }).click();
+
+    const colors = await page.evaluate(
+      ({ todayDay, targetDay, visibleMonth }) => {
+        const calendar = document.querySelector('[aria-label="캘린더"]');
+        const buttonFor = (day) => Array.from(calendar?.querySelectorAll("button") || [])
+          .find((button) => button.textContent?.trim() === String(day));
+        const visual = (button) => {
+          if (!button) return "";
+          const style = getComputedStyle(button);
+          return style.backgroundImage === "none" ? style.backgroundColor : style.backgroundImage;
+        };
+        return {
+          today: visual(buttonFor(todayDay)),
+          selected: visual(buttonFor(targetDay)),
+        };
+      },
+      { todayDay: now.getDate(), targetDay, visibleMonth },
+    );
+    expect(colors.selected).toBeTruthy();
+    expect(colors.today).toBeTruthy();
+    expect(colors.selected).not.toBe(colors.today);
+
+    await page.getByRole("button", { name: "+", exact: true }).click();
+    await page.getByPlaceholder("예) 영어 학원, 태권도...").fill("미술 학원");
+    await page.getByRole("button", { name: "🐰 일정 추가하기!" }).click();
+
+    const parentMain = page.getByLabel("부모 메인");
+    await expect(parentMain.getByText("미술 학원", { exact: true })).toBeVisible();
+    await expect(parentMain.getByText(`${visibleMonth}월 ${targetDay}일`)).toBeVisible();
+  });
+
+  test("parent calendar selected-day statuses use minute, hour-minute, and day labels", async ({ page }) => {
+    const minuteEvent = buildFutureEventRow({ id: "event-future-minute", title: "분 단위 일정", offsetMinutes: 35 });
+    const hourEvent = buildFutureEventRow({ id: "event-future-hour", title: "시간 단위 일정", offsetMinutes: 75 });
+    const dayEvent = buildFutureEventRow({ id: "event-future-day", title: "일 단위 일정", offsetMinutes: 26 * 60 });
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      seedEvents: [minuteEvent, hourEvent, dayEvent],
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
+    await mainTabbar.getByRole("button", { name: "캘린더" }).click();
+    await expect(page.getByRole("region", { name: "부모 캘린더" })).toBeVisible();
+
+    await expectCalendarEventStatus(page, minuteEvent, /^\d+분 뒤$/);
+    await expectCalendarEventStatus(page, hourEvent, /^1시간 \d+분 뒤$/);
+    await expectCalendarEventStatus(page, dayEvent, "1일 뒤");
+  });
+
+  test("parent dashboard uses redesign v1 calendar and timeline details", async ({ page }) => {
+    await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const main = page.getByLabel("부모 메인");
+    const calendar = main.getByRole("region", { name: "캘린더" });
+
+    await expect(calendar.locator(".hyeni-v5-calendar-card")).toBeVisible();
+
+    const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
+    await mainTabbar.getByRole("button", { name: "캘린더" }).click();
+    const calendarPage = page.getByRole("region", { name: "부모 캘린더" });
+    await expect(calendarPage.locator(".hyeni-v5-timeline-list .hyeni-v5-event-card").first()).toBeVisible();
+
+    const details = await page.evaluate(() => {
+      const pageEl = document.querySelector('[aria-label="부모 캘린더"]');
+      const countAccent = pageEl?.querySelector(".hyeni-v5-count-accent");
+      const list = pageEl?.querySelector(".hyeni-v5-timeline-list");
+      const firstCard = list?.querySelector(".hyeni-v5-event-card");
+      const firstDot = pageEl?.querySelector(".hyeni-v5-calendar-dots span");
+      const calendarGrid = pageEl?.querySelector(".hyeni-v5-calendar-grid");
+      return {
+        countText: countAccent?.textContent?.trim() || "",
+        countColor: countAccent ? getComputedStyle(countAccent).color : "",
+        calendarGridGap: calendarGrid ? getComputedStyle(calendarGrid).gap : "",
+        timelineLineWidth: list ? getComputedStyle(list, "::before").width : "",
+        eventStripeWidth: firstCard ? getComputedStyle(firstCard).borderLeftWidth : "",
+        eventStripeColor: firstCard ? getComputedStyle(firstCard).borderLeftColor : "",
+        eventDotWidth: firstCard ? getComputedStyle(firstCard, "::after").width : "",
+        eventDotColor: firstCard ? getComputedStyle(firstCard, "::after").backgroundColor : "",
+        calendarDotColor: firstDot ? getComputedStyle(firstDot).backgroundColor : "",
+      };
+    });
+
+    expect(details.countText).toMatch(/\d+개/);
+    expect(details.countColor).toBe("rgb(230, 92, 146)");
+    expect(details.calendarGridGap).toContain("2px");
+    expect(details.timelineLineWidth).toBe("2px");
+    expect(details.eventStripeWidth).toBe("3px");
+    expect(details.eventStripeColor).toBe("rgb(167, 139, 250)");
+    expect(details.eventDotWidth).toBe("8px");
+    expect(details.eventDotColor).toBe("rgb(167, 139, 250)");
+    expect(details.calendarDotColor).toBe("rgba(255, 255, 255, 0.9)");
+  });
+
+  test("parent home matches redesign v1 family hero and today summary cards", async ({ page }) => {
+    await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const details = await page.evaluate(() => {
+      const shell = document.querySelector(".hyeni-app-shell");
+      const hero = document.querySelector('[aria-label="오늘의 가족"]');
+      const heroCount = hero?.querySelector(".hyeni-v1-hero-count");
+      const parentMain = document.querySelector('[aria-label="부모 메인"]');
+      const sectionHead = parentMain?.querySelector(".hyeni-v5-section-head");
+      const kidCard = parentMain?.querySelector(".hyeni-v5-kid-card");
+      const kidAvatar = kidCard?.querySelector(".hyeni-v5-kid-avatar");
+      const eventList = parentMain?.querySelector(".hyeni-v1-home-event-list");
+      const eventCard = eventList?.querySelector(".hyeni-v5-event-card");
+      const eventIcon = eventCard?.querySelector(".hyeni-v5-event-icon");
+      const eventDelete = eventCard?.querySelector(".hyeni-v5-event-delete");
+      const styleOf = (element, pseudo) => element ? getComputedStyle(element, pseudo) : null;
+      const shellStyle = styleOf(shell);
+      const heroStyle = styleOf(hero);
+      const heroCountStyle = styleOf(heroCount);
+      const sectionHeadStyle = styleOf(sectionHead);
+      const kidCardStyle = styleOf(kidCard);
+      const kidAvatarStyle = styleOf(kidAvatar);
+      const eventListBeforeStyle = styleOf(eventList, "::before");
+      const eventCardStyle = styleOf(eventCard);
+      const eventIconStyle = styleOf(eventIcon);
+      const eventDeleteStyle = styleOf(eventDelete);
+      return {
+        shellBackground: shellStyle?.backgroundImage || "",
+        heroBackground: heroStyle?.backgroundImage || "",
+        heroColor: heroStyle?.color || "",
+        heroBoxShadow: heroStyle?.boxShadow || "",
+        heroRadius: heroStyle?.borderRadius || "",
+        heroCountColor: heroCountStyle?.color || "",
+        sectionHeadColor: sectionHeadStyle?.color || "",
+        sectionHeadWeight: sectionHeadStyle?.fontWeight || "",
+        kidCardBackground: kidCardStyle?.backgroundColor || "",
+        kidCardRadius: kidCardStyle?.borderRadius || "",
+        kidCardPadding: kidCardStyle?.padding || "",
+        kidAvatarWidth: kidAvatarStyle?.width || "",
+        kidAvatarRadius: kidAvatarStyle?.borderRadius || "",
+        eventListClassed: Boolean(eventList),
+        eventListBeforeContent: eventListBeforeStyle?.content || "",
+        eventCardBackground: eventCardStyle?.backgroundColor || "",
+        eventCardRadius: eventCardStyle?.borderRadius || "",
+        eventStripeWidth: eventCardStyle?.borderLeftWidth || "",
+        eventStripeColor: eventCardStyle?.borderLeftColor || "",
+        eventIconWidth: eventIconStyle?.width || "",
+        eventIconRadius: eventIconStyle?.borderRadius || "",
+        eventDeleteDisplay: eventDeleteStyle?.display || "",
+      };
+    });
+
+    expect(details.shellBackground).toContain("rgb(253, 250, 251)");
+    expect(details.shellBackground).toContain("rgb(246, 240, 243)");
+    expect(details.heroBackground).toBe("none");
+    expect(details.heroColor).toBe("rgb(31, 26, 34)");
+    expect(details.heroBoxShadow).toBe("none");
+    expect(details.heroRadius).toBe("0px");
+    expect(details.heroCountColor).toBe("rgb(230, 92, 146)");
+    expect(details.sectionHeadColor).toBe("rgb(107, 95, 115)");
+    expect(details.sectionHeadWeight).toBe("700");
+    expect(details.kidCardBackground).toBe("rgb(255, 255, 255)");
+    expect(details.kidCardRadius).toBe("20px");
+    expect(details.kidCardPadding).toBe("12px 14px");
+    expect(details.kidAvatarWidth).toBe("36px");
+    expect(details.kidAvatarRadius).toBe("12px");
+    expect(details.eventListClassed).toBe(true);
+    expect(details.eventListBeforeContent).toBe("none");
+    expect(details.eventCardBackground).toBe("rgb(255, 255, 255)");
+    expect(details.eventCardRadius).toBe("20px");
+    expect(details.eventStripeWidth).toBe("3px");
+    expect(details.eventStripeColor).toBe("rgb(167, 139, 250)");
+    expect(details.eventIconWidth).toBe("36px");
+    expect(details.eventIconRadius).toBe("10px");
+    expect(details.eventDeleteDisplay).toBe("none");
+  });
+
+  test("parent memo tab keeps the fixed bottom navigation visible", async ({ page }) => {
+    await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
+    await mainTabbar.getByRole("button", { name: "메모" }).click();
+
+    await expect(page.getByRole("main", { name: "오늘의 메모 페이지" })).toBeVisible();
+
+    const navState = await page.evaluate(() => {
+      const nav = document.querySelector(".hyeni-v5-tabbar-fixed");
+      const active = nav?.querySelector("button.active");
+      const rect = nav?.getBoundingClientRect();
+      const composerRect = document.querySelector(".hyeni-memo-composer")?.getBoundingClientRect();
+      return {
+        activeText: active?.innerText || "",
+        position: nav ? getComputedStyle(nav).position : "",
+        bottomGap: rect ? Math.round(window.innerHeight - rect.bottom) : null,
+        composerClear: Boolean(rect && composerRect && composerRect.bottom <= rect.top),
+      };
+    });
+    expect(navState.activeText).toContain("메모");
+    expect(navState.position).toBe("fixed");
+    expect(navState.bottomGap).toBeLessThanOrEqual(16);
+    expect(navState.composerClear).toBe(true);
+
+    await page.evaluate(() => {
+      const nav = document.querySelector(".hyeni-v5-tabbar-fixed");
+      const todayButton = Array.from(nav?.querySelectorAll("button") || [])
+        .find((button) => button.innerText.includes("오늘"));
+      todayButton?.click();
+    });
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
   });
 
   test("child mode requires pairing before showing schedule and can send kkuk", async ({ page }) => {

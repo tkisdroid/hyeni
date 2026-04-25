@@ -281,6 +281,12 @@ public class MainActivity extends BridgeActivity {
         String supabaseUrl = prefs.getString("supabaseUrl", "");
         String supabaseKey = prefs.getString("supabaseKey", "");
         String accessToken = prefs.getString("accessToken", "");
+        String role = prefs.getString("role", "");
+
+        if (!isBlank(role) && !"child".equalsIgnoreCase(role)) {
+            Log.i("MainActivity", "Remote listen native start skipped: this device is not child mode");
+            return false;
+        }
 
         if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey)) {
             Log.w("MainActivity", "Remote listen native start skipped: push context missing");
@@ -299,6 +305,10 @@ public class MainActivity extends BridgeActivity {
         String senderUserId = sourceIntent != null ? sourceIntent.getStringExtra("senderUserId") : null;
         if (!isBlank(senderUserId)) {
             serviceIntent.putExtra(AmbientListenService.EXTRA_INITIATOR_USER_ID, senderUserId);
+        }
+        String requestId = sourceIntent != null ? sourceIntent.getStringExtra("requestId") : null;
+        if (!isBlank(requestId)) {
+            serviceIntent.putExtra(AmbientListenService.EXTRA_REQUEST_ID, requestId);
         }
 
         try {
