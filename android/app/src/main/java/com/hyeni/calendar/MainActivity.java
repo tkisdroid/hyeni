@@ -25,9 +25,14 @@ public class MainActivity extends BridgeActivity {
     private static final int CORE_PERMISSION_REQUEST_CODE = 1003;
     private static final String PREFS_NAME = "hyeni_location_prefs";
     private static final String CORE_PERMISSION_PROMPTED_KEY = "corePermissionPrompted";
+    private static volatile boolean appForegroundForMicrophone = false;
     private boolean pendingRemoteListen = false;
     private Intent pendingRemoteListenIntent = null;
     private boolean suppressNotificationPermissionPrompt = false;
+
+    static boolean isAppForegroundForMicrophone() {
+        return appForegroundForMicrophone;
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -86,6 +91,18 @@ public class MainActivity extends BridgeActivity {
         requestCorePermissionsIfNeeded(getIntent());
         requestNotificationPermission();
         primeFcmToken();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        appForegroundForMicrophone = true;
+    }
+
+    @Override
+    public void onPause() {
+        appForegroundForMicrophone = false;
+        super.onPause();
     }
 
     @Override

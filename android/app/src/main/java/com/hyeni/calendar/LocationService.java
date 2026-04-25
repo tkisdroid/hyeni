@@ -1,6 +1,7 @@
 package com.hyeni.calendar;
 
 import android.Manifest;
+import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -18,6 +19,7 @@ import android.media.AudioManager;
 import android.media.RingtoneManager;
 import android.os.Build;
 import android.os.BatteryManager;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -49,6 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
@@ -142,6 +145,7 @@ public class LocationService extends Service {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
+            .protocols(Collections.singletonList(Protocol.HTTP_1_1))
             .build();
         handler = new Handler(Looper.getMainLooper());
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -823,6 +827,10 @@ public class LocationService extends Service {
             Log.w(TAG, "Remote listen pending start skipped: RECORD_AUDIO permission missing");
             return false;
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            Log.i(TAG, "Remote listen pending start skipped on Android 14+: microphone FGS requires foreground UI");
+            return false;
+        }
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String role = prefs.getString("role", "");
@@ -856,7 +864,7 @@ public class LocationService extends Service {
         if (!isBlank(senderUserId)) {
             intent.putExtra(AmbientListenService.EXTRA_INITIATOR_USER_ID, senderUserId);
         }
-        String requestId = data != null ? data.optString("requestId", "") : "";
+        String requestId = readRemoteListenRequestId(data);
         if (!isBlank(requestId)) {
             intent.putExtra(AmbientListenService.EXTRA_REQUEST_ID, requestId);
         }
@@ -907,7 +915,7 @@ public class LocationService extends Service {
     private void showRemoteListenLauncher(@Nullable JSONObject data, String stableId) {
         ensureRemoteListenChannel();
 
-        Intent launchIntent = new Intent(this, MainActivity.class);
+        Intent launchIntent = new Intent(this, RemoteListenActivity.class);
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         launchIntent.putExtra("fromPush", true);
         launchIntent.putExtra("remoteListen", true);
@@ -915,17 +923,15 @@ public class LocationService extends Service {
             putIfNotBlank(launchIntent, "familyId", data.optString("familyId", familyId));
             putIfNotBlank(launchIntent, "senderUserId", data.optString("senderUserId", ""));
             putIfNotBlank(launchIntent, "durationSec", data.optString("durationSec", ""));
-            putIfNotBlank(launchIntent, "requestId", data.optString("requestId", ""));
+            putIfNotBlank(launchIntent, "requestId", readRemoteListenRequestId(data));
         } else {
             putIfNotBlank(launchIntent, "familyId", familyId);
         }
 
         int notificationId = NotificationHelper.stableRequestCode("remote_listen:" + stableId);
-        PendingIntent launchPendingIntent = PendingIntent.getActivity(
-            this,
-            notificationId,
+        PendingIntent launchPendingIntent = createRemoteListenPendingIntent(
             launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            notificationId
         );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, REMOTE_LISTEN_CHANNEL_ID)
@@ -948,6 +954,45 @@ public class LocationService extends Service {
         if (manager != null) {
             manager.notify(notificationId, builder.build());
         }
+        try {
+            launchPendingIntent.send(this, 0, null, null, null, null, remoteListenSendOptions());
+        } catch (PendingIntent.CanceledException error) {
+            Log.w(TAG, "Remote listen pending wake activity launch failed", error);
+        }
+    }
+
+    private PendingIntent createRemoteListenPendingIntent(Intent launchIntent, int requestCode) {
+        return PendingIntent.getActivity(
+            this,
+            requestCode,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE,
+            remoteListenCreatorOptions()
+        );
+    }
+
+    private Bundle remoteListenCreatorOptions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            return null;
+        }
+
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setPendingIntentCreatorBackgroundActivityStartMode(
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+        );
+        return options.toBundle();
+    }
+
+    private Bundle remoteListenSendOptions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return null;
+        }
+
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setPendingIntentBackgroundActivityStartMode(
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+        );
+        return options.toBundle();
     }
 
     private void ensureRemoteListenChannel() {
@@ -986,6 +1031,16 @@ public class LocationService extends Service {
         } catch (NumberFormatException ignored) {
             return 30;
         }
+    }
+
+    private String readRemoteListenRequestId(@Nullable JSONObject data) {
+        if (data == null) return "";
+        return firstNonBlank(
+            data.optString("requestId", ""),
+            data.optString("pushId", ""),
+            data.optString("idempotencyKey", ""),
+            data.optString("idempotency_key", "")
+        );
     }
 
     private String firstNonBlank(String... values) {

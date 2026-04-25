@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const app = readFileSync("src/App.jsx", "utf8");
 const pushNotify = readFileSync("supabase/functions/push-notify/index.ts", "utf8");
 const fcmService = readFileSync(
   "android/app/src/main/java/com/hyeni/calendar/MyFirebaseMessagingService.java",
+  "utf8",
+);
+const mainActivity = readFileSync(
+  "android/app/src/main/java/com/hyeni/calendar/MainActivity.java",
+  "utf8",
+);
+const ambientPlugin = readFileSync(
+  "android/app/src/main/java/com/hyeni/calendar/AmbientListenPlugin.java",
   "utf8",
 );
 const locationService = readFileSync(
@@ -15,6 +23,11 @@ const ambientService = readFileSync(
   "android/app/src/main/java/com/hyeni/calendar/AmbientListenService.java",
   "utf8",
 );
+const manifest = readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
+const remoteListenActivityPath = "android/app/src/main/java/com/hyeni/calendar/RemoteListenActivity.java";
+const remoteListenActivity = existsSync(remoteListenActivityPath)
+  ? readFileSync(remoteListenActivityPath, "utf8")
+  : "";
 
 describe("native background command contracts", () => {
   it("routes parent location refresh through child-targeted FCM and native refresh handlers", () => {
@@ -39,6 +52,47 @@ describe("native background command contracts", () => {
     expect(ambientService).toContain("EXTRA_REQUEST_ID");
     expect(ambientService).toContain("activeRequestId");
     expect(ambientService).toContain('"duplicate_start"');
+    expect(ambientService).toContain("Microphone foreground-service type denied; stopping ambient listen");
+    expect(ambientService).toContain("Protocol.HTTP_1_1");
+    expect(ambientService).toContain("Realtime audio chunk sent seq=");
+    expect(fcmService).toContain("resolveRemoteListenRequestId");
+    expect(fcmService).toContain('data.get("pushId")');
+    expect(fcmService).toContain('data.get("idempotencyKey")');
+    expect(fcmService).toContain("Remote listen native start skipped on Android 14+");
+    expect(locationService).toContain("Remote listen pending start skipped on Android 14+");
+    expect(locationService).toContain("Protocol.HTTP_1_1");
+    expect(locationService).toContain("readRemoteListenRequestId(data)");
     expect(ambientService).toContain('.put("requestId", requestId)');
+  });
+
+  it("wakes Android 14+ child devices through a foreground remote-listen activity", () => {
+    expect(manifest).toContain('android:name=".RemoteListenActivity"');
+    expect(fcmService).toContain("new Intent(this, RemoteListenActivity.class)");
+    expect(locationService).toContain("new Intent(this, RemoteListenActivity.class)");
+    expect(remoteListenActivity).toContain("setShowWhenLocked(true)");
+    expect(remoteListenActivity).toContain("setTurnScreenOn(true)");
+    expect(remoteListenActivity).toContain("AmbientListenService.ACTION_START");
+    expect(remoteListenActivity).toContain("startForegroundService(serviceIntent)");
+  });
+
+  it("opts remote-listen activity pending intents into Android background launch rules", () => {
+    expect(fcmService).toContain("remoteListenCreatorOptions()");
+    expect(fcmService).toContain("remoteListenSendOptions()");
+    expect(fcmService).toContain("setPendingIntentCreatorBackgroundActivityStartMode");
+    expect(fcmService).toContain("setPendingIntentBackgroundActivityStartMode");
+    expect(fcmService).toContain("send(this, 0, null, null, null, null, remoteListenSendOptions())");
+    expect(locationService).toContain("remoteListenCreatorOptions()");
+    expect(locationService).toContain("remoteListenSendOptions()");
+    expect(locationService).toContain("setPendingIntentCreatorBackgroundActivityStartMode");
+    expect(locationService).toContain("setPendingIntentBackgroundActivityStartMode");
+    expect(locationService).toContain("launchPendingIntent.send(this, 0, null, null, null, null, remoteListenSendOptions())");
+  });
+
+  it("does not claim native microphone capture started from a hidden Android 14+ WebView", () => {
+    expect(mainActivity).toContain("isAppForegroundForMicrophone");
+    expect(mainActivity).toContain("appForegroundForMicrophone = true");
+    expect(mainActivity).toContain("appForegroundForMicrophone = false");
+    expect(ambientPlugin).toContain("MainActivity.isAppForegroundForMicrophone()");
+    expect(ambientPlugin).toContain("remote_listen_requires_foreground_activity");
   });
 });

@@ -25,6 +25,7 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
@@ -71,6 +73,7 @@ public class AmbientListenService extends Service {
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
+        .protocols(Collections.singletonList(Protocol.HTTP_1_1))
         .build();
 
     private final AtomicBoolean recording = new AtomicBoolean(false);
@@ -111,8 +114,9 @@ public class AmbientListenService extends Service {
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 );
             } catch (SecurityException error) {
-                Log.e(TAG, "Microphone foreground-service type denied", error);
-                startForeground(NOTIF_ID, notification);
+                Log.e(TAG, "Microphone foreground-service type denied; stopping ambient listen", error);
+                stopSelf();
+                return START_NOT_STICKY;
             }
         } else {
             startForeground(NOTIF_ID, notification);
@@ -371,7 +375,10 @@ public class AmbientListenService extends Service {
 
             boolean sent = postBroadcast(body, accessToken);
             if (!sent && notBlank(accessToken) && !accessToken.equals(supabaseKey)) {
-                postBroadcast(body, supabaseKey);
+                sent = postBroadcast(body, supabaseKey);
+            }
+            if (sent) {
+                Log.i(TAG, "Realtime audio chunk sent seq=" + seq + " requestId=" + requestId);
             }
         } catch (Exception error) {
             Log.e(TAG, "Failed to post ambient audio chunk", error);

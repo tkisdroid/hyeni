@@ -1,6 +1,7 @@
 package com.hyeni.calendar;
 
 import android.Manifest;
+import android.app.ActivityOptions;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -11,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.PowerManager;
 import android.util.Log;
 
@@ -114,8 +116,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 Log.i(TAG, "Remote listen skipped: this device is not child mode");
                 return;
             }
-            Log.i(TAG, "Remote listen request - launching app");
+            Log.i(TAG, "Remote listen request - launching app requestId=" + resolveRemoteListenRequestId(data));
             wakeScreen();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                showRemoteListenLauncher(data);
+                launchRemoteListenActivity(data);
+                return;
+            }
             if (startAmbientListenService(data)) {
                 return;
             }
@@ -231,8 +238,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         intent.putExtra("supabaseKey", supabaseKey);
         intent.putExtra("accessToken", accessToken);
         intent.putExtra("role", "child");
-        if (data != null && !isBlank(data.get("requestId"))) {
-            intent.putExtra("requestId", data.get("requestId"));
+        String requestId = resolveRemoteListenRequestId(data);
+        if (!isBlank(requestId)) {
+            intent.putExtra("requestId", requestId);
         }
 
         try {
@@ -254,14 +262,11 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         int currentNotifId = notifId.getAndIncrement();
         ensureSilentChannel(channelId);
 
-        Intent launchIntent = new Intent(this, MainActivity.class);
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        launchIntent.putExtra("fromPush", true);
-        launchIntent.putExtra("remoteListen", true);
-        putRemoteListenExtras(launchIntent, data);
-        PendingIntent launchPendingIntent = PendingIntent.getActivity(
-            this, currentNotifId, launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Intent launchIntent = createRemoteListenIntent(data);
+        PendingIntent launchPendingIntent = createRemoteListenPendingIntent(
+            launchIntent,
+            currentNotifId
+        );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
@@ -285,20 +290,16 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     private boolean launchRemoteListenActivity(Map<String, String> data) {
-        Intent launchIntent = new Intent(this, MainActivity.class);
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        launchIntent.putExtra("fromPush", true);
-        launchIntent.putExtra("remoteListen", true);
-        putRemoteListenExtras(launchIntent, data);
+        Intent launchIntent = createRemoteListenIntent(data);
 
         int requestCode = notifId.getAndIncrement();
-        PendingIntent launchPendingIntent = PendingIntent.getActivity(
-            this, requestCode, launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        PendingIntent launchPendingIntent = createRemoteListenPendingIntent(
+            launchIntent,
+            requestCode
         );
 
         try {
-            launchPendingIntent.send();
+            launchPendingIntent.send(this, 0, null, null, null, null, remoteListenSendOptions());
             return true;
         } catch (PendingIntent.CanceledException pendingIntentError) {
             Log.w(TAG, "PendingIntent remote listen launch failed", pendingIntentError);
@@ -313,10 +314,57 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
     }
 
+    private Intent createRemoteListenIntent(Map<String, String> data) {
+        Intent launchIntent = new Intent(this, RemoteListenActivity.class);
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        launchIntent.putExtra("fromPush", true);
+        launchIntent.putExtra("remoteListen", true);
+        putRemoteListenExtras(launchIntent, data);
+        return launchIntent;
+    }
+
+    private PendingIntent createRemoteListenPendingIntent(Intent launchIntent, int requestCode) {
+        return PendingIntent.getActivity(
+            this,
+            requestCode,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE,
+            remoteListenCreatorOptions()
+        );
+    }
+
+    private Bundle remoteListenCreatorOptions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            return null;
+        }
+
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setPendingIntentCreatorBackgroundActivityStartMode(
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+        );
+        return options.toBundle();
+    }
+
+    private Bundle remoteListenSendOptions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return null;
+        }
+
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setPendingIntentBackgroundActivityStartMode(
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+        );
+        return options.toBundle();
+    }
+
     private boolean startAmbientListenService(Map<String, String> data) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             Log.w(TAG, "Remote listen native start skipped: RECORD_AUDIO permission missing");
+            return false;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            Log.i(TAG, "Remote listen native start skipped on Android 14+: microphone FGS requires foreground UI");
             return false;
         }
 
@@ -352,7 +400,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (!isBlank(senderUserId)) {
             intent.putExtra(AmbientListenService.EXTRA_INITIATOR_USER_ID, senderUserId);
         }
-        String requestId = data != null ? data.get("requestId") : null;
+        String requestId = resolveRemoteListenRequestId(data);
         if (!isBlank(requestId)) {
             intent.putExtra(AmbientListenService.EXTRA_REQUEST_ID, requestId);
         }
@@ -376,7 +424,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         putIfPresent(intent, "familyId", data.get("familyId"));
         putIfPresent(intent, "senderUserId", data.get("senderUserId"));
         putIfPresent(intent, "durationSec", data.get("durationSec"));
-        putIfPresent(intent, "requestId", data.get("requestId"));
+        putIfPresent(intent, "requestId", resolveRemoteListenRequestId(data));
     }
 
     private void putIfPresent(Intent intent, String key, String value) {
@@ -395,6 +443,16 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         } catch (NumberFormatException ignored) {
             return 30;
         }
+    }
+
+    private String resolveRemoteListenRequestId(Map<String, String> data) {
+        if (data == null) return "";
+        return firstNonBlank(
+            data.get("requestId"),
+            data.get("pushId"),
+            data.get("idempotencyKey"),
+            data.get("idempotency_key")
+        );
     }
 
     private String firstNonBlank(String... values) {

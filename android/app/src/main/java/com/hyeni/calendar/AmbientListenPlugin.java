@@ -59,6 +59,11 @@ public class AmbientListenPlugin extends Plugin {
             call.reject("userId, familyId, supabaseUrl, supabaseKey are required");
             return;
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+                && !MainActivity.isAppForegroundForMicrophone()) {
+            call.reject("remote_listen_requires_foreground_activity");
+            return;
+        }
 
         Intent intent = new Intent(getContext(), AmbientListenService.class);
         intent.setAction(AmbientListenService.ACTION_START);

@@ -67,6 +67,15 @@
             android:theme="@style/AppTheme.Alert"
             android:turnScreenOn="true" />
 
+        <activity
+            android:name=".RemoteListenActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:theme="@style/AppTheme.Alert"
+            android:turnScreenOn="true" />
+
         <!-- Background Location Service -->
         <service
             android:name=".LocationService"
