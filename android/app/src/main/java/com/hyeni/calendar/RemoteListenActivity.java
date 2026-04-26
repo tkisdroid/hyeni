@@ -2,6 +2,7 @@ package com.hyeni.calendar;
 
 import android.Manifest;
 import android.app.KeyguardManager;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -24,6 +25,7 @@ public class RemoteListenActivity extends AppCompatActivity {
 
     private static final String TAG = "RemoteListenActivity";
     private static final String PREFS_NAME = "hyeni_location_prefs";
+    private static final String EXTRA_LAUNCHER_NOTIFICATION_ID = "launcherNotificationId";
     private static final int MICROPHONE_PERMISSION_CODE = 2101;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -105,6 +107,8 @@ public class RemoteListenActivity extends AppCompatActivity {
         }
 
         pendingIntent = new Intent(intent);
+        cancelLauncherNotification(pendingIntent);
+        handler.postDelayed(() -> cancelLauncherNotification(pendingIntent), 800);
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
             updateStatus("마이크 권한을 허용하면 바로 연결됩니다.");
@@ -187,6 +191,7 @@ public class RemoteListenActivity extends AppCompatActivity {
             }
             Log.i(TAG, "Remote listen foreground bridge started AmbientListenService");
             updateStatus("주변 소리 연결을 시작했어요.");
+            cancelLauncherNotification(sourceIntent);
             finishSoon(1800);
         } catch (Exception error) {
             Log.w(TAG, "Remote listen foreground bridge failed", error);
@@ -216,6 +221,16 @@ public class RemoteListenActivity extends AppCompatActivity {
 
     private void updateStatus(String message) {
         if (statusView != null) statusView.setText(message);
+    }
+
+    private void cancelLauncherNotification(Intent sourceIntent) {
+        if (sourceIntent == null) return;
+        int notificationId = sourceIntent.getIntExtra(EXTRA_LAUNCHER_NOTIFICATION_ID, 0);
+        if (notificationId <= 0) return;
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.cancel(notificationId);
+        }
     }
 
     private void copyIfPresent(Intent from, Intent to, String key) {

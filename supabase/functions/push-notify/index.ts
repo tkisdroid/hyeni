@@ -404,7 +404,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* not JSON, proceed as cron */ }
     }
 
-    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "request_location" || body?.action === "emergency" || body?.action === "sos") {
+    if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "remote_listen_stop" || body?.action === "request_location" || body?.action === "request_device_status" || body?.action === "emergency" || body?.action === "sos") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
 
@@ -437,8 +437,10 @@ async function handleInstantNotification(
   const title = body.title as string || "새 알림";
   const message = body.message as string || "";
   const isRemoteListen = action === "remote_listen";
+  const isRemoteListenStop = action === "remote_listen_stop";
   const isLocationRefresh = action === "request_location";
-  const isChildNativeCommand = isRemoteListen || isLocationRefresh;
+  const isDeviceStatusRefresh = action === "request_device_status";
+  const isChildNativeCommand = isRemoteListen || isRemoteListenStop || isLocationRefresh || isDeviceStatusRefresh;
 
   if (!familyId) return jsonResponse({ error: "familyId required" }, 400);
 
@@ -507,9 +509,15 @@ async function handleInstantNotification(
   const urgent = isEmergencyNotification(action, urgencyProbe);
 
   const nativeRecipientIds = await getNativeRecipientIds(supabase, familyId);
-  const childNativeRecipientIds = isChildNativeCommand
+  let childNativeRecipientIds = isChildNativeCommand
     ? await getFamilyMemberIdsByRole(supabase, familyId, "child")
     : null;
+  const targetUserId = typeof body.targetUserId === "string" && body.targetUserId
+    ? body.targetUserId
+    : null;
+  if (childNativeRecipientIds && targetUserId) {
+    childNativeRecipientIds = new Set([...childNativeRecipientIds].filter((userId) => userId === targetUserId));
+  }
   const fcmExtraData: Record<string, string> = {
     pushId,
     urgent: urgent ? "true" : "false",
@@ -526,6 +534,12 @@ async function handleInstantNotification(
     }
     if (body.requestedAt !== undefined && body.requestedAt !== null) {
       fcmExtraData.requestedAt = String(body.requestedAt);
+    }
+    if (targetUserId) {
+      fcmExtraData.targetUserId = targetUserId;
+    }
+    if (body.requesterUserId !== undefined && body.requesterUserId !== null) {
+      fcmExtraData.requesterUserId = String(body.requesterUserId);
     }
   }
   if (isRemoteListen) {
@@ -624,15 +638,21 @@ async function handleInstantNotification(
       pushId,
       urgent,
       ...(isRemoteListen ? { targetRole: "child" } : {}),
+      ...(isRemoteListenStop ? { targetRole: "child" } : {}),
       ...(isLocationRefresh ? { targetRole: "child" } : {}),
+      ...(isDeviceStatusRefresh ? { targetRole: "child" } : {}),
+      ...(targetUserId ? { targetUserId } : {}),
       ...(isChildNativeCommand && body.requestId !== undefined && body.requestId !== null
         ? { requestId: String(body.requestId) }
         : {}),
-      ...(isLocationRefresh && body.reason !== undefined && body.reason !== null
+      ...(isChildNativeCommand && body.reason !== undefined && body.reason !== null
         ? { reason: String(body.reason) }
         : {}),
-      ...(isLocationRefresh && body.requestedAt !== undefined && body.requestedAt !== null
+      ...(isChildNativeCommand && body.requestedAt !== undefined && body.requestedAt !== null
         ? { requestedAt: String(body.requestedAt) }
+        : {}),
+      ...(isChildNativeCommand && body.requesterUserId !== undefined && body.requesterUserId !== null
+        ? { requesterUserId: String(body.requesterUserId) }
         : {}),
       ...(isRemoteListen && body.durationSec !== undefined && body.durationSec !== null
         ? { durationSec: String(body.durationSec) }

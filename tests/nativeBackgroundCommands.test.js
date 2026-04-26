@@ -51,7 +51,9 @@ describe("native background command contracts", () => {
     expect(app).toContain("activeSourcesRef");
     expect(app).toContain("activeAudioElementsRef");
     expect(app).toContain("stopActivePlayback");
-    expect(app).toContain('if (startInFlightRef.current || status !== "idle") return;');
+    expect(app).toContain('if (startInFlightRef.current || (status !== "idle" && status !== "failed")) return;');
+    expect(app).toContain("waiting_for_child_notification");
+    expect(app).toContain("연결 요청 전송 중");
     expect(app).toContain("requestId: options.requestId");
     expect(app).toContain('sequence === "" ? fallbackSource : "seq"');
     expect(app).toContain('sequence === "" ? String(detail.data || "").slice(0, 96) : sequence');
@@ -82,7 +84,18 @@ describe("native background command contracts", () => {
     expect(pushNotify).toContain("remote_listen_disabled_by_family");
   });
 
-  it("wakes Android 14+ child devices through a foreground remote-listen activity", () => {
+  it("stops native remote listen through child-targeted FCM when the child WebView is backgrounded", () => {
+    expect(app).toContain('action: "remote_listen_stop"');
+    expect(app).toContain('idempotencyKey: `${requestId}:stop`');
+    expect(pushNotify).toContain('body?.action === "remote_listen_stop"');
+    expect(pushNotify).toContain('const isRemoteListenStop = action === "remote_listen_stop"');
+    expect(fcmService).toContain('"remote_listen_stop".equals(type)');
+    expect(fcmService).toContain("stopAmbientListenService(data)");
+    expect(locationService).toContain('"remote_listen_stop".equals(type)');
+    expect(locationService).toContain("stopAmbientListenFromPending(data)");
+  });
+
+  it("keeps the Android 14+ remote-listen launcher visible until the bridge activity opens", () => {
     expect(manifest).toContain('android:name=".RemoteListenActivity"');
     expect(fcmService).toContain("new Intent(this, RemoteListenActivity.class)");
     expect(locationService).toContain("new Intent(this, RemoteListenActivity.class)");
@@ -90,7 +103,14 @@ describe("native background command contracts", () => {
     expect(remoteListenActivity).toContain("setTurnScreenOn(true)");
     expect(remoteListenActivity).toContain("AmbientListenService.ACTION_START");
     expect(remoteListenActivity).toContain("startForegroundService(serviceIntent)");
-    expect(fcmService).toContain("cancelRemoteListenLauncher(launcherNotificationId)");
+    expect(fcmService).not.toContain("cancelRemoteListenLauncher(launcherNotificationId)");
+    expect(fcmService).toContain('putExtra("launcherNotificationId", launcherNotificationId)');
+    expect(fcmService).toContain("RemoteListenRequestStore.markLauncherShown(this, requestId)");
+    expect(locationService).toContain("RemoteListenRequestStore.wasLauncherRecentlyShown(this, requestId)");
+    expect(locationService).toContain("Skipping duplicate remote listen pending fallback");
+    expect(locationService).toContain('putExtra("launcherNotificationId", notificationId)');
+    expect(remoteListenActivity).toContain("cancelLauncherNotification");
+    expect(remoteListenActivity).toContain("handler.postDelayed(() -> cancelLauncherNotification(pendingIntent), 800)");
   });
 
   it("opts remote-listen activity pending intents into Android background launch rules", () => {

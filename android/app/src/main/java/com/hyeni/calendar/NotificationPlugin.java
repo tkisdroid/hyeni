@@ -1,5 +1,6 @@
 package com.hyeni.calendar;
 
+import android.Manifest;
 import android.app.AlarmManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -24,6 +25,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @CapacitorPlugin(name = "NativeNotification")
 public class NotificationPlugin extends Plugin {
+
+    private static final String PREFS_NAME = "hyeni_location_prefs";
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen";
 
     private final AtomicInteger notifId = new AtomicInteger(1000);
 
@@ -95,6 +99,12 @@ public class NotificationPlugin extends Plugin {
         boolean exactAlarmAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
                 || am == null
                 || am.canScheduleExactAlarms();
+        boolean recordAudioGranted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean locationServiceRunning = ctx
+                .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean("serviceEnabled", false);
+        boolean remoteListenChannelEnabled = isChannelEnabled(nm, REMOTE_LISTEN_CHANNEL_ID);
 
         boolean channelsEnabled = true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && nm != null) {
@@ -119,12 +129,21 @@ public class NotificationPlugin extends Plugin {
         result.put("fullScreenIntentAllowed", fullScreenIntentAllowed);
         result.put("exactAlarmAllowed", exactAlarmAllowed);
         result.put("channelsEnabled", channelsEnabled);
+        result.put("recordAudioGranted", recordAudioGranted);
+        result.put("remoteListenChannelEnabled", remoteListenChannelEnabled);
+        result.put("locationServiceRunning", locationServiceRunning);
+        result.put("sdkInt", Build.VERSION.SDK_INT);
+        result.put("manufacturer", Build.MANUFACTURER);
+        result.put("model", Build.MODEL);
         result.put("ready", notificationsEnabled
                 && postPermissionGranted
                 && batteryOptimizationsIgnored
                 && fullScreenIntentAllowed
                 && exactAlarmAllowed
-                && channelsEnabled);
+                && channelsEnabled
+                && recordAudioGranted
+                && remoteListenChannelEnabled
+                && locationServiceRunning);
         call.resolve(result);
     }
 
@@ -220,5 +239,41 @@ public class NotificationPlugin extends Plugin {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         ctx.startActivity(intent);
         call.resolve();
+    }
+
+    @PluginMethod()
+    public void openAppDetailsSettings(PluginCall call) {
+        Context ctx = getContext();
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.parse("package:" + ctx.getPackageName()));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        ctx.startActivity(intent);
+        call.resolve();
+    }
+
+    @PluginMethod()
+    public void openNotificationChannelSettings(PluginCall call) {
+        Context ctx = getContext();
+        String channelId = call.getString("channelId", REMOTE_LISTEN_CHANNEL_ID);
+        Intent intent;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            intent = new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, ctx.getPackageName());
+            intent.putExtra(Settings.EXTRA_CHANNEL_ID, channelId);
+        } else {
+            intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + ctx.getPackageName()));
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        ctx.startActivity(intent);
+        call.resolve();
+    }
+
+    private boolean isChannelEnabled(NotificationManager nm, String channelId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || nm == null) {
+            return true;
+        }
+        NotificationChannel channel = nm.getNotificationChannel(channelId);
+        return channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
     }
 }

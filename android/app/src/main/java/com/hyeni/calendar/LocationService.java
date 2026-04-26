@@ -855,15 +855,35 @@ public class LocationService extends Service {
                         continue;
                     }
                     if ("remote_listen".equals(type)) {
+                        String requestId = readRemoteListenRequestId(data);
+                        if (RemoteListenRequestStore.wasLauncherRecentlyShown(this, requestId)) {
+                            Log.d(TAG, "Skipping duplicate remote listen pending fallback: " + requestId);
+                            deliveredIds.put(id);
+                            continue;
+                        }
                         if (!startAmbientListenFromPending(data)) {
                             showRemoteListenLauncher(data, stableId);
+                            RemoteListenRequestStore.markLauncherShown(this, requestId);
                         }
                         deliveredIds.put(id);
+                        continue;
+                    }
+                    if ("remote_listen_stop".equals(type)) {
+                        if (stopAmbientListenFromPending(data)) {
+                            deliveredIds.put(id);
+                        }
                         continue;
                     }
                     if ("request_location".equals(type)) {
                         if (shouldHandleLocationRefreshFromPending(data)) {
                             requestImmediateLocationFix();
+                            publishDeviceStatusFromPending(data);
+                            deliveredIds.put(id);
+                        }
+                        continue;
+                    }
+                    if ("request_device_status".equals(type)) {
+                        if (publishDeviceStatusFromPending(data)) {
                             deliveredIds.put(id);
                         }
                         continue;
@@ -914,6 +934,27 @@ public class LocationService extends Service {
 
         String targetUserId = data.optString("targetUserId", "");
         return isBlank(targetUserId) || targetUserId.equals(userId);
+    }
+
+    private boolean publishDeviceStatusFromPending(@Nullable JSONObject data) {
+        if (data != null) {
+            String pushFamilyId = data.optString("familyId", "");
+            if (!isBlank(pushFamilyId) && !isBlank(familyId) && !pushFamilyId.equals(familyId)) {
+                Log.w(TAG, "Device status pending skipped: family mismatch");
+                return false;
+            }
+        }
+
+        return DeviceStatusReporter.publish(
+            this,
+            httpClient,
+            supabaseUrl,
+            supabaseKey,
+            familyId,
+            userId,
+            data != null ? data.optString("requestId", null) : null,
+            data != null ? data.optString("requesterUserId", null) : null
+        );
     }
 
     private boolean startAmbientListenFromPending(@Nullable JSONObject data) {
@@ -978,6 +1019,29 @@ public class LocationService extends Service {
         }
     }
 
+    private boolean stopAmbientListenFromPending(@Nullable JSONObject data) {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String role = prefs.getString("role", "");
+        if (!isBlank(role) && !"child".equalsIgnoreCase(role)) {
+            Log.i(TAG, "Remote listen pending stop skipped: this device is not child mode");
+            return false;
+        }
+
+        String requestFamilyId = data != null ? data.optString("familyId", "") : "";
+        if (!isBlank(requestFamilyId) && !isBlank(familyId) && !requestFamilyId.equals(familyId)) {
+            Log.w(TAG, "Remote listen pending stop skipped: family mismatch");
+            return false;
+        }
+
+        Intent intent = new Intent(this, AmbientListenService.class);
+        intent.setAction(AmbientListenService.ACTION_STOP);
+        boolean stopped = stopService(intent);
+        Log.i(TAG, "Remote listen native stop requested from pending notification requestId="
+            + readRemoteListenRequestId(data)
+            + " stopped=" + stopped);
+        return true;
+    }
+
     private boolean shouldHandleLocationRefreshFromPending(@Nullable JSONObject data) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String role = prefs.getString("role", "");
@@ -1010,10 +1074,12 @@ public class LocationService extends Service {
     private void showRemoteListenLauncher(@Nullable JSONObject data, String stableId) {
         ensureRemoteListenChannel();
 
+        int notificationId = NotificationHelper.stableRequestCode("remote_listen:" + stableId);
         Intent launchIntent = new Intent(this, RemoteListenActivity.class);
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         launchIntent.putExtra("fromPush", true);
         launchIntent.putExtra("remoteListen", true);
+        launchIntent.putExtra("launcherNotificationId", notificationId);
         if (data != null) {
             putIfNotBlank(launchIntent, "familyId", data.optString("familyId", familyId));
             putIfNotBlank(launchIntent, "senderUserId", data.optString("senderUserId", ""));
@@ -1023,7 +1089,6 @@ public class LocationService extends Service {
             putIfNotBlank(launchIntent, "familyId", familyId);
         }
 
-        int notificationId = NotificationHelper.stableRequestCode("remote_listen:" + stableId);
         PendingIntent launchPendingIntent = createRemoteListenPendingIntent(
             launchIntent,
             notificationId

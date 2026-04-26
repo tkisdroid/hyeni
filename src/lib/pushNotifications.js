@@ -202,9 +202,14 @@ export async function getNativeNotificationHealth() {
   }
 }
 
-export async function openNativeNotificationSettings(target = "notifications") {
+export async function openNativeNotificationSettings(settingsTarget = "notifications", options = {}) {
   const native = getNativeNotifPlugin();
   if (!native) return false;
+
+  const request = typeof settingsTarget === "object" && settingsTarget !== null
+    ? settingsTarget
+    : { target: settingsTarget, ...options };
+  const target = request.target || "notifications";
 
   try {
     if (target === "battery" && native.openBatteryOptimizationSettings) {
@@ -213,6 +218,12 @@ export async function openNativeNotificationSettings(target = "notifications") {
       await native.openFullScreenIntentSettings();
     } else if (target === "exactAlarm" && native.openExactAlarmSettings) {
       await native.openExactAlarmSettings();
+    } else if (target === "appDetails" && native.openAppDetailsSettings) {
+      await native.openAppDetailsSettings();
+    } else if (target === "remoteListenChannel" && native.openNotificationChannelSettings) {
+      const channelRequest = { channelId: "hyeni_remote_listen" };
+      if (request.channelId) channelRequest.channelId = request.channelId;
+      await native.openNotificationChannelSettings(channelRequest);
     } else if (native.openSettings) {
       await native.openSettings();
     } else {

@@ -104,9 +104,23 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 return;
             }
             if (startLocationRefreshService(data)) {
+                publishDeviceStatusFromFcm(data, prefs);
                 return;
             }
             Log.w(TAG, "Location refresh request could not start native service");
+            return;
+        }
+
+        if ("request_device_status".equals(type)) {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            if (!shouldHandleChildCommand(prefs)) {
+                Log.i(TAG, "Device status refresh skipped: this device is not child mode");
+                return;
+            }
+            if (publishDeviceStatusFromFcm(data, prefs)) {
+                return;
+            }
+            Log.w(TAG, "Device status refresh request could not publish native snapshot");
             return;
         }
 
@@ -117,22 +131,34 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 Log.i(TAG, "Remote listen skipped: this device is not child mode");
                 return;
             }
-            Log.i(TAG, "Remote listen request - launching app requestId=" + resolveRemoteListenRequestId(data));
+            String requestId = resolveRemoteListenRequestId(data);
+            Log.i(TAG, "Remote listen request - launching app requestId=" + requestId);
             wakeScreen();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 int launcherNotificationId = showRemoteListenLauncher(data);
-                if (launchRemoteListenActivity(data)) {
-                    cancelRemoteListenLauncher(launcherNotificationId);
-                }
+                RemoteListenRequestStore.markLauncherShown(this, requestId);
+                launchRemoteListenActivity(data, launcherNotificationId);
                 return;
             }
             if (startAmbientListenService(data)) {
+                RemoteListenRequestStore.markLauncherShown(this, requestId);
                 return;
             }
-            if (!launchRemoteListenActivity(data)) {
+            if (!launchRemoteListenActivity(data, 0)) {
                 Log.w(TAG, "Remote listen launch fallback notification required");
                 showRemoteListenLauncher(data);
+                RemoteListenRequestStore.markLauncherShown(this, requestId);
             }
+            return;
+        }
+
+        if ("remote_listen_stop".equals(type)) {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            if (!shouldHandleChildCommand(prefs)) {
+                Log.i(TAG, "Remote listen stop skipped: this device is not child mode");
+                return;
+            }
+            stopAmbientListenService(data);
             return;
         }
 
@@ -260,12 +286,47 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
     }
 
+    private boolean publishDeviceStatusFromFcm(Map<String, String> data, SharedPreferences prefs) {
+        String userId = prefs.getString("userId", "");
+        String prefsFamilyId = prefs.getString("familyId", "");
+        String pushFamilyId = data != null ? data.get("familyId") : null;
+        if (!isBlank(pushFamilyId) && !isBlank(prefsFamilyId) && !pushFamilyId.equals(prefsFamilyId)) {
+            Log.w(TAG, "Device status refresh skipped: family mismatch");
+            return false;
+        }
+
+        String targetUserId = data != null ? data.get("targetUserId") : null;
+        if (!isBlank(targetUserId) && !targetUserId.equals(userId)) {
+            Log.i(TAG, "Device status refresh skipped: target user mismatch");
+            return true;
+        }
+
+        String familyId = firstNonBlank(pushFamilyId, prefsFamilyId);
+        String supabaseUrl = prefs.getString("supabaseUrl", "");
+        String supabaseKey = prefs.getString("supabaseKey", "");
+        if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey)) {
+            Log.w(TAG, "Device status refresh skipped: push context missing");
+            return false;
+        }
+
+        return DeviceStatusReporter.publish(
+            this,
+            HTTP_CLIENT,
+            supabaseUrl,
+            supabaseKey,
+            familyId,
+            userId,
+            data != null ? data.get("requestId") : null,
+            data != null ? data.get("requesterUserId") : null
+        );
+    }
+
     private int showRemoteListenLauncher(Map<String, String> data) {
         String channelId = REMOTE_LISTEN_CHANNEL_ID;
         int currentNotifId = notifId.getAndIncrement();
         ensureSilentChannel(channelId);
 
-        Intent launchIntent = createRemoteListenIntent(data);
+        Intent launchIntent = createRemoteListenIntent(data, currentNotifId);
         PendingIntent launchPendingIntent = createRemoteListenPendingIntent(
             launchIntent,
             currentNotifId
@@ -293,15 +354,8 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         return currentNotifId;
     }
 
-    private void cancelRemoteListenLauncher(int notificationId) {
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) {
-            nm.cancel(notificationId);
-        }
-    }
-
-    private boolean launchRemoteListenActivity(Map<String, String> data) {
-        Intent launchIntent = createRemoteListenIntent(data);
+    private boolean launchRemoteListenActivity(Map<String, String> data, int launcherNotificationId) {
+        Intent launchIntent = createRemoteListenIntent(data, launcherNotificationId);
 
         int requestCode = notifId.getAndIncrement();
         PendingIntent launchPendingIntent = createRemoteListenPendingIntent(
@@ -325,11 +379,14 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
     }
 
-    private Intent createRemoteListenIntent(Map<String, String> data) {
+    private Intent createRemoteListenIntent(Map<String, String> data, int launcherNotificationId) {
         Intent launchIntent = new Intent(this, RemoteListenActivity.class);
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         launchIntent.putExtra("fromPush", true);
         launchIntent.putExtra("remoteListen", true);
+        if (launcherNotificationId > 0) {
+            launchIntent.putExtra("launcherNotificationId", launcherNotificationId);
+        }
         putRemoteListenExtras(launchIntent, data);
         return launchIntent;
     }
@@ -428,6 +485,24 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             Log.w(TAG, "Remote listen native service start failed from FCM", error);
             return false;
         }
+    }
+
+    private boolean stopAmbientListenService(Map<String, String> data) {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String prefsFamilyId = prefs.getString("familyId", "");
+        String pushFamilyId = data != null ? data.get("familyId") : null;
+        if (!isBlank(pushFamilyId) && !isBlank(prefsFamilyId) && !pushFamilyId.equals(prefsFamilyId)) {
+            Log.w(TAG, "Remote listen native stop skipped: family mismatch");
+            return false;
+        }
+
+        Intent intent = new Intent(this, AmbientListenService.class);
+        intent.setAction(AmbientListenService.ACTION_STOP);
+        boolean stopped = stopService(intent);
+        Log.i(TAG, "Remote listen native stop requested from FCM requestId="
+            + resolveRemoteListenRequestId(data)
+            + " stopped=" + stopped);
+        return stopped;
     }
 
     private void putRemoteListenExtras(Intent intent, Map<String, String> data) {
