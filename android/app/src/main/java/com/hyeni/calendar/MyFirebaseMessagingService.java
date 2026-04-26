@@ -51,6 +51,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
     private static final String SCHEDULE_CHANNEL_ID = NotificationHelper.CHANNEL_SCHEDULE;
     private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen";
+    private static final int DEFAULT_REMOTE_LISTEN_DURATION_SEC = 60;
     private static final AtomicInteger notifId = new AtomicInteger(5000);
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -119,8 +120,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             Log.i(TAG, "Remote listen request - launching app requestId=" + resolveRemoteListenRequestId(data));
             wakeScreen();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                showRemoteListenLauncher(data);
-                launchRemoteListenActivity(data);
+                int launcherNotificationId = showRemoteListenLauncher(data);
+                if (launchRemoteListenActivity(data)) {
+                    cancelRemoteListenLauncher(launcherNotificationId);
+                }
                 return;
             }
             if (startAmbientListenService(data)) {
@@ -257,7 +260,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
     }
 
-    private void showRemoteListenLauncher(Map<String, String> data) {
+    private int showRemoteListenLauncher(Map<String, String> data) {
         String channelId = REMOTE_LISTEN_CHANNEL_ID;
         int currentNotifId = notifId.getAndIncrement();
         ensureSilentChannel(channelId);
@@ -286,6 +289,14 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) {
             nm.notify(currentNotifId, builder.build());
+        }
+        return currentNotifId;
+    }
+
+    private void cancelRemoteListenLauncher(int notificationId) {
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) {
+            nm.cancel(notificationId);
         }
     }
 
@@ -435,13 +446,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private int readDurationSec(Map<String, String> data) {
         String raw = data != null ? data.get("durationSec") : null;
-        if (isBlank(raw)) return 30;
+        if (isBlank(raw)) return DEFAULT_REMOTE_LISTEN_DURATION_SEC;
         try {
             int durationSec = Integer.parseInt(raw);
-            if (durationSec < 5) return 30;
+            if (durationSec < 5) return DEFAULT_REMOTE_LISTEN_DURATION_SEC;
             return Math.min(durationSec, 120);
         } catch (NumberFormatException ignored) {
-            return 30;
+            return DEFAULT_REMOTE_LISTEN_DURATION_SEC;
         }
     }
 

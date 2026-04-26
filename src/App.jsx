@@ -162,7 +162,7 @@ async function sendInstantPush({ action, familyId, senderUserId, title, message,
 }
 
 const REMOTE_AUDIO_CHUNK_MS = 1000;
-const REMOTE_AUDIO_DEFAULT_DURATION_SEC = 30;
+const REMOTE_AUDIO_DEFAULT_DURATION_SEC = 60;
 const TRIAL_INVITE_SHOWN_KEY = "hyeni-trial-invite-shown";
 const REMOTE_AUDIO_MIME_TYPES = [
     "audio/webm;codecs=opus",
@@ -4088,7 +4088,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                     {status === "listening" ? "아이 주변 소리 듣는 중..." : status === "waiting" ? "아이 기기 연결 중..." : "주변 소리 듣기"}
                 </div>
                 <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
-                    {status === "idle" ? "아이 기기의 마이크를 원격으로 켜서 주변 소리를 들을 수 있어요" : status === "waiting" ? "연결 대기 중" : `${duration}초 수신 중`}
+                    {status === "idle" ? "프리미엄 회원은 아이 기기의 마이크를 1분간 원격으로 켜서 주변 소리를 들을 수 있어요" : status === "waiting" ? "연결 대기 중" : `${duration}초 수신 중`}
                 </div>
                 {status === "listening" && (
                     <div style={{ marginBottom: 16 }}>
@@ -4123,7 +4123,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                         닫기
                     </button>
                 </div>
-                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 12 }}>최대 30초 · 아이의 안전을 위해 사용해주세요</div>
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 12 }}>최대 1분 · 프리미엄 전용 · 아이의 안전을 위해 사용해주세요</div>
             </div>
         </div>
     );
@@ -8330,7 +8330,11 @@ export default function KidsScheduler() {
             palette: { bg: "linear-gradient(135deg,#FEF2F2,#FEE2E2)", color: "#DC2626", shadow: "rgba(239,68,68,0.15)" },
             onClick: () => {
                 if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
-                    openFeatureLock(FEATURES.REMOTE_AUDIO);
+                    openFeatureLock(
+                        FEATURES.REMOTE_AUDIO,
+                        "",
+                        "주변 소리 듣기는 프리미엄 회원만 사용할 수 있어요. 프리미엄을 시작하면 아이 기기 주변 소리를 최대 1분 동안 확인할 수 있어요."
+                    );
                     return;
                 }
                 setShowRemoteAudio(true);
@@ -9912,7 +9916,7 @@ export default function KidsScheduler() {
                 />
             )}
 
-            {showRemoteAudio && isParent && (
+            {showRemoteAudio && isParent && entitlement.canUse(FEATURES.REMOTE_AUDIO) && (
                 <AmbientAudioRecorder
                     channel={realtimeChannel.current}
                     familyId={familyId}

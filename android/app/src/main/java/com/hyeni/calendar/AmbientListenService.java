@@ -53,6 +53,7 @@ public class AmbientListenService extends Service {
     private static final String TAG = "AmbientListenService";
     private static final String CHANNEL_ID = "ambient_listen_fgs";
     private static final int NOTIF_ID = 1001;
+    private static final int DEFAULT_DURATION_SEC = 60;
 
     public static final String ACTION_START = "com.hyeni.calendar.AMBIENT_LISTEN_START";
     public static final String ACTION_STOP = "com.hyeni.calendar.AMBIENT_LISTEN_STOP";
@@ -158,8 +159,8 @@ public class AmbientListenService extends Service {
         supabaseKey = readExtraOrPrefs(intent, EXTRA_SUPABASE_KEY, "supabaseKey");
         accessToken = readExtraOrPrefs(intent, EXTRA_ACCESS_TOKEN, "accessToken");
         requestId = intent != null ? intent.getStringExtra(EXTRA_REQUEST_ID) : "";
-        durationSec = intent != null ? intent.getIntExtra(EXTRA_DURATION_SEC, 30) : 30;
-        if (durationSec < 5) durationSec = 30;
+        durationSec = intent != null ? intent.getIntExtra(EXTRA_DURATION_SEC, DEFAULT_DURATION_SEC) : DEFAULT_DURATION_SEC;
+        if (durationSec < 5) durationSec = DEFAULT_DURATION_SEC;
         if (durationSec > 120) durationSec = 120;
     }
 

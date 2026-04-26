@@ -63,6 +63,7 @@ interface PushPayload {
 }
 
 const EMERGENCY_ACTIONS = new Set(["emergency", "sos"]);
+const PREMIUM_REMOTE_LISTEN_STATUSES = new Set(["trial", "active", "grace"]);
 const EMERGENCY_ALERT_TYPES = new Set([
   "not_arrived",
   "missed_arrival",
@@ -87,6 +88,37 @@ function isEmergencyNotification(type: string, data: Record<string, unknown> = {
     || severity === "critical"
     || severity === "urgent"
     || EMERGENCY_ALERT_TYPES.has(alertType);
+}
+
+function hasPremiumRemoteListenStatus(value: unknown): boolean {
+  return typeof value === "string" && PREMIUM_REMOTE_LISTEN_STATUSES.has(value.toLowerCase());
+}
+
+async function validateRemoteListenEntitlement(
+  supabase: ReturnType<typeof createClient>,
+  familyId: string,
+): Promise<Response | null> {
+  const { data, error } = await supabase
+    .from("family_subscription")
+    .select("status, remote_listen_enabled")
+    .eq("family_id", familyId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("remote listen entitlement check failed:", error);
+    return jsonResponse({ error: "remote_listen_entitlement_check_failed" }, 500);
+  }
+
+  if (!data || !hasPremiumRemoteListenStatus(data.status)) {
+    return jsonResponse({ error: "remote_listen_requires_premium" }, 402);
+  }
+
+  if (data.remote_listen_enabled === false) {
+    return jsonResponse({ error: "remote_listen_disabled_by_family" }, 403);
+  }
+
+  return null;
 }
 
 async function getNativeRecipientIds(
@@ -431,6 +463,11 @@ async function handleInstantNotification(
     if (!memberRow) {
       return jsonResponse({ error: "not a family member" }, 403);
     }
+  }
+
+  if (isRemoteListen) {
+    const remoteListenGate = await validateRemoteListenEntitlement(supabase, familyId);
+    if (remoteListenGate) return remoteListenGate;
   }
 
   // ── Idempotency check (Phase 3 D-A03) ───────────────────────────────

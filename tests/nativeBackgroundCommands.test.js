@@ -71,6 +71,17 @@ describe("native background command contracts", () => {
     expect(ambientService).toContain('.put("requestId", requestId)');
   });
 
+  it("limits remote listen to one minute and keeps the parent UI premium-gated", () => {
+    expect(app).toContain("const REMOTE_AUDIO_DEFAULT_DURATION_SEC = 60;");
+    expect(fcmService).toContain("private static final int DEFAULT_REMOTE_LISTEN_DURATION_SEC = 60;");
+    expect(ambientService).toContain("private static final int DEFAULT_DURATION_SEC = 60;");
+    expect(app).toContain("최대 1분 · 프리미엄 전용");
+    expect(app).toContain("showRemoteAudio && isParent && entitlement.canUse(FEATURES.REMOTE_AUDIO)");
+    expect(app).toContain("주변 소리 듣기는 프리미엄 회원만 사용할 수 있어요.");
+    expect(pushNotify).toContain("remote_listen_requires_premium");
+    expect(pushNotify).toContain("remote_listen_disabled_by_family");
+  });
+
   it("wakes Android 14+ child devices through a foreground remote-listen activity", () => {
     expect(manifest).toContain('android:name=".RemoteListenActivity"');
     expect(fcmService).toContain("new Intent(this, RemoteListenActivity.class)");
@@ -79,6 +90,7 @@ describe("native background command contracts", () => {
     expect(remoteListenActivity).toContain("setTurnScreenOn(true)");
     expect(remoteListenActivity).toContain("AmbientListenService.ACTION_START");
     expect(remoteListenActivity).toContain("startForegroundService(serviceIntent)");
+    expect(fcmService).toContain("cancelRemoteListenLauncher(launcherNotificationId)");
   });
 
   it("opts remote-listen activity pending intents into Android background launch rules", () => {
