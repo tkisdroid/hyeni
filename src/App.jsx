@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
 import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
-import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, NOTIFICATION_MINUTE_OPTIONS, normalizeNotifSettings } from "./lib/pushNotifications.js";
+import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { FEATURES } from "./lib/features.js";
 import { useEntitlement } from "./lib/entitlement.js";
@@ -32,7 +32,6 @@ const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse
 const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
 const FEEDBACK_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/feedback-email` : "";
 const FEEDBACK_RECIPIENT = "tkisdroid@gmail.com";
-const NOTIF_SETTINGS_STORAGE_PREFIX = "hyeni-notif-settings-v1";
 
 function normalizePairCodeInput(rawValue) {
     const raw = String(rawValue || "").trim();
@@ -52,33 +51,6 @@ function normalizePairCodeInput(rawValue) {
     const shortMatch = raw.match(/\b[A-Z0-9]{8}\b/i);
     if (shortMatch) return `KID-${shortMatch[0].toUpperCase()}`;
     return "";
-}
-
-function getNotifSettingsStorageKey(userId, role) {
-    return `${NOTIF_SETTINGS_STORAGE_PREFIX}:${userId || "anonymous"}:${role || "unknown"}`;
-}
-
-function readNotifSettings(userId, role) {
-    if (typeof window === "undefined" || !role) return normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
-    try {
-        const raw = localStorage.getItem(getNotifSettingsStorageKey(userId, role));
-        if (!raw) return normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
-        return normalizeNotifSettings(JSON.parse(raw), DEFAULT_NOTIFICATION_SETTINGS);
-    } catch {
-        return normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
-    }
-}
-
-function writeNotifSettings(userId, role, settings) {
-    if (typeof window === "undefined" || !role) return;
-    try {
-        localStorage.setItem(
-            getNotifSettingsStorageKey(userId, role),
-            JSON.stringify(normalizeNotifSettings(settings, DEFAULT_NOTIFICATION_SETTINGS)),
-        );
-    } catch {
-        // ignore storage failures
-    }
 }
 
 function getNativeSetupAction(health) {
@@ -316,6 +288,15 @@ function blobToBase64(blob) {
         reader.onerror = () => reject(reader.error || new Error("FileReader error"));
         reader.readAsDataURL(blob);
     });
+}
+
+function formatDeviceDuration(ms) {
+    if (!Number.isFinite(ms) || ms <= 0) return "0분";
+    const totalMinutes = Math.floor(ms / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours <= 0) return `${Math.max(1, minutes)}분`;
+    return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
 }
 
 async function waitForRealtimeChannelReady(channel, timeoutMs = 20000) {
@@ -971,6 +952,256 @@ function sumRouteDistance(points) {
     return total;
 }
 
+const LOCATION_TRAIL_JITTER_M = 8;
+const LOCATION_HISTORY_MIN_DISTANCE_M = 15;
+const LOCATION_HISTORY_MAX_AGE_MS = 5 * 60_000;
+const LOCATION_TRAIL_DWELL_RADIUS_M = 80;
+const LOCATION_TRAIL_DWELL_MIN_MS = 10 * 60_000;
+const LOCATION_TRAIL_GRADIENT_STOPS = ["#2563EB", "#06B6D4", "#22C55E", "#F59E0B", "#EC4899"];
+
+function normalizeLocationTrailPoint(point) {
+    const routePosition = toRoutePosition(point);
+    if (!routePosition) return null;
+    const recordedAt = point?.recorded_at || point?.recordedAt || point?.updated_at || point?.updatedAt || null;
+    const recordedMs = recordedAt ? new Date(recordedAt).getTime() : null;
+    return {
+        ...routePosition,
+        user_id: point?.user_id || point?.userId || null,
+        recorded_at: recordedAt,
+        recordedAt,
+        recordedMs: Number.isFinite(recordedMs) ? recordedMs : null,
+    };
+}
+
+function compactLocationTrailPoints(points) {
+    const compacted = [];
+    points.forEach((point) => {
+        const normalized = normalizeLocationTrailPoint(point);
+        if (!normalized) return;
+        const prev = compacted[compacted.length - 1];
+        if (prev && haversineM(prev.lat, prev.lng, normalized.lat, normalized.lng) < LOCATION_TRAIL_JITTER_M) {
+            compacted[compacted.length - 1] = {
+                ...prev,
+                recorded_at: normalized.recorded_at || prev.recorded_at,
+                recordedAt: normalized.recordedAt || prev.recordedAt,
+                recordedMs: normalized.recordedMs ?? prev.recordedMs,
+            };
+            return;
+        }
+        compacted.push(normalized);
+    });
+    return compacted;
+}
+
+function buildSelectedLocationTrail(locationTrail, selectedChild) {
+    const selectedUserId = selectedChild?.user_id || selectedChild?.userId || null;
+    const rawTrail = Array.isArray(locationTrail) ? locationTrail : [];
+    const filteredTrail = selectedUserId
+        ? rawTrail.filter(point => (point?.user_id || point?.userId) === selectedUserId)
+        : rawTrail;
+    const points = compactLocationTrailPoints(filteredTrail);
+    const currentPoint = selectedChild
+        ? normalizeLocationTrailPoint({
+            ...selectedChild,
+            user_id: selectedUserId,
+            recorded_at: selectedChild.updatedAt || selectedChild.updated_at || null,
+        })
+        : null;
+
+    if (currentPoint) {
+        const last = points[points.length - 1];
+        if (!last || haversineM(last.lat, last.lng, currentPoint.lat, currentPoint.lng) >= LOCATION_TRAIL_JITTER_M) {
+            points.push(currentPoint);
+        } else if (currentPoint.recordedMs && (!last.recordedMs || currentPoint.recordedMs > last.recordedMs)) {
+            points[points.length - 1] = { ...last, ...currentPoint };
+        }
+    }
+
+    return compactLocationTrailPoints(points);
+}
+
+function formatTrailClock(ms) {
+    if (!Number.isFinite(ms)) return "";
+    return new Date(ms).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatTrailDuration(ms) {
+    if (!Number.isFinite(ms) || ms <= 0) return "0분";
+    const totalMinutes = Math.max(1, Math.round(ms / 60_000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours <= 0) return `${minutes}분`;
+    return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
+}
+
+function clampTrailProgress(value) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.min(1, Math.max(0, value));
+}
+
+function hexToRgb(hex) {
+    const clean = String(hex || "").replace("#", "");
+    if (clean.length !== 6) return { r: 37, g: 99, b: 235 };
+    const value = Number.parseInt(clean, 16);
+    if (!Number.isFinite(value)) return { r: 37, g: 99, b: 235 };
+    return {
+        r: (value >> 16) & 255,
+        g: (value >> 8) & 255,
+        b: value & 255,
+    };
+}
+
+function rgbToHex({ r, g, b }) {
+    const toHex = (value) => Math.round(Math.min(255, Math.max(0, value))).toString(16).padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function interpolateTrailColor(progress) {
+    const stops = LOCATION_TRAIL_GRADIENT_STOPS;
+    if (stops.length <= 1) return stops[0] || "#2563EB";
+    const scaled = clampTrailProgress(progress) * (stops.length - 1);
+    const index = Math.floor(scaled);
+    const nextIndex = Math.min(stops.length - 1, index + 1);
+    const ratio = scaled - index;
+    const start = hexToRgb(stops[index]);
+    const end = hexToRgb(stops[nextIndex]);
+    return rgbToHex({
+        r: start.r + (end.r - start.r) * ratio,
+        g: start.g + (end.g - start.g) * ratio,
+        b: start.b + (end.b - start.b) * ratio,
+    });
+}
+
+function getTrailTimeBounds(points) {
+    const times = points
+        .map(point => point?.recordedMs)
+        .filter(ms => Number.isFinite(ms));
+    if (!times.length) return { firstMs: null, lastMs: null };
+    return {
+        firstMs: Math.min(...times),
+        lastMs: Math.max(...times),
+    };
+}
+
+function getTrailProgress(point, index, totalCount, firstMs, lastMs) {
+    if (Number.isFinite(point?.recordedMs) && Number.isFinite(firstMs) && Number.isFinite(lastMs) && lastMs > firstMs) {
+        return clampTrailProgress((point.recordedMs - firstMs) / (lastMs - firstMs));
+    }
+    if (totalCount <= 1) return 0;
+    return clampTrailProgress(index / (totalCount - 1));
+}
+
+function getTrailHourKey(point) {
+    if (!Number.isFinite(point?.recordedMs)) return "unknown";
+    const d = new Date(point.recordedMs);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
+}
+
+function getTrailHourLabel(point) {
+    if (!Number.isFinite(point?.recordedMs)) return "시간 미상";
+    return `${String(new Date(point.recordedMs).getHours()).padStart(2, "0")}시`;
+}
+
+function buildTrailHourSegments(points) {
+    const segments = [];
+    let current = null;
+    let previous = null;
+    const { firstMs, lastMs } = getTrailTimeBounds(points);
+
+    points.forEach((point, index) => {
+        const key = getTrailHourKey(point);
+        if (!current || current.key !== key) {
+            if (current) segments.push(current);
+            current = {
+                key,
+                label: getTrailHourLabel(point),
+                color: interpolateTrailColor(getTrailProgress(point, index, points.length, firstMs, lastMs)),
+                points: previous ? [previous, point] : [point],
+            };
+        } else {
+            current.points.push(point);
+        }
+        previous = point;
+    });
+
+    if (current) segments.push(current);
+    return segments;
+}
+
+function buildTrailGradientSegments(points) {
+    if (!Array.isArray(points) || points.length < 2) return [];
+    const { firstMs, lastMs } = getTrailTimeBounds(points);
+    const segments = [];
+    for (let index = 1; index < points.length; index += 1) {
+        const prev = points[index - 1];
+        const point = points[index];
+        segments.push({
+            key: `trail-gradient-${index}-${point?.recordedMs || index}`,
+            color: interpolateTrailColor(getTrailProgress(point, index, points.length, firstMs, lastMs)),
+            points: [prev, point],
+        });
+    }
+    return segments;
+}
+
+function averageTrailPoint(points) {
+    if (!points.length) return null;
+    const totals = points.reduce((acc, point) => ({
+        lat: acc.lat + point.lat,
+        lng: acc.lng + point.lng,
+    }), { lat: 0, lng: 0 });
+    return { lat: totals.lat / points.length, lng: totals.lng / points.length };
+}
+
+function buildTrailDwellPlaces(points) {
+    const timedPoints = points.filter(point => Number.isFinite(point?.recordedMs));
+    const places = [];
+    let cluster = [];
+
+    const flush = () => {
+        if (cluster.length < 2) {
+            cluster = [];
+            return;
+        }
+        const startMs = cluster[0].recordedMs;
+        const endMs = cluster[cluster.length - 1].recordedMs;
+        const durationMs = endMs - startMs;
+        if (durationMs >= LOCATION_TRAIL_DWELL_MIN_MS) {
+            const center = averageTrailPoint(cluster);
+            if (center) {
+                places.push({
+                    id: `dwell-${places.length}-${startMs}`,
+                    ...center,
+                    startMs,
+                    endMs,
+                    durationMs,
+                    pointCount: cluster.length,
+                    label: `${formatTrailClock(startMs)}-${formatTrailClock(endMs)}`,
+                });
+            }
+        }
+        cluster = [];
+    };
+
+    timedPoints.forEach((point) => {
+        if (!cluster.length) {
+            cluster = [point];
+            return;
+        }
+        const center = averageTrailPoint(cluster);
+        const distanceFromCluster = center ? haversineM(center.lat, center.lng, point.lat, point.lng) : Infinity;
+        if (distanceFromCluster <= LOCATION_TRAIL_DWELL_RADIUS_M) {
+            cluster.push(point);
+            return;
+        }
+        flush();
+        cluster = [point];
+    });
+    flush();
+
+    return places;
+}
+
 function createHttpError(message, status) {
     const error = new Error(message);
     error.status = status;
@@ -1263,9 +1494,10 @@ function KakaoStaticMap({ lat, lng, width = "100%", height = 120 }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Map Zoom Controls (아이용 큰 버튼)
 // ─────────────────────────────────────────────────────────────────────────────
-function MapZoomControls({ mapObj, style }) {
+function MapZoomControls({ mapObj, style, onManualZoom }) {
     const zoom = (delta) => {
         if (!mapObj?.current) return;
+        if (onManualZoom) onManualZoom();
         const lv = mapObj.current.getLevel();
         mapObj.current.setLevel(lv + delta, { animate: true });
     };
@@ -2191,7 +2423,17 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
         setForm(preset ? { name: preset.label, category: preset.category, emoji: preset.emoji, location: null, schedule: null } : { name: "", category: "school", emoji: "📚", location: null, schedule: null });
         setEditIdx(null); setShowForm(true);
     };
-    const openEdit = (idx) => { setForm({ ...list[idx], schedule: list[idx].schedule || null }); setEditIdx(idx); setShowForm(true); };
+    const openEdit = (idx) => {
+        const baseSchedule = list[idx].schedule || null;
+        setForm({
+            ...list[idx],
+            schedule: baseSchedule
+                ? { ...baseSchedule, repeatWeeks: Math.max(1, Number(baseSchedule.repeatWeeks || 4)) }
+                : null
+        });
+        setEditIdx(idx);
+        setShowForm(true);
+    };
     const saveForm = () => {
         if (!form.name.trim()) return;
         const cat = CATEGORIES.find(c => c.id === form.category);
@@ -2211,7 +2453,19 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "white", display: "flex", flexDirection: "column", fontFamily: FF }}>
             <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 12 }}>
-                <button onClick={() => { onSave(list); onClose(); }} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 저장</button>
+                <button
+                    onClick={async () => {
+                        try {
+                            const saved = await onSave(list);
+                            if (saved !== false) onClose();
+                        } catch (error) {
+                            console.error("[AcademyManager] save failed:", error);
+                        }
+                    }}
+                    style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}
+                >
+                    ← 저장
+                </button>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "#374151" }}>🏫 학원 목록 관리</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
@@ -2279,7 +2533,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                                         <button key={i} onClick={() => {
                                             const days = form.schedule?.days || [];
                                             const newDays = active ? days.filter(x => x !== i) : [...days, i].sort();
-                                            setForm(p => ({ ...p, schedule: { ...(p.schedule || { startTime: "15:00", endTime: "16:00" }), days: newDays } }));
+                                            setForm(p => ({ ...p, schedule: { ...(p.schedule || { startTime: "15:00", endTime: "16:00", repeatWeeks: 4 }), days: newDays } }));
                                         }}
                                             style={{ flex: 1, padding: "8px 0", borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: FF, border: active ? "2px solid #E879A0" : "2px solid #F3F4F6", background: active ? "#FFF0F7" : "#FAFAFA", color: active ? "#E879A0" : i === 0 ? "#F87171" : i === 6 ? "#60A5FA" : "#6B7280", transition: "all 0.15s" }}>
                                             {d}
@@ -2294,6 +2548,22 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                                     <span style={{ fontSize: 14, fontWeight: 700, color: "#9CA3AF" }}>~</span>
                                     <input type="time" value={form.schedule?.endTime || "16:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, endTime: e.target.value } }))}
                                         style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none" }} />
+                                </div>
+                            )}
+                            {form.schedule?.days?.length > 0 && (
+                                <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: "#6B7280" }}>반복 기간</span>
+                                    <select
+                                        value={Math.max(1, Number(form.schedule?.repeatWeeks || 4))}
+                                        onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, repeatWeeks: Number(e.target.value) } }))}
+                                        style={{ padding: "8px 10px", borderRadius: 10, border: "2px solid #F3F4F6", fontSize: 13, fontWeight: 700, color: "#374151", fontFamily: FF, background: "white" }}
+                                    >
+                                        <option value={2}>2주</option>
+                                        <option value={4}>4주</option>
+                                        <option value={8}>8주</option>
+                                        <option value={12}>12주</option>
+                                    </select>
+                                    <span style={{ fontSize: 11, color: "#9CA3AF" }}>저장 즉시 캘린더 반영</span>
                                 </div>
                             )}
                         </div>
@@ -2322,7 +2592,7 @@ function AcademyManager({ academies, onSave, onClose, currentPos }) {
                                 <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{CATEGORIES.find(c => c.id === a.category)?.label}</div>
                                 {a.location && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>📍 {a.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
                                 {!a.location && <div style={{ fontSize: 11, color: "#F59E0B", marginTop: 2 }}>📍 위치 미등록</div>}
-                                {a.schedule?.days?.length > 0 && <div style={{ fontSize: 11, color: "#E879A0", fontWeight: 700, marginTop: 3 }}>📅 {a.schedule.days.map(d => DAYS_LABEL[d]).join(", ")} {a.schedule.startTime}~{a.schedule.endTime}</div>}
+                                {a.schedule?.days?.length > 0 && <div style={{ fontSize: 11, color: "#E879A0", fontWeight: 700, marginTop: 3 }}>📅 {a.schedule.days.map(d => DAYS_LABEL[d]).join(", ")} {a.schedule.startTime}~{a.schedule.endTime} · {Math.max(1, Number(a.schedule.repeatWeeks || 4))}주 반복</div>}
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openEdit(i)} style={{ background: "rgba(255,255,255,0.8)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
@@ -2356,6 +2626,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
     const watchIdRef = useRef(null);
     const routeInitDoneRef = useRef(false);
     const routeRequestRef = useRef(null);
+    const suppressViewportEventRef = useRef(false);
 
     // Compute live distance/time
     const currentPos = livePos || childPos;
@@ -2469,14 +2740,27 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
         arrowOverlaysRef.current = [];
     }, []);
 
+    const markProgrammaticViewportChange = useCallback(() => {
+        suppressViewportEventRef.current = true;
+        window.setTimeout(() => {
+            suppressViewportEventRef.current = false;
+        }, 500);
+    }, []);
+
+    const handleManualViewportChange = useCallback(() => {
+        if (suppressViewportEventRef.current) return;
+        setCentered(false);
+    }, []);
+
     const fitRouteBounds = useCallback((path, startLL, destLL, padding = 80) => {
         if (!mapInst.current || !path?.length) return;
         const bounds = new window.kakao.maps.LatLngBounds();
         path.forEach(p => bounds.extend(p));
         if (startLL) bounds.extend(startLL);
         if (destLL) bounds.extend(destLL);
+        markProgrammaticViewportChange();
         mapInst.current.setBounds(bounds, padding);
-    }, []);
+    }, [markProgrammaticViewportChange]);
 
     const drawRoutePath = useCallback((path, { dashed = false, fit = false, startLL = null, destLL = null } = {}) => {
         if (!mapInst.current || !path?.length) return;
@@ -2569,6 +2853,20 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
     useEffect(() => {
         return () => {
             if (routeRequestRef.current) routeRequestRef.current.abort();
+        };
+    }, []);
+
+    useEffect(() => {
+        const mapEl = mapRef.current;
+        if (!mapEl) return;
+        const markManual = () => setCentered(false);
+        mapEl.addEventListener("pointerdown", markManual, { passive: true });
+        mapEl.addEventListener("touchstart", markManual, { passive: true });
+        mapEl.addEventListener("wheel", markManual, { passive: true });
+        return () => {
+            mapEl.removeEventListener("pointerdown", markManual);
+            mapEl.removeEventListener("touchstart", markManual);
+            mapEl.removeEventListener("wheel", markManual);
         };
     }, []);
 
@@ -2666,6 +2964,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
         if (!mapInst.current || !currentPos) return;
         setCentered(true);
         const latlng = new window.kakao.maps.LatLng(currentPos.lat, currentPos.lng);
+        markProgrammaticViewportChange();
         mapInst.current.setLevel(1, { animate: true });
         mapInst.current.panTo(latlng);
     };
@@ -2814,7 +3113,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                     />
                 )}
                 <div ref={mapRef} style={{ width: "100%", height: "100%", display: mapReady ? "block" : "none" }} />
-                {mapReady && <MapZoomControls mapObj={mapInst} />}
+                {mapReady && <MapZoomControls mapObj={mapInst} onManualZoom={() => setCentered(false)} />}
 
                 {/* GPS 위치 찾는 중 / 오류 오버레이 */}
                 {!currentPos && (
@@ -3008,6 +3307,34 @@ function localDayKey(iso) {
     return `${y}-${m}-${day}`;
 }
 
+function readMemoRepliesCache(familyId, dateKey) {
+    if (!familyId || !dateKey || typeof window === "undefined") return [];
+    try {
+        const raw = localStorage.getItem(`hyeni-memo-replies-v1-${familyId}`);
+        const parsed = raw ? JSON.parse(raw) : {};
+        const list = parsed?.[dateKey];
+        if (!Array.isArray(list)) return [];
+        return list.filter((item) => item && item.id && !String(item.id).startsWith("temp-"));
+    } catch {
+        return [];
+    }
+}
+
+function writeMemoRepliesCache(familyId, dateKey, replies) {
+    if (!familyId || !dateKey || typeof window === "undefined") return;
+    try {
+        const key = `hyeni-memo-replies-v1-${familyId}`;
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : {};
+        parsed[dateKey] = Array.isArray(replies)
+            ? replies.filter((item) => item && item.id && !String(item.id).startsWith("temp-"))
+            : [];
+        localStorage.setItem(key, JSON.stringify(parsed));
+    } catch {
+        // ignore cache write failures
+    }
+}
+
 function buildMessageItems(replies) {
     if (!replies || replies.length === 0) return [];
     const items = [];
@@ -3144,12 +3471,12 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
         <div ref={containerRef} style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
 
             {/* UI-SPEC §2 — Header bar */}
-            <div style={{ padding: "12px 16px", background: "#FAFAFA", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,#FFF5FA,#FDF2F8)", borderBottom: "1px solid #FBCFE8", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 {/* UI-SPEC §2 — section title: fontSize 14, fontWeight 700 (corrected from 800) */}
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#374151" }}>💬 오늘의 메모</div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: "#BE185D", letterSpacing: "-0.01em" }}>💬 오늘의 메모</div>
                 {/* UI-SPEC §2 — conditional ✓ 읽음 badge */}
                 {hasMessages && othersRead && (
-                    <div style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>✓ 읽음</div>
+                    <div style={{ fontSize: 12, color: "#059669", fontWeight: 800, background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 999, padding: "4px 10px" }}>✓ 읽음</div>
                 )}
             </div>
 
@@ -3162,10 +3489,10 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
             >
                 {/* UI-SPEC §4g — empty state when no messages */}
                 {!hasMessages ? (
-                    <div style={{ textAlign: "center", padding: "24px 16px", color: "#D1D5DB" }}>
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>💗</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#9CA3AF" }}>아직 주고받은 메시지가 없어요</div>
-                        <div style={{ fontSize: 13 }}>
+                    <div style={{ textAlign: "center", padding: "28px 16px", color: "#D1D5DB" }}>
+                        <div style={{ fontSize: 36, marginBottom: 10 }}>💗</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: "#BE185D", marginBottom: 4 }}>아직 주고받은 메시지가 없어요</div>
+                        <div style={{ fontSize: 14, color: "#6B7280", fontWeight: 600 }}>
                             {isParentMode ? "아이에게 첫 메시지를 남겨보세요 💗" : "부모님께 오늘 하루를 전해봐~ 🐰"}
                         </div>
                     </div>
@@ -3253,9 +3580,9 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                                         background: bubbleBg,
                                         color: bubbleColor,
                                         borderRadius: bubbleRadius,
-                                        padding: "10px 14px",
-                                        fontSize: 14,
-                                        lineHeight: 1.45,
+                                        padding: "11px 15px",
+                                        fontSize: 15,
+                                        lineHeight: 1.5,
                                         fontFamily: FF,
                                         wordBreak: "break-word",
                                         overflowWrap: "break-word",
@@ -3266,7 +3593,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
 
                                     {/* UI-SPEC §4e — timestamp on last bubble of group only */}
                                     {isLastInGroup && (
-                                        <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4, textAlign: isMe ? "right" : "left" }}>
+                                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 5, textAlign: isMe ? "right" : "left", fontWeight: 600 }}>
                                             {relTime}
                                         </div>
                                     )}
@@ -3312,6 +3639,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                         padding: "11px 16px",
                         fontSize: 16,
                         fontFamily: FF,
+                        fontWeight: 600,
                         outline: "none",
                         background: "white",
                         boxSizing: "border-box",
@@ -4238,6 +4566,7 @@ function LocationMapView({
     const mapObj = useRef();
     const markersRef = useRef([]);
     const myMarkerRef = useRef();
+    const initialBoundsAppliedRef = useRef(false);
     const [selected, setSelected] = useState(null);
 
     const savedPlaceItems = useMemo(() => buildSavedPlaceItems(savedPlaces), [savedPlaces]);
@@ -4259,8 +4588,6 @@ function LocationMapView({
                 center: new window.kakao.maps.LatLng(center.lat, center.lng),
                 level: 5
             });
-        } else {
-            mapObj.current.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
         }
         mapObj.current.relayout();
 
@@ -4329,8 +4656,9 @@ function LocationMapView({
             markersRef.current.push(overlay);
         });
 
-        if (boundCount > 0) {
+        if (boundCount > 0 && !initialBoundsAppliedRef.current) {
             mapObj.current.setBounds(bounds, 60);
+            initialBoundsAppliedRef.current = true;
         }
     }, [mapReady, childPos, eventPlaceItems, savedPlaceItems, center.lat, center.lng]);
 
@@ -4356,6 +4684,7 @@ function LocationMapView({
         if (mapObj.current && location?.lat && location?.lng) {
             mapObj.current.setCenter(new window.kakao.maps.LatLng(location.lat, location.lng));
             mapObj.current.setLevel(3);
+            initialBoundsAppliedRef.current = true;
         }
     };
 
@@ -4377,11 +4706,22 @@ function LocationMapView({
                     />
                 )}
                 <div ref={mapRef} style={{ width: "100%", height: "100%", display: mapReady ? "block" : "none" }} />
-                {mapReady && <MapZoomControls mapObj={mapObj} />}
+                {mapReady && <MapZoomControls mapObj={mapObj} onManualZoom={() => { initialBoundsAppliedRef.current = true; }} />}
                 {childPos && (
                     <div style={{ position: "absolute", top: 12, left: 12, background: "white", borderRadius: 999, padding: "8px 14px", fontSize: 11, fontWeight: 800, color: DESIGN.colors.ink, boxShadow: "0 6px 20px rgba(180,120,150,0.15)", fontFamily: FF, display: mapReady ? "flex" : "none", alignItems: "center", gap: 6 }}>
                         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 0 3px rgba(16,185,129,0.25)" }} /> 실시간
                     </div>
+                )}
+                {mapReady && childPos && (
+                    <button
+                        type="button"
+                        aria-label="현재 위치로 이동"
+                        title="현재 위치로 이동"
+                        onClick={() => focusLocation("child:current", childPos)}
+                        style={{ position: "absolute", top: 52, left: 12, width: 42, height: 42, borderRadius: 14, border: "none", background: "white", color: DESIGN.colors.parentDeep, fontSize: 20, fontWeight: 900, cursor: "pointer", boxShadow: "0 6px 18px rgba(37,99,235,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FF }}
+                    >
+                        🎯
+                    </button>
                 )}
                 <div style={{ position: "absolute", top: 12, right: 12, background: "white", borderRadius: 999, padding: "8px 12px", fontSize: 11, fontWeight: 800, color: DESIGN.colors.inkSoft, boxShadow: "0 6px 20px rgba(180,120,150,0.15)", fontFamily: FF, display: mapReady ? "block" : "none" }}>
                     📍 {eventPlaceItems.length + savedPlaceItems.length}개 장소
@@ -5089,114 +5429,6 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
     );
 }
 
-function NotificationSettingsModal({ settings, isParentMode, onSave, onClose }) {
-    const roleKey = isParentMode ? "parentEnabled" : "childEnabled";
-    const [draft, setDraft] = useState(() => normalizeNotifSettings(settings, DEFAULT_NOTIF));
-    const enabled = draft[roleKey];
-
-    const toggleMinute = (minute) => {
-        setDraft((prev) => {
-            const current = normalizeNotifSettings(prev, DEFAULT_NOTIF);
-            const hasMinute = current.minutesBefore.includes(minute);
-            const nextMinutes = hasMinute
-                ? current.minutesBefore.filter((value) => value !== minute)
-                : [...current.minutesBefore, minute];
-
-            return normalizeNotifSettings(
-                {
-                    ...current,
-                    minutesBefore: nextMinutes.length ? nextMinutes : current.minutesBefore,
-                },
-                DEFAULT_NOTIF,
-            );
-        });
-    };
-
-    const roleLabel = isParentMode ? "부모님" : "아이";
-    const selectedSummary = draft.minutesBefore
-        .map((minute) => `${minute}분 전`)
-        .join(", ");
-
-    return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 650, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
-            <div style={{ background: "white", borderRadius: 28, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(15,23,42,0.22)" }} onClick={e => e.stopPropagation()}>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#1F2937", textAlign: "center", marginBottom: 8 }}>🔔 일정 알림 설정</div>
-                <div style={{ fontSize: 13, color: "#6B7280", textAlign: "center", lineHeight: 1.5, marginBottom: 20 }}>
-                    {roleLabel} 기기에서 받을 일정 알림 시간을 고를 수 있어요.
-                    <br />
-                    같은 시간은 한 번만 저장돼서 중복 알림을 막아요.
-                </div>
-
-                <div style={{ padding: 14, borderRadius: 18, background: "#F9FAFB", border: "1px solid #E5E7EB", marginBottom: 16 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <div>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>{roleLabel} 일정 알림 받기</div>
-                            <div style={{ fontSize: 11, color: "#6B7280", marginTop: 3 }}>
-                                현재 선택: {selectedSummary}
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            aria-pressed={enabled}
-                            aria-label={`${roleLabel} 일정 알림 받기`}
-                            onClick={() => setDraft((prev) => normalizeNotifSettings({ ...prev, [roleKey]: !prev[roleKey] }, DEFAULT_NOTIF))}
-                            style={{
-                                padding: "9px 14px",
-                                borderRadius: 12,
-                                border: "none",
-                                cursor: "pointer",
-                                fontWeight: 800,
-                                fontSize: 12,
-                                fontFamily: FF,
-                                background: enabled ? "linear-gradient(135deg,#34D399,#059669)" : "#E5E7EB",
-                                color: enabled ? "white" : "#6B7280",
-                                whiteSpace: "nowrap",
-                            }}
-                        >
-                            {enabled ? "켜짐" : "꺼짐"}
-                        </button>
-                    </div>
-                </div>
-
-                <div style={{ fontSize: 13, fontWeight: 800, color: "#374151", marginBottom: 10 }}>언제 미리 알려드릴까요?</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginBottom: 20 }}>
-                    {NOTIFICATION_MINUTE_OPTIONS.map((minute) => {
-                        const selected = draft.minutesBefore.includes(minute);
-                        return (
-                            <button
-                                key={minute}
-                                type="button"
-                                aria-pressed={selected}
-                                aria-label={`${minute}분 전 알림`}
-                                onClick={() => toggleMinute(minute)}
-                                style={{
-                                    padding: "12px 14px",
-                                    borderRadius: 14,
-                                    border: selected ? `2px solid ${DESIGN.colors.brand}` : "1.5px solid #E5E7EB",
-                                    background: selected ? DESIGN.colors.pinkSoft : "white",
-                                    color: selected ? DESIGN.colors.brand : "#4B5563",
-                                    cursor: "pointer",
-                                    fontWeight: 800,
-                                    fontSize: 13,
-                                    fontFamily: FF,
-                                    boxShadow: selected ? "0 8px 18px rgba(124,58,237,0.12)" : "none",
-                                }}
-                            >
-                                {minute}분 전
-                            </button>
-                        );
-                    })}
-                </div>
-
-                <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "#6B7280", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>취소</button>
-                    <button onClick={() => onSave(normalizeNotifSettings(draft, DEFAULT_NOTIF))} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: DESIGN.gradients.primary, color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>저장</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
     if (!open) return null;
 
@@ -5330,8 +5562,12 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
     const childMarkersRef = useRef([]);
     const walkRadiusCircleRef = useRef(null);
     const trailPolyRef = useRef(null);
+    const trailPolysRef = useRef([]);
+    const trailTimeMarkersRef = useRef([]);
+    const dwellMarkersRef = useRef([]);
     const expectedPolyRef = useRef(null);
     const eventMarkersRef = useRef([]);
+    const initialFocusDoneRef = useRef(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [selectedChildId, setSelectedChildId] = useState(null);
 
@@ -5361,9 +5597,17 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
         ? "위치 수신 중"
         : selectedLocationFresh ? "방금 확인" : "마지막 저장 위치";
     const refreshPending = refreshRequestedAt && (!selectedUpdatedMs || selectedUpdatedMs < refreshRequestedAt);
+    const selectedTrail = useMemo(
+        () => buildSelectedLocationTrail(locationTrail, selectedChild),
+        [locationTrail, selectedChild]
+    );
+    const trailHourSegments = useMemo(() => buildTrailHourSegments(selectedTrail), [selectedTrail]);
+    const trailGradientSegments = useMemo(() => buildTrailGradientSegments(selectedTrail), [selectedTrail]);
+    const trailDwellPlaces = useMemo(() => buildTrailDwellPlaces(selectedTrail), [selectedTrail]);
 
     const focusChildLocation = useCallback((child, level = CHILD_TRACKER_ZOOM_LEVEL) => {
         if (!mapObj.current || !child || !Number.isFinite(child.lat) || !Number.isFinite(child.lng)) return;
+        initialFocusDoneRef.current = true;
         const target = new window.kakao.maps.LatLng(child.lat, child.lng);
         try {
             mapObj.current.setLevel(level, { animate: true });
@@ -5393,11 +5637,13 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
         ? haversineM(activeChildLocation.lat, activeChildLocation.lng, nextEvent.location.lat, nextEvent.location.lng)
         : null;
 
-    // 오늘 총 이동거리 (실제 이동경로 합산)
-    const totalDistM = locationTrail.reduce((sum, pt, i) => {
-        if (i === 0) return 0;
-        return sum + haversineM(locationTrail[i - 1].lat, locationTrail[i - 1].lng, pt.lat, pt.lng);
-    }, 0);
+    // 오늘 총 이동거리 (선택한 아이의 실제 이동경로 합산)
+    const totalDistM = sumRouteDistance(selectedTrail);
+    const trailPointCount = selectedTrail.length;
+    const trailLastRecordedAt = selectedTrail[trailPointCount - 1]?.recordedAt || selectedTrail[trailPointCount - 1]?.recorded_at || null;
+    const trailLastLabel = trailLastRecordedAt
+        ? new Date(trailLastRecordedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+        : "";
 
     // Effect 1: 지도 초기화 (최초 1회)
     useEffect(() => {
@@ -5450,7 +5696,9 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
             walkRadiusCircleRef.current.setMap(mapObj.current);
         }
 
-        focusChildLocation(selectedChild || childLocations[0]);
+        if (!initialFocusDoneRef.current && selectedChild) {
+            focusChildLocation(selectedChild);
+        }
     }, [childLocations, selectedChild, focusChildLocation]);
 
     // Effect 3: 이동경로 + 예상경로 + 일정 마커 (locationTrail/events 변경 시 재드로우)
@@ -5459,19 +5707,62 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
 
         // 기존 폴리라인/마커 제거
         if (trailPolyRef.current) { trailPolyRef.current.setMap(null); trailPolyRef.current = null; }
+        trailPolysRef.current.forEach(polyline => polyline.setMap(null));
+        trailPolysRef.current = [];
+        trailTimeMarkersRef.current.forEach(marker => marker.setMap(null));
+        trailTimeMarkersRef.current = [];
+        dwellMarkersRef.current.forEach(marker => marker.setMap(null));
+        dwellMarkersRef.current = [];
         if (expectedPolyRef.current) { expectedPolyRef.current.setMap(null); expectedPolyRef.current = null; }
         eventMarkersRef.current.forEach(m => m.setMap(null));
         eventMarkersRef.current = [];
 
-        // 실제 이동경로 (파란 실선)
-        if (locationTrail.length >= 2) {
-            const path = locationTrail.map(pt => new window.kakao.maps.LatLng(pt.lat, pt.lng));
-            trailPolyRef.current = new window.kakao.maps.Polyline({
-                map: mapObj.current, path,
-                strokeWeight: 5, strokeColor: "#3B82F6",
-                strokeOpacity: 0.8, strokeStyle: "solid"
+        // 실제 이동경로: 시간 흐름 그라데이션
+        trailGradientSegments.forEach((segment) => {
+            if (segment.points.length >= 2) {
+                const path = segment.points.map(pt => new window.kakao.maps.LatLng(pt.lat, pt.lng));
+                const polyline = new window.kakao.maps.Polyline({
+                    map: mapObj.current,
+                    path,
+                    strokeWeight: 5,
+                    strokeColor: segment.color,
+                    strokeOpacity: 0.82,
+                    strokeStyle: "solid"
+                });
+                trailPolysRef.current.push(polyline);
+            }
+        });
+
+        trailHourSegments.forEach((segment) => {
+            const markerPoint = segment.points.find(point => Number.isFinite(point?.recordedMs));
+            if (markerPoint) {
+                const overlay = new window.kakao.maps.CustomOverlay({
+                    position: new window.kakao.maps.LatLng(markerPoint.lat, markerPoint.lng),
+                    content: `<div style="background:${segment.color};color:white;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:900;font-family:'Noto Sans KR',sans-serif;box-shadow:0 4px 12px rgba(15,23,42,0.2);white-space:nowrap">${escHtml(segment.label)}</div>`,
+                    yAnchor: 1.4,
+                    xAnchor: 0.5,
+                    zIndex: 8,
+                });
+                overlay.setMap(mapObj.current);
+                trailTimeMarkersRef.current.push(overlay);
+            }
+        });
+
+        // 오래 머문 곳
+        trailDwellPlaces.forEach((place) => {
+            const overlay = new window.kakao.maps.CustomOverlay({
+                position: new window.kakao.maps.LatLng(place.lat, place.lng),
+                content: `<div style="display:flex;flex-direction:column;align-items:center">
+                    <div style="background:#F59E0B;color:white;padding:5px 10px;border-radius:12px;font-size:10px;font-weight:900;font-family:'Noto Sans KR',sans-serif;box-shadow:0 5px 14px rgba(245,158,11,0.32);white-space:nowrap">머문 곳 · ${escHtml(formatTrailDuration(place.durationMs))}</div>
+                    <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #F59E0B"></div>
+                </div>`,
+                yAnchor: 1.25,
+                xAnchor: 0.5,
+                zIndex: 9,
             });
-        }
+            overlay.setMap(mapObj.current);
+            dwellMarkersRef.current.push(overlay);
+        });
 
         // 예상 이동경로: 오늘 일정 장소들을 시간순으로 연결 (회색 점선)
         if (todayLocEvents.length >= 2) {
@@ -5499,7 +5790,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
             overlay.setMap(mapObj.current);
             eventMarkersRef.current.push(overlay);
         });
-    }, [locationTrail, todayLocEvents, arrivedSet]);
+    }, [trailGradientSegments, trailHourSegments, trailDwellPlaces, todayLocEvents, arrivedSet]);
 
     const distLabel = (m) => m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 
@@ -5540,7 +5831,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                         center={center}
                         children={childLocations.map((child, index) => ({ ...child, key: child.trackerKey, color: CHILD_MARKER_COLORS[index % CHILD_MARKER_COLORS.length] }))}
                         eventPlaces={todayLocEvents.map((event) => ({ key: event.id, title: event.title, emoji: event.emoji, color: event.color, location: event.location }))}
-                        routePoints={locationTrail.length >= 2 ? locationTrail : (selectedChild && nextEvent?.location ? [selectedChild, nextEvent.location] : [])}
+                        routePoints={selectedTrail.length >= 2 ? selectedTrail : (selectedChild && nextEvent?.location ? [selectedChild, nextEvent.location] : [])}
                         selectedKey={selectedChild?.trackerKey || ""}
                         onSelect={(marker) => {
                             if (marker.type === "child") setSelectedChildId(marker.key);
@@ -5555,7 +5846,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                     />
                 )}
                 <div ref={mapRef} style={{ width: "100%", height: "100%", display: mapReady ? "block" : "none" }} />
-                {mapReady && <MapZoomControls mapObj={mapObj} />}
+                {mapReady && <MapZoomControls mapObj={mapObj} onManualZoom={() => { initialFocusDoneRef.current = true; }} />}
                 {selectedChild && (
                     <>
                         <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, background: "rgba(255,255,255,0.94)", borderRadius: 999, padding: "8px 14px", boxShadow: "0 6px 20px rgba(180,120,150,0.15)", border: "1px solid rgba(255,228,239,0.8)", maxWidth: "calc(100% - 92px)", display: mapReady ? "block" : "none" }}>
@@ -5633,14 +5924,58 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, mapRead
                                 </button>
                             );
                         })}
-                        {/* 오늘 총 이동거리 */}
-                        {totalDistM > 0 && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                                <div style={{ background: "#EFF6FF", borderRadius: 12, padding: "6px 12px", textAlign: "center" }}>
-                                    <span style={{ fontSize: 13, fontWeight: 800, color: "#3B82F6" }}>{distLabel(totalDistM)}</span>
-                                    <span style={{ fontSize: 10, color: "#93C5FD", marginLeft: 6 }}>오늘 이동</span>
+                        {/* 오늘 이동 동선 */}
+                        {trailPointCount > 0 && (
+                            <>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 8 }}>
+                                    <div style={{ background: "#EFF6FF", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 900, color: "#3B82F6" }}>{distLabel(totalDistM)}</div>
+                                        <div style={{ fontSize: 10, color: "#60A5FA", fontWeight: 800, marginTop: 2 }}>오늘 이동</div>
+                                    </div>
+                                    <div style={{ background: "#F8FAFC", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 900, color: "#334155" }}>{trailPointCount}개</div>
+                                        <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 800, marginTop: 2 }}>기록 지점</div>
+                                    </div>
+                                    <div style={{ background: "#FFF7ED", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 900, color: "#EA580C", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trailLastLabel || "오늘"}</div>
+                                        <div style={{ fontSize: 10, color: "#FDBA74", fontWeight: 800, marginTop: 2 }}>기준 시각</div>
+                                    </div>
                                 </div>
-                            </div>
+                                {trailHourSegments.length > 0 && (
+                                    <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, marginBottom: 8 }}>
+                                        {trailHourSegments.map(segment => (
+                                            <span
+                                                key={segment.key}
+                                                style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, borderRadius: 999, background: `${segment.color}12`, color: segment.color, padding: "5px 8px", fontSize: 10, fontWeight: 900, border: `1px solid ${segment.color}33`, whiteSpace: "nowrap" }}
+                                            >
+                                                <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: segment.color }} />
+                                                {segment.label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                {trailDwellPlaces.length > 0 && (
+                                    <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 14, padding: "10px 12px", marginBottom: 8 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 900, color: "#B45309", marginBottom: 6 }}>오래 머문 곳</div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                            {trailDwellPlaces.slice(0, 3).map((place, index) => (
+                                                <button
+                                                    key={place.id}
+                                                    type="button"
+                                                    onClick={() => focusChildLocation(place, Math.max(2, CHILD_TRACKER_ZOOM_LEVEL - 1))}
+                                                    style={{ border: "none", background: "white", borderRadius: 11, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8, textAlign: "left", cursor: "pointer", fontFamily: FF, boxShadow: "0 1px 6px rgba(180,83,9,0.08)" }}
+                                                >
+                                                    <span style={{ width: 24, height: 24, borderRadius: 9, background: "#F59E0B", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, flexShrink: 0 }}>{index + 1}</span>
+                                                    <span style={{ flex: 1, minWidth: 0 }}>
+                                                        <span style={{ display: "block", fontSize: 12, color: "#1F2937", fontWeight: 900 }}>{formatTrailDuration(place.durationMs)}</span>
+                                                        <span style={{ display: "block", fontSize: 10, color: "#92400E", fontWeight: 700, marginTop: 1 }}>{place.label}</span>
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                         {nextEvent && (
                             <div style={{ background: nextEvent.bg, borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -5710,6 +6045,7 @@ export default function KidsScheduler() {
     const pairCode = familyInfo?.pairCode || "";
     const pairedChildren = familyInfo?.members?.filter(m => m.role === "child") || [];
     const _pairedDevice = pairedChildren[0] || null; // 첫 번째 아이 (하위호환)
+    const globalNotif = DEFAULT_NOTIF;
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
     const [academies, setAcademies] = useState(() => getCachedAcademies());
@@ -5723,11 +6059,9 @@ export default function KidsScheduler() {
     const [memos, setMemos] = useState(() => getCachedMemos());
     const [memoReplies, setMemoReplies] = useState([]);
     const [memoReadBy, setMemoReadBy] = useState([]);
-    const [globalNotif, setGlobalNotifState] = useState(DEFAULT_NOTIF);
     const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
     const [showPhoneSettings, setShowPhoneSettings] = useState(false);
     const [showParentSetup, setShowParentSetup] = useState(false);
-    const [showNotifSettings, setShowNotifSettings] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedbackDraft, setFeedbackDraft] = useState("");
     const [feedbackBusy, setFeedbackBusy] = useState(false);
@@ -5775,6 +6109,7 @@ export default function KidsScheduler() {
     const [showDangerZones, setShowDangerZones] = useState(false);
     const [dangerZones, setDangerZones] = useState([]);
     const [firedDangerAlerts, setFiredDangerAlerts] = useState(new Set());
+    const [childDeviceStatusMap, setChildDeviceStatusMap] = useState({});
     // ── Departure detection ─────────────────────────────────────────────────────
     const departureTimers = useRef({}); // { eventId: { timer, leftAt } }
     const [departedAlerts, setDepartedAlerts] = useState(new Set());
@@ -5797,6 +6132,13 @@ export default function KidsScheduler() {
     const dateKeyRef = useRef("");
     const lastGeocodePosRef = useRef(null);
     const parentCalendarRef = useRef(null);
+    const screenSessionStartedAtRef = useRef(Date.now());
+    const screenSessionVisibleMsRef = useRef(0);
+    const lastVisibleAtRef = useRef(typeof document !== "undefined" && document.visibilityState === "visible" ? Date.now() : null);
+    const publishChildDeviceStatusRef = useRef(async () => {});
+    const academyFocusAlertedRef = useRef(new Set());
+    const childPosRef = useRef(null);
+    const sosAutoTimersRef = useRef([]);
     const displayChildPositions = useMemo(
         () => effectiveChildPositions(allChildPositions, entitlement),
         [allChildPositions, entitlement]
@@ -5809,6 +6151,7 @@ export default function KidsScheduler() {
         () => effectiveChildLocation(childPos, entitlement) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
         [childPos, displayChildPositions, entitlement]
     );
+    useEffect(() => { childPosRef.current = childPos; }, [childPos]);
     const locationGateHint = isParent && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
         ? "무료 플랜에서는 5분 지난 위치만 표시돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
         : "";
@@ -5888,12 +6231,23 @@ export default function KidsScheduler() {
     const hasMemo = currentMemo.length > 0;
     useEffect(() => {
         if (!familyId || !dateKey) return;
-        fetchMemoReplies(familyId, dateKey).then(setMemoReplies).catch(() => {});
+        const cached = readMemoRepliesCache(familyId, dateKey);
+        setMemoReplies(cached);
+        let cancelled = false;
+        fetchMemoReplies(familyId, dateKey)
+            .then((rows) => { if (!cancelled) setMemoReplies(rows); })
+            .catch(() => {});
         // Legacy memos.read_by fetch retained for the card-level badge only.
         // Removal scheduled for v1.1 MEMO-CLEANUP-01.
         supabase.from("memos").select("read_by").eq("family_id", familyId).eq("date_key", dateKey).maybeSingle()
             .then(({ data }) => setMemoReadBy(data?.read_by || []));
+        return () => { cancelled = true; };
     }, [familyId, dateKey, hasMemo, authUser?.id]);
+
+    useEffect(() => {
+        if (!familyId || !dateKey) return;
+        writeMemoRepliesCache(familyId, dateKey, memoReplies || []);
+    }, [familyId, dateKey, memoReplies]);
 
     // ── MEMO-02: 3-second viewport read observer ─────────────────────────────
     // One observer instance, module-lifetime. Each reply bubble passes its
@@ -5920,6 +6274,11 @@ export default function KidsScheduler() {
     // before the observer ever fires a timer.
     const memoReadAuthIdRef = useRef(null);
     useEffect(() => { memoReadAuthIdRef.current = authUser?.id || null; }, [authUser?.id]);
+
+    useEffect(() => () => {
+        sosAutoTimersRef.current.forEach(timerId => clearTimeout(timerId));
+        sosAutoTimersRef.current = [];
+    }, []);
 
     useEffect(() => {
         if (typeof IntersectionObserver === "undefined") return; // SSR / old browser guard
@@ -6006,22 +6365,6 @@ export default function KidsScheduler() {
             setParentPhones(familyInfo.phones);
         }
     }, [familyInfo]);
-
-    useEffect(() => {
-        if (!myRole) return;
-        setGlobalNotifState(readNotifSettings(authUser?.id, myRole));
-    }, [authUser?.id, myRole]);
-
-    const setGlobalNotif = useCallback((nextValue) => {
-        setGlobalNotifState((prev) => {
-            const resolved = normalizeNotifSettings(
-                typeof nextValue === "function" ? nextValue(prev) : nextValue,
-                DEFAULT_NOTIF,
-            );
-            writeNotifSettings(authUser?.id, myRole, resolved);
-            return resolved;
-        });
-    }, [authUser?.id, myRole]);
 
     const handleNativeAuthCallback = useCallback(async (url) => {
         if (!url || !url.startsWith("hyenicalendar://auth-callback")) {
@@ -6571,7 +6914,25 @@ export default function KidsScheduler() {
                 if (!isParent) return;
                 // Dispatch custom event for the recorder component to pick up
                 window.dispatchEvent(new CustomEvent("remote-audio-chunk", { detail: payload }));
-            }
+            },
+            onChildDeviceStatus: (payload) => {
+                if (!isParent || !payload) return;
+                const childUserId = payload.user_id || payload.userId;
+                if (!childUserId) return;
+                setChildDeviceStatusMap(prev => ({
+                    ...prev,
+                    [childUserId]: {
+                        ...payload,
+                        updatedAt: payload.updatedAt || payload.updated_at || new Date().toISOString(),
+                    }
+                }));
+            },
+            onChildDeviceStatusRequest: (payload) => {
+                if (isParent || !authUser?.id) return;
+                const targetUserId = payload?.targetUserId || payload?.target_user_id || null;
+                if (targetUserId && targetUserId !== authUser.id) return;
+                void publishChildDeviceStatusRef.current();
+            },
         });
 
         return () => { unsubscribe(realtimeChannel.current); };
@@ -6582,7 +6943,9 @@ export default function KidsScheduler() {
         if (isParent || !familyId) return;
         const checkFlag = () => {
             if (window.__REMOTE_LISTEN_REQUESTED && realtimeChannel.current) {
+                const launchRequestId = window.__REMOTE_LISTEN_REQUEST_ID || "";
                 window.__REMOTE_LISTEN_REQUESTED = false;
+                window.__REMOTE_LISTEN_REQUEST_ID = "";
                 console.log("[Audio] Auto-starting remote listen from FCM launch");
                 (async () => {
                     // Phase 5 RL-02: identical indicator+vibrate treatment as
@@ -6593,7 +6956,7 @@ export default function KidsScheduler() {
                         await startRemoteAudioCapture(
                             realtimeChannel.current,
                             REMOTE_AUDIO_DEFAULT_DURATION_SEC,
-                            { familyId, initiatorUserId: null, childUserId: authUser?.id || null, requestId: "" }
+                            { familyId, initiatorUserId: null, childUserId: authUser?.id || null, requestId: launchRequestId }
                         );
                     } catch (e) {
                         console.error("[Audio] Auto remote recording failed:", e);
@@ -6609,6 +6972,106 @@ export default function KidsScheduler() {
         return () => {
             clearInterval(interval);
             clearTimeout(timer);
+        };
+    }, [isParent, familyId, authUser?.id]);
+
+    // ── Child device safety status broadcast (battery/screen/app-state) ───────
+    useEffect(() => {
+        if (isParent || !familyId || !authUser?.id) return;
+
+        const getBatterySnapshot = async () => {
+            const baseSnapshot = { batteryLevel: null, isCharging: null, recentAppPackage: "", usagePermission: "unavailable", screenInteractive: null };
+            try {
+                const { Capacitor, registerPlugin } = await import("@capacitor/core");
+                if (Capacitor?.isNativePlatform?.()) {
+                    const BgLoc = registerPlugin("BackgroundLocation");
+                    const native = await BgLoc.getDeviceUsageSnapshot();
+                    if (native && typeof native === "object") {
+                        return {
+                            ...baseSnapshot,
+                            ...native,
+                            batteryLevel: Number.isFinite(Number(native.batteryLevel)) ? Number(native.batteryLevel) : null,
+                            isCharging: typeof native.isCharging === "boolean" ? native.isCharging : null,
+                        };
+                    }
+                }
+            } catch {
+                // fall through to web battery api
+            }
+            try {
+                const battery = await navigator?.getBattery?.();
+                if (!battery) return baseSnapshot;
+                return {
+                    batteryLevel: Math.round((battery.level || 0) * 100),
+                    isCharging: !!battery.charging,
+                    recentAppPackage: "",
+                    usagePermission: "unavailable",
+                    screenInteractive: null,
+                };
+            } catch {
+                return baseSnapshot;
+            }
+        };
+
+        const buildPayload = async () => {
+            const now = Date.now();
+            let visibleMs = screenSessionVisibleMsRef.current;
+            if (lastVisibleAtRef.current) {
+                visibleMs += Math.max(0, now - lastVisibleAtRef.current);
+            }
+            const { batteryLevel, isCharging, recentAppPackage, usagePermission, screenInteractive } = await getBatterySnapshot();
+            const netInfo = navigator?.connection || navigator?.mozConnection || navigator?.webkitConnection;
+            return {
+                family_id: familyId,
+                user_id: authUser.id,
+                updatedAt: new Date(now).toISOString(),
+                batteryLevel,
+                isCharging,
+                connectionType: netInfo?.effectiveType || netInfo?.type || "unknown",
+                appState: typeof document !== "undefined" ? document.visibilityState : "visible",
+                screenInteractive: typeof screenInteractive === "boolean" ? screenInteractive : (typeof document !== "undefined" ? document.visibilityState === "visible" : null),
+                screenOnMs: visibleMs,
+                sessionStartedAt: new Date(screenSessionStartedAtRef.current).toISOString(),
+                recentApp: recentAppPackage || "혜니캘린더 (앱 외 사용기록은 OS 권한 필요)",
+                usagePermission,
+                source: "webview-session",
+            };
+        };
+
+        const publish = async () => {
+            const channel = realtimeChannel.current;
+            if (!channel || channel.state !== "joined") return;
+            const payload = await buildPayload();
+            try {
+                channel.send({ type: "broadcast", event: "child_device_status", payload });
+            } catch (error) {
+                console.warn("[DeviceStatus] broadcast failed:", error?.message || error);
+            }
+        };
+        publishChildDeviceStatusRef.current = publish;
+
+        const onVisibilityChange = () => {
+            const now = Date.now();
+            if (document.visibilityState === "visible") {
+                lastVisibleAtRef.current = now;
+            } else if (lastVisibleAtRef.current) {
+                screenSessionVisibleMsRef.current += Math.max(0, now - lastVisibleAtRef.current);
+                lastVisibleAtRef.current = null;
+            }
+            void publish();
+        };
+
+        void publish();
+        const timer = setInterval(() => { void publish(); }, 60_000);
+        if (typeof document !== "undefined") {
+            document.addEventListener("visibilitychange", onVisibilityChange);
+        }
+        return () => {
+            clearInterval(timer);
+            if (typeof document !== "undefined") {
+                document.removeEventListener("visibilitychange", onVisibilityChange);
+            }
+            publishChildDeviceStatusRef.current = async () => {};
         };
     }, [isParent, familyId, authUser?.id]);
 
@@ -6790,6 +7253,32 @@ export default function KidsScheduler() {
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         showNotif("💗 꾹을 보냈어요!");
 
+        if (isParent) {
+            const startedAt = Date.now();
+            void requestChildLocationRefresh();
+            const t1 = setTimeout(() => { void requestChildLocationRefresh(); }, 2 * 60_000);
+            const t2 = setTimeout(() => {
+                const lastUpdate = new Date(childPosRef.current?.updatedAt || childPosRef.current?.updated_at || 0).getTime();
+                if (!Number.isFinite(lastUpdate) || lastUpdate < startedAt) {
+                    addAlert("🚨 SOS 후 5분 경과: 아이 위치 갱신이 아직 없어요. 즉시 확인해 주세요.", "emergency");
+                    sendInstantPush({
+                        action: "parent_alert",
+                        familyId,
+                        senderUserId: authUser.id,
+                        severity: "critical",
+                        alertType: "sos_followup",
+                        title: "🚨 SOS 자동 후속 알림",
+                        message: "SOS 후 위치 갱신이 없어 추가 확인이 필요해요.",
+                    });
+                }
+            }, 5 * 60_000);
+            sosAutoTimersRef.current.push(t1, t2);
+            if (sosAutoTimersRef.current.length > 20) {
+                const stale = sosAutoTimersRef.current.splice(0, sosAutoTimersRef.current.length - 20);
+                stale.forEach(timerId => clearTimeout(timerId));
+            }
+        }
+
         void (async () => {
             // Phase 5 KKUK-03: server-side 5s cooldown via RPC. The RPC
             // inspects sos_events for any row from this sender within 5 s and
@@ -6937,7 +7426,7 @@ export default function KidsScheduler() {
     useEffect(() => {
         backStateRef.current = {
             routeEvent, showChildTracker, showMapPicker, showAddModal,
-            showAcademyMgr, showSavedPlaceMgr, showPhoneSettings, showNotifSettings, showFeedbackModal, showParentSetup, showMicPermissionHelp, editingLocForEvent,
+            showAcademyMgr, showSavedPlaceMgr, showPhoneSettings, showFeedbackModal, showParentSetup, showMicPermissionHelp, editingLocForEvent,
             voicePreview, activeView, showPairing, showAlertPanel,
         };
     });
@@ -6956,7 +7445,6 @@ export default function KidsScheduler() {
                     if (s.showSavedPlaceMgr)   { setShowSavedPlaceMgr(false);   return; }
                     if (s.showAlertPanel)      { setShowAlertPanel(false);      return; }
                     if (s.showPhoneSettings)   { setShowPhoneSettings(false);   return; }
-                    if (s.showNotifSettings)   { setShowNotifSettings(false);   return; }
                     if (s.showMicPermissionHelp) { setShowMicPermissionHelp(false); return; }
                     if (s.showFeedbackModal)   { setShowFeedbackModal(false);   return; }
                     if (s.showParentSetup)     { setShowParentSetup(false);     return; }
@@ -7027,6 +7515,7 @@ export default function KidsScheduler() {
         let wid = null;
         let iv = null;
         let lastHistorySave = 0;
+        let lastHistoryPoint = null;
         let lastSave = 0;
 
         const applyPosition = (p) => {
@@ -7045,8 +7534,12 @@ export default function KidsScheduler() {
                 lastSave = now;
                 saveChildLocation(authUser.id, familyId, newPos.lat, newPos.lng);
             }
-            if (now - lastHistorySave >= 60000) {
+            const historyMovedM = lastHistoryPoint
+                ? haversineM(newPos.lat, newPos.lng, lastHistoryPoint.lat, lastHistoryPoint.lng)
+                : Infinity;
+            if (!lastHistoryPoint || historyMovedM >= LOCATION_HISTORY_MIN_DISTANCE_M || now - lastHistorySave >= LOCATION_HISTORY_MAX_AGE_MS) {
                 lastHistorySave = now;
+                lastHistoryPoint = { lat: newPos.lat, lng: newPos.lng };
                 saveLocationHistory(authUser.id, familyId, newPos.lat, newPos.lng);
             }
         };
@@ -7195,8 +7688,8 @@ export default function KidsScheduler() {
         let cancelled = false;
         const load = () => {
             fetchTodayLocationHistory(familyId).then(rows => {
-                if (!cancelled) setLocationTrail(rows);
-            });
+                if (!cancelled) setLocationTrail(Array.isArray(rows) ? rows : []);
+            }).catch(err => console.error("[fetchTodayLocationHistory] failed:", err));
         };
         load();
         const iv = setInterval(load, 30000);
@@ -7241,6 +7734,48 @@ export default function KidsScheduler() {
             }
         });
     }, [childPos, dangerZones, firedDangerAlerts, isParent, familyInfo, familyId, authUser, addAlert]);
+
+    // ── Academy focus guard mode (parent) ─────────────────────────────────────
+    useEffect(() => {
+        if (!isParent) return;
+        const childId = pairedChildren[0]?.user_id;
+        if (!childId) return;
+        const status = childDeviceStatusMap[childId];
+        if (!status) return;
+
+        const now = new Date();
+        const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        const todaySchoolEvents = (events[key] || []).filter(ev => {
+            if (ev.category !== "school") return false;
+            const [sh, sm] = String(ev.time || "00:00").split(":").map(Number);
+            const [eh, em] = String(ev.endTime || ev.time || "00:00").split(":").map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = Number.isFinite(eh) && Number.isFinite(em) ? (eh * 60 + em) : startMin + 60;
+            return nowMin >= startMin && nowMin <= endMin;
+        });
+        if (todaySchoolEvents.length === 0) return;
+
+        const isPotentialDistraction = status.appState === "visible" && Number(status.screenOnMs || 0) >= 15 * 60 * 1000;
+        if (!isPotentialDistraction) return;
+
+        todaySchoolEvents.forEach(ev => {
+            const guardKey = `${childId}:${key}:${ev.id || ev.title}`;
+            if (academyFocusAlertedRef.current.has(guardKey)) return;
+            academyFocusAlertedRef.current.add(guardKey);
+            const childName = pairedChildren[0]?.name || "아이";
+            addAlert(`📵 ${childName}의 ${ev.title} 시간대에 화면 사용이 길어요. 집중모드를 확인해 주세요.`, "parent");
+            sendInstantPush({
+                action: "parent_alert",
+                familyId,
+                senderUserId: authUser?.id,
+                severity: "warning",
+                alertType: "academy_focus",
+                title: "📵 학원 시간대 보호모드 알림",
+                message: `${childName}의 ${ev.title} 시간대 화면 사용이 길어요.`,
+            });
+        });
+    }, [isParent, pairedChildren, childDeviceStatusMap, events, familyId, authUser?.id, addAlert]);
 
     // ── Geofencing: arrival + departure detection ───────────────────────────────
     useEffect(() => {
@@ -7996,6 +8531,9 @@ export default function KidsScheduler() {
         });
     };
     const handleParentMemoOpen = () => {
+        setCurrentYear(today.getFullYear());
+        setCurrentMonth(today.getMonth());
+        setSelectedDate(today.getDate());
         setShowParentMemoPage(true);
         window.requestAnimationFrame(() => {
             window.scrollTo({ top: 0, behavior: "auto" });
@@ -8030,6 +8568,35 @@ export default function KidsScheduler() {
         </nav>
     );
     const dashboardChildren = (pairedChildren.length > 0 ? pairedChildren : [{ user_id: "pending-child", name: "아이", emoji: "👧" }]).slice(0, 2);
+    const primaryChildUserId = dashboardChildren[0]?.user_id || null;
+    const primaryChildDeviceStatus = primaryChildUserId ? childDeviceStatusMap[primaryChildUserId] : null;
+    const primaryDeviceBatteryLabel = Number.isFinite(Number(primaryChildDeviceStatus?.batteryLevel))
+        ? `${Math.max(0, Math.min(100, Number(primaryChildDeviceStatus.batteryLevel)))}%`
+        : "확인 중";
+    const primaryDeviceChargingLabel = primaryChildDeviceStatus?.isCharging == null
+        ? "확인 중"
+        : (primaryChildDeviceStatus.isCharging ? "충전 중" : "미충전");
+    const primaryDeviceConnectionLabel = primaryChildDeviceStatus?.connectionType || "unknown";
+    const primaryDeviceScreenLabel = formatDeviceDuration(Number(primaryChildDeviceStatus?.screenOnMs || 0));
+    const primaryDeviceUpdatedLabel = primaryChildDeviceStatus?.updatedAt
+        ? getRelativeTime(primaryChildDeviceStatus.updatedAt)
+        : "업데이트 대기";
+    const primaryDeviceSafetyLabel = (() => {
+        const battery = Number(primaryChildDeviceStatus?.batteryLevel);
+        const screenMs = Number(primaryChildDeviceStatus?.screenOnMs || 0);
+        if (Number.isFinite(battery) && battery <= 15) return "주의 필요";
+        if (screenMs >= 3 * 60 * 60 * 1000) return "장시간 사용";
+        return "양호";
+    })();
+    const requestChildDeviceStatusRefresh = () => {
+        const targetUserId = primaryChildUserId;
+        if (!targetUserId || realtimeChannel.current?.state !== "joined") return;
+        realtimeChannel.current.send({
+            type: "broadcast",
+            event: "child_device_status_request",
+            payload: { targetUserId, requestedAt: new Date().toISOString(), requesterUserId: authUser?.id || null }
+        });
+    };
     const getDashboardChildPosition = (child, index) => {
         const matched = displayChildPositions.find(pos => pos.user_id && pos.user_id === child.user_id);
         if (matched) return matched;
@@ -8210,8 +8777,9 @@ export default function KidsScheduler() {
     const handleMemoReplySubmit = useCallback((content) => {
         if (!familyId || !authUser) return Promise.resolve();
         const origin = (memoReplies && memoReplies.length > 0) ? "reply" : "original";
+        const optimisticId = "temp-" + Date.now();
         const optimisticReply = {
-            id: "temp-" + Date.now(),
+            id: optimisticId,
             user_id: authUser.id,
             user_role: myRole,
             content,
@@ -8227,7 +8795,11 @@ export default function KidsScheduler() {
                 }
                 return fetchMemoReplies(familyId, dateKey).then(setMemoReplies);
             })
-            .catch(err => { console.error("[reply]", err); throw err; });
+            .catch(err => {
+                setMemoReplies(prev => (prev || []).filter(r => r.id !== optimisticId));
+                console.error("[reply]", err);
+                throw err;
+            });
         sendInstantPush({
             action: "new_memo",
             familyId,
@@ -8287,8 +8859,9 @@ export default function KidsScheduler() {
         {
             key: "stickers",
             icon: "🏆",
-            label: "스티커",
-            ariaLabel: "🏆 스티커",
+            label: isParent ? "스티커" : "스티커북",
+            ariaLabel: isParent ? "🏆 스티커" : "🏆 스티커북",
+            description: isParent ? "" : "오늘 받은 칭찬 보기",
             palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(251,191,36,0.16)" },
             onClick: () => {
                 setShowStickerBook(true);
@@ -8297,14 +8870,6 @@ export default function KidsScheduler() {
                     fetchStickerSummary(familyId).then(s => setStickerSummary(s?.[0] || null));
                 }
             },
-        },
-        {
-            key: "notifications",
-            icon: "🔔",
-            label: "일정알림",
-            ariaLabel: "🔔 일정알림",
-            palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: DESIGN.colors.parentDeep, shadow: "rgba(37,99,235,0.16)" },
-            onClick: () => setShowNotifSettings(true),
         },
         isParent ? {
             key: "subscription",
@@ -8357,9 +8922,10 @@ export default function KidsScheduler() {
             onClick: () => setShowFeedbackModal(true),
         } : null,
     ].filter(Boolean);
-    const quickUtilityColumns = isParent ? "repeat(4, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))";
+    const quickUtilityColumns = isParent ? "repeat(4, minmax(0, 1fr))" : "1fr";
     const renderQuickAction = (action, type = "utility") => {
         const isMode = type === "mode";
+        const isChildStickerShortcut = !isParent && !isMode && action.key === "stickers";
         return (
             <button
                 key={action.key}
@@ -8371,14 +8937,14 @@ export default function KidsScheduler() {
                     cursor: "pointer",
                     fontFamily: FF,
                     borderRadius: isMode ? DESIGN.radius.lg : DESIGN.radius.xl,
-                    minHeight: isMode ? 68 : (isParent ? 82 : 88),
-                    padding: isMode ? "12px 10px" : (isParent ? "12px 6px 10px" : "14px 8px 12px"),
+                    minHeight: isMode ? 68 : (isChildStickerShortcut ? 74 : (isParent ? 82 : 88)),
+                    padding: isMode ? "12px 10px" : (isChildStickerShortcut ? "14px 16px" : (isParent ? "12px 6px 10px" : "14px 8px 12px")),
                     display: "flex",
-                    flexDirection: "column",
+                    flexDirection: isChildStickerShortcut ? "row" : "column",
                     alignItems: "center",
-                    justifyContent: "center",
-                    gap: isMode ? 4 : 6,
-                    textAlign: "center",
+                    justifyContent: isChildStickerShortcut ? "flex-start" : "center",
+                    gap: isChildStickerShortcut ? 12 : (isMode ? 4 : 6),
+                    textAlign: isChildStickerShortcut ? "left" : "center",
                     whiteSpace: "normal",
                     lineHeight: 1.18,
                     background: isMode
@@ -8390,11 +8956,29 @@ export default function KidsScheduler() {
                         : `0 10px 22px ${action.palette.shadow}`,
                 }}
             >
-                <span aria-hidden="true" style={{ fontSize: isMode ? (isParent ? 18 : 20) : (isParent ? 20 : 22), lineHeight: 1 }}>
+                <span aria-hidden="true" style={{
+                    fontSize: isMode ? (isParent ? 18 : 20) : (isChildStickerShortcut ? 28 : (isParent ? 20 : 22)),
+                    lineHeight: 1,
+                    width: isChildStickerShortcut ? 46 : "auto",
+                    height: isChildStickerShortcut ? 46 : "auto",
+                    borderRadius: isChildStickerShortcut ? 18 : 0,
+                    background: isChildStickerShortcut ? "rgba(255,255,255,0.74)" : "transparent",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                }}>
                     {action.icon}
                 </span>
-                <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 12), fontWeight: action.active ? 800 : 700, letterSpacing: -0.2, wordBreak: "keep-all" }}>
-                    {action.label}
+                <span style={{ display: "flex", flexDirection: "column", alignItems: isChildStickerShortcut ? "flex-start" : "center", gap: 3, minWidth: 0 }}>
+                    <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 13), fontWeight: action.active ? 800 : 800, letterSpacing: -0.2, wordBreak: "keep-all" }}>
+                        {action.label}
+                    </span>
+                    {action.description && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#A16207", lineHeight: 1.25, wordBreak: "keep-all" }}>
+                            {action.description}
+                        </span>
+                    )}
                 </span>
             </button>
         );
@@ -8515,8 +9099,21 @@ export default function KidsScheduler() {
 
                 if (createdItems.length > 0 && !entitlement.canUse(FEATURES.ACADEMY_SCHEDULE)) {
                     openFeatureLock(FEATURES.ACADEMY_SCHEDULE);
-                    return;
+                    return false;
                 }
+
+                const isFutureOrTodayDateKey = (dk) => {
+                    const [y, m, d] = String(dk).split("-").map(Number);
+                    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+                    const evDate = new Date(y, m, d);
+                    return evDate.setHours(0, 0, 0, 0) >= new Date().setHours(0, 0, 0, 0);
+                };
+                const isManagedAcademyEvent = (ev, academy) => {
+                    if (!ev || !academy?.schedule?.startTime) return false;
+                    return ev.title === academy.name
+                        && ev.category === academy.category
+                        && ev.time === academy.schedule.startTime;
+                };
 
                 // Deleted: in old but not in new
                 for (const [id] of oldMap) {
@@ -8547,68 +9144,110 @@ export default function KidsScheduler() {
                         const changed = old && (old.name !== a.name || old.emoji !== a.emoji || old.category !== a.category || JSON.stringify(old.location) !== JSON.stringify(a.location) || JSON.stringify(old.schedule) !== JSON.stringify(a.schedule));
                         if (changed) {
                             try { await updateAcademy(a.id, { name: a.name, emoji: a.emoji, category: a.category, location: a.location || null, schedule: a.schedule || null }); } catch (e) { console.error("[academy] update error:", e); }
-                            // 기존 일정도 업데이트 (장소, 이름, 시간, 이모지)
-                            if (familyId) {
-                                const cat = CATEGORIES.find(c => c.id === a.category);
-                                setEvents(prev => {
-                                    const updated = { ...prev };
-                                    for (const [dk, dayEvs] of Object.entries(updated)) {
-                                        const [y, m, d] = dk.split("-").map(Number);
-                                        const evDate = new Date(y, m, d);
-                                        // 미래 일정만 업데이트 (오늘 포함)
-                                        if (evDate.setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) continue;
-                                        updated[dk] = dayEvs.map(ev => {
-                                            if (ev.title === old.name || ev.title === a.name) {
-                                                const newTime = a.schedule?.startTime || ev.time;
-                                                const newEndTime = a.schedule?.endTime || ev.endTime;
-                                                const updatedEv = { ...ev, title: a.name, emoji: a.emoji, location: a.location || ev.location, time: newTime, endTime: newEndTime, color: cat?.color || ev.color, bg: cat?.bg || ev.bg };
-                                                updateEvent(ev.id, { title: a.name, emoji: a.emoji, location: a.location || null, time: newTime, end_time: newEndTime }).catch(e => console.error("[academy-event-update]", e));
-                                                return updatedEv;
-                                            }
-                                            return ev;
-                                        });
-                                    }
-                                    return updated;
-                                });
-                            }
                         }
                     }
                 }
 
-                // Auto-generate events for academies with schedule (4 weeks ahead)
+                // Reconcile repeating academy events (remove stale + add missing)
                 if (familyId && authUser) {
-                    const today = new Date();
-                    const newEvents = {};
+                    const academyOpsDeleteIds = new Set();
+                    const academyOpsInsert = [];
+                    const oldAcademies = Array.from(oldMap.values());
+                    const futureEventEntries = [];
+                    for (const [dk, dayEvents] of Object.entries(events || {})) {
+                        if (!isFutureOrTodayDateKey(dk)) continue;
+                        for (const ev of dayEvents || []) futureEventEntries.push({ dk, ev });
+                    }
+
+                    // 1) Remove future repeating events tied to deleted/changed academies.
+                    for (const oldAc of oldAcademies) {
+                        const nextAc = oldAc?.id ? finalList.find(item => item.id === oldAc.id) : null;
+                        const scheduleChanged = !nextAc || JSON.stringify(oldAc.schedule || null) !== JSON.stringify(nextAc.schedule || null);
+                        const coreChanged = !nextAc || oldAc.name !== nextAc.name || oldAc.category !== nextAc.category;
+                        if (!scheduleChanged && !coreChanged) continue;
+                        for (const { ev } of futureEventEntries) {
+                            if (isManagedAcademyEvent(ev, oldAc)) academyOpsDeleteIds.add(ev.id);
+                        }
+                    }
+
+                    // 2) Add future events from current academy repeat settings.
+                    const desiredEventKeys = new Set();
                     for (const ac of finalList) {
                         if (!ac.schedule?.days?.length || !ac.schedule.startTime) continue;
                         const cat = CATEGORIES.find(c => c.id === ac.category);
-                        for (let d = 0; d < 28; d++) {
-                            const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + d);
+                        const repeatWeeks = Math.max(1, Number(ac.schedule.repeatWeeks || 4));
+                        const totalDays = repeatWeeks * 7;
+                        const startDate = new Date();
+                        for (let offset = 0; offset < totalDays; offset++) {
+                            const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + offset);
                             if (!ac.schedule.days.includes(date.getDay())) continue;
                             const dk = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-                            const existing = events[dk] || [];
-                            const alreadyExists = existing.some(e => e.title === ac.name && e.time === ac.schedule.startTime);
-                            if (alreadyExists) continue;
-                            const ev = { id: generateUUID(), title: ac.name, time: ac.schedule.startTime, endTime: ac.schedule.endTime || null, category: ac.category, emoji: ac.emoji, color: cat?.color || "#A78BFA", bg: cat?.bg || "#EDE9FE", memo: "", location: ac.location || null, notifOverride: null };
-                            if (!newEvents[dk]) newEvents[dk] = [];
-                            newEvents[dk].push(ev);
-                            try { await insertEvent(ev, familyId, dk, authUser.id); } catch (e) { console.error("[academy-event]", e); }
+                            const expectedKey = `${dk}|${ac.name}|${ac.schedule.startTime}|${ac.category}`;
+                            desiredEventKeys.add(expectedKey);
+                            const exists = (events[dk] || []).some(ev =>
+                                ev.title === ac.name
+                                && ev.time === ac.schedule.startTime
+                                && ev.category === ac.category
+                                && !academyOpsDeleteIds.has(ev.id)
+                            );
+                            if (exists) continue;
+                            academyOpsInsert.push({
+                                dk,
+                                ev: {
+                                    id: generateUUID(),
+                                    title: ac.name,
+                                    time: ac.schedule.startTime,
+                                    endTime: ac.schedule.endTime || null,
+                                    category: ac.category,
+                                    emoji: ac.emoji,
+                                    color: cat?.color || "#A78BFA",
+                                    bg: cat?.bg || "#EDE9FE",
+                                    memo: "",
+                                    location: ac.location || null,
+                                    notifOverride: null
+                                }
+                            });
                         }
                     }
-                    if (Object.keys(newEvents).length > 0) {
+
+                    // 3) Remove outdated repeat events that are no longer part of any schedule.
+                    for (const { dk, ev } of futureEventEntries) {
+                        const evKey = `${dk}|${ev.title}|${ev.time}|${ev.category}`;
+                        if (!desiredEventKeys.has(evKey)) {
+                            const oldAc = oldAcademies.find(ac => isManagedAcademyEvent(ev, ac));
+                            if (oldAc) academyOpsDeleteIds.add(ev.id);
+                        }
+                    }
+
+                    if (academyOpsDeleteIds.size > 0 || academyOpsInsert.length > 0) {
                         setEvents(prev => {
-                            const updated = { ...prev };
-                            for (const [dk, evs] of Object.entries(newEvents)) {
-                                updated[dk] = [...(updated[dk] || []), ...evs].sort((a, b) => a.time.localeCompare(b.time));
+                            const updated = {};
+                            for (const [dk, dayEvents] of Object.entries(prev || {})) {
+                                const filtered = (dayEvents || []).filter(ev => !academyOpsDeleteIds.has(ev.id));
+                                if (filtered.length > 0) {
+                                    updated[dk] = filtered;
+                                }
+                            }
+                            for (const { dk, ev } of academyOpsInsert) {
+                                if (!updated[dk]) updated[dk] = [];
+                                updated[dk] = [...updated[dk], ev].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
                             }
                             return updated;
                         });
+                    }
+
+                    for (const eventId of academyOpsDeleteIds) {
+                        try { await dbDeleteEvent(eventId); } catch (e) { console.error("[academy-event-delete]", e); }
+                    }
+                    for (const { dk, ev } of academyOpsInsert) {
+                        try { await insertEvent(ev, familyId, dk, authUser.id); } catch (e) { console.error("[academy-event]", e); }
                     }
                 }
 
                 setAcademies(finalList);
                 cacheAcademies(finalList);
                 showNotif("🏫 학원 목록이 저장됐어요!");
+                return true;
             }}
             onClose={() => setShowAcademyMgr(false)} />
     );
@@ -9033,7 +9672,7 @@ export default function KidsScheduler() {
                         background: isParent
                             ? "transparent"
                             : DESIGN.gradients.hero,
-                        padding: isParent ? "14px 2px 18px" : "20px 22px 24px",
+                        padding: isParent ? "14px 2px 18px" : (isNativeApp ? "68px 22px 24px" : "20px 22px 24px"),
                         borderRadius: isParent ? 0 : DESIGN.radius.hero,
                         color: isParent ? "#1F1A22" : "white",
                         position: "relative",
@@ -9042,7 +9681,7 @@ export default function KidsScheduler() {
                         boxShadow: isParent
                             ? "none"
                             : DESIGN.shadow.elevated,
-                        minHeight: isParent ? "auto" : 246,
+                        minHeight: isParent ? "auto" : (isNativeApp ? 294 : 246),
                     }}
                 >
                     {!isParent && <div
@@ -9250,10 +9889,10 @@ export default function KidsScheduler() {
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {!isParent && <ChildCallCard phones={parentPhones} />}
                         <div style={{ display: "grid", gridTemplateColumns: quickUtilityColumns, gap: 8 }}>
                             {quickUtilityActions.map((action) => renderQuickAction(action))}
                         </div>
+                        {!isParent && <ChildCallCard phones={parentPhones} />}
                     </div>
                 </div>
             </div>}
@@ -9297,6 +9936,63 @@ export default function KidsScheduler() {
                             );
                         })}
                     </div>
+
+                    <section
+                        aria-label="아이 기기 사용 지표"
+                        style={{
+                            marginTop: 12,
+                            marginBottom: 12,
+                            background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
+                            border: "1px solid #E0E7FF",
+                            borderRadius: 16,
+                            padding: "12px 14px",
+                            boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
+                            fontFamily: FF
+                        }}
+                    >
+                        <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
+                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>배터리</div>
+                                <div style={{ fontSize: 16, color: "#111827", fontWeight: 900, marginTop: 2 }}>🔋 {primaryDeviceBatteryLabel}</div>
+                            </div>
+                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>충전 상태</div>
+                                <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⚡ {primaryDeviceChargingLabel}</div>
+                            </div>
+                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>화면 켜짐(앱 기준)</div>
+                                <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⏱️ {primaryDeviceScreenLabel}</div>
+                            </div>
+                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>네트워크</div>
+                                <div style={{ fontSize: 14, color: "#111827", fontWeight: 900, marginTop: 2 }}>📶 {primaryDeviceConnectionLabel}</div>
+                            </div>
+                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px", gridColumn: "1 / -1" }}>
+                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>최근 실행 앱</div>
+                                <div style={{ fontSize: 13, color: "#1F2937", fontWeight: 800, marginTop: 2 }}>
+                                    {primaryChildDeviceStatus?.recentApp || "운영체제 사용기록 권한이 필요해요"}
+                                </div>
+                                {primaryChildDeviceStatus?.usagePermission === "requires_permission" && (
+                                    <div style={{ fontSize: 10, color: "#B45309", marginTop: 3, fontWeight: 700 }}>
+                                        Usage Access 권한을 켜면 실제 최근 앱 목록을 가져와요.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
+                            <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 600 }}>
+                                마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "#B45309", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={requestChildDeviceStatusRefresh}
+                                style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                            >
+                                지금 갱신
+                            </button>
+                        </div>
+                    </section>
 
                     <button
                         type="button"
@@ -9489,46 +10185,7 @@ export default function KidsScheduler() {
                         onEditLoc={id => { setEditingLocForEvent(id); setShowMapPicker(true); }}
                         isParentMode={isParent}
                         memoReplies={memoReplies}
-                        onReplySubmit={content => {
-                            if (!familyId || !authUser) return Promise.resolve();
-                            // Phase 4 · MEMO-01: write ONLY to memo_replies.
-                            // The legacy `public.memos` upsert-placeholder "💬"
-                            // trick is gone — the unified chat surface has no
-                            // "top-of-day" concept any more, every message is
-                            // a memo_reply with origin='reply'. public.memos
-                            // is read-mostly this milestone (DROP in v1.1).
-                            const origin = (memoReplies && memoReplies.length > 0) ? "reply" : "original";
-                            // Optimistic update — render immediately, the server echo replaces it.
-                            const optimisticReply = { id: "temp-" + Date.now(), user_id: authUser.id, user_role: myRole, content, created_at: new Date().toISOString(), origin, read_by: [] };
-                            setMemoReplies(prev => [...(prev || []), optimisticReply]);
-                            // UI-SPEC §7 Option A: return the Promise so MemoSection can .catch() for send-failure toast.
-                            // console.error is preserved inside .catch at the call site (MemoSection handleSend).
-                            const sendPromise = sendMemo(familyId, dateKey, content, authUser.id, myRole, origin)
-                                .then(() => {
-                                    // Codex P1 + P2 (round 2) fix: preserve child memo sentiment
-                                    // analysis and run it INDEPENDENTLY of the refresh request.
-                                    // Legacy onMemoSend was the only prior caller. Child-sent
-                                    // replies are the typed-memo equivalent in the unified chat.
-                                    // Decoupled from fetchMemoReplies so a refresh network
-                                    // failure cannot suppress the safety analysis on a memo that
-                                    // is already persisted server-side (sendMemo resolved).
-                                    // Fire-and-forget: analyzeMemoSentiment handles entitlement,
-                                    // AI flag, and network errors internally.
-                                    if (myRole === "child" && aiEnabled) {
-                                        try { analyzeMemoSentiment(content, ""); } catch (_) { /* ignore */ }
-                                    }
-                                    return fetchMemoReplies(familyId, dateKey).then(setMemoReplies);
-                                })
-                                .catch(err => { console.error("[reply]", err); throw err; });
-                            sendInstantPush({
-                                action: "new_memo",
-                                familyId,
-                                senderUserId: authUser.id,
-                                title: `💬 ${myRole === "parent" ? "부모님" : "아이"}이 답글을 남겼어요`,
-                                message: content.length > 50 ? content.substring(0, 50) + "..." : content,
-                            });
-                            return sendPromise;
-                        }}
+                        onReplySubmit={handleMemoReplySubmit}
                         memoReadBy={memoReadBy}
                         myUserId={authUser?.id}
                         onReplyRef={registerMemoReplyNode}
@@ -9901,19 +10558,6 @@ export default function KidsScheduler() {
                         </button>
                     </div>
                 </div>
-            )}
-
-            {showNotifSettings && (
-                <NotificationSettingsModal
-                    settings={globalNotif}
-                    isParentMode={isParent}
-                    onSave={(nextSettings) => {
-                        setGlobalNotif(nextSettings);
-                        setShowNotifSettings(false);
-                        showNotif("🔔 일정 알림 설정이 저장됐어요!");
-                    }}
-                    onClose={() => setShowNotifSettings(false)}
-                />
             )}
 
             {showRemoteAudio && isParent && entitlement.canUse(FEATURES.REMOTE_AUDIO) && (

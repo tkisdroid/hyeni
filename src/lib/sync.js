@@ -537,13 +537,16 @@ export async function saveLocationHistory(userId, familyId, lat, lng) {
   if (error) console.error("[saveLocationHistory]", error);
 }
 
-export async function fetchTodayLocationHistory(familyId) {
+export async function fetchTodayLocationHistory(familyId, childUserId = null) {
   const { data: members } = await supabase
     .from("family_members")
     .select("user_id")
     .eq("family_id", familyId)
     .eq("role", "child");
-  const childUserIds = (members || []).map(m => m.user_id);
+  const memberChildUserIds = (members || []).map(m => m.user_id);
+  const childUserIds = childUserId
+    ? memberChildUserIds.filter(userId => userId === childUserId)
+    : memberChildUserIds;
   if (!childUserIds.length) return [];
 
   const todayStart = new Date();
@@ -551,7 +554,7 @@ export async function fetchTodayLocationHistory(familyId) {
 
   const { data, error } = await supabase
     .from("location_history")
-    .select("lat, lng, recorded_at")
+    .select("user_id, lat, lng, recorded_at")
     .eq("family_id", familyId)
     .in("user_id", childUserIds)
     .gte("recorded_at", todayStart.toISOString())
@@ -680,6 +683,8 @@ export function subscribeFamily(familyId, callbacks) {
     onRemoteListenStart,
     onRemoteListenStop,
     onAudioChunk,
+    onChildDeviceStatus,
+    onChildDeviceStatusRequest,
   } = callbacks;
 
   // ── Per-table postgres_changes channels (D-B02) ──────────────────────────
@@ -750,6 +755,12 @@ export function subscribeFamily(familyId, callbacks) {
     })
     .on("broadcast", { event: "audio_chunk" }, (payload) => {
       if (onAudioChunk) onAudioChunk(payload.payload);
+    })
+    .on("broadcast", { event: "child_device_status" }, (payload) => {
+      if (onChildDeviceStatus) onChildDeviceStatus(payload.payload);
+    })
+    .on("broadcast", { event: "child_device_status_request" }, (payload) => {
+      if (onChildDeviceStatusRequest) onChildDeviceStatusRequest(payload.payload);
     })
     .subscribe((status, err) => {
       if (status === "SUBSCRIBED") {

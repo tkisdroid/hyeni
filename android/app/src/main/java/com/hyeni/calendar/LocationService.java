@@ -68,16 +68,21 @@ public class LocationService extends Service {
     private static final long NOTIF_POLL_INTERVAL_MS = 15_000;
     private static final long EVENT_CHECK_INTERVAL_MS = 30_000; // check events every 30s
     private static final String PREFS_NAME = "hyeni_location_prefs";
+    private static final String POLLED_DEDUPE_PREFS = "hyeni_polled_notification_ack";
+    private static final long POLLED_DEDUPE_WINDOW_MS = 12 * 60 * 60 * 1000L;
 
     // Location tracking constants
     private static final long LOCATION_INTERVAL_MOVING_MS = 5_000;
-    private static final long LOCATION_INTERVAL_STATIONARY_MS = 15_000;
+    private static final long LOCATION_INTERVAL_STATIONARY_MS = 60_000;
+    private static final long LOCATION_MIN_INTERVAL_STATIONARY_MS = 30_000;
     private static final float STATIONARY_THRESHOLD_M = 15f;  // 15m 이내 이동 = 정지로 간주
     private static final long STATIONARY_WINDOW_MS = 60_000; // 60초 동안 정지 시 저전력 모드
     private static final float MIN_UPLOAD_DISTANCE_M = 2f;
     private static final float MIN_UPDATE_DISTANCE_M = 0f;
     private static final float MAX_ACCURACY_M = 100f;
     private static final long MAX_UPLOAD_AGE_MS = 15_000L;
+    private static final float MIN_HISTORY_DISTANCE_M = 15f;
+    private static final long MAX_HISTORY_AGE_MS = 5 * 60_000L;
     private static final int LOW_BATTERY_THRESHOLD_PERCENT = 5;
     private static final long LOW_BATTERY_CHECK_INTERVAL_MS = 60_000L;
     private static final long LOW_BATTERY_SAVE_INTERVAL_MS = 5 * 60_000L;
@@ -129,6 +134,9 @@ public class LocationService extends Service {
     private double lastUploadedLat = Double.NaN;
     private double lastUploadedLng = Double.NaN;
     private long lastUploadedAtMs = 0L;
+    private double lastHistoryLat = Double.NaN;
+    private double lastHistoryLng = Double.NaN;
+    private long lastHistoryAtMs = 0L;
     private long lastLowBatterySaveAtMs = 0L;
 
     private String supabaseUrl;
@@ -444,21 +452,28 @@ public class LocationService extends Service {
 
         fusedClient.removeLocationUpdates(locationCallback);
 
-        int priority = Priority.PRIORITY_HIGH_ACCURACY;
+        int priority = lowPower
+            ? Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            : Priority.PRIORITY_HIGH_ACCURACY;
         long interval = lowPower
             ? LOCATION_INTERVAL_STATIONARY_MS
             : LOCATION_INTERVAL_MOVING_MS;
+        long minInterval = lowPower
+            ? LOCATION_MIN_INTERVAL_STATIONARY_MS
+            : LOCATION_INTERVAL_MOVING_MS / 2;
 
         LocationRequest request = new LocationRequest.Builder(priority, interval)
-            .setMinUpdateIntervalMillis(interval / 2)
+            .setMinUpdateIntervalMillis(minInterval)
             .setMinUpdateDistanceMeters(MIN_UPDATE_DISTANCE_M)
             .setWaitForAccurateLocation(false)
             .build();
 
         try {
             fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper());
-            Log.i(TAG, "Location mode switched: priority=" + priority
-                + ", interval=" + (interval / 1000) + "s");
+            Log.i(TAG, "Location mode switched: mode=" + (lowPower ? "stationary" : "moving")
+                + ", priority=" + priority
+                + ", interval=" + (interval / 1000) + "s"
+                + ", minInterval=" + (minInterval / 1000) + "s");
         } catch (SecurityException e) {
             Log.e(TAG, "Location permission not granted on mode switch", e);
         }
@@ -588,6 +603,7 @@ public class LocationService extends Service {
                 MediaType jsonType = MediaType.get("application/json");
                 String bearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
                 boolean uploaded = false;
+                String successfulBearer = null;
 
                 // 1차 시도: 현재 토큰
                 Response response = httpClient.newCall(new Request.Builder()
@@ -596,6 +612,7 @@ public class LocationService extends Service {
                     .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
                 int code = response.code();
                 uploaded = code >= 200 && code < 300;
+                if (uploaded) successfulBearer = bearer;
                 response.close();
 
                 if (code == 401 || code == 403) {
@@ -609,6 +626,7 @@ public class LocationService extends Service {
                         .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
                     int code2 = retry1.code();
                     uploaded = code2 >= 200 && code2 < 300;
+                    if (uploaded) successfulBearer = freshToken;
                     retry1.close();
 
                     if (code2 == 401 || code2 == 403) {
@@ -619,6 +637,7 @@ public class LocationService extends Service {
                             .header("Authorization", "Bearer " + supabaseKey)
                             .post(RequestBody.create(bodyStr, jsonType)).build()).execute();
                         uploaded = retry2.isSuccessful();
+                        if (uploaded) successfulBearer = supabaseKey;
                         if (!uploaded) {
                             Log.e(TAG, "Location upload ALL retries failed: " + retry2.code());
                         } else {
@@ -637,6 +656,14 @@ public class LocationService extends Service {
                     lastUploadedLat = lat;
                     lastUploadedLng = lng;
                     lastUploadedAtMs = capturedAtMs;
+                    if (!isBlank(successfulBearer)
+                        && !successfulBearer.equals(supabaseKey)
+                        && shouldRecordLocationHistory(lat, lng, capturedAtMs)
+                        && uploadLocationHistory(lat, lng, capturedAtMs, successfulBearer)) {
+                        lastHistoryLat = lat;
+                        lastHistoryLng = lng;
+                        lastHistoryAtMs = capturedAtMs;
+                    }
                     broadcastLocation(lat, lng, accuracy, capturedAtMs);
                 }
             } catch (Exception e) {
@@ -645,12 +672,55 @@ public class LocationService extends Service {
         }).start();
     }
 
+    private String formatIsoUtc(long timeMs) {
+        java.text.SimpleDateFormat iso = new java.text.SimpleDateFormat(
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+        iso.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return iso.format(new java.util.Date(timeMs));
+    }
+
+    private boolean shouldRecordLocationHistory(double lat, double lng, long capturedAtMs) {
+        if (Double.isNaN(lastHistoryLat)) return true;
+        float distFromLastHistory = distanceBetween(lat, lng, lastHistoryLat, lastHistoryLng);
+        long ageMs = capturedAtMs - lastHistoryAtMs;
+        return distFromLastHistory >= MIN_HISTORY_DISTANCE_M || ageMs >= MAX_HISTORY_AGE_MS;
+    }
+
+    private boolean uploadLocationHistory(double lat, double lng, long capturedAtMs, String bearerToken) {
+        if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey) || isBlank(bearerToken)) {
+            return false;
+        }
+        try {
+            JSONObject body = new JSONObject();
+            body.put("user_id", userId);
+            body.put("family_id", familyId);
+            body.put("lat", lat);
+            body.put("lng", lng);
+            body.put("recorded_at", formatIsoUtc(capturedAtMs));
+
+            Response response = httpClient.newCall(new Request.Builder()
+                .url(supabaseUrl.replaceAll("/+$", "") + "/rest/v1/location_history")
+                .header("apikey", supabaseKey)
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + bearerToken)
+                .header("Prefer", "return=minimal")
+                .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+                .build()).execute();
+            boolean success = response.isSuccessful();
+            if (!success) {
+                Log.w(TAG, "Location history insert failed: " + response.code());
+            }
+            response.close();
+            return success;
+        } catch (Exception e) {
+            Log.w(TAG, "Location history insert error", e);
+            return false;
+        }
+    }
+
     private void broadcastLocation(double lat, double lng, float accuracy, long capturedAtMs) {
         try {
-            java.text.SimpleDateFormat iso = new java.text.SimpleDateFormat(
-                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
-            iso.setTimeZone(TimeZone.getTimeZone("UTC"));
-            String updatedAt = iso.format(new java.util.Date(capturedAtMs));
+            String updatedAt = formatIsoUtc(capturedAtMs);
             JSONObject payload = new JSONObject()
                 .put("user_id", userId)
                 .put("userId", userId)
@@ -798,8 +868,15 @@ public class LocationService extends Service {
                         }
                         continue;
                     }
+                    if (isLocallyAckedPolledNotification(stableId)) {
+                        // Suppress repeat sound/banner while still retrying server delivery ack.
+                        deliveredIds.put(id);
+                        Log.d(TAG, "Locally acked pending notification suppressed: " + stableId);
+                        continue;
+                    }
                     deliveredIds.put(id);  // 실제 수신한 알림만 delivered 처리
                     showPolledNotification(title, notifBody, type, emergency, stableId);
+                    markLocalPolledNotificationAck(stableId);
                 }
 
                 if (deliveredIds.length() > 0) {
@@ -1093,6 +1170,21 @@ public class LocationService extends Service {
         } catch (Exception e) {
             Log.e(TAG, "Mark delivered error", e);
         }
+    }
+
+    private boolean isLocallyAckedPolledNotification(String stableId) {
+        if (isBlank(stableId)) return false;
+        long now = System.currentTimeMillis();
+        SharedPreferences prefs = getSharedPreferences(POLLED_DEDUPE_PREFS, MODE_PRIVATE);
+        long seenAt = prefs.getLong(stableId, 0L);
+        return seenAt > 0 && (now - seenAt) < POLLED_DEDUPE_WINDOW_MS;
+    }
+
+    private void markLocalPolledNotificationAck(String stableId) {
+        if (isBlank(stableId)) return;
+        long now = System.currentTimeMillis();
+        SharedPreferences prefs = getSharedPreferences(POLLED_DEDUPE_PREFS, MODE_PRIVATE);
+        prefs.edit().putLong(stableId, now).apply();
     }
 
     // ── Event Time Checking (15분 전 + 시작 시 알림) ────────────────────────────

@@ -931,12 +931,14 @@ a:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 12px 48px 16px;
+  margin: 14px 0 12px;
   padding: 15px 18px;
   border-radius: 18px;
   background: linear-gradient(135deg, #fff4ad, #ffe27a);
   color: #92400e;
   box-shadow: 0 7px 16px rgba(245, 158, 11, 0.12);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .hyeni-memo-sticker-card > span {

@@ -2,8 +2,13 @@ package com.hyeni.calendar;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.app.usage.UsageEvents;
+import android.app.usage.UsageStatsManager;
 import android.content.pm.PackageManager;
+import android.os.BatteryManager;
 import android.os.Build;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.core.app.ActivityCompat;
@@ -157,6 +162,57 @@ public class LocationPlugin extends Plugin {
             getContext().startService(intent);
         }
         Log.i(TAG, "Immediate location refresh requested");
+    }
+
+    @PluginMethod
+    public void getDeviceUsageSnapshot(PluginCall call) {
+        JSObject result = new JSObject();
+        try {
+            IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+            Intent batteryStatus = getContext().registerReceiver(null, ifilter);
+            if (batteryStatus != null) {
+                int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                boolean charging = batteryStatus.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0;
+                if (level >= 0 && scale > 0) {
+                    result.put("batteryLevel", Math.round(level * 100f / scale));
+                } else {
+                    result.put("batteryLevel", (Object) null);
+                }
+                result.put("isCharging", charging);
+            }
+
+            PowerManager pm = (PowerManager) getContext().getSystemService(android.content.Context.POWER_SERVICE);
+            boolean interactive = pm != null && pm.isInteractive();
+            result.put("screenInteractive", interactive);
+
+            String recentApp = "";
+            String usagePermission = "unavailable";
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                UsageStatsManager usm = (UsageStatsManager) getContext().getSystemService(android.content.Context.USAGE_STATS_SERVICE);
+                if (usm != null) {
+                    long end = System.currentTimeMillis();
+                    long start = end - 10 * 60 * 1000L;
+                    UsageEvents events = usm.queryEvents(start, end);
+                    if (events != null) {
+                        UsageEvents.Event event = new UsageEvents.Event();
+                        while (events.hasNextEvent()) {
+                            events.getNextEvent(event);
+                            if (event.getEventType() == UsageEvents.Event.ACTIVITY_RESUMED && event.getPackageName() != null) {
+                                recentApp = event.getPackageName();
+                            }
+                        }
+                    }
+                    usagePermission = recentApp.isEmpty() ? "requires_permission" : "granted";
+                }
+            }
+            result.put("recentAppPackage", recentApp);
+            result.put("usagePermission", usagePermission);
+        } catch (Exception e) {
+            Log.w(TAG, "getDeviceUsageSnapshot failed", e);
+            result.put("error", e.getMessage());
+        }
+        call.resolve(result);
     }
 
     @PluginMethod

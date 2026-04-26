@@ -190,23 +190,28 @@ public class MainActivity extends BridgeActivity {
 
     private void queueRemoteListenFlagInjection() {
         pendingRemoteListen = false;
+        Intent pendingIntent = pendingRemoteListenIntent;
         pendingRemoteListenIntent = null;
         Log.i("MainActivity", "Remote listen intent - will inject JS flag");
-        injectRemoteListenFlag(1000);
-        injectRemoteListenFlag(3000);
-        injectRemoteListenFlag(6000);
-        injectRemoteListenFlag(10000);
+        injectRemoteListenFlag(1000, pendingIntent);
+        injectRemoteListenFlag(3000, pendingIntent);
+        injectRemoteListenFlag(6000, pendingIntent);
+        injectRemoteListenFlag(10000, pendingIntent);
     }
 
-    private void injectRemoteListenFlag(long delayMs) {
+    private void injectRemoteListenFlag(long delayMs, Intent sourceIntent) {
         if (getBridge() == null || getBridge().getWebView() == null) {
             return;
         }
+        String requestId = sourceIntent != null ? sourceIntent.getStringExtra("requestId") : null;
+        if (requestId == null) requestId = "";
+        String escapedRequestId = requestId.replace("\\", "\\\\").replace("'", "\\'");
+        final String js = "window.__REMOTE_LISTEN_REQUESTED = true;window.__REMOTE_LISTEN_REQUEST_ID='" + escapedRequestId + "';";
         getBridge().getWebView().postDelayed(() -> {
             if (getBridge() == null || getBridge().getWebView() == null) {
                 return;
             }
-            getBridge().getWebView().evaluateJavascript("window.__REMOTE_LISTEN_REQUESTED = true;", null);
+            getBridge().getWebView().evaluateJavascript(js, null);
         }, delayMs);
     }
 
