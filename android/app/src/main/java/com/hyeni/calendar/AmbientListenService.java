@@ -12,7 +12,9 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Base64;
 import android.util.Log;
@@ -77,6 +79,7 @@ public class AmbientListenService extends Service {
         .build();
 
     private final AtomicBoolean recording = new AtomicBoolean(false);
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private ExecutorService uploadExecutor;
     private Thread captureThread;
     private PowerManager.WakeLock wakeLock;
@@ -125,11 +128,13 @@ public class AmbientListenService extends Service {
         configure(intent);
         if (!hasRecordAudioPermission()) {
             Log.w(TAG, "RECORD_AUDIO permission missing; ambient listen stopped");
+            removeForegroundNotification();
             stopSelf();
             return START_NOT_STICKY;
         }
         if (!hasRequiredConfig()) {
             Log.w(TAG, "Ambient listen config missing; ambient listen stopped");
+            removeForegroundNotification();
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -141,6 +146,7 @@ public class AmbientListenService extends Service {
     @Override
     public void onDestroy() {
         stopCapture("service_destroyed");
+        removeForegroundNotification();
         super.onDestroy();
     }
 
@@ -221,7 +227,7 @@ public class AmbientListenService extends Service {
             releaseWakeLock();
             shutdownUploader();
             clearActiveRequest();
-            stopSelf();
+            finishServiceAfterCapture();
             return;
         }
 
@@ -288,7 +294,8 @@ public class AmbientListenService extends Service {
             releaseWakeLock();
             shutdownUploader();
             clearActiveRequest();
-            stopSelf();
+            Log.i(TAG, "Ambient audio capture finished requestId=" + requestId + " chunks=" + sequenceNumber);
+            finishServiceAfterCapture();
         }
     }
 
@@ -373,9 +380,11 @@ public class AmbientListenService extends Service {
             JSONObject body = new JSONObject()
                 .put("messages", new JSONArray().put(message));
 
-            boolean sent = postBroadcast(body, accessToken);
-            if (!sent && notBlank(accessToken) && !accessToken.equals(supabaseKey)) {
-                sent = postBroadcast(body, supabaseKey);
+            boolean shouldFallbackToAnon = notBlank(accessToken) && !accessToken.equals(supabaseKey);
+            String primaryToken = shouldFallbackToAnon ? accessToken : supabaseKey;
+            boolean sent = postBroadcast(body, primaryToken, !shouldFallbackToAnon);
+            if (!sent && shouldFallbackToAnon) {
+                sent = postBroadcast(body, supabaseKey, true);
             }
             if (sent) {
                 Log.i(TAG, "Realtime audio chunk sent seq=" + seq + " requestId=" + requestId);
@@ -385,7 +394,7 @@ public class AmbientListenService extends Service {
         }
     }
 
-    private boolean postBroadcast(JSONObject body, String bearerToken) throws IOException {
+    private boolean postBroadcast(JSONObject body, String bearerToken, boolean logFailure) throws IOException {
         String token = notBlank(bearerToken) ? bearerToken : supabaseKey;
         Request request = new Request.Builder()
             .url(supabaseUrl.replaceAll("/+$", "") + "/realtime/v1/api/broadcast")
@@ -398,7 +407,9 @@ public class AmbientListenService extends Service {
         try (Response response = HTTP.newCall(request).execute()) {
             if (response.isSuccessful()) return true;
             String errorBody = response.body() != null ? response.body().string() : "";
-            Log.w(TAG, "Realtime broadcast failed: " + response.code() + " / " + errorBody);
+            if (logFailure) {
+                Log.w(TAG, "Realtime broadcast failed: " + response.code() + " / " + errorBody);
+            }
             return false;
         }
     }
@@ -413,12 +424,41 @@ public class AmbientListenService extends Service {
         }
         releaseWakeLock();
         shutdownUploader();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(Service.STOP_FOREGROUND_REMOVE);
-        } else {
-            stopForeground(true);
-        }
+        removeForegroundNotification();
         clearActiveRequest();
+    }
+
+    private void finishServiceAfterCapture() {
+        Runnable cleanup = () -> {
+            removeForegroundNotification();
+            stopSelf();
+        };
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            cleanup.run();
+        } else {
+            mainHandler.post(cleanup);
+        }
+    }
+
+    private void removeForegroundNotification() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(Service.STOP_FOREGROUND_REMOVE);
+            } else {
+                stopForeground(true);
+            }
+        } catch (Exception error) {
+            Log.w(TAG, "Foreground notification removal failed", error);
+        }
+
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancel(NOTIF_ID);
+            }
+        } catch (Exception error) {
+            Log.w(TAG, "Foreground notification cancel failed", error);
+        }
     }
 
     private void acquireWakeLock() {

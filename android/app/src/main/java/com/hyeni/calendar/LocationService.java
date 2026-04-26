@@ -725,22 +725,27 @@ public class LocationService extends Service {
                 JSONObject body = new JSONObject();
                 body.put("p_family_id", familyId);
 
-                String url = supabaseUrl + "/rest/v1/rpc/get_pending_notifications";
                 String bearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
-                Request req = new Request.Builder()
-                    .url(url)
-                    .header("apikey", supabaseKey)
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + bearer)
-                    .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
-                    .build();
-
-                Response response = httpClient.newCall(req).execute();
-                if (response.code() == 401 || response.code() == 403) {
+                Response response = executePendingNotificationsRequest(body, bearer);
+                int code = response.code();
+                if (code == 401 || code == 403) {
                     response.close();
                     refreshAccessToken();
-                    Log.w(TAG, "Notification poll auth failed (" + response.code() + "), token refreshed for next cycle");
-                    return;
+                    String freshBearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+                    Log.w(TAG, "Pending notification auth failed (" + code + "), retrying with refreshed token");
+                    response = executePendingNotificationsRequest(body, freshBearer);
+                    code = response.code();
+
+                    if (code == 401 || code == 403) {
+                        response.close();
+                        Log.w(TAG, "Pending notification auth failed (" + code + "), retrying with apikey fallback");
+                        response = executePendingNotificationsRequest(body, supabaseKey);
+                        if (!response.isSuccessful()) {
+                            Log.w(TAG, "Pending notification poll fallback failed: " + response.code());
+                            response.close();
+                            return;
+                        }
+                    }
                 }
                 if (!response.isSuccessful()) {
                     response.close();
@@ -804,6 +809,19 @@ public class LocationService extends Service {
                 Log.e(TAG, "Notification poll error", e);
             }
         }).start();
+    }
+
+    private Response executePendingNotificationsRequest(JSONObject body, String bearerToken) throws Exception {
+        String url = supabaseUrl + "/rest/v1/rpc/get_pending_notifications";
+        String token = !isBlank(bearerToken) ? bearerToken : supabaseKey;
+        Request req = new Request.Builder()
+            .url(url)
+            .header("apikey", supabaseKey)
+            .header("Content-Type", "application/json")
+            .header("Authorization", "Bearer " + token)
+            .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+            .build();
+        return httpClient.newCall(req).execute();
     }
 
     private boolean isPendingTargetedToThisDevice(@Nullable JSONObject data) {

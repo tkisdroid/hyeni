@@ -46,6 +46,12 @@ describe("native background command contracts", () => {
   it("deduplicates remote listen capture and playback by request id", () => {
     expect(app).toContain("remoteAudioCurrentRequestIdRef");
     expect(app).toContain("remoteAudioSeenChunksRef");
+    expect(app).toContain("startInFlightRef");
+    expect(app).toContain("playbackGenerationRef");
+    expect(app).toContain("activeSourcesRef");
+    expect(app).toContain("activeAudioElementsRef");
+    expect(app).toContain("stopActivePlayback");
+    expect(app).toContain('if (startInFlightRef.current || status !== "idle") return;');
     expect(app).toContain("requestId: options.requestId");
     expect(app).toContain('sequence === "" ? fallbackSource : "seq"');
     expect(app).toContain('sequence === "" ? String(detail.data || "").slice(0, 96) : sequence');
@@ -94,5 +100,21 @@ describe("native background command contracts", () => {
     expect(mainActivity).toContain("appForegroundForMicrophone = false");
     expect(ambientPlugin).toContain("MainActivity.isAppForegroundForMicrophone()");
     expect(ambientPlugin).toContain("remote_listen_requires_foreground_activity");
+  });
+
+  it("keeps native command polling alive when the stored access token is stale", () => {
+    expect(locationService).toContain("Pending notification auth failed");
+    expect(locationService).toContain("retrying with apikey fallback");
+    expect(locationService).toContain('"Authorization", "Bearer " + supabaseKey');
+    expect(locationService).toContain("Pending notification poll fallback failed");
+  });
+
+  it("removes the ambient foreground notification on normal capture completion", () => {
+    expect(ambientService).toContain("removeForegroundNotification()");
+    expect(ambientService).toContain("stopForeground(Service.STOP_FOREGROUND_REMOVE)");
+    expect(ambientService).toContain("nm.cancel(NOTIF_ID)");
+    expect(ambientService).toContain("Ambient audio capture finished requestId=");
+    expect(ambientService).toContain("finishServiceAfterCapture()");
+    expect(ambientService).toContain("mainHandler.post(cleanup)");
   });
 });

@@ -3864,13 +3864,38 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
     const nextPlayAtRef = useRef(0);
     const remoteAudioCurrentRequestIdRef = useRef(null);
     const remoteAudioSeenChunksRef = useRef(new Set());
+    const startInFlightRef = useRef(false);
+    const playbackGenerationRef = useRef(0);
+    const activeSourcesRef = useRef(new Set());
+    const activeAudioElementsRef = useRef(new Set());
+
+    const stopActivePlayback = useCallback(() => {
+        playbackGenerationRef.current += 1;
+        nextPlayAtRef.current = 0;
+        for (const source of activeSourcesRef.current) {
+            try { source.stop(0); } catch { /* source may already be stopped */ }
+        }
+        activeSourcesRef.current.clear();
+        for (const audio of activeAudioElementsRef.current) {
+            try {
+                audio.pause();
+                audio.src = "";
+                audio.load?.();
+            } catch { /* ignore stopped fallback audio */ }
+        }
+        activeAudioElementsRef.current.clear();
+        playbackRef.current = Promise.resolve();
+    }, []);
 
     const startListening = async () => {
+        if (startInFlightRef.current || status !== "idle") return;
         setErrorMessage("");
         if (!recFamilyId || !senderUserId) {
             setErrorMessage("가족 연결 정보가 없어 주변음성듣기를 시작할 수 없어요.");
             return;
         }
+        startInFlightRef.current = true;
+        stopActivePlayback();
         const durationSec = REMOTE_AUDIO_DEFAULT_DURATION_SEC;
         const requestId = generateUUID();
         remoteAudioCurrentRequestIdRef.current = requestId;
@@ -3898,18 +3923,19 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
             targetRole: "child",
         };
         // 2. FCM push to wake up child app if closed
-        const pushPromise = sendInstantPush({
-            action: "remote_listen",
-            familyId: recFamilyId,
-            senderUserId,
-            title: "",
-            message: "",
-            durationSec,
-            requestId,
-            targetRole: "child",
-            idempotencyKey: requestId,
-        });
+        let pushPromise = Promise.resolve();
         try {
+            pushPromise = sendInstantPush({
+                action: "remote_listen",
+                familyId: recFamilyId,
+                senderUserId,
+                title: "",
+                message: "",
+                durationSec,
+                requestId,
+                targetRole: "child",
+                idempotencyKey: requestId,
+            });
             const realtimeSent = await sendBroadcastWhenReady(
                 channel,
                 "remote_listen_start",
@@ -3922,16 +3948,21 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
         } catch (error) {
             console.warn("[Audio] remote_listen_start broadcast failed:", error?.message || error);
             setErrorMessage("실시간 채널 연결 대기 중입니다. 아이 기기에는 깨우기 알림을 보냈어요.");
+        } finally {
+            await pushPromise.catch((error) => {
+                console.warn("[Audio] remote listen push failed:", error?.message || error);
+            });
+            startInFlightRef.current = false;
         }
-        await pushPromise;
         timerRef.current = setTimeout(() => stopListening(), (durationSec + 5) * 1000);
     };
 
     const stopListening = () => {
+        startInFlightRef.current = false;
         if (channel) channel.send({ type: "broadcast", event: "remote_listen_stop", payload: {} });
         setErrorMessage("");
         setStatus("idle");
-        nextPlayAtRef.current = 0;
+        stopActivePlayback();
         remoteAudioCurrentRequestIdRef.current = null;
         remoteAudioSeenChunksRef.current.clear();
         if (audioContextRef.current) {
@@ -3943,26 +3974,32 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
 
     // Play received audio chunk
     const playChunk = useCallback((base64, mimeType) => {
+        const playbackGeneration = playbackGenerationRef.current;
         playbackRef.current = playbackRef.current
             .catch(() => {})
             .then(async () => {
                 try {
+                    if (playbackGeneration !== playbackGenerationRef.current) return;
                     const binary = atob(base64);
                     const bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
                     const audioContext = audioContextRef.current;
                     if (audioContext && audioContext.state !== "closed") {
                         try {
+                            if (playbackGeneration !== playbackGenerationRef.current) return;
                             if (audioContext.state === "suspended") {
                                 await audioContext.resume();
                             }
                             const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
                             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                            if (playbackGeneration !== playbackGenerationRef.current) return;
                             const source = audioContext.createBufferSource();
                             const startAt = Math.max(audioContext.currentTime + 0.02, nextPlayAtRef.current || 0);
                             nextPlayAtRef.current = startAt + audioBuffer.duration;
                             source.buffer = audioBuffer;
                             source.connect(audioContext.destination);
+                            activeSourcesRef.current.add(source);
+                            source.onended = () => activeSourcesRef.current.delete(source);
                             source.start(startAt);
                             return;
                         } catch (webAudioError) {
@@ -3972,14 +4009,21 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                     const blob = new Blob([bytes], { type: mimeType || "audio/webm" });
                     const url = URL.createObjectURL(blob);
                     const audio = new Audio(url);
+                    activeAudioElementsRef.current.add(audio);
                     await new Promise((resolve, reject) => {
                         const cleanup = () => {
+                            activeAudioElementsRef.current.delete(audio);
                             audio.onended = null;
                             audio.onerror = null;
                             URL.revokeObjectURL(url);
                         };
                         audio.onended = () => { cleanup(); resolve(); };
                         audio.onerror = () => { cleanup(); reject(new Error("audio playback failed")); };
+                        if (playbackGeneration !== playbackGenerationRef.current) {
+                            cleanup();
+                            resolve();
+                            return;
+                        }
                         const playPromise = audio.play();
                         if (playPromise?.catch) {
                             playPromise.catch((error) => {
@@ -4027,12 +4071,13 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
     useEffect(() => {
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
+            stopActivePlayback();
             if (audioContextRef.current) {
                 try { audioContextRef.current.close(); } catch { /* ignore */ }
                 audioContextRef.current = null;
             }
         };
-    }, []);
+    }, [stopActivePlayback]);
 
     return (
         <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, fontFamily: FF }}
