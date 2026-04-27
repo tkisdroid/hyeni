@@ -122,6 +122,8 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.force_ring_check_quota(uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.force_ring_check_quota(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.force_ring_check_quota(uuid) TO authenticated;
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.force_ring_events;
