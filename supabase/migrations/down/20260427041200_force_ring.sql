@@ -3,8 +3,10 @@
 
 BEGIN;
 
-SELECT cron.unschedule('force_ring_delivery_timeout');
-SELECT cron.unschedule('force_ring_reminder_check');
+-- Cron jobs are deferred in this migration (see forward .sql).
+-- If the Phase 2 follow-up migration enabled them, uncomment these:
+-- SELECT cron.unschedule('force_ring_delivery_timeout');
+-- SELECT cron.unschedule('force_ring_reminder_check');
 
 ALTER PUBLICATION supabase_realtime DROP TABLE public.force_ring_events;
 
