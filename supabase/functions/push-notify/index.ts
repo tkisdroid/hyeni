@@ -430,12 +430,22 @@ Deno.serve(async (req: Request) => {
 
   const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(token);
-  if (claimsErr || !claimsData?.claims?.sub) {
+  if (claimsErr || !claimsData?.claims) {
     console.warn("push-notify: invalid jwt", claimsErr?.message);
     return jsonResponse({ error: "invalid jwt" }, 401);
   }
-  const callerUserId = claimsData.claims.sub as string;
-  const callerRole = (claimsData.claims.role as string) || "authenticated";
+  // Supabase service_role JWT는 sub 클레임 없이 role: 'service_role'만 가짐.
+  // cron이 force_ring_reminder 같은 system action을 호출하려면 이 path를 허용해야 함.
+  // 일반 user JWT는 반드시 sub 보유.
+  const claimsSub = (claimsData.claims as { sub?: string }).sub;
+  const claimsRole = (claimsData.claims as { role?: string }).role || "authenticated";
+  const isServiceRole = claimsRole === "service_role";
+  if (!claimsSub && !isServiceRole) {
+    console.warn("push-notify: jwt missing sub claim and not service_role");
+    return jsonResponse({ error: "invalid jwt" }, 401);
+  }
+  const callerUserId = claimsSub || "";  // service_role 호출자는 빈 문자열
+  const callerRole = claimsRole;
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
