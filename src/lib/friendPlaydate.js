@@ -82,16 +82,56 @@ export async function endPlaydate(sessionId, stopReason) {
   if (pushErr) console.warn("[endPlaydate] push failed", pushErr);
 }
 
-export async function upsertPublicPlace(_opts) {
-  throw new Error("not_implemented");
+export async function upsertPublicPlace({ kakaoPlaceId, name, lat, lng }) {
+  if (!name || lat == null || lng == null) {
+    throw new Error("upsertPublicPlace: name + lat + lng required");
+  }
+
+  if (kakaoPlaceId) {
+    const { data, error } = await supabase
+      .from("public_places")
+      .upsert(
+        { kakao_place_id: kakaoPlaceId, name, lat, lng },
+        { onConflict: "kakao_place_id" },
+      )
+      .select()
+      .single();
+    if (error) throw error;
+    return data.id;
+  }
+
+  const { data, error } = await supabase
+    .from("public_places")
+    .insert({ name, lat, lng })
+    .select()
+    .single();
+  if (error) throw error;
+  return data.id;
 }
 
-export async function setFamilyPlaydateEnabled(_familyId, _enabled) {
-  throw new Error("not_implemented");
+export async function setFamilyPlaydateEnabled(familyId, enabled) {
+  if (!familyId) throw new Error("familyId required");
+  const { error } = await supabase
+    .from("families")
+    .update({ playdate_enabled: !!enabled })
+    .eq("id", familyId);
+  if (error) throw error;
 }
 
-export async function setSavedPlacePlaydateSafe(_savedPlaceId, _isSafe, _publicPlaceId) {
-  throw new Error("not_implemented");
+export async function setSavedPlacePlaydateSafe(
+  savedPlaceId,
+  isSafe,
+  publicPlaceId = null,
+) {
+  if (!savedPlaceId) throw new Error("savedPlaceId required");
+  const update = { is_playdate_safe: !!isSafe };
+  if (publicPlaceId) update.public_place_id = publicPlaceId;
+
+  const { error } = await supabase
+    .from("saved_places")
+    .update(update)
+    .eq("id", savedPlaceId);
+  if (error) throw error;
 }
 
 export function subscribeActiveSession(_familyId, _onChange) {
