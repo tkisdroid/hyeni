@@ -404,6 +404,10 @@ Deno.serve(async (req: Request) => {
       } catch { /* not JSON, proceed as cron */ }
     }
 
+    if (body?.action === "playdate_started") {
+      return await handlePlaydateStarted(supabase, body, callerUserId, callerRole);
+    }
+
     if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "remote_listen_stop" || body?.action === "request_location" || body?.action === "request_device_status" || body?.action === "emergency" || body?.action === "sos") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
@@ -814,6 +818,121 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
     checked: events.length,
     dateKey,
     time: `${String(kst.getUTCHours()).padStart(2, "0")}:${String(kst.getUTCMinutes()).padStart(2, "0")}`,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Friend playdate handlers
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Resolve the FCM tokens for a single user (the family parent). Returns [].
+async function fetchFcmTokensForUser(
+  supabase: ReturnType<typeof createClient>,
+  userId: string | null | undefined,
+): Promise<{ id: string; fcm_token: string }[]> {
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from("fcm_tokens")
+    .select("id, fcm_token")
+    .eq("user_id", userId);
+  if (error) {
+    console.error("playdate: fcm_tokens lookup failed:", error);
+    return [];
+  }
+  return (data ?? []) as { id: string; fcm_token: string }[];
+}
+
+async function handlePlaydateStarted(
+  supabase: ReturnType<typeof createClient>,
+  body: Record<string, unknown>,
+  callerUserId: string,
+  callerRole: string,
+) {
+  const sessionId = typeof body.session_id === "string" ? body.session_id : "";
+  if (!sessionId) {
+    return jsonResponse({ error: "session_id_required" }, 400);
+  }
+
+  const { data: session, error: sessionErr } = await supabase
+    .from("friend_playdate_sessions")
+    .select("id, public_place_id, family_a_id, family_b_id, child_a_id, child_b_id, initiator_user_id, started_at, stopped_at")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (sessionErr || !session) {
+    return jsonResponse({ error: "session_not_found" }, 404);
+  }
+
+  // Authz: only the two children on the session may trigger the start
+  // notification. service_role bypasses this for cron / admin calls.
+  const isService = callerRole === "service_role";
+  if (!isService && callerUserId !== session.child_a_id && callerUserId !== session.child_b_id) {
+    return jsonResponse({ error: "forbidden" }, 403);
+  }
+
+  const [placeRes, familyARes, familyBRes, childARes, childBRes] = await Promise.all([
+    supabase.from("public_places").select("name").eq("id", session.public_place_id).maybeSingle(),
+    supabase.from("families").select("mom_phone, dad_phone, parent_id").eq("id", session.family_a_id).maybeSingle(),
+    supabase.from("families").select("mom_phone, dad_phone, parent_id").eq("id", session.family_b_id).maybeSingle(),
+    supabase.from("family_members").select("name").eq("user_id", session.child_a_id).maybeSingle(),
+    supabase.from("family_members").select("name").eq("user_id", session.child_b_id).maybeSingle(),
+  ]);
+
+  const placeName = placeRes.data?.name ?? "안전장소";
+  const childAName = childARes.data?.name ?? "아이";
+  const childBName = childBRes.data?.name ?? "친구";
+  const familyAPhones = [familyARes.data?.mom_phone, familyARes.data?.dad_phone].filter(Boolean) as string[];
+  const familyBPhones = [familyBRes.data?.mom_phone, familyBRes.data?.dad_phone].filter(Boolean) as string[];
+
+  const [tokensA, tokensB] = await Promise.all([
+    fetchFcmTokensForUser(supabase, familyARes.data?.parent_id),
+    fetchFcmTokensForUser(supabase, familyBRes.data?.parent_id),
+  ]);
+
+  const dataA: Record<string, string> = {
+    type: "playdate_started",
+    action: "playdate_started",
+    session_id: session.id,
+    place_name: placeName,
+    my_child_name: childAName,
+    friend_child_name: childBName,
+    friend_family_phones: JSON.stringify(familyBPhones),
+  };
+  const dataB: Record<string, string> = {
+    type: "playdate_started",
+    action: "playdate_started",
+    session_id: session.id,
+    place_name: placeName,
+    my_child_name: childBName,
+    friend_child_name: childAName,
+    friend_family_phones: JSON.stringify(familyAPhones),
+  };
+
+  const titleA = "친구놀이 시작";
+  const bodyA = `${childAName}가 ${placeName}에서 ${childBName}와 놀고 있어요`;
+  const titleB = "친구놀이 시작";
+  const bodyB = `${childBName}가 ${placeName}에서 ${childAName}와 놀고 있어요`;
+
+  const expiredIds: string[] = [];
+  let sentCount = 0;
+  for (const t of tokensA) {
+    const result = await sendFcmNotification(t.fcm_token, titleA, bodyA, dataA);
+    if (result === "sent") sentCount++;
+    else if (result === "expired") expiredIds.push(t.id);
+  }
+  for (const t of tokensB) {
+    const result = await sendFcmNotification(t.fcm_token, titleB, bodyB, dataB);
+    if (result === "sent") sentCount++;
+    else if (result === "expired") expiredIds.push(t.id);
+  }
+  if (expiredIds.length > 0) {
+    await supabase.from("fcm_tokens").delete().in("id", expiredIds);
+  }
+
+  return jsonResponse({
+    delivered: sentCount > 0,
+    sent_count: sentCount,
+    fcm_count: tokensA.length + tokensB.length,
   });
 }
 
