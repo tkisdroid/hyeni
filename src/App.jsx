@@ -3583,6 +3583,28 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
 // Memo Section — X/Thread-style chat bubble UI (05.5-UI-SPEC.md)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/* Memo timestamp — relative within 1h, absolute time after that */
+function getMemoTime(createdAt) {
+    const now = Date.now();
+    const ts = new Date(createdAt).getTime();
+    const diffMs = now - ts;
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return "방금";
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}분 전`;
+    // 1 hour or older → show absolute time
+    const d = new Date(createdAt);
+    const nowDate = new Date();
+    const timePart = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    if (d.toDateString() === nowDate.toDateString()) return timePart;
+    if (d.getFullYear() !== nowDate.getFullYear()) {
+        return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. ${timePart}`;
+    }
+    const yesterday = new Date(nowDate); yesterday.setDate(nowDate.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return `어제 ${timePart}`;
+    return `${d.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })} ${timePart}`;
+}
+
 /* UI-SPEC §4e — relative timestamp helper */
 function getRelativeTime(createdAt) {
     const now = Date.now();
@@ -3862,7 +3884,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
 
                         /* UI-SPEC §Accessibility — aria-label for bubble */
                         const senderLabel = isMe ? "나" : isLegacy ? "예전 메모" : (r.user_role === "parent" ? "부모님" : "아이");
-                        const relTime = getRelativeTime(r.created_at);
+                        const relTime = getMemoTime(r.created_at);
                         const bubbleAriaLabel = `${senderLabel} ${relTime}에 보낸 메시지: ${r.content}`;
 
                         return (
@@ -4089,6 +4111,7 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
     const [inputText, setInputText] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [sendError, setSendError] = useState("");
+    const threadRef = useRef(null);
     const today = new Date();
     const dateLabel = `오늘 · ${DAYS_KO[today.getDay()]}요일`;
     const title = "오늘의 메모";
@@ -4124,6 +4147,17 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
         setSendError("");
     };
 
+    // Keep newest message in view when the thread becomes scrollable
+    useEffect(() => {
+        const el = threadRef.current;
+        if (!el) return;
+        // Defer one frame so the just-rendered bubble is laid out first
+        const id = window.requestAnimationFrame(() => {
+            el.scrollTop = el.scrollHeight;
+        });
+        return () => window.cancelAnimationFrame(id);
+    }, [messages.length]);
+
     return (
         <main className="hyeni-memo-page" aria-label="오늘의 메모 페이지">
             <div className="hyeni-memo-phone">
@@ -4135,7 +4169,7 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
                     </div>
                 </header>
 
-                <section className="hyeni-memo-thread" aria-label="오늘의 메모 대화">
+                <section className="hyeni-memo-thread" aria-label="오늘의 메모 대화" ref={threadRef}>
                     <div className="hyeni-memo-date-row">
                         <span />
                         <strong>{dateLabel}</strong>
@@ -4156,7 +4190,7 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
                                 : (mode === "child" ? "아이" : (partnerName || "아이"));
                             const theirAvatar = mode === "child" && message.user_role === "parent" ? "💗" : "👧";
                             const myAvatar = mode === "child" ? "🌈" : "🐰";
-                            const time = getRelativeTime(message.created_at);
+                            const time = getMemoTime(message.created_at);
                             return (
                                 <article
                                     key={message.id}
@@ -5954,6 +5988,40 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
     const [selectedChildId, setSelectedChildId] = useState(null);
     const [selectedTrailSegmentKey, setSelectedTrailSegmentKey] = useState("");
     const [dwellLocationLabels, setDwellLocationLabels] = useState({});
+    // Resizable bottom panel — drag handle to expand the map upward
+    const [bottomHeight, setBottomHeight] = useState(null); // null = natural auto-height
+    const [isPanelDragging, setIsPanelDragging] = useState(false);
+    const panelDragRef = useRef(null);
+    const PANEL_COLLAPSED_PX = 110;
+    const PANEL_EXPANDED_RATIO = 0.62;
+    const getPanelMaxPx = () => Math.round((typeof window !== "undefined" ? window.innerHeight : 800) * PANEL_EXPANDED_RATIO);
+
+    const startPanelDrag = useCallback((clientY) => {
+        const max = getPanelMaxPx();
+        const current = bottomHeight ?? max;
+        panelDragRef.current = { startY: clientY, startHeight: current };
+        setIsPanelDragging(true);
+    }, [bottomHeight]);
+    const movePanelDrag = useCallback((clientY) => {
+        const state = panelDragRef.current;
+        if (!state) return;
+        const delta = state.startY - clientY; // up = bigger panel, down = smaller panel (bigger map)
+        const next = state.startHeight + delta;
+        const max = getPanelMaxPx();
+        setBottomHeight(Math.max(PANEL_COLLAPSED_PX, Math.min(max, next)));
+    }, []);
+    const endPanelDrag = useCallback(() => {
+        const state = panelDragRef.current;
+        panelDragRef.current = null;
+        setIsPanelDragging(false);
+        if (!state) return;
+        setBottomHeight((h) => {
+            const max = getPanelMaxPx();
+            const current = h ?? max;
+            const mid = (PANEL_COLLAPSED_PX + max) / 2;
+            return current <= mid ? PANEL_COLLAPSED_PX : max;
+        });
+    }, []);
 
     const childLocations = useMemo(() => {
         const source = allChildPositions.length > 0
@@ -6096,6 +6164,28 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
             level: CHILD_TRACKER_ZOOM_LEVEL
         });
     }, [mapReady, center.lat, center.lng]);
+
+    // Desktop mouse drag fallback for the bottom panel handle
+    useEffect(() => {
+        if (!isPanelDragging) return;
+        const onMove = (e) => movePanelDrag(e.clientY);
+        const onUp = () => endPanelDrag();
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+        return () => {
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onUp);
+        };
+    }, [isPanelDragging, movePanelDrag, endPanelDrag]);
+
+    // Relayout Kakao map after the bottom panel resizes so tiles render correctly
+    useEffect(() => {
+        if (!mapObj.current?.relayout) return;
+        const id = window.setTimeout(() => {
+            try { mapObj.current.relayout(); } catch { /* noop */ }
+        }, isPanelDragging ? 30 : 240);
+        return () => window.clearTimeout(id);
+    }, [bottomHeight, isPanelDragging]);
 
     // Effect 2: 아이 현재위치 마커 (다중 아이 지원)
     useEffect(() => {
@@ -6324,8 +6414,32 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
                 )}
             </div>
 
-            {/* Bottom info */}
-            <div style={{ padding: "12px 16px 16px", flexShrink: 0 }}>
+            {/* Bottom info — resizable: drag handle to expand the map */}
+            <div
+                style={{
+                    flexShrink: 0,
+                    height: bottomHeight != null ? bottomHeight : "auto",
+                    maxHeight: `${Math.round(PANEL_EXPANDED_RATIO * 100)}vh`,
+                    display: "flex",
+                    flexDirection: "column",
+                    transition: isPanelDragging ? "none" : "height 0.22s ease-out",
+                    background: "transparent",
+                }}
+            >
+                <div
+                    role="separator"
+                    aria-orientation="horizontal"
+                    aria-label="패널 크기 조절 (위로 드래그하면 확대, 아래로 드래그하면 지도가 커집니다)"
+                    onTouchStart={(e) => { startPanelDrag(e.touches[0].clientY); }}
+                    onTouchMove={(e) => { e.preventDefault(); movePanelDrag(e.touches[0].clientY); }}
+                    onTouchEnd={endPanelDrag}
+                    onTouchCancel={endPanelDrag}
+                    onMouseDown={(e) => { e.preventDefault(); startPanelDrag(e.clientY); }}
+                    style={{ padding: "8px 0 4px", cursor: "ns-resize", touchAction: "none", flexShrink: 0, userSelect: "none" }}
+                >
+                    <div style={{ width: 44, height: 5, background: "#D1D5DB", borderRadius: 999, margin: "0 auto" }} />
+                </div>
+            <div style={{ padding: "4px 16px 16px", flex: 1, overflowY: "auto", minHeight: 0 }}>
                 {/* 클릭한 장소 상세 */}
                 {selectedEvent && (
                     <div style={{ background: "white", borderRadius: 16, padding: "12px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
@@ -6455,6 +6569,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#9CA3AF" }}>{locationHint || "아이 기기에서 위치 권한을 허용해 주세요"}</div>
                     </div>
                 )}
+            </div>
             </div>
         </div>
     );
@@ -9070,6 +9185,15 @@ export default function KidsScheduler() {
         setCurrentMonth(today.getMonth());
         setSelectedDate(today.getDate());
         setShowParentMemoPage(true);
+        // Immediate refetch: Realtime may have missed INSERTs while the app was
+        // backgrounded (FCM arrived but WebSocket was disconnected). Use today's
+        // key directly because setSelectedDate above hasn't propagated yet.
+        if (familyId) {
+            const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+            fetchMemoReplies(familyId, todayKey)
+                .then(setMemoReplies)
+                .catch((err) => console.warn("[memo] open refetch failed:", err));
+        }
         window.requestAnimationFrame(() => {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
@@ -9079,6 +9203,12 @@ export default function KidsScheduler() {
         setCurrentMonth(today.getMonth());
         setSelectedDate(today.getDate());
         setShowChildMemoPage(true);
+        if (familyId) {
+            const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+            fetchMemoReplies(familyId, todayKey)
+                .then(setMemoReplies)
+                .catch((err) => console.warn("[memo] open refetch failed:", err));
+        }
         window.requestAnimationFrame(() => {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
@@ -9372,15 +9502,16 @@ export default function KidsScheduler() {
                 console.error("[reply]", err);
                 throw err;
             });
+        const senderDisplayName = familyInfo?.myName || (myRole === "parent" ? "부모님" : "아이");
         sendInstantPush({
             action: "new_memo",
             familyId,
             senderUserId: authUser.id,
-            title: `💬 ${myRole === "parent" ? "부모님" : "아이"}이 답글을 남겼어요`,
+            title: `💬 ${senderDisplayName}의 새 메모`,
             message: content.length > 50 ? content.substring(0, 50) + "..." : content,
         });
         return sendPromise;
-    }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled]);
+    }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName]);
 
     const TABS = isParent
         ? [["calendar", "📅 달력"], ["maplist", "🏫 학원관리"]]
@@ -9951,7 +10082,7 @@ export default function KidsScheduler() {
     );
 
     if (showParentMemoPage && isParent) return (
-        <div className="hyeni-app-shell hyeni-parent-memo-shell" style={{ minHeight: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 22px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 104px)", position: "relative", overflowX: "hidden", overflowY: "auto", width: "100%", boxSizing: "border-box" }}>
+        <div className="hyeni-app-shell hyeni-parent-memo-shell" style={{ height: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 22px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 104px)", position: "relative", overflowX: "hidden", overflowY: "hidden", width: "100%", boxSizing: "border-box" }}>
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
@@ -9975,7 +10106,7 @@ export default function KidsScheduler() {
     );
 
     if (showChildMemoPage && !isParent) return (
-        <div className="hyeni-app-shell hyeni-child-memo-shell" style={{ minHeight: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 22px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)", position: "relative", overflowX: "hidden", overflowY: "auto", width: "100%", boxSizing: "border-box" }}>
+        <div className="hyeni-app-shell hyeni-child-memo-shell" style={{ height: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 22px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)", position: "relative", overflowX: "hidden", overflowY: "hidden", width: "100%", boxSizing: "border-box" }}>
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
@@ -10588,6 +10719,24 @@ export default function KidsScheduler() {
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {!isParent && (
+                            <button
+                                type="button"
+                                className="hyeni-child-memo-card"
+                                onClick={handleChildMemoOpen}
+                                aria-label="오늘의 메모 이력 보기"
+                                style={{ fontFamily: FF, width: "100%" }}
+                            >
+                                <span className="hyeni-child-memo-card-icon" aria-hidden="true">💌</span>
+                                <span className="hyeni-child-memo-card-body">
+                                    <span className="hyeni-child-memo-card-kicker">부모님과 도란도란</span>
+                                    <span className="hyeni-child-memo-card-title">오늘의 메모</span>
+                                    <span className="hyeni-child-memo-card-text">{memoPreviewText}</span>
+                                    <span className="hyeni-child-memo-card-meta">{memoPreviewMeta || "눌러서 메모를 남겨보세요"}</span>
+                                </span>
+                                <span className="hyeni-child-memo-card-count">{memoPreviewCount}</span>
+                            </button>
+                        )}
                         <div style={{ display: "grid", gridTemplateColumns: quickUtilityColumns, gap: 8 }}>
                             {quickUtilityActions.map((action) => renderQuickAction(action))}
                         </div>
@@ -10765,25 +10914,6 @@ export default function KidsScheduler() {
 
                 </div>
             ) : <>
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 14 }}>
-                    <button
-                        type="button"
-                        className="hyeni-child-memo-card"
-                        onClick={handleChildMemoOpen}
-                        aria-label="오늘의 메모 이력 보기"
-                        style={{ fontFamily: FF }}
-                    >
-                        <span className="hyeni-child-memo-card-icon" aria-hidden="true">💌</span>
-                        <span className="hyeni-child-memo-card-body">
-                            <span className="hyeni-child-memo-card-kicker">부모님과 도란도란</span>
-                            <span className="hyeni-child-memo-card-title">오늘의 메모</span>
-                            <span className="hyeni-child-memo-card-text">{memoPreviewText}</span>
-                            <span className="hyeni-child-memo-card-meta">{memoPreviewMeta || "눌러서 메모를 남겨보세요"}</span>
-                        </span>
-                        <span className="hyeni-child-memo-card-count">{memoPreviewCount}</span>
-                    </button>
-                </div>
-
                 <div style={{ ...cardSt, padding: "18px 14px 16px", borderRadius: DESIGN.radius.xl }}>
                     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14, padding: "0 6px" }}>
                         <div>
