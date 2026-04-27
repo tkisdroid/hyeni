@@ -11,6 +11,7 @@ vi.mock('../src/lib/forceRing.js', () => ({
 }));
 
 import { ForceRingTriggerButton } from '../src/components/forceRing/ForceRingTriggerButton.jsx';
+import { ForceRingConfirmModal } from '../src/components/forceRing/ForceRingConfirmModal.jsx';
 
 describe('ForceRingTriggerButton', () => {
   beforeEach(() => {
@@ -60,5 +61,69 @@ describe('ForceRingTriggerButton', () => {
     });
 
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('ForceRingConfirmModal', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('truncates input over 80 chars', () => {
+    render(
+      <ForceRingConfirmModal
+        isOpen={true}
+        onCancel={() => {}}
+        onConfirm={() => {}}
+        quotaInfo={{ quota: 1, used: 0 }}
+      />
+    );
+
+    const ta = screen.getByPlaceholderText(/지금 바로 전화 줘/);
+    fireEvent.change(ta, { target: { value: 'a'.repeat(120) } });
+
+    expect(ta.value.length).toBe(80);
+  });
+
+  it('shows quota remaining', () => {
+    render(
+      <ForceRingConfirmModal
+        isOpen={true}
+        onCancel={() => {}}
+        onConfirm={() => {}}
+        quotaInfo={{ quota: 10, used: 3 }}
+      />
+    );
+    expect(screen.getByText(/7 \/ 10/)).toBeDefined();
+  });
+
+  it('passes message to onConfirm', () => {
+    const onConfirm = vi.fn();
+    render(
+      <ForceRingConfirmModal
+        isOpen={true}
+        onCancel={() => {}}
+        onConfirm={onConfirm}
+        quotaInfo={{ quota: 1, used: 0 }}
+      />
+    );
+
+    const ta = screen.getByPlaceholderText(/지금 바로 전화 줘/);
+    fireEvent.change(ta, { target: { value: '도와줘' } });
+    fireEvent.click(screen.getByLabelText('응급 신호 보내기'));
+
+    expect(onConfirm).toHaveBeenCalledWith('도와줘');
+  });
+
+  it('returns null when isOpen false', () => {
+    const { container } = render(
+      <ForceRingConfirmModal
+        isOpen={false}
+        onCancel={() => {}}
+        onConfirm={() => {}}
+        quotaInfo={null}
+      />
+    );
+    expect(container.firstChild).toBeNull();
   });
 });
