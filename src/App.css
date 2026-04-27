@@ -782,7 +782,9 @@ a:focus-visible {
 
 .hyeni-memo-phone {
   width: min(100%, 430px);
-  min-height: calc(100dvh - 44px);
+  height: calc(100dvh - 44px);
+  min-height: 0;
+  flex: 1;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -795,14 +797,24 @@ a:focus-visible {
   border: 1px solid rgba(255, 212, 231, 0.92);
 }
 
-.hyeni-parent-memo-shell .hyeni-memo-page,
+.hyeni-parent-memo-shell .hyeni-memo-page {
+  min-height: 0;
+  flex: 1;
+}
 .hyeni-parent-memo-shell .hyeni-memo-phone {
-  min-height: calc(100dvh - 132px);
+  height: auto;
+  min-height: 0;
+  flex: 1;
 }
 
-.hyeni-child-memo-shell .hyeni-memo-page,
+.hyeni-child-memo-shell .hyeni-memo-page {
+  min-height: 0;
+  flex: 1;
+}
 .hyeni-child-memo-shell .hyeni-memo-phone {
-  min-height: calc(100dvh - 40px);
+  height: auto;
+  min-height: 0;
+  flex: 1;
 }
 
 .hyeni-child-memo-shell .hyeni-memo-phone {
