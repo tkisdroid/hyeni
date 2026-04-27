@@ -457,6 +457,10 @@ Deno.serve(async (req: Request) => {
       return await handleForceRingStop(body, callerUserId, supabase);
     }
 
+    if (body?.action === "force_ring_reminder") {
+      return await handleForceRingReminder(callerRole, supabase);
+    }
+
     if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "remote_listen_stop" || body?.action === "request_location" || body?.action === "request_device_status" || body?.action === "emergency" || body?.action === "sos") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
@@ -681,6 +685,94 @@ async function handleForceRingStop(
   }
 
   return jsonResponse({ stopped: true });
+}
+
+// ── force_ring_reminder — pg_cron이 1분마다 호출하는 5분-경과 알림 ─────
+async function handleForceRingReminder(
+  callerRole: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
+  // service_role JWT만 허용 (cron이 service_role key 헤더로 호출)
+  if (callerRole !== "service_role") {
+    return jsonResponse({ error: "service_role_required" }, 401);
+  }
+
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+  // 5~15분 사이 발생, 전달 성공, 미응답, 미정지, 리마인더 미발송 candidates
+  const { data: candidates, error: selErr } = await supabase
+    .from("force_ring_events")
+    .select("id, family_id, initiator_user_id, target_user_id")
+    .not("delivered_at", "is", null)
+    .is("acknowledged_at", null)
+    .is("stopped_at", null)
+    .lt("triggered_at", fiveMinAgo)
+    .gt("triggered_at", fifteenMinAgo)
+    .is("reminder_sent_at", null)
+    .limit(50);
+
+  if (selErr) return jsonResponse({ error: "select_failed", details: selErr.message }, 500);
+  if (!candidates?.length) return jsonResponse({ reminded_count: 0 });
+
+  let remindedCount = 0;
+  for (const event of candidates) {
+    const initiatorId = event.initiator_user_id as string;
+    const eventId = event.id as string;
+
+    const { data: tokens } = await supabase
+      .from("fcm_tokens")
+      .select("fcm_token, platform")
+      .eq("user_id", initiatorId);
+
+    const { data: webSubs } = await supabase
+      .from("push_subscriptions")
+      .select("subscription")
+      .eq("user_id", initiatorId);
+
+    const reminderTitle = "응급 신호 5분 경과";
+    const reminderBody = "아이 응답이 없습니다. 직접 통화나 119를 고려하세요";
+    const reminderData = { action: "force_ring_reminder", event_id: eventId };
+    const webPayload = {
+      title: reminderTitle,
+      body: reminderBody,
+      icon: "/icon.png",
+      badge: "/icon.png",
+      data: reminderData,
+    };
+
+    if (tokens?.length) {
+      await Promise.all(
+        tokens
+          .filter((t) => t.platform === "android")
+          .map((t) =>
+            sendFcmNotification(t.fcm_token as string, reminderTitle, reminderBody, reminderData),
+          ),
+      );
+    }
+    if (webSubs?.length) {
+      await Promise.all(
+        webSubs.map(async (sub) => {
+          try {
+            await webpush.sendNotification(
+              (sub as { subscription: unknown }).subscription as never,
+              JSON.stringify(webPayload),
+            );
+          } catch (err) {
+            console.warn(`force_ring_reminder webpush failed (event ${eventId}):`, err);
+          }
+        }),
+      );
+    }
+
+    await supabase
+      .from("force_ring_events")
+      .update({ reminder_sent_at: new Date().toISOString() })
+      .eq("id", eventId);
+    remindedCount++;
+  }
+
+  return jsonResponse({ reminded_count: remindedCount });
 }
 
 // ── Instant notification (when parent/child creates event or memo) ─────────
