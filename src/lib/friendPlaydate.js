@@ -134,14 +134,59 @@ export async function setSavedPlacePlaydateSafe(
   if (error) throw error;
 }
 
-export function subscribeActiveSession(_familyId, _onChange) {
-  throw new Error("not_implemented");
+export async function fetchActiveSession(familyId) {
+  if (!familyId) throw new Error("familyId required");
+  const { data, error } = await supabase
+    .from("friend_playdate_sessions")
+    .select("*")
+    .or(`family_a_id.eq.${familyId},family_b_id.eq.${familyId}`)
+    .is("stopped_at", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
-export async function fetchActiveSession(_familyId) {
-  throw new Error("not_implemented");
+export async function fetchHistory(familyId, limit = 10) {
+  if (!familyId) throw new Error("familyId required");
+  const { data, error } = await supabase
+    .from("friend_playdate_sessions")
+    .select("*")
+    .or(`family_a_id.eq.${familyId},family_b_id.eq.${familyId}`)
+    .order("started_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
 }
 
-export async function fetchHistory(_familyId, _limit = 10) {
-  throw new Error("not_implemented");
+export function subscribeActiveSession(familyId, onChange) {
+  if (!familyId) throw new Error("familyId required");
+  const channel = supabase
+    .channel(`friend_playdate-${familyId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "friend_playdate_sessions",
+        filter: `family_a_id=eq.${familyId}`,
+      },
+      (payload) => onChange(payload),
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "friend_playdate_sessions",
+        filter: `family_b_id=eq.${familyId}`,
+      },
+      (payload) => onChange(payload),
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
