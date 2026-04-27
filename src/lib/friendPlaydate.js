@@ -134,11 +134,16 @@ export async function setSavedPlacePlaydateSafe(
   if (error) throw error;
 }
 
+// PIPA: 명시적 컬럼 projection으로 타가족 child auth UUID 노출 차단.
+// place_name / friend_child_name / friend_family_phones는 FCM payload에서 enrich.
+const SESSION_DISPLAY_COLS =
+  "id, public_place_id, family_a_id, family_b_id, started_at, stopped_at, stop_reason";
+
 export async function fetchActiveSession(familyId) {
   if (!familyId) throw new Error("familyId required");
   const { data, error } = await supabase
     .from("friend_playdate_sessions")
-    .select("*")
+    .select(SESSION_DISPLAY_COLS)
     .or(`family_a_id.eq.${familyId},family_b_id.eq.${familyId}`)
     .is("stopped_at", null)
     .order("started_at", { ascending: false })
@@ -152,7 +157,7 @@ export async function fetchHistory(familyId, limit = 10) {
   if (!familyId) throw new Error("familyId required");
   const { data, error } = await supabase
     .from("friend_playdate_sessions")
-    .select("*")
+    .select(SESSION_DISPLAY_COLS)
     .or(`family_a_id.eq.${familyId},family_b_id.eq.${familyId}`)
     .order("started_at", { ascending: false })
     .limit(limit);

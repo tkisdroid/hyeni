@@ -78,4 +78,21 @@ describe("PlaydateSafePlaceList", () => {
       expect(upsertPublicPlace).not.toHaveBeenCalled();
     });
   });
+
+  it("kakao_place_id 없는 OFF 장소는 toggle disabled + hint 표시 (HIGH-1)", () => {
+    const lockedPlaces = [
+      {
+        id: "sp-3",
+        name: "동네공원",
+        location: { lat: 37.5, lng: 127.0 },
+        is_playdate_safe: false,
+        public_place_id: null,
+      },
+    ];
+    render(<PlaydateSafePlaceList places={lockedPlaces} onUpdate={vi.fn()} />);
+    expect(screen.getByRole("switch")).toBeDisabled();
+    expect(
+      screen.getByText(/카카오 장소 검색으로 등록된 곳만 지정 가능/),
+    ).toBeInTheDocument();
+  });
 });

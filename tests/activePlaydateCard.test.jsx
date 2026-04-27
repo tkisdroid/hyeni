@@ -44,12 +44,14 @@ describe('ActivePlaydateCard', () => {
   it('정지 버튼 → endPlaydate(parent_end) + onEnd', async () => {
     endPlaydate.mockResolvedValueOnce(undefined);
     const onEnd = vi.fn();
-    window.confirm = () => true;
+    // MEDIUM-4 fix: vi.spyOn은 vi.restoreAllMocks 시 자동 복원 → 다른 spec leak 방지
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<ActivePlaydateCard session={session} onEnd={onEnd} />);
     fireEvent.click(screen.getByRole('button', { name: /정지/ }));
     await waitFor(() => {
       expect(endPlaydate).toHaveBeenCalledWith('sess-1', 'parent_end');
       expect(onEnd).toHaveBeenCalled();
     });
+    vi.restoreAllMocks();
   });
 });

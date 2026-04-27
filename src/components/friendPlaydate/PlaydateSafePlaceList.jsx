@@ -12,8 +12,16 @@ export default function PlaydateSafePlaceList({ places, onUpdate }) {
     );
   }
 
+  // 카카오 장소 ID가 있어야 친구놀이 매칭이 가능 (RLS WITH CHECK kakao_place_id IS NOT NULL).
+  const isPlaydateEligible = (place) =>
+    !!(place.location?.kakao_place_id || place.public_place_id);
+
   const handleToggle = async (place) => {
     if (busyId) return;
+    if (!place.is_playdate_safe && !isPlaydateEligible(place)) {
+      alert('카카오 장소 검색으로 등록된 곳만 친구놀이 장소로 지정할 수 있어요');
+      return;
+    }
     setBusyId(place.id);
     try {
       const next = !place.is_playdate_safe;
@@ -39,34 +47,47 @@ export default function PlaydateSafePlaceList({ places, onUpdate }) {
   return (
     <div>
       <div style={{ fontWeight: 600, marginBottom: 8 }}>친구놀이 안전장소</div>
-      {places.map((place) => (
-        <div key={place.id} style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: 8, borderBottom: '1px solid #f3f4f6',
-        }}>
-          <div>{place.name}</div>
-          <button
-            role="switch"
-            aria-checked={place.is_playdate_safe}
-            aria-label={`${place.name} 친구놀이 토글`}
-            disabled={busyId === place.id}
-            onClick={() => handleToggle(place)}
-            style={{
-              width: 44, height: 24, borderRadius: 12,
-              backgroundColor: place.is_playdate_safe ? '#10b981' : '#d1d5db',
-              border: 'none', position: 'relative',
-              cursor: busyId === place.id ? 'wait' : 'pointer',
-            }}
-          >
-            <span style={{
-              position: 'absolute', top: 2,
-              left: place.is_playdate_safe ? 22 : 2,
-              width: 20, height: 20, borderRadius: 10,
-              backgroundColor: '#fff', transition: 'left 0.2s',
-            }} />
-          </button>
-        </div>
-      ))}
+      {places.map((place) => {
+        const eligible = isPlaydateEligible(place);
+        const lockedOff = !eligible && !place.is_playdate_safe;
+        return (
+          <div key={place.id} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: 8, borderBottom: '1px solid #f3f4f6',
+          }}>
+            <div>
+              <div>{place.name}</div>
+              {lockedOff && (
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                  카카오 장소 검색으로 등록된 곳만 지정 가능
+                </div>
+              )}
+            </div>
+            <button
+              role="switch"
+              aria-checked={place.is_playdate_safe}
+              aria-label={`${place.name} 친구놀이 토글`}
+              disabled={busyId === place.id || lockedOff}
+              onClick={() => handleToggle(place)}
+              style={{
+                width: 44, height: 24, borderRadius: 12,
+                backgroundColor: place.is_playdate_safe ? '#10b981' : '#d1d5db',
+                border: 'none', position: 'relative',
+                opacity: lockedOff ? 0.4 : 1,
+                cursor: busyId === place.id ? 'wait'
+                  : (lockedOff ? 'not-allowed' : 'pointer'),
+              }}
+            >
+              <span style={{
+                position: 'absolute', top: 2,
+                left: place.is_playdate_safe ? 22 : 2,
+                width: 20, height: 20, borderRadius: 10,
+                backgroundColor: '#fff', transition: 'left 0.2s',
+              }} />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
