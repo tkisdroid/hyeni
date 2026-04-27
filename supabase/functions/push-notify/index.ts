@@ -408,6 +408,10 @@ Deno.serve(async (req: Request) => {
       return await handlePlaydateStarted(supabase, body, callerUserId, callerRole);
     }
 
+    if (body?.action === "playdate_ended") {
+      return await handlePlaydateEnded(supabase, body, callerUserId, callerRole);
+    }
+
     if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "remote_listen_stop" || body?.action === "request_location" || body?.action === "request_device_status" || body?.action === "emergency" || body?.action === "sos") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
@@ -922,6 +926,81 @@ async function handlePlaydateStarted(
   }
   for (const t of tokensB) {
     const result = await sendFcmNotification(t.fcm_token, titleB, bodyB, dataB);
+    if (result === "sent") sentCount++;
+    else if (result === "expired") expiredIds.push(t.id);
+  }
+  if (expiredIds.length > 0) {
+    await supabase.from("fcm_tokens").delete().in("id", expiredIds);
+  }
+
+  return jsonResponse({
+    delivered: sentCount > 0,
+    sent_count: sentCount,
+    fcm_count: tokensA.length + tokensB.length,
+  });
+}
+
+async function handlePlaydateEnded(
+  supabase: ReturnType<typeof createClient>,
+  body: Record<string, unknown>,
+  callerUserId: string,
+  callerRole: string,
+) {
+  const sessionId = typeof body.session_id === "string" ? body.session_id : "";
+  if (!sessionId) {
+    return jsonResponse({ error: "session_id_required" }, 400);
+  }
+
+  const { data: session, error: sessionErr } = await supabase
+    .from("friend_playdate_sessions")
+    .select("id, public_place_id, family_a_id, family_b_id, child_a_id, child_b_id, stopped_at, stop_reason")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (sessionErr || !session) {
+    return jsonResponse({ error: "session_not_found" }, 404);
+  }
+
+  // 종료 푸시는 stopped_at이 set된 후에만 발송. 미설정시 422.
+  if (!session.stopped_at) {
+    return jsonResponse({ error: "session_not_stopped" }, 422);
+  }
+
+  // Authz: child_a/child_b 또는 service_role (cron auto_geofence_exit).
+  const isService = callerRole === "service_role";
+  if (!isService && callerUserId !== session.child_a_id && callerUserId !== session.child_b_id) {
+    return jsonResponse({ error: "forbidden" }, 403);
+  }
+
+  const [placeRes, familyARes, familyBRes] = await Promise.all([
+    supabase.from("public_places").select("name").eq("id", session.public_place_id).maybeSingle(),
+    supabase.from("families").select("parent_id").eq("id", session.family_a_id).maybeSingle(),
+    supabase.from("families").select("parent_id").eq("id", session.family_b_id).maybeSingle(),
+  ]);
+
+  const placeName = placeRes.data?.name ?? "안전장소";
+  const stopReason = (session.stop_reason as string) ?? "child_end";
+
+  const [tokensA, tokensB] = await Promise.all([
+    fetchFcmTokensForUser(supabase, familyARes.data?.parent_id),
+    fetchFcmTokensForUser(supabase, familyBRes.data?.parent_id),
+  ]);
+
+  const data: Record<string, string> = {
+    type: "playdate_ended",
+    action: "playdate_ended",
+    session_id: session.id,
+    stop_reason: stopReason,
+    place_name: placeName,
+  };
+
+  const title = "친구놀이 종료";
+  const body_ = `${placeName} 친구놀이가 종료됐어요`;
+
+  const expiredIds: string[] = [];
+  let sentCount = 0;
+  for (const t of [...tokensA, ...tokensB]) {
+    const result = await sendFcmNotification(t.fcm_token, title, body_, data);
     if (result === "sent") sentCount++;
     else if (result === "expired") expiredIds.push(t.id);
   }
