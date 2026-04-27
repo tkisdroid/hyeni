@@ -8,7 +8,17 @@ BEGIN;
 -- SELECT cron.unschedule('force_ring_delivery_timeout');
 -- SELECT cron.unschedule('force_ring_reminder_check');
 
-ALTER PUBLICATION supabase_realtime DROP TABLE public.force_ring_events;
+DO $publication$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'force_ring_events'
+  ) THEN
+    EXECUTE 'ALTER PUBLICATION supabase_realtime DROP TABLE public.force_ring_events';
+  END IF;
+END$publication$;
 
 DROP FUNCTION IF EXISTS public.force_ring_check_quota(uuid);
 

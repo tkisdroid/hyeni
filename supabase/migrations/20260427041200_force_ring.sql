@@ -126,7 +126,17 @@ REVOKE ALL ON FUNCTION public.force_ring_check_quota(uuid) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.force_ring_check_quota(uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.force_ring_check_quota(uuid) TO authenticated;
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.force_ring_events;
+DO $publication$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'force_ring_events'
+  ) THEN
+    EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.force_ring_events';
+  END IF;
+END$publication$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- pg_cron jobs DEFERRED until Phase 2 (push-notify Edge Function deploy)
