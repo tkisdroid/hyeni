@@ -16,6 +16,7 @@ import { FeatureLockOverlay } from "./components/paywall/FeatureLockOverlay.jsx"
 import { TrialEndingBanner } from "./components/paywall/TrialEndingBanner.jsx";
 import { AutoRenewalDisclosure } from "./components/paywall/AutoRenewalDisclosure.jsx";
 import { SubscriptionManagement } from "./components/settings/SubscriptionManagement.jsx";
+import { ForceRingPanel } from "./components/forceRing/ForceRingPanel.jsx";
 import "./App.css";
 
 function normalizeKakaoAppKey(value) {
@@ -11260,6 +11261,14 @@ export default function KidsScheduler() {
                     familyId={familyId}
                     senderUserId={authUser?.id}
                     onClose={() => setShowRemoteAudio(false)}
+                />
+            )}
+
+            {/* Force Ring (강제 소리 울리기) — Spec: docs/superpowers/specs/2026-04-27-force-ring-design.md */}
+            {isParent && familyId && (
+                <ForceRingPanel
+                    familyId={familyId}
+                    hasChild={(familyInfo?.members ?? []).some(m => m.role === "child")}
                 />
             )}
 

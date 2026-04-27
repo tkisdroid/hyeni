@@ -303,6 +303,51 @@ async function sendFcmNotification(
   }
 }
 
+// Data-only FCM (force_ring 전용) — TTL/action 커스텀 가능, notification 없음
+async function sendFcmDataOnly(
+  token: string,
+  payload: { data: Record<string, string>; android: { ttl: string } },
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const accessToken = await getFcmAccessToken();
+  if (!accessToken) return { success: false, error: "fcm_auth_failed" };
+
+  const message = {
+    message: {
+      token,
+      data: Object.fromEntries(
+        Object.entries(payload.data).map(([k, v]) => [k, String(v)])
+      ),
+      android: {
+        priority: "HIGH",
+        ttl: payload.android.ttl,
+        direct_boot_ok: true,
+      },
+    },
+  };
+
+  try {
+    const res = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${FCM_PROJECT_ID}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(message),
+      }
+    );
+    if (!res.ok) {
+      const errBody = await res.text();
+      return { success: false, error: `fcm_${res.status}: ${errBody.slice(0, 200)}` };
+    }
+    const json = await res.json();
+    return { success: true, messageId: json.name };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
 // Send FCM to all family members (exclude sender)
 async function sendFcmToFamily(
   supabase: ReturnType<typeof createClient>,
@@ -385,12 +430,22 @@ Deno.serve(async (req: Request) => {
 
   const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(token);
-  if (claimsErr || !claimsData?.claims?.sub) {
+  if (claimsErr || !claimsData?.claims) {
     console.warn("push-notify: invalid jwt", claimsErr?.message);
     return jsonResponse({ error: "invalid jwt" }, 401);
   }
-  const callerUserId = claimsData.claims.sub as string;
-  const callerRole = (claimsData.claims.role as string) || "authenticated";
+  // Supabase service_role JWT는 sub 클레임 없이 role: 'service_role'만 가짐.
+  // cron이 force_ring_reminder 같은 system action을 호출하려면 이 path를 허용해야 함.
+  // 일반 user JWT는 반드시 sub 보유.
+  const claimsSub = (claimsData.claims as { sub?: string }).sub;
+  const claimsRole = (claimsData.claims as { role?: string }).role || "authenticated";
+  const isServiceRole = claimsRole === "service_role";
+  if (!claimsSub && !isServiceRole) {
+    console.warn("push-notify: jwt missing sub claim and not service_role");
+    return jsonResponse({ error: "invalid jwt" }, 401);
+  }
+  const callerUserId = claimsSub || "";  // service_role 호출자는 빈 문자열
+  const callerRole = claimsRole;
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -404,6 +459,18 @@ Deno.serve(async (req: Request) => {
       } catch { /* not JSON, proceed as cron */ }
     }
 
+    if (body?.action === "force_ring") {
+      return await handleForceRing(body, callerUserId, supabase);
+    }
+
+    if (body?.action === "force_ring_stop") {
+      return await handleForceRingStop(body, callerUserId, supabase);
+    }
+
+    if (body?.action === "force_ring_reminder") {
+      return await handleForceRingReminder(callerRole, supabase);
+    }
+
     if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "remote_listen_stop" || body?.action === "request_location" || body?.action === "request_device_status" || body?.action === "emergency" || body?.action === "sos") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
@@ -415,6 +482,308 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: String(err) }, 500);
   }
 });
+
+// ── force_ring (강제 소리 울리기) — 부모→아이 응급 알람 ──────────────────
+async function handleForceRing(
+  body: Record<string, unknown>,
+  callerUserId: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
+  const familyId = body.family_id as string | undefined;
+  if (!familyId) return jsonResponse({ error: "missing_family_id" }, 400);
+
+  // 1. 부모 권한 확인 (RLS와 별개로 명시적 게이트)
+  const { data: membership, error: memErr } = await supabase
+    .from("family_members")
+    .select("role, name")
+    .eq("user_id", callerUserId)
+    .eq("family_id", familyId)
+    .maybeSingle();
+  if (memErr || !membership || membership.role !== "parent") {
+    return jsonResponse({ error: "force_ring_requires_parent" }, 403);
+  }
+
+  // 2. client_request_hash 중복 요청 dedup (race condition 1차 방어)
+  const clientHash = (body.client_request_hash as string) || null;
+  if (clientHash) {
+    const { data: existing } = await supabase
+      .from("force_ring_events")
+      .select("id, delivered_at")
+      .eq("client_request_hash", clientHash)
+      .maybeSingle();
+    if (existing) {
+      return jsonResponse({
+        event_id: existing.id,
+        delivered: !!existing.delivered_at,
+        deduplicated: true,
+      });
+    }
+  }
+
+  // 3. quota check (free 1/day, premium 10/day)
+  const { data: quota, error: quotaErr } = await supabase.rpc(
+    "force_ring_check_quota",
+    { p_family_id: familyId },
+  );
+  if (quotaErr) return jsonResponse({ error: "quota_check_failed" }, 500);
+  if (!quota?.allowed) {
+    return jsonResponse({
+      error: "force_ring_quota_exceeded",
+      quota: quota?.quota,
+      used: quota?.used,
+      tier: quota?.tier,
+    }, 429);
+  }
+
+  // 4. target child 결정 (가장 먼저 가입한 child)
+  const { data: children } = await supabase
+    .from("family_members")
+    .select("user_id")
+    .eq("family_id", familyId)
+    .eq("role", "child")
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (!children?.length) {
+    return jsonResponse({ error: "no_child_in_family" }, 404);
+  }
+  const targetUserId = children[0].user_id as string;
+
+  // 5. event INSERT (UNIQUE partial idx가 동시 active 방지)
+  const message = ((body.message as string) || "").slice(0, 80);
+  const { data: event, error: insertErr } = await supabase
+    .from("force_ring_events")
+    .insert({
+      family_id: familyId,
+      initiator_user_id: callerUserId,
+      target_user_id: targetUserId,
+      message: message || null,
+      client_request_hash: clientHash,
+    })
+    .select("id")
+    .single();
+
+  if (insertErr) {
+    if ((insertErr as { code?: string }).code === "23505") {
+      const { data: active } = await supabase
+        .from("force_ring_events")
+        .select("id")
+        .eq("family_id", familyId)
+        .is("stopped_at", null)
+        .maybeSingle();
+      return jsonResponse({
+        error: "force_ring_already_active",
+        active_event_id: active?.id,
+      }, 423);
+    }
+    return jsonResponse({ error: "insert_failed", details: insertErr.message }, 500);
+  }
+
+  // 6. FCM 토큰 조회 (target child의 android 기기)
+  const { data: tokens } = await supabase
+    .from("fcm_tokens")
+    .select("fcm_token, platform")
+    .eq("user_id", targetUserId)
+    .eq("platform", "android");
+
+  if (!tokens?.length) {
+    await supabase.from("force_ring_events")
+      .update({
+        stopped_at: new Date().toISOString(),
+        stop_reason: "delivery_failed",
+        delivery_status: { reason: "no_fcm_tokens" },
+      })
+      .eq("id", event.id);
+    return jsonResponse({
+      event_id: event.id,
+      delivered: false,
+      error: "no_fcm_tokens",
+    });
+  }
+
+  // 7. data-only FCM 발송 (high priority, ttl=600s, direct_boot_ok)
+  const initiatorName = (membership.name as string) || "부모님";
+  const fcmPayload = {
+    data: {
+      action: "force_ring",
+      event_id: event.id,
+      message,
+      initiator_name: initiatorName,
+    },
+    android: { ttl: "600s" },
+  };
+
+  const fcmResults = await Promise.all(
+    tokens.map((t) => sendFcmDataOnly(t.fcm_token as string, fcmPayload)),
+  );
+  const anySuccess = fcmResults.some((r) => r.success);
+
+  // 8. 결과 마킹: delivered_at OR stopped_at(delivery_failed)
+  if (anySuccess) {
+    await supabase.from("force_ring_events")
+      .update({
+        delivered_at: new Date().toISOString(),
+        delivery_status: { fcm: fcmResults },
+      })
+      .eq("id", event.id);
+  } else {
+    await supabase.from("force_ring_events")
+      .update({
+        stopped_at: new Date().toISOString(),
+        stop_reason: "delivery_failed",
+        delivery_status: { fcm: fcmResults },
+      })
+      .eq("id", event.id);
+  }
+
+  return jsonResponse({
+    event_id: event.id,
+    delivered: anySuccess,
+    quota_remaining: Math.max(0, quota.quota - quota.used - (anySuccess ? 1 : 0)),
+  });
+}
+
+// ── force_ring_stop — 부모가 직접 정지 ─────────────────────────────────
+async function handleForceRingStop(
+  body: Record<string, unknown>,
+  callerUserId: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
+  const eventId = body.event_id as string | undefined;
+  if (!eventId) return jsonResponse({ error: "missing_event_id" }, 400);
+
+  const { data: event, error: selectErr } = await supabase
+    .from("force_ring_events")
+    .select("id, initiator_user_id, target_user_id, family_id, stopped_at")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (selectErr || !event) return jsonResponse({ error: "event_not_found" }, 404);
+  if (event.initiator_user_id !== callerUserId) {
+    return jsonResponse({ error: "not_initiator" }, 403);
+  }
+  if (event.stopped_at) {
+    // 이미 정지됨 — idempotent 응답
+    return jsonResponse({ stopped: true, already: true });
+  }
+
+  // stopped_at IS NULL 가드로 race condition 방지 (autostop과 동시성)
+  const { error: updateErr } = await supabase
+    .from("force_ring_events")
+    .update({
+      stopped_at: new Date().toISOString(),
+      stop_reason: "parent_stop",
+    })
+    .eq("id", eventId)
+    .is("stopped_at", null);
+  if (updateErr) return jsonResponse({ error: "update_failed" }, 500);
+
+  // target child에게 force_ring_stop 데이터 전송 (벨소리 즉시 정지)
+  const { data: tokens } = await supabase
+    .from("fcm_tokens")
+    .select("fcm_token")
+    .eq("user_id", event.target_user_id as string)
+    .eq("platform", "android");
+
+  if (tokens?.length) {
+    await Promise.all(
+      tokens.map((t) =>
+        sendFcmDataOnly(t.fcm_token as string, {
+          data: { action: "force_ring_stop", event_id: eventId },
+          android: { ttl: "60s" },
+        }),
+      ),
+    );
+  }
+
+  return jsonResponse({ stopped: true });
+}
+
+// ── force_ring_reminder — pg_cron이 1분마다 호출하는 5분-경과 알림 ─────
+async function handleForceRingReminder(
+  callerRole: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
+  // service_role JWT만 허용 (cron이 service_role key 헤더로 호출)
+  if (callerRole !== "service_role") {
+    return jsonResponse({ error: "service_role_required" }, 401);
+  }
+
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+  // 5~15분 사이 발생, 전달 성공, 미응답, 미정지, 리마인더 미발송 candidates
+  const { data: candidates, error: selErr } = await supabase
+    .from("force_ring_events")
+    .select("id, family_id, initiator_user_id, target_user_id")
+    .not("delivered_at", "is", null)
+    .is("acknowledged_at", null)
+    .is("stopped_at", null)
+    .lt("triggered_at", fiveMinAgo)
+    .gt("triggered_at", fifteenMinAgo)
+    .is("reminder_sent_at", null)
+    .limit(50);
+
+  if (selErr) return jsonResponse({ error: "select_failed", details: selErr.message }, 500);
+  if (!candidates?.length) return jsonResponse({ reminded_count: 0 });
+
+  let remindedCount = 0;
+  for (const event of candidates) {
+    const initiatorId = event.initiator_user_id as string;
+    const eventId = event.id as string;
+
+    const { data: tokens } = await supabase
+      .from("fcm_tokens")
+      .select("fcm_token, platform")
+      .eq("user_id", initiatorId);
+
+    const { data: webSubs } = await supabase
+      .from("push_subscriptions")
+      .select("subscription")
+      .eq("user_id", initiatorId);
+
+    const reminderTitle = "응급 신호 5분 경과";
+    const reminderBody = "아이 응답이 없습니다. 직접 통화나 119를 고려하세요";
+    const reminderData = { action: "force_ring_reminder", event_id: eventId };
+    const webPayload = {
+      title: reminderTitle,
+      body: reminderBody,
+      icon: "/icon.png",
+      badge: "/icon.png",
+      data: reminderData,
+    };
+
+    if (tokens?.length) {
+      await Promise.all(
+        tokens
+          .filter((t) => t.platform === "android")
+          .map((t) =>
+            sendFcmNotification(t.fcm_token as string, reminderTitle, reminderBody, reminderData),
+          ),
+      );
+    }
+    if (webSubs?.length) {
+      await Promise.all(
+        webSubs.map(async (sub) => {
+          try {
+            await webpush.sendNotification(
+              (sub as { subscription: unknown }).subscription as never,
+              JSON.stringify(webPayload),
+            );
+          } catch (err) {
+            console.warn(`force_ring_reminder webpush failed (event ${eventId}):`, err);
+          }
+        }),
+      );
+    }
+
+    await supabase
+      .from("force_ring_events")
+      .update({ reminder_sent_at: new Date().toISOString() })
+      .eq("id", eventId);
+    remindedCount++;
+  }
+
+  return jsonResponse({ reminded_count: remindedCount });
+}
 
 // ── Instant notification (when parent/child creates event or memo) ─────────
 async function handleInstantNotification(
