@@ -162,6 +162,35 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             return;
         }
 
+        // Friend playdate session lifecycle (Spec FP-D14: native 신규 채널/권한 0)
+        if ("playdate_started".equals(type) || "playdate_ended".equals(type)) {
+            String playdateTitle = "playdate_started".equals(type)
+                ? "친구놀이 시작"
+                : "친구놀이 종료";
+            String placeName = data.get("place_name");
+            String friendChildName = data.get("friend_child_name");
+            String playdateBody = "playdate_started".equals(type)
+                ? (placeName != null ? placeName : "안전장소")
+                    + (friendChildName != null ? " — " + friendChildName + "와 함께" : "")
+                : (placeName != null ? placeName + " 친구놀이가 종료됐어요" : "친구놀이가 종료됐어요");
+
+            String sessionId = data.get("session_id");
+            int playdateNotifId = sessionId != null
+                ? Math.abs(sessionId.hashCode())
+                : (int) (System.currentTimeMillis() & 0x7fffffff);
+
+            NotificationHelper.showNotification(
+                this,
+                playdateTitle,
+                playdateBody,
+                "schedule",
+                false,
+                false,
+                playdateNotifId
+            );
+            return;
+        }
+
         boolean isEmergency = isEmergencyNotification(type, data);
         String stableId = firstNonBlank(
             data.get("pushId"),
