@@ -12,11 +12,11 @@ import android.os.Looper;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.cardview.widget.CardView;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -72,7 +72,7 @@ public class ForceRingActivity extends AppCompatActivity {
         ((TextView) findViewById(R.id.time_text)).setText(
                 new SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(new Date()));
 
-        CardView messageCard = findViewById(R.id.message_card);
+        LinearLayout messageCard = findViewById(R.id.message_card);
         if (message != null && !message.trim().isEmpty()) {
             if (isLocked && isSecure) {
                 messageCard.setVisibility(View.GONE);
