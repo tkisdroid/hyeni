@@ -453,6 +453,10 @@ Deno.serve(async (req: Request) => {
       return await handleForceRing(body, callerUserId, supabase);
     }
 
+    if (body?.action === "force_ring_stop") {
+      return await handleForceRingStop(body, callerUserId, supabase);
+    }
+
     if (body?.action === "new_event" || body?.action === "new_memo" || body?.action === "kkuk" || body?.action === "parent_alert" || body?.action === "remote_listen" || body?.action === "remote_listen_stop" || body?.action === "request_location" || body?.action === "request_device_status" || body?.action === "emergency" || body?.action === "sos") {
       return await handleInstantNotification(supabase, body, callerUserId, callerRole, req);
     }
@@ -622,6 +626,61 @@ async function handleForceRing(
     delivered: anySuccess,
     quota_remaining: Math.max(0, quota.quota - quota.used - (anySuccess ? 1 : 0)),
   });
+}
+
+// ── force_ring_stop — 부모가 직접 정지 ─────────────────────────────────
+async function handleForceRingStop(
+  body: Record<string, unknown>,
+  callerUserId: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
+  const eventId = body.event_id as string | undefined;
+  if (!eventId) return jsonResponse({ error: "missing_event_id" }, 400);
+
+  const { data: event, error: selectErr } = await supabase
+    .from("force_ring_events")
+    .select("id, initiator_user_id, target_user_id, family_id, stopped_at")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (selectErr || !event) return jsonResponse({ error: "event_not_found" }, 404);
+  if (event.initiator_user_id !== callerUserId) {
+    return jsonResponse({ error: "not_initiator" }, 403);
+  }
+  if (event.stopped_at) {
+    // 이미 정지됨 — idempotent 응답
+    return jsonResponse({ stopped: true, already: true });
+  }
+
+  // stopped_at IS NULL 가드로 race condition 방지 (autostop과 동시성)
+  const { error: updateErr } = await supabase
+    .from("force_ring_events")
+    .update({
+      stopped_at: new Date().toISOString(),
+      stop_reason: "parent_stop",
+    })
+    .eq("id", eventId)
+    .is("stopped_at", null);
+  if (updateErr) return jsonResponse({ error: "update_failed" }, 500);
+
+  // target child에게 force_ring_stop 데이터 전송 (벨소리 즉시 정지)
+  const { data: tokens } = await supabase
+    .from("fcm_tokens")
+    .select("fcm_token")
+    .eq("user_id", event.target_user_id as string)
+    .eq("platform", "android");
+
+  if (tokens?.length) {
+    await Promise.all(
+      tokens.map((t) =>
+        sendFcmDataOnly(t.fcm_token as string, {
+          data: { action: "force_ring_stop", event_id: eventId },
+          android: { ttl: "60s" },
+        }),
+      ),
+    );
+  }
+
+  return jsonResponse({ stopped: true });
 }
 
 // ── Instant notification (when parent/child creates event or memo) ─────────
