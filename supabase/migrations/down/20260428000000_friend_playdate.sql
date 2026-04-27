@@ -15,6 +15,11 @@ BEGIN
 END$publication$;
 
 DROP FUNCTION IF EXISTS public.find_playdate_candidates(uuid);
+
+-- C-2: trigger + function teardown (must precede table DROP).
+DROP TRIGGER IF EXISTS friend_playdate_immutable_fields ON public.friend_playdate_sessions;
+DROP FUNCTION IF EXISTS public.guard_friend_playdate_update();
+
 DROP TABLE IF EXISTS public.friend_playdate_sessions;
 
 ALTER TABLE public.families DROP COLUMN IF EXISTS playdate_enabled;
@@ -23,6 +28,7 @@ ALTER TABLE public.saved_places DROP COLUMN IF EXISTS public_place_id;
 
 DROP TABLE IF EXISTS public.public_places;
 
--- PostGIS extension은 다른 기능이 사용할 수 있으므로 DROP하지 않음
+-- H-4: family_members_user_id_idx는 다른 RLS hot path에서도 유용 → DROP하지 않음.
+-- PostGIS extension은 다른 기능이 사용할 수 있으므로 DROP하지 않음.
 
 COMMIT;

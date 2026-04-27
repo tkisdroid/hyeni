@@ -41,9 +41,12 @@ DROP POLICY IF EXISTS public_places_read ON public.public_places;
 CREATE POLICY public_places_read ON public.public_places
   FOR SELECT TO authenticated USING (true);
 
+-- H-1: INSERT는 Kakao 검색 결과만 허용 (kakao_place_id 필수).
+-- nameless/coordsless rows은 service_role admin tools로만 생성 가능.
 DROP POLICY IF EXISTS public_places_insert ON public.public_places;
 CREATE POLICY public_places_insert ON public.public_places
-  FOR INSERT TO authenticated WITH CHECK (true);
+  FOR INSERT TO authenticated
+  WITH CHECK (kakao_place_id IS NOT NULL);
 
 -- DELETE/UPDATE 정책 없음 = service_role만 (불변 카탈로그)
 
@@ -61,14 +64,17 @@ ALTER TABLE public.families
   ADD COLUMN IF NOT EXISTS playdate_enabled boolean NOT NULL DEFAULT false;
 
 -- 4. friend_playdate_sessions (immutable audit)
+-- H-3: child_a_id / child_b_id / initiator_user_id → auth.users FK + ON DELETE SET NULL
+-- (force_ring_events sibling pattern — supabase/migrations/20260427041200_force_ring.sql L26-44).
+-- NOT NULL은 DROP, 대신 INSERT RLS WITH CHECK에서 강제.
 CREATE TABLE IF NOT EXISTS public.friend_playdate_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   public_place_id uuid NOT NULL REFERENCES public.public_places(id),
   family_a_id uuid NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
   family_b_id uuid NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
-  child_a_id uuid NOT NULL,
-  child_b_id uuid NOT NULL,
-  initiator_user_id uuid NOT NULL,
+  child_a_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  child_b_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  initiator_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   started_at timestamptz NOT NULL DEFAULT now(),
   stopped_at timestamptz,
   stop_reason text CHECK (stop_reason IN ('child_end','parent_end','auto_geofence_exit')),
@@ -86,40 +92,75 @@ CREATE INDEX IF NOT EXISTS friend_playdate_family_b_time_idx
 
 ALTER TABLE public.friend_playdate_sessions ENABLE ROW LEVEL SECURITY;
 
+-- C-1: (SELECT auth.uid()) 패턴 — planner가 statement당 한번만 평가하도록 wrap.
 DROP POLICY IF EXISTS friend_playdate_select ON public.friend_playdate_sessions;
 CREATE POLICY friend_playdate_select ON public.friend_playdate_sessions
   FOR SELECT TO authenticated
   USING (
-    family_a_id IN (SELECT family_id FROM public.family_members WHERE user_id = auth.uid())
-    OR family_b_id IN (SELECT family_id FROM public.family_members WHERE user_id = auth.uid())
+    family_a_id IN (SELECT family_id FROM public.family_members WHERE user_id = (SELECT auth.uid()))
+    OR family_b_id IN (SELECT family_id FROM public.family_members WHERE user_id = (SELECT auth.uid()))
   );
 
 -- INSERT 정책 없음 → start_playdate RPC (SECURITY DEFINER)가 강제 (또는 client INSERT는 RLS deny → 본 plan은 client INSERT 사용. INSERT 정책 추가가 필요한 경우 Task 1.3 검증 후 패치)
 
+-- H-3 + C-1: INSERT 정책에서 NOT NULL 강제 + (SELECT auth.uid()) wrap.
 DROP POLICY IF EXISTS friend_playdate_insert ON public.friend_playdate_sessions;
 CREATE POLICY friend_playdate_insert ON public.friend_playdate_sessions
   FOR INSERT TO authenticated
   WITH CHECK (
-    initiator_user_id = auth.uid()
+    initiator_user_id = (SELECT auth.uid())
+    AND child_a_id IS NOT NULL
+    AND child_b_id IS NOT NULL
     AND (
-      family_a_id IN (SELECT family_id FROM public.family_members WHERE user_id = auth.uid())
-      OR family_b_id IN (SELECT family_id FROM public.family_members WHERE user_id = auth.uid())
+      family_a_id IN (SELECT family_id FROM public.family_members WHERE user_id = (SELECT auth.uid()))
+      OR family_b_id IN (SELECT family_id FROM public.family_members WHERE user_id = (SELECT auth.uid()))
     )
   );
 
+-- C-1: (SELECT auth.uid()) 패턴.
 DROP POLICY IF EXISTS friend_playdate_update ON public.friend_playdate_sessions;
 CREATE POLICY friend_playdate_update ON public.friend_playdate_sessions
   FOR UPDATE TO authenticated
   USING (
     stopped_at IS NULL
     AND (
-      family_a_id IN (SELECT family_id FROM public.family_members WHERE user_id = auth.uid())
-      OR family_b_id IN (SELECT family_id FROM public.family_members WHERE user_id = auth.uid())
+      family_a_id IN (SELECT family_id FROM public.family_members WHERE user_id = (SELECT auth.uid()))
+      OR family_b_id IN (SELECT family_id FROM public.family_members WHERE user_id = (SELECT auth.uid()))
     )
   )
   WITH CHECK (stopped_at IS NOT NULL);
 
 -- DELETE 정책 없음 = service_role only (immutable audit)
+
+-- C-2: BEFORE UPDATE trigger — RLS update 정책으로 stopped_at만 수정 가능하게 한 위에,
+-- immutable 필드(family_*, child_*, initiator, public_place, started_at, created_at) 변조 차단.
+CREATE OR REPLACE FUNCTION public.guard_friend_playdate_update()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.family_a_id <> OLD.family_a_id
+     OR NEW.family_b_id <> OLD.family_b_id
+     OR NEW.child_a_id IS DISTINCT FROM OLD.child_a_id
+     OR NEW.child_b_id IS DISTINCT FROM OLD.child_b_id
+     OR NEW.initiator_user_id IS DISTINCT FROM OLD.initiator_user_id
+     OR NEW.public_place_id <> OLD.public_place_id
+     OR NEW.started_at <> OLD.started_at
+     OR NEW.created_at <> OLD.created_at THEN
+    RAISE EXCEPTION 'friend_playdate_sessions: immutable fields cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS friend_playdate_immutable_fields ON public.friend_playdate_sessions;
+CREATE TRIGGER friend_playdate_immutable_fields
+  BEFORE UPDATE ON public.friend_playdate_sessions
+  FOR EACH ROW EXECUTE FUNCTION public.guard_friend_playdate_update();
+
+-- H-4: defensive index on family_members.user_id (cross-cutting RLS hot path).
+-- friend_playdate RLS 정책은 매 row마다 family_members WHERE user_id = auth.uid() lookup 발생 →
+-- user_id 인덱스가 없으면 모든 family_members seq scan. 다른 RLS도 동일 hot path 사용.
+CREATE INDEX IF NOT EXISTS family_members_user_id_idx
+  ON public.family_members (user_id);
 
 -- 5. find_playdate_candidates RPC
 CREATE OR REPLACE FUNCTION public.find_playdate_candidates(p_family_id uuid)
@@ -130,6 +171,10 @@ DECLARE
   v_my_place uuid;
   v_results jsonb;
 BEGIN
+  -- NOTE: Both 'parent' and 'child' roles can call this RPC by design (FP-D04 아이의
+  -- 명시적 버튼 클릭). PIPA mitigation = bilateral families.playdate_enabled 토글
+  -- (FP-D03). Children seeing other children's names is intended; parents seeing
+  -- contact info is intended.
   IF NOT EXISTS (
     SELECT 1 FROM public.family_members
     WHERE user_id = auth.uid() AND family_id = p_family_id
