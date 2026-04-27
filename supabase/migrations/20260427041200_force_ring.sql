@@ -120,4 +120,34 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.force_ring_check_quota(uuid) TO authenticated;
 
+ALTER PUBLICATION supabase_realtime ADD TABLE public.force_ring_events;
+
+SELECT cron.schedule(
+  'force_ring_reminder_check',
+  '* * * * *',
+  $cron$
+    SELECT net.http_post(
+      url := current_setting('app.settings.supabase_url') || '/functions/v1/push-notify',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key')
+      ),
+      body := jsonb_build_object('action', 'force_ring_reminder')
+    );
+  $cron$
+);
+
+SELECT cron.schedule(
+  'force_ring_delivery_timeout',
+  '*/2 * * * *',
+  $cleanup$
+    UPDATE public.force_ring_events
+       SET stopped_at = now(),
+           stop_reason = 'delivery_failed'
+     WHERE delivered_at IS NULL
+       AND stopped_at IS NULL
+       AND triggered_at < now() - interval '10 minutes';
+  $cleanup$
+);
+
 COMMIT;
