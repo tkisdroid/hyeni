@@ -16,6 +16,9 @@ import { FeatureLockOverlay } from "./components/paywall/FeatureLockOverlay.jsx"
 import { TrialEndingBanner } from "./components/paywall/TrialEndingBanner.jsx";
 import { AutoRenewalDisclosure } from "./components/paywall/AutoRenewalDisclosure.jsx";
 import { SubscriptionManagement } from "./components/settings/SubscriptionManagement.jsx";
+import FriendPlaydatePanel from "./components/friendPlaydate/FriendPlaydatePanel.jsx";
+import FriendPlaydateChildPanel from "./components/friendPlaydate/FriendPlaydateChildPanel.jsx";
+import ActivePlaydateBanner from "./components/friendPlaydate/ActivePlaydateBanner.jsx";
 import "./App.css";
 
 function normalizeKakaoAppKey(value) {
@@ -1916,6 +1919,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
     const mapRef = useRef(), mapObj = useRef(), markerRef = useRef();
     const [pos, setPos] = useState(defaultCenter);
     const [address, setAddress] = useState(initial?.address || "");
+    const [kakaoPlaceId, setKakaoPlaceId] = useState(initial?.kakao_place_id || null);
     const [loading, setLoading] = useState(() => (hasPreloadedKakao ? false : !!KAKAO_APP_KEY));
     const [err, setErr] = useState(() => (hasPreloadedKakao || KAKAO_APP_KEY ? "" : "카카오 앱 키가 설정되지 않았어요. (.env 파일 확인)"));
     const [query, setQuery] = useState("");
@@ -1948,12 +1952,14 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
             window.kakao.maps.event.addListener(markerRef.current, "dragend", () => {
                 const latlng = markerRef.current.getPosition();
                 setPos({ lat: latlng.getLat(), lng: latlng.getLng() });
+                setKakaoPlaceId(null);
                 reverseGeocode(latlng.getLat(), latlng.getLng());
             });
             window.kakao.maps.event.addListener(mapObj.current, "click", (mouseEvent) => {
                 const latlng = mouseEvent.latLng;
                 markerRef.current.setPosition(latlng);
                 setPos({ lat: latlng.getLat(), lng: latlng.getLng() });
+                setKakaoPlaceId(null);
                 reverseGeocode(latlng.getLat(), latlng.getLng());
             });
 
@@ -2006,6 +2012,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
         markerRef.current.setPosition(latlng);
         setPos({ lat, lng });
         setAddress(place.road_address_name || place.address_name);
+        setKakaoPlaceId(place.id || null);
         setResults([]);
         setQuery("");
         setSearchMessage("");
@@ -2061,7 +2068,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
             <div style={{ padding: "16px 20px", borderTop: "1px solid #F3F4F6", fontFamily: FF }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 4 }}>선택된 장소</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 14, minHeight: 20 }}>{address || "지도를 클릭하거나 검색하세요"}</div>
-                <button onClick={() => { if (pos) onConfirm({ lat: pos.lat, lng: pos.lng, address }); }}
+                <button onClick={() => { if (pos) onConfirm({ lat: pos.lat, lng: pos.lng, address, kakao_place_id: kakaoPlaceId }); }}
                     style={{ width: "100%", padding: "15px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 18, fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
                     📍 이 장소로 설정하기
                 </button>
@@ -10678,6 +10685,13 @@ export default function KidsScheduler() {
                 </section>
             )}
 
+            {/* Hero 바로 아래: 친구놀이 진행 중 알림 (active 일 때만 렌더) */}
+            {familyId && (
+                <div style={{ width: "100%", maxWidth: contentMaxWidth }}>
+                    <ActivePlaydateBanner familyId={familyId} isParent={isParent} />
+                </div>
+            )}
+
             {/* ── Header Row 2: Quick action buttons ── */}
             {!isParent && <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 12 }}>
                 <div
@@ -10741,6 +10755,17 @@ export default function KidsScheduler() {
                             {quickUtilityActions.map((action) => renderQuickAction(action))}
                         </div>
                         {!isParent && <ChildCallCard phones={parentPhones} />}
+                        {!isParent && familyId && (
+                            <div style={{
+                                background: "white",
+                                borderRadius: 16,
+                                padding: "10px 12px",
+                                boxShadow: "0 4px 12px rgba(247,121,168,0.10)",
+                                border: "1px solid #FBCFE8",
+                            }}>
+                                <FriendPlaydateChildPanel familyId={familyId} currentUserId={authUser?.id} />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>}
@@ -10856,6 +10881,25 @@ export default function KidsScheduler() {
                         </span>
                         <span className="hyeni-v5-memo-count">{memoPreviewCount}</span>
                     </button>
+
+                    {familyId && (
+                        <section aria-label="친구놀이">
+                            <div className="hyeni-v5-section-head">
+                                <span>친구놀이</span>
+                                <span className="hyeni-v5-section-meta">안전장소에서 친구와 놀 때만</span>
+                            </div>
+                            <div style={{
+                                background: "white",
+                                borderRadius: 16,
+                                padding: "12px 14px",
+                                boxShadow: "0 6px 16px rgba(99,102,241,0.08)",
+                                border: "1px solid #FCE7F3",
+                                marginBottom: 12,
+                            }}>
+                                <FriendPlaydatePanel familyId={familyId} currentUserId={authUser?.id} hideActiveCard />
+                            </div>
+                        </section>
+                    )}
 
                     <div className="hyeni-v5-section-head">
                         <span>관리 바로가기</span>
@@ -11279,6 +11323,8 @@ export default function KidsScheduler() {
                     </div>
                 </div>
             )}
+
+            {/* Friend Playdate panels: hero 바로 아래 banner + parent 카드 섹션 / child sticker 아래로 이동 */}
 
             {/* Route Overlay */}
             {routeEvent && (

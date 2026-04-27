@@ -188,6 +188,8 @@ function rowToSavedPlace(row) {
     id: row.id,
     name: row.name,
     location: row.location || null,
+    is_playdate_safe: !!row.is_playdate_safe,
+    public_place_id: row.public_place_id || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
   };
