@@ -18,6 +18,10 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Phase 5.x (force_ring): emergency parental alert FGS + alarm volume control -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"
@@ -91,6 +95,27 @@
             android:name=".AmbientListenService"
             android:foregroundServiceType="microphone"
             android:exported="false" />
+
+        <!-- Phase 5.x (force_ring): emergency parental alert FGS + fullscreen Activity.
+             specialUse type per Android 14+ requirement; SUBTYPE meta declares
+             intent for Play Console policy review. -->
+        <service
+            android:name=".ForceRingService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="emergency_parental_alert" />
+        </service>
+
+        <activity
+            android:name=".ForceRingActivity"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:exported="false"
+            android:theme="@style/Theme.Hyeni.ForceRing.Fullscreen" />
 
         <!-- FCM Messaging Service -->
         <service
