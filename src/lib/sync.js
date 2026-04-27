@@ -725,6 +725,28 @@ export function subscribeFamily(familyId, callbacks) {
     onDailySuppliesChange
   );
 
+  // child_locations: postgres_changes serves as a fallback for the broadcast
+  // channel. broadcast HTTP send can drop silently (network glitch, child
+  // backgrounded mid-send), but upsert_child_location always writes the row,
+  // so this delivery path is what guarantees the parent UI eventually sees
+  // every GPS update. Routes to the same onLocationChange callback after
+  // shape-adapting the postgres_changes row to broadcast payload conventions.
+  const childLocationsCh = subscribeTableChanges(
+    `child_locations-${familyId}`, "child_locations", familyId, "*",
+    onLocationChange
+      ? (_eventType, newRow) => {
+          if (!newRow) return;
+          onLocationChange({
+            user_id: newRow.user_id,
+            lat: newRow.lat,
+            lng: newRow.lng,
+            updated_at: newRow.updated_at,
+            source: "realtime_db",
+          });
+        }
+      : null
+  );
+
   // ── Broadcast-only channel (D-B06) ───────────────────────────────────────
   // Kept under the exact pre-existing name `family-{familyId}` so kkuk/location/
   // remote_listen senders in App.jsx + the push-notify Edge Function keep
@@ -790,7 +812,7 @@ export function subscribeFamily(familyId, callbacks) {
   // subscription. Stored on the broadcast channel itself so a single handle
   // (the broadcast channel — callers already use it as a channel for .send()
   // and .state checks) carries the full cleanup responsibility.
-  const postgresChannels = [eventsCh, academiesCh, memosCh, savedPlacesCh, familySubCh, memoRepliesCh, dailySuppliesCh];
+  const postgresChannels = [eventsCh, academiesCh, memosCh, savedPlacesCh, familySubCh, memoRepliesCh, dailySuppliesCh, childLocationsCh];
   broadcastCh._channels = postgresChannels;
   broadcastCh._dispose = () => {
     broadcastDisposed = true;

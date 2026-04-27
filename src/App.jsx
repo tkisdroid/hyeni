@@ -7627,6 +7627,30 @@ export default function KidsScheduler() {
             idempotencyKey: requestId,
         });
 
+        // Surface last-known DB position immediately so the UI updates the moment
+        // the parent taps refresh, instead of waiting for the child's broadcast.
+        // Realtime postgres_changes will overwrite this with the fresh GPS fix.
+        const fetchPromise = fetchChildLocations(familyId)
+            .then((locs) => {
+                if (!locs?.length) return;
+                const latest = locs.slice().sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+                setChildPos({ lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at });
+                const members = familyInfoRef.current?.members?.filter((m) => m.role === "child") || [];
+                const positions = locs.map((loc) => {
+                    const member = members.find((c) => c.user_id === loc.user_id);
+                    return {
+                        user_id: loc.user_id,
+                        name: member?.name || "아이",
+                        emoji: member?.emoji || "🐰",
+                        lat: loc.lat,
+                        lng: loc.lng,
+                        updatedAt: loc.updated_at,
+                    };
+                });
+                setAllChildPositions(positions);
+            })
+            .catch((err) => console.warn("[GPS] immediate refetch failed:", err));
+
         try {
             const sent = await sendBroadcastWhenReady(
                 realtimeChannel.current,
@@ -7637,11 +7661,12 @@ export default function KidsScheduler() {
             if (!sent) {
                 console.warn("[GPS] location_refresh_request was not sent; showing saved location.");
             }
-            await pushPromise;
+            await Promise.all([pushPromise, fetchPromise]);
             return sent;
         } catch (error) {
             console.error("[GPS] location_refresh_request failed:", error);
             await pushPromise;
+            await fetchPromise.catch(() => {});
             return false;
         }
     }, [authUser?.id, familyId, myRole]);
