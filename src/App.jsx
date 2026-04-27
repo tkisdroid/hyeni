@@ -16,6 +16,8 @@ import { FeatureLockOverlay } from "./components/paywall/FeatureLockOverlay.jsx"
 import { TrialEndingBanner } from "./components/paywall/TrialEndingBanner.jsx";
 import { AutoRenewalDisclosure } from "./components/paywall/AutoRenewalDisclosure.jsx";
 import { SubscriptionManagement } from "./components/settings/SubscriptionManagement.jsx";
+import FriendPlaydatePanel from "./components/friendPlaydate/FriendPlaydatePanel.jsx";
+import FriendPlaydateChildPanel from "./components/friendPlaydate/FriendPlaydateChildPanel.jsx";
 import "./App.css";
 
 function normalizeKakaoAppKey(value) {
@@ -11123,6 +11125,14 @@ export default function KidsScheduler() {
                         <button onClick={() => { setShowAddModal(false); setNewTitle(""); setNewEndTime(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }} style={secBtn}>취소</button>
                     </div>
                 </div>
+            )}
+
+            {/* Friend Playdate panels (Phase 5 mount — monolith policy: 5-10 lines only) */}
+            {familyId && isParent && (
+                <FriendPlaydatePanel familyId={familyId} currentUserId={authUser?.id} />
+            )}
+            {familyId && !isParent && (
+                <FriendPlaydateChildPanel familyId={familyId} currentUserId={authUser?.id} />
             )}
 
             {/* Route Overlay */}
