@@ -48,4 +48,38 @@ CREATE UNIQUE INDEX IF NOT EXISTS force_ring_one_active_per_family_idx
   ON public.force_ring_events (family_id)
   WHERE stopped_at IS NULL;
 
+ALTER TABLE public.force_ring_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS force_ring_select ON public.force_ring_events;
+CREATE POLICY force_ring_select ON public.force_ring_events
+  FOR SELECT TO authenticated
+  USING (family_id IN (
+    SELECT family_id FROM public.family_members WHERE user_id = auth.uid()
+  ));
+
+DROP POLICY IF EXISTS force_ring_insert ON public.force_ring_events;
+CREATE POLICY force_ring_insert ON public.force_ring_events
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    initiator_user_id = auth.uid()
+    AND family_id IN (
+      SELECT family_id FROM public.family_members
+      WHERE user_id = auth.uid() AND role = 'parent'
+    )
+  );
+
+DROP POLICY IF EXISTS force_ring_update_initiator ON public.force_ring_events;
+CREATE POLICY force_ring_update_initiator ON public.force_ring_events
+  FOR UPDATE TO authenticated
+  USING (initiator_user_id = auth.uid())
+  WITH CHECK (initiator_user_id = auth.uid());
+
+DROP POLICY IF EXISTS force_ring_update_target ON public.force_ring_events;
+CREATE POLICY force_ring_update_target ON public.force_ring_events
+  FOR UPDATE TO authenticated
+  USING (target_user_id = auth.uid())
+  WITH CHECK (target_user_id = auth.uid());
+
+-- DELETE: 정책 부재 = service_role only (immutable audit)
+
 COMMIT;
