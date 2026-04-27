@@ -18,4 +18,34 @@
 -- Pairing: supabase/migrations/down/20260427041200_force_ring.sql
 
 BEGIN;
+
+CREATE TABLE IF NOT EXISTS public.force_ring_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id uuid NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
+  initiator_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  target_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  message text CHECK (message IS NULL OR char_length(message) <= 80),
+  triggered_at timestamptz NOT NULL DEFAULT now(),
+  delivered_at timestamptz,
+  acknowledged_at timestamptz,
+  stopped_at timestamptz,
+  stop_reason text CHECK (stop_reason IN
+    ('child_ack','parent_stop','auto_timeout','delivery_failed')),
+  reminder_sent_at timestamptz,
+  delivery_status jsonb DEFAULT '{}'::jsonb,
+  client_request_hash text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS force_ring_family_time_idx
+  ON public.force_ring_events (family_id, triggered_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS force_ring_request_hash_idx
+  ON public.force_ring_events (client_request_hash)
+  WHERE client_request_hash IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS force_ring_one_active_per_family_idx
+  ON public.force_ring_events (family_id)
+  WHERE stopped_at IS NULL;
+
 COMMIT;
