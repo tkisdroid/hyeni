@@ -82,4 +82,42 @@ CREATE POLICY force_ring_update_target ON public.force_ring_events
 
 -- DELETE: 정책 부재 = service_role only (immutable audit)
 
+CREATE OR REPLACE FUNCTION public.force_ring_check_quota(p_family_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_quota int;
+  v_status text;
+  v_used int;
+BEGIN
+  SELECT status INTO v_status
+    FROM public.family_subscription
+    WHERE family_id = p_family_id;
+
+  v_quota := CASE
+    WHEN v_status IN ('trial','active','grace') THEN 10
+    ELSE 1
+  END;
+
+  SELECT COUNT(*) INTO v_used
+    FROM public.force_ring_events
+    WHERE family_id = p_family_id
+      AND triggered_at > now() - interval '24 hours'
+      AND (
+        delivered_at IS NOT NULL
+        OR (delivered_at IS NULL AND stop_reason IS NULL)
+      );
+
+  RETURN jsonb_build_object(
+    'allowed', v_used < v_quota,
+    'quota', v_quota,
+    'used', v_used,
+    'tier', COALESCE(v_status, 'free')
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.force_ring_check_quota(uuid) TO authenticated;
+
 COMMIT;
