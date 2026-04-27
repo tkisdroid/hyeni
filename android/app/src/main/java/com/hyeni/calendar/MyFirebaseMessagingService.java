@@ -74,6 +74,31 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         Log.i(TAG, "FCM message received from: " + remoteMessage.getFrom());
 
         Map<String, String> data = remoteMessage.getData();
+
+        String action = data.get("action");
+        if ("force_ring".equals(action)) {
+            String eventId = data.get("event_id");
+            if (ForceRingRequestStore.wasLauncherRecentlyShown(this, eventId)) {
+                Log.i(TAG, "force_ring deduped for event_id=" + eventId);
+                return;
+            }
+            ForceRingRequestStore.markLauncherShown(this, eventId);
+
+            Intent svc = new Intent(this, ForceRingService.class);
+            svc.putExtra(ForceRingService.EXTRA_EVENT_ID, eventId);
+            svc.putExtra(ForceRingService.EXTRA_MESSAGE, data.get("message"));
+            svc.putExtra(ForceRingService.EXTRA_INITIATOR, data.get("initiator_name"));
+            ContextCompat.startForegroundService(this, svc);
+            return;
+        }
+
+        if ("force_ring_stop".equals(action)) {
+            stopService(new Intent(this, ForceRingService.class));
+            sendBroadcast(new Intent("com.hyeni.calendar.FORCE_RING_STOP")
+                    .setPackage(getPackageName()));
+            return;
+        }
+
         String title = data.get("title");
         String body = data.get("body");
         String type = data.get("type");

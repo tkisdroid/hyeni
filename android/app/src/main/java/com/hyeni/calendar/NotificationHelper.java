@@ -1,5 +1,6 @@
 package com.hyeni.calendar;
 
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -9,6 +10,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioAttributes;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
@@ -226,5 +228,35 @@ public final class NotificationHelper {
         }
         prefs.edit().putLong(key, now).apply();
         return false;
+    }
+
+    public static final String FORCE_RING_CHANNEL_ID = "force_ring_emergency";
+
+    public static void ensureForceRingChannel(Context ctx) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        NotificationManager nm = ctx.getSystemService(NotificationManager.class);
+        if (nm == null) return;
+        if (nm.getNotificationChannel(FORCE_RING_CHANNEL_ID) != null) return;
+
+        NotificationChannel ch = new NotificationChannel(
+                FORCE_RING_CHANNEL_ID,
+                "응급 강제 알람",
+                NotificationManager.IMPORTANCE_HIGH
+        );
+        ch.setDescription("부모가 직접 트리거한 응급 신호. 무음/방해금지를 우회합니다.");
+        ch.setBypassDnd(true);
+        ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+        ch.enableVibration(true);
+        ch.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+
+        Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        AudioAttributes attrs = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        if (alarmUri != null) {
+            ch.setSound(alarmUri, attrs);
+        }
+        nm.createNotificationChannel(ch);
     }
 }

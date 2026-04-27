@@ -19,6 +19,7 @@ import { SubscriptionManagement } from "./components/settings/SubscriptionManage
 import FriendPlaydatePanel from "./components/friendPlaydate/FriendPlaydatePanel.jsx";
 import FriendPlaydateChildPanel from "./components/friendPlaydate/FriendPlaydateChildPanel.jsx";
 import ActivePlaydateBanner from "./components/friendPlaydate/ActivePlaydateBanner.jsx";
+import { ForceRingPanel } from "./components/forceRing/ForceRingPanel.jsx";
 import "./App.css";
 
 function normalizeKakaoAppKey(value) {
@@ -2718,7 +2719,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                 </button>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "#374151" }}>🏫 학원/장소 관리</div>
             </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
 
                 {/* Quick presets */}
                 {!showForm && (
@@ -5779,7 +5780,7 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                 <button onClick={() => { onSave(list); onClose(); }} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 저장</button>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "#374151" }}>📍 자주 가는 장소</div>
             </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: 16, paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
                 {!showForm && (
                     <div style={{ marginBottom: 20 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 10 }}>빠른 추가</div>
@@ -6648,6 +6649,7 @@ export default function KidsScheduler() {
 
     // ── UI state ───────────────────────────────────────────────────────────────
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingEventId, setEditingEventId] = useState(null);
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [showChildTracker, setShowChildTracker] = useState(false);
     const [locationRefreshRequestedAt, setLocationRefreshRequestedAt] = useState(null);
@@ -8963,12 +8965,98 @@ export default function KidsScheduler() {
         return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
     };
 
-    // ── Add event (manual) ─────────────────────────────────────────────────────
+    // ── Open edit modal: pre-populate fields with existing event ───────────────
+    const openEditEventModal = (event) => {
+        if (!event) return;
+        setEditingEventId(event.id);
+        setNewTitle(event.title || "");
+        setNewTime(event.time || "09:00");
+        setNewEndTime(event.endTime || "");
+        setNewCategory(event.category || "school");
+        setNewMemo(event.memo || "");
+        setNewLocation(event.location || null);
+        setSelectedPreset(null);
+        setWeeklyRepeat(false);
+        setRepeatWeeks(4);
+        setShowAddModal(true);
+    };
+
+    // ── Add or update event (manual) ───────────────────────────────────────────
     const addEvent = async () => {
         const title = newTitle.trim() || (selectedPreset ? selectedPreset.label : "");
         if (!title) { showNotif("일정 이름을 입력해 줘요! 🐰", "error"); return; }
         const cat = CATEGORIES.find(c => c.id === newCategory);
         const emoji = selectedPreset ? selectedPreset.emoji : cat.emoji;
+
+        // Edit mode: update single existing event in place.
+        if (editingEventId) {
+            const patch = {
+                title,
+                time: newTime,
+                endTime: newEndTime || null,
+                category: newCategory,
+                emoji,
+                color: cat.color,
+                bg: cat.bg,
+                memo: newMemo.trim(),
+                location: newLocation,
+            };
+            // Synchronous scan: capture dateKey + previous snapshot for revert.
+            let foundDateKey = null;
+            let previousEvent = null;
+            for (const dk of Object.keys(events)) {
+                const found = (events[dk] || []).find(e => e.id === editingEventId);
+                if (found) {
+                    foundDateKey = dk;
+                    previousEvent = found;
+                    break;
+                }
+            }
+            // Optimistic update.
+            setEvents(prev => {
+                if (!foundDateKey) return prev;
+                const updated = { ...prev };
+                const next = (updated[foundDateKey] || []).map(e =>
+                    e.id === editingEventId ? { ...e, ...patch } : e
+                );
+                updated[foundDateKey] = next.sort((a, b) => a.time.localeCompare(b.time));
+                return updated;
+            });
+            const targetId = editingEventId;
+            const messageDateKey = foundDateKey || dateKey;
+            setEditingEventId(null);
+            setNewTitle(""); setNewTime("09:00"); setNewEndTime(""); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4);
+            setShowAddModal(false);
+            showNotif("✅ 일정이 수정됐어요!");
+
+            if (familyId && authUser) {
+                try {
+                    await updateEvent(targetId, patch);
+                    sendInstantPush({
+                        action: "edit_event",
+                        familyId,
+                        senderUserId: authUser.id,
+                        title: `✏️ 일정 수정: ${emoji} ${title}`,
+                        message: `${messageDateKey.replace(/-/g, "/")} ${newTime} "${title}"로 수정됐어요`,
+                    });
+                } catch (err) {
+                    console.error("[updateEvent] Supabase error:", err);
+                    // Revert optimistic update with previous snapshot.
+                    if (foundDateKey && previousEvent) {
+                        setEvents(prev => {
+                            const reverted = { ...prev };
+                            const next = (reverted[foundDateKey] || []).map(e =>
+                                e.id === targetId ? previousEvent : e
+                            );
+                            reverted[foundDateKey] = next.sort((a, b) => a.time.localeCompare(b.time));
+                            return reverted;
+                        });
+                    }
+                    showNotif("서버 저장에 실패했어요. 다시 시도해주세요", "error");
+                }
+            }
+            return;
+        }
 
         const totalWeeks = weeklyRepeat ? repeatWeeks : 1;
         const allEvents = [];
@@ -9430,18 +9518,18 @@ export default function KidsScheduler() {
             <div
                 key={event.id}
                 id={getDashboardEventElementId(event.id)}
-                role={event.location ? "button" : "group"}
-                tabIndex={event.location ? 0 : -1}
-                onClick={() => { if (event.location) setRouteEvent(event); }}
+                role="button"
+                tabIndex={0}
+                onClick={() => openEditEventModal(event)}
                 onKeyDown={(keyboardEvent) => {
-                    if (!event.location) return;
                     if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
                         keyboardEvent.preventDefault();
-                        setRouteEvent(event);
+                        openEditEventModal(event);
                     }
                 }}
                 className={`hyeni-v5-event-card${status.current ? " is-current" : ""}${status.past ? " is-past" : ""}`}
-                style={{ "--event-color": event.color || DESIGN.colors.pink, "--event-bg": event.bg || DESIGN.colors.pinkSoft, fontFamily: FF }}
+                style={{ "--event-color": event.color || DESIGN.colors.pink, "--event-bg": event.bg || DESIGN.colors.pinkSoft, fontFamily: FF, cursor: "pointer" }}
+                aria-label={`${event.title} 편집`}
             >
                 <div className="hyeni-v5-event-icon">{event.emoji || "📌"}</div>
                 <div className="hyeni-v5-event-body">
@@ -9458,9 +9546,31 @@ export default function KidsScheduler() {
                     <div className="hyeni-v5-event-chips">
                         {distanceLabel && <span className="hyeni-v5-chip distance">📍 {distanceLabel}</span>}
                         {event.memo && <span className="hyeni-v5-chip memo">📝 메모</span>}
+                        <span className="hyeni-v5-chip" style={{ background: "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA" }}>✏️ 수정</span>
                     </div>
                 </div>
                 <div className="hyeni-v5-event-tag" style={statusStyle || undefined}>{status.label}</div>
+                {event.location && (
+                    <button
+                        type="button"
+                        aria-label={`${event.title} 경로 보기`}
+                        title="경로 보기"
+                        onClick={(clickEvent) => {
+                            clickEvent.stopPropagation();
+                            setRouteEvent(event);
+                        }}
+                        style={{
+                            position: "absolute", top: 8, right: 38,
+                            width: 28, height: 28, borderRadius: "50%",
+                            border: "1px solid #DBEAFE", background: "#EFF6FF",
+                            color: "#1D4ED8", fontSize: 13, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            zIndex: 1,
+                        }}
+                    >
+                        🗺️
+                    </button>
+                )}
                 <button
                     type="button"
                     className="hyeni-v5-event-delete"
@@ -9802,6 +9912,7 @@ export default function KidsScheduler() {
     );
 
     if (showAcademyMgr) return (
+        <>
         <AcademyManager academies={academies} savedPlaces={savedPlaces} savedPlacesLocked={!entitlement.canUse(FEATURES.SAVED_PLACES)} currentPos={childPos}
             onSave={async (newList) => {
                 // Diff old vs new to determine DB operations
@@ -10016,9 +10127,18 @@ export default function KidsScheduler() {
                 }
             }}
             onClose={() => setShowAcademyMgr(false)} />
+            {isParent && (
+                <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 260, pointerEvents: "none" }}>
+                    <div style={{ pointerEvents: "auto" }}>
+                        {renderParentBottomTabbar("maplist", "hyeni-v5-tabbar-fixed")}
+                    </div>
+                </div>
+            )}
+        </>
     );
 
     if (showSavedPlaceMgr) return (
+        <>
         <SavedPlaceManager
             places={savedPlaces}
             currentPos={displayChildPos || childPos}
@@ -10077,6 +10197,14 @@ export default function KidsScheduler() {
             }}
             onClose={() => setShowSavedPlaceMgr(false)}
         />
+            {isParent && (
+                <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 260, pointerEvents: "none" }}>
+                    <div style={{ pointerEvents: "auto" }}>
+                        {renderParentBottomTabbar("maplist", "hyeni-v5-tabbar-fixed")}
+                    </div>
+                </div>
+            )}
+        </>
     );
 
     if (childSafetySetupBlocked) return (
@@ -11148,9 +11276,9 @@ export default function KidsScheduler() {
 
             {/* ── ADD MODAL ── */}
             {showAddModal && (
-                <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
+                <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAddModal(false); setEditingEventId(null); } }}>
                     <div style={makeSheetStyle({ padding: "24px 20px 36px", width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" })}>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: "#374151", marginBottom: 4 }}>✨ 새 일정 추가</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: "#374151", marginBottom: 4 }}>{editingEventId ? "✏️ 일정 수정" : "✨ 새 일정 추가"}</div>
                         {isParent && pairedChildren.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EFF6FF", borderRadius: 10, padding: "6px 12px", marginBottom: 14, display: "inline-block" }}>📡 저장 시 {pairedChildren.map(c => c.name).join(", ")}에게 자동 전송</div>}
 
                         <div style={{ marginBottom: 14 }}>
@@ -11295,7 +11423,7 @@ export default function KidsScheduler() {
                             </div>
                         )}
                         <div style={{ marginBottom: 14 }}><label style={labelSt}>📝 메모 (선택)</label><input style={inputSt} placeholder="준비물, 장소 등..." value={newMemo} onChange={e => setNewMemo(e.target.value)} /></div>
-                        <div style={{ marginBottom: 14 }}>
+                        {!editingEventId && <div style={{ marginBottom: 14 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                                 <label style={{ ...labelSt, marginBottom: 0, flex: 1 }}>🔁 매주 같은 날에 반복</label>
                                 <div onClick={() => setWeeklyRepeat(p => !p)} style={{ width: 52, height: 30, borderRadius: 15, background: weeklyRepeat ? "#E879A0" : "#E5E7EB", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
@@ -11317,9 +11445,9 @@ export default function KidsScheduler() {
                                     </div>
                                 </>
                             )}
-                        </div>
-                        <button onClick={addEvent} style={primBtn}>{weeklyRepeat ? `🐰 앞으로 ${repeatWeeks === 4 ? "1개월" : repeatWeeks === 8 ? "2개월" : "3개월"}간 매주 추가!` : "🐰 일정 추가하기!"}</button>
-                        <button onClick={() => { setShowAddModal(false); setNewTitle(""); setNewEndTime(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }} style={secBtn}>취소</button>
+                        </div>}
+                        <button onClick={addEvent} style={primBtn}>{editingEventId ? "💾 수정 저장하기!" : (weeklyRepeat ? `🐰 앞으로 ${repeatWeeks === 4 ? "1개월" : repeatWeeks === 8 ? "2개월" : "3개월"}간 매주 추가!` : "🐰 일정 추가하기!")}</button>
+                        <button onClick={() => { setShowAddModal(false); setEditingEventId(null); setNewTitle(""); setNewEndTime(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }} style={secBtn}>취소</button>
                     </div>
                 </div>
             )}
@@ -11461,6 +11589,14 @@ export default function KidsScheduler() {
                     familyId={familyId}
                     senderUserId={authUser?.id}
                     onClose={() => setShowRemoteAudio(false)}
+                />
+            )}
+
+            {/* Force Ring (강제 소리 울리기) — Spec: docs/superpowers/specs/2026-04-27-force-ring-design.md */}
+            {isParent && familyId && (
+                <ForceRingPanel
+                    familyId={familyId}
+                    hasChild={(familyInfo?.members ?? []).some(m => m.role === "child")}
                 />
             )}
 
