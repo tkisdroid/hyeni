@@ -6812,6 +6812,28 @@ export default function KidsScheduler() {
         () => effectiveChildLocation(childPos, entitlement) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
         [childPos, displayChildPositions, entitlement]
     );
+    // ── 다중 자녀 프라이버시 (원칙 5): 자녀 기기는 자기 데이터만 본다 ─────────────────
+    // events 는 { [dateKey]: Event[] } 형태의 맵. 학부모는 그대로 두고,
+    // 자녀 모드일 때만 가족 전체 일정 OR 본인이 포함된 일정으로 좁힌다.
+    const visibleEvents = useMemo(() => {
+        if (isParent) return events;
+        const myId = authUser?.id;
+        if (!events || typeof events !== "object") return events;
+        if (Array.isArray(events)) {
+            return events.filter((e) => e?.is_family_event || (e?.child_ids || []).includes(myId));
+        }
+        const filtered = {};
+        for (const dk of Object.keys(events)) {
+            const list = Array.isArray(events[dk]) ? events[dk] : [];
+            filtered[dk] = list.filter((e) => e?.is_family_event || (e?.child_ids || []).includes(myId));
+        }
+        return filtered;
+    }, [events, isParent, authUser?.id]);
+    const ownPosition = useMemo(() => {
+        if (isParent) return null;
+        const myId = authUser?.id;
+        return allChildPositions.find((p) => p.user_id === myId) || null;
+    }, [allChildPositions, isParent, authUser?.id]);
     useEffect(() => { childPosRef.current = childPos; }, [childPos]);
     const locationGateHint = isParent && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
         ? "무료 플랜에서는 5분 지난 위치만 표시돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
@@ -11364,7 +11386,8 @@ export default function KidsScheduler() {
                             const isSel = day === selectedDate;
                             const isSun = (firstDay + i) % 7 === 0;
                             const isSat = (firstDay + i) % 7 === 6;
-                            const dayEvs = getEvs(day);
+                            // 자녀 프라이버시: visibleEvents 사용
+                            const dayEvs = visibleEvents[`${currentYear}-${currentMonth}-${day}`] || [];
                             const activeCell = isSel || isToday;
                             return (
                                 <button
@@ -11443,7 +11466,7 @@ export default function KidsScheduler() {
                 {/* Day Timetable */}
                 <div style={{ ...cardSt, marginBottom: 0 }}>
                     <DayTimetable
-                        events={selectedEvs}
+                        events={visibleEvents[dateKey] || []}
                         dateLabel={`${currentMonth + 1}월 ${selectedDate}일`}
                         isToday={currentYear === new Date().getFullYear() && currentMonth === new Date().getMonth() && selectedDate === new Date().getDate()}
                         isFuture={new Date(currentYear, currentMonth, selectedDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0)}
@@ -11587,15 +11610,17 @@ export default function KidsScheduler() {
             {activeView === "maplist" && (
                 <div className={isParent ? "hyeni-v5-maplist-with-tabbar" : undefined}>
                     <LocationMapView
-                        events={events} childPos={displayChildPos} mapReady={mapReady}
+                        events={isParent ? events : visibleEvents}
+                        childPos={isParent ? displayChildPos : (ownPosition || displayChildPos)}
+                        mapReady={mapReady}
                         arrivedSet={arrivedSet}
                         locationHint={locationGateHint}
                         savedPlaces={savedPlaces}
                         isParentMode={isParent}
                         savedPlacesLocked={!entitlement.canUse(FEATURES.SAVED_PLACES)}
                         onAddSavedPlace={handleOpenSavedPlaceMgr}
-                        displayChildPositions={displayChildPositions}
-                        pairedChildren={pairedChildren}
+                        displayChildPositions={isParent ? displayChildPositions : []}
+                        pairedChildren={isParent ? pairedChildren : []}
                     />
                     {isParent && renderParentBottomTabbar("maplist", "hyeni-v5-tabbar-fixed")}
                 </div>
