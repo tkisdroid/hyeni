@@ -281,14 +281,34 @@ export async function getParentPhones(familyId) {
 }
 
 // ── Unpair (parent removes child, or child leaves) ──────────────────────────
+// Routes through the SECURITY DEFINER unpair_child RPC so user-tied tables
+// (fcm_tokens, push_subscriptions, child_locations, pending_notifications,
+// child_audio_chunks) get cleaned alongside the family_members delete. Without
+// the RPC, parent's JWT cannot pierce those tables' user-self RLS, leaving
+// stale rows that keep pushing to the unpaired child's phone.
 export async function unpairChild(familyId, childUserId) {
-  const { error } = await supabase
-    .from("family_members")
-    .delete()
-    .eq("family_id", familyId)
-    .eq("user_id", childUserId)
-    .eq("role", "child");
-  if (error) throw error;
+  if (!familyId || !childUserId) throw new Error("familyId/childUserId required");
+  const { error } = await supabase.rpc("unpair_child", {
+    p_family_id: familyId,
+    p_child_user_id: childUserId,
+  });
+  if (error) {
+    // Fallback to the legacy minimal delete if the RPC isn't deployed yet
+    // (older Supabase branch / deploy lag). Surface a warning so the gap is
+    // visible during rollout.
+    if (error.code === "PGRST202" || /does not exist/i.test(error.message || "")) {
+      console.warn("[unpairChild] unpair_child RPC missing; falling back to family_members.delete only");
+      const { error: legacyErr } = await supabase
+        .from("family_members")
+        .delete()
+        .eq("family_id", familyId)
+        .eq("user_id", childUserId)
+        .eq("role", "child");
+      if (legacyErr) throw legacyErr;
+      return;
+    }
+    throw error;
+  }
 }
 
 // ── Auth state listener ─────────────────────────────────────────────────────
