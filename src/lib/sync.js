@@ -927,3 +927,32 @@ export async function markAlertRead(alertId) {
   });
   if (error) console.error("[markAlertRead]", error);
 }
+
+// ── Multi-child event saving ─────────────────────────────────────────────────
+
+export async function saveEventWithChildren(event, selection) {
+  const { childIds = [], familyAll = false } = selection || {};
+
+  const eventRow = {
+    ...event,
+    is_family_event: !!familyAll,
+  };
+  delete eventRow.child_ids;
+
+  const { data: saved, error: eventError } = await supabase
+    .from("events")
+    .upsert(eventRow)
+    .select()
+    .single();
+  if (eventError) throw eventError;
+
+  await supabase.from("events_children").delete().eq("event_id", saved.id);
+
+  if (!familyAll && childIds.length > 0) {
+    const links = childIds.map((cid) => ({ event_id: saved.id, child_id: cid }));
+    const { error: linkError } = await supabase.from("events_children").insert(links);
+    if (linkError) throw linkError;
+  }
+
+  return saved;
+}
