@@ -6622,6 +6622,36 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 다중 자녀: 자녀별 기기 안전 카드 (배터리 / 마지막 접속)
+// ─────────────────────────────────────────────────────────────────────────────
+function ChildDeviceCard({ child, status }) {
+    const color = child?.color_hex || "#9CA3AF";
+    const battery = Number.isFinite(Number(status?.batteryLevel))
+        ? Math.max(0, Math.min(100, Number(status.batteryLevel)))
+        : null;
+    const updatedAt = status?.updatedAt || status?.updated_at || null;
+    const minutesAgo = updatedAt
+        ? Math.max(0, Math.round((Date.now() - new Date(updatedAt).getTime()) / 60000))
+        : null;
+    return (
+        <div style={{
+            padding: 14,
+            borderRadius: 14,
+            background: "white",
+            border: `1.5px solid ${color}30`,
+        }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{child?.name || "아이"}</div>
+            </div>
+            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 8 }}>
+                배터리: {battery == null ? "—" : battery}% · 마지막 접속: {minutesAgo == null ? "—" : minutesAgo}분 전
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────────────────────────────────────
 export default function KidsScheduler() {
@@ -11136,62 +11166,98 @@ export default function KidsScheduler() {
                         })}
                     </div>
 
-                    <section
-                        aria-label="아이 기기 사용 지표"
-                        style={{
-                            marginTop: 12,
-                            marginBottom: 12,
-                            background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
-                            border: "1px solid #E0E7FF",
-                            borderRadius: 16,
-                            padding: "12px 14px",
-                            boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
-                            fontFamily: FF
-                        }}
-                    >
-                        <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>배터리</div>
-                                <div style={{ fontSize: 16, color: "#111827", fontWeight: 900, marginTop: 2 }}>🔋 {primaryDeviceBatteryLabel}</div>
+                    {isParent && pairedChildren.length > 1 ? (
+                        <section
+                            aria-label="아이 기기 사용 지표"
+                            style={{
+                                marginTop: 12,
+                                marginBottom: 12,
+                                background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
+                                border: "1px solid #E0E7FF",
+                                borderRadius: 16,
+                                padding: "12px 14px",
+                                boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
+                                fontFamily: FF
+                            }}
+                        >
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3" }}>📱 아이 기기 안전 지표</div>
+                                <button
+                                    type="button"
+                                    onClick={handleParentDeviceRefreshClick}
+                                    style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                >
+                                    지금 갱신
+                                </button>
                             </div>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>충전 상태</div>
-                                <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⚡ {primaryDeviceChargingLabel}</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                {pairedChildren.map((c) => (
+                                    <ChildDeviceCard
+                                        key={c.user_id}
+                                        child={c}
+                                        status={childDeviceStatusMap[c.user_id]}
+                                    />
+                                ))}
                             </div>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>화면 켜짐(앱 기준)</div>
-                                <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⏱️ {primaryDeviceScreenLabel}</div>
-                            </div>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>네트워크</div>
-                                <div style={{ fontSize: 14, color: "#111827", fontWeight: 900, marginTop: 2 }}>📶 {primaryDeviceConnectionLabel}</div>
-                            </div>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px", gridColumn: "1 / -1" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>최근 실행 앱</div>
-                                <div style={{ fontSize: 13, color: "#1F2937", fontWeight: 800, marginTop: 2 }}>
-                                    {primaryChildDeviceStatus?.recentApp || "운영체제 사용기록 권한이 필요해요"}
+                        </section>
+                    ) : (
+                        <section
+                            aria-label="아이 기기 사용 지표"
+                            style={{
+                                marginTop: 12,
+                                marginBottom: 12,
+                                background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
+                                border: "1px solid #E0E7FF",
+                                borderRadius: 16,
+                                padding: "12px 14px",
+                                boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
+                                fontFamily: FF
+                            }}
+                        >
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>배터리</div>
+                                    <div style={{ fontSize: 16, color: "#111827", fontWeight: 900, marginTop: 2 }}>🔋 {primaryDeviceBatteryLabel}</div>
                                 </div>
-                                {primaryChildDeviceStatus?.usagePermission === "requires_permission" && (
-                                    <div style={{ fontSize: 10, color: "#B45309", marginTop: 3, fontWeight: 700 }}>
-                                        Usage Access 권한을 켜면 실제 최근 앱 목록을 가져와요.
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>충전 상태</div>
+                                    <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⚡ {primaryDeviceChargingLabel}</div>
+                                </div>
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>화면 켜짐(앱 기준)</div>
+                                    <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⏱️ {primaryDeviceScreenLabel}</div>
+                                </div>
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>네트워크</div>
+                                    <div style={{ fontSize: 14, color: "#111827", fontWeight: 900, marginTop: 2 }}>📶 {primaryDeviceConnectionLabel}</div>
+                                </div>
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px", gridColumn: "1 / -1" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>최근 실행 앱</div>
+                                    <div style={{ fontSize: 13, color: "#1F2937", fontWeight: 800, marginTop: 2 }}>
+                                        {primaryChildDeviceStatus?.recentApp || "운영체제 사용기록 권한이 필요해요"}
                                     </div>
-                                )}
+                                    {primaryChildDeviceStatus?.usagePermission === "requires_permission" && (
+                                        <div style={{ fontSize: 10, color: "#B45309", marginTop: 3, fontWeight: 700 }}>
+                                            Usage Access 권한을 켜면 실제 최근 앱 목록을 가져와요.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
-                            <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 600 }}>
-                                마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "#B45309", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
+                                <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 600 }}>
+                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "#B45309", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleParentDeviceRefreshClick}
+                                    style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                >
+                                    지금 갱신
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={handleParentDeviceRefreshClick}
-                                style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
-                            >
-                                지금 갱신
-                            </button>
-                        </div>
-                    </section>
+                        </section>
+                    )}
 
                     <button
                         type="button"
