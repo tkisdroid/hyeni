@@ -62,22 +62,27 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
   if (!familyId) return null;
   if (loading) {
     return (
-      <div style={{ padding: compact ? 8 : 12, color: "#6B7280", fontSize: compact ? 12 : 14 }}>친구놀이 정보 불러오는 중...</div>
+      <section className="hyeni-tool hyeni-tool--friend">
+        <div className="hyeni-tool-empty">친구놀이 정보 불러오는 중…</div>
+      </section>
     );
   }
 
   if (compact) {
     return (
-      <section aria-label="친구놀이 패널" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 12, background: "#DCFCE7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🤝</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 950, color: "#064E3B" }}>친구놀이</div>
-            <div style={{ fontSize: 11, fontWeight: 800, color: enabled ? "#059669" : "#9CA3AF", marginTop: 2 }}>
-              {enabled ? "안전장소 매칭 대기" : "매칭 꺼짐"}
+      <section className="hyeni-tool hyeni-tool--friend" aria-label="친구놀이 패널">
+        <div className="hyeni-tool-tile">
+          <div className="hyeni-tool-tile__glyph" aria-hidden="true">◉</div>
+          <div className="hyeni-tool-tile__body">
+            <div className="hyeni-tool-tile__title">친구놀이</div>
+            <div
+              className="hyeni-tool-tile__sub"
+              style={{ color: enabled ? 'var(--hyeni-friend-ink)' : 'var(--hyeni-ink-300)' }}
+            >
+              {enabled ? '안전장소 매칭 대기' : '매칭 꺼짐'}
             </div>
           </div>
-          <div style={{ width: 128, flexShrink: 0 }}>
+          <div className="hyeni-tool-tile__cta">
             <FriendPlaydateToggle
               familyId={familyId}
               enabled={enabled}
@@ -86,54 +91,68 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
             />
           </div>
         </div>
-        {activeSession && !hideActiveCard && <ActivePlaydateCard session={activeSession} onEnd={reload} />}
+
+        {activeSession && !hideActiveCard && (
+          <ActivePlaydateCard session={activeSession} onEnd={reload} />
+        )}
+
         {enabled && (
           <button
             type="button"
             onClick={() => setShowDetails((open) => !open)}
-            style={{
-              alignSelf: "flex-start",
-              border: "none",
-              background: "transparent",
-              color: "#047857",
-              fontSize: 11,
-              fontWeight: 900,
-              cursor: "pointer",
-              padding: 0,
-            }}
+            className="hyeni-tool-disclosure"
+            aria-expanded={showDetails}
           >
-            {showDetails ? "관리 접기" : "안전장소 관리"}
+            <span className="hyeni-tool-disclosure__chev" aria-hidden="true">›</span>
+            {showDetails ? '관리 접기' : '안전장소 관리'}
           </button>
         )}
         {showDetails && enabled && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <>
             <PlaydateSafePlaceList places={places} onUpdate={reload} />
             <PlaydateHistory history={history} />
-          </div>
+          </>
         )}
       </section>
     );
   }
 
   return (
-    <section aria-label="친구놀이 패널" style={{ marginTop: 16 }}>
-      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
-        친구놀이
-      </h3>
+    <section className="hyeni-tool hyeni-tool--friend" aria-label="친구놀이 패널">
       <FriendPlaydateToggle
         familyId={familyId}
         enabled={enabled}
         onChange={setEnabled}
       />
-      <PlaydateSafePlaceList places={places} onUpdate={reload} />
+
+      <div>
+        <div style={{
+          margin: '4px 2px 8px',
+          color: 'var(--hyeni-ink-700)',
+          fontSize: 12,
+          fontWeight: 900,
+          letterSpacing: '0.02em',
+        }}>
+          친구놀이 안전장소
+        </div>
+        <PlaydateSafePlaceList places={places} onUpdate={reload} />
+      </div>
+
       {enabled && (
         <>
           {activeSession && !hideActiveCard && (
-            <div style={{ marginTop: 12 }}>
-              <ActivePlaydateCard session={activeSession} onEnd={reload} />
-            </div>
+            <ActivePlaydateCard session={activeSession} onEnd={reload} />
           )}
-          <div style={{ marginTop: 12 }}>
+          <div>
+            <div style={{
+              margin: '4px 2px 8px',
+              color: 'var(--hyeni-ink-700)',
+              fontSize: 12,
+              fontWeight: 900,
+              letterSpacing: '0.02em',
+            }}>
+              최근 친구놀이
+            </div>
             <PlaydateHistory history={history} />
           </div>
         </>

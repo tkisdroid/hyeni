@@ -15,22 +15,23 @@ function formatDuration(start, end) {
 
 export default function PlaydateHistory({ history }) {
   if (!history || history.length === 0) {
-    return <div style={{ padding: 12, color: '#6b7280', fontSize: 13 }}>친구놀이 이력이 없어요</div>;
+    return <div className="hyeni-tool-empty">친구놀이 이력이 없어요.</div>;
   }
   return (
-    <div>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>최근 친구놀이</div>
+    <ul className="hyeni-tool-list" aria-label="친구놀이 이력">
       {history.map((h) => (
-        <div key={h.id} style={{
-          padding: 8, borderBottom: '1px solid #f3f4f6', fontSize: 13,
-        }}>
-          <div>{h.place_name ?? '안전장소'} · {h.friend_child_name ?? '친구'}</div>
-          <div style={{ color: '#6b7280', fontSize: 12 }}>
-            {formatDuration(h.started_at, h.stopped_at)}
-            {h.stop_reason ? ` · ${REASON_LABEL[h.stop_reason] ?? h.stop_reason}` : ''}
+        <li key={h.id} className="hyeni-tool-list__row">
+          <div>
+            <div className="hyeni-tool-list__primary">
+              {h.place_name ?? '안전장소'} · {h.friend_child_name ?? '친구'}
+            </div>
+            <div className="hyeni-tool-list__secondary">
+              {formatDuration(h.started_at, h.stopped_at)}
+              {h.stop_reason ? ` · ${REASON_LABEL[h.stop_reason] ?? h.stop_reason}` : ''}
+            </div>
           </div>
-        </div>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

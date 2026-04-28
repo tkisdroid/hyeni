@@ -28,52 +28,50 @@ export default function ActivePlaydateCard({ session, onEnd }) {
   };
 
   return (
-    <div style={{
-      padding: 16, border: '2px solid #10b981', borderRadius: 12,
-      backgroundColor: '#ecfdf5', marginBottom: 12,
-    }}>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-        🎈 {placeName}에서 {friendChild}와 놀고 있어요
+    <article className="hyeni-tool-card hyeni-tool-card--accent" style={{ display: 'grid', gap: 12 }}>
+      <span className="hyeni-tool-card__rule" aria-hidden="true" />
+      <div>
+        <span className="hyeni-tool-card__kicker">진행 중</span>
+        <h3 className="hyeni-tool-card__title">
+          {placeName}에서 {friendChild}와 놀고 있어요
+        </h3>
       </div>
 
       {phones.length > 0 ? (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{
+            color: 'var(--hyeni-ink-500)',
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: '0.02em',
+          }}>
             상대 부모 연락처
           </div>
-          {phones.map((p) => (
-            <a
-              key={p}
-              href={formatPhoneTel(p)}
-              style={{
-                display: 'inline-block', marginRight: 8, marginTop: 4,
-                padding: '8px 16px', border: '1px solid #10b981', borderRadius: 8,
-                backgroundColor: '#fff', color: '#065f46',
-                textDecoration: 'none', fontSize: 14,
-              }}
-            >
-              📞 {p}
-            </a>
-          ))}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {phones.map((p) => (
+              <a key={p} href={formatPhoneTel(p)} className="hyeni-tool-tel">
+                📞 {p}
+              </a>
+            ))}
+          </div>
         </div>
       ) : (
-        <div style={{ fontSize: 13, color: '#92400e', marginBottom: 12 }}>
-          ⚠ 상대 가족 연락처가 등록되어 있지 않습니다
+        <div className="hyeni-tool-status hyeni-tool-status--warn" role="status">
+          <div className="hyeni-tool-status__body">
+            상대 가족 연락처가 등록되어 있지 않아요.
+          </div>
         </div>
       )}
 
       <button
+        type="button"
         onClick={handleStop}
         disabled={busy}
         aria-label="친구놀이 정지"
-        style={{
-          width: '100%', padding: 12, border: 'none', borderRadius: 8,
-          backgroundColor: '#dc2626', color: '#fff', fontWeight: 600,
-          cursor: busy ? 'wait' : 'pointer',
-        }}
+        className="hyeni-tool-button hyeni-tool-button--small"
       >
-        🛑 정지
+        <span className="hyeni-tool-button__label">정지</span>
       </button>
-    </div>
+    </article>
   );
 }

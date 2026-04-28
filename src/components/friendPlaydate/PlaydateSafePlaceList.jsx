@@ -6,8 +6,10 @@ export default function PlaydateSafePlaceList({ places, onUpdate }) {
 
   if (!places || places.length === 0) {
     return (
-      <div style={{ padding: 12, color: '#6b7280', fontSize: 14 }}>
-        친구놀이 안전장소를 먼저 등록하세요. 학교·공원·학원 같은 곳을 지정할 수 있습니다.
+      <div className="hyeni-tool-empty">
+        친구놀이 안전장소를 먼저 등록하세요.
+        <br />
+        학교·공원·학원 같은 곳을 지정할 수 있어요.
       </div>
     );
   }
@@ -45,49 +47,33 @@ export default function PlaydateSafePlaceList({ places, onUpdate }) {
   };
 
   return (
-    <div>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>친구놀이 안전장소</div>
+    <ul className="hyeni-tool-list" aria-label="친구놀이 안전장소">
       {places.map((place) => {
         const eligible = isPlaydateEligible(place);
         const lockedOff = !eligible && !place.is_playdate_safe;
         return (
-          <div key={place.id} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: 8, borderBottom: '1px solid #f3f4f6',
-          }}>
+          <li key={place.id} className="hyeni-tool-list__row">
             <div>
-              <div>{place.name}</div>
+              <div className="hyeni-tool-list__primary">{place.name}</div>
               {lockedOff && (
-                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                <div className="hyeni-tool-list__secondary">
                   카카오 장소 검색으로 등록된 곳만 지정 가능
                 </div>
               )}
             </div>
             <button
+              type="button"
               role="switch"
               aria-checked={place.is_playdate_safe}
               aria-label={`${place.name} 친구놀이 토글`}
               disabled={busyId === place.id || lockedOff}
               onClick={() => handleToggle(place)}
-              style={{
-                width: 44, height: 24, borderRadius: 12,
-                backgroundColor: place.is_playdate_safe ? '#10b981' : '#d1d5db',
-                border: 'none', position: 'relative',
-                opacity: lockedOff ? 0.4 : 1,
-                cursor: busyId === place.id ? 'wait'
-                  : (lockedOff ? 'not-allowed' : 'pointer'),
-              }}
-            >
-              <span style={{
-                position: 'absolute', top: 2,
-                left: place.is_playdate_safe ? 22 : 2,
-                width: 20, height: 20, borderRadius: 10,
-                backgroundColor: '#fff', transition: 'left 0.2s',
-              }} />
-            </button>
-          </div>
+              className="hyeni-tool-toggle__switch"
+              style={lockedOff ? { opacity: 0.4 } : undefined}
+            />
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }

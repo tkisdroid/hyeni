@@ -45,8 +45,7 @@ export function ForceRingTriggerButton({ onConfirm, disabled, compact = false })
   }, [cleanup]);
 
   const remaining = Math.max(0, Math.ceil((HOLD_MS - (HOLD_MS * progress) / 100) / 1000));
-
-  const buttonLabel = compact ? '5초 길게 누르기' : '🔴 5초 누르고 있기 (응급 신호 발송)';
+  const className = `hyeni-tool-button${compact ? ' hyeni-tool-button--compact' : ''}`;
 
   return (
     <button
@@ -59,43 +58,19 @@ export function ForceRingTriggerButton({ onConfirm, disabled, compact = false })
       onTouchStart={start}
       onTouchEnd={cancel}
       onTouchCancel={cancel}
-      style={{
-        background: disabled ? '#9CA3AF' : holding ? '#991B1B' : '#DC2626',
-        color: 'white',
-        padding: compact ? '12px 14px' : '20px',
-        border: 'none',
-        borderRadius: compact ? '14px' : '12px',
-        width: compact ? 'auto' : '100%',
-        minWidth: compact ? '132px' : undefined,
-        minHeight: compact ? '48px' : '56px',
-        fontSize: compact ? '13px' : '18px',
-        fontWeight: 'bold',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        position: 'relative',
-        overflow: 'hidden',
-        boxShadow: disabled ? 'none' : '0 8px 20px rgba(220,38,38,0.22)',
-      }}
+      className={className}
     >
       <span
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          height: '100%',
-          width: `${progress}%`,
-          background: 'rgba(255,255,255,0.2)',
-          transition: 'width 50ms linear',
-          pointerEvents: 'none',
-        }}
+        className="hyeni-tool-button__progress"
+        style={{ width: `${progress}%` }}
+        aria-hidden="true"
       />
-      <span style={{ position: 'relative', display: 'block' }}>
-        {buttonLabel}
-        {holding && (
-          <div style={{ fontSize: compact ? '11px' : '14px', marginTop: compact ? '4px' : '8px' }}>
-            계속 누르세요 ({remaining}초)
-          </div>
-        )}
+      <span className="hyeni-tool-button__label">
+        {compact ? '5초 길게 누르기' : '5초 누르고 있기 — 응급 신호 발송'}
       </span>
+      {holding && (
+        <span className="hyeni-tool-button__hint">계속 누르세요 · {remaining}초</span>
+      )}
     </button>
   );
 }

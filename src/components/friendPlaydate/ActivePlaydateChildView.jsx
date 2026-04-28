@@ -27,29 +27,26 @@ export default function ActivePlaydateChildView({ session, onEnd }) {
   };
 
   return (
-    <div style={{
-      padding: 24, border: '2px solid #10b981', borderRadius: 12,
-      backgroundColor: '#ecfdf5', marginBottom: 16, textAlign: 'center',
-    }}>
-      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
-        🎈 {friend}와 놀고 있어요
-      </div>
-      <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
-        ⏰ {formatTime(session.started_at)} 시작
-      </div>
+    <section className="hyeni-tool hyeni-tool--friend" style={{ textAlign: 'center' }}>
+      <article className="hyeni-tool-card hyeni-tool-card--accent" style={{ paddingTop: 22 }}>
+        <span className="hyeni-tool-card__rule" aria-hidden="true" />
+        <span className="hyeni-tool-card__kicker">놀이 중</span>
+        <h2 className="hyeni-tool-card__title" style={{ fontSize: 22 }}>
+          {friend}와 놀고 있어요
+        </h2>
+        <p className="hyeni-tool-card__sub" style={{ fontSize: 13 }}>
+          {formatTime(session.started_at)} 시작
+        </p>
+      </article>
       <button
+        type="button"
         onClick={handleStop}
         disabled={busy}
         aria-label="그만 놀래요"
-        style={{
-          width: '100%', padding: 16, fontSize: 18, fontWeight: 700,
-          backgroundColor: '#dc2626', color: '#fff',
-          border: 'none', borderRadius: 8,
-          cursor: busy ? 'wait' : 'pointer',
-        }}
+        className="hyeni-tool-button"
       >
-        🛑 그만 놀래요
+        <span className="hyeni-tool-button__label">그만 놀래요</span>
       </button>
-    </div>
+    </section>
   );
 }

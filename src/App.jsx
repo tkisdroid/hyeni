@@ -11551,18 +11551,11 @@ export default function KidsScheduler() {
                             ×
                         </button>
                     </div>
-                    <div style={{
-                        background: "linear-gradient(135deg,#F0FDF4,#ECFDF5)",
-                        border: "1px solid #BBF7D0",
-                        borderRadius: 18,
-                        padding: "14px 16px",
-                        boxShadow: "0 8px 20px rgba(16,185,129,0.10)",
-                        fontFamily: FF,
-                    }}>
+                    <div style={{ fontFamily: FF }}>
                         {familyId ? (
                             <FriendPlaydatePanel familyId={familyId} currentUserId={authUser?.id} />
                         ) : (
-                            <div style={{ color: "#6B7280", fontSize: 14, fontWeight: 700 }}>
+                            <div className="hyeni-tool-empty">
                                 가족 연동 후 친구놀이를 설정할 수 있어요.
                             </div>
                         )}
@@ -11589,14 +11582,7 @@ export default function KidsScheduler() {
                             ×
                         </button>
                     </div>
-                    <div style={{
-                        background: "linear-gradient(135deg,#FFF7F7,#FEF2F2)",
-                        border: "1px solid #FECACA",
-                        borderRadius: 18,
-                        padding: "14px 16px",
-                        boxShadow: "0 8px 20px rgba(220,38,38,0.10)",
-                        fontFamily: FF,
-                    }}>
+                    <div style={{ fontFamily: FF }}>
                         <ForceRingPanel
                             familyId={familyId}
                             hasChild={(familyInfo?.members ?? []).some(m => m.role === "child")}

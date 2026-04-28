@@ -94,10 +94,5 @@ export default function FriendPlaydateChildPanel({ familyId, currentUserId }) {
     );
   }
 
-  return (
-    <PlaydateStartButton
-      inSafePlace={inSafePlace}
-      onClick={handleDiscover}
-    />
-  );
+  return <PlaydateStartButton inSafePlace={inSafePlace} onClick={handleDiscover} />;
 }

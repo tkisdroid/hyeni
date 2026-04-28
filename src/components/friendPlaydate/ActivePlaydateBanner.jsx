@@ -56,82 +56,74 @@ export default function ActivePlaydateBanner({ familyId, isParent }) {
     <div
       role="status"
       aria-label="친구놀이 진행 중"
-      style={{
-        width: "100%",
-        marginTop: 12,
-        padding: "12px 14px",
-        borderRadius: 18,
-        background: "linear-gradient(135deg,#ECFDF5,#D1FAE5)",
-        border: "1.5px solid #6EE7B7",
-        boxShadow: "0 6px 16px rgba(16,185,129,0.18)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
+      className="hyeni-tool hyeni-tool--friend"
+      style={{ width: "100%", marginTop: 12, gap: 10 }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        }}
+      <article
+        className="hyeni-tool-card hyeni-tool-card--accent"
+        style={{ padding: "12px 14px" }}
       >
+        <span className="hyeni-tool-card__rule" aria-hidden="true" />
         <div
           style={{
-            fontSize: 14,
-            fontWeight: 900,
-            color: "#065F46",
-            lineHeight: 1.35,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
           }}
         >
-          🎈 {placeName}에서 {friendChild}와 놀고 있어요
-        </div>
-        {isParent && (
-          <button
-            type="button"
-            onClick={handleStop}
-            disabled={busy}
-            aria-label="친구놀이 정지"
-            style={{
-              flexShrink: 0,
-              padding: "7px 12px",
-              borderRadius: 10,
-              border: "none",
-              background: "#DC2626",
-              color: "#fff",
-              fontWeight: 800,
-              fontSize: 12,
-              cursor: busy ? "wait" : "pointer",
-            }}
-          >
-            🛑 정지
-          </button>
-        )}
-      </div>
-
-      {isParent && phones.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {phones.map((p) => (
-            <a
-              key={p}
-              href={formatPhoneTel(p)}
+          <div style={{ minWidth: 0 }}>
+            <span className="hyeni-tool-card__kicker">진행 중</span>
+            <div
               style={{
-                padding: "6px 12px",
-                borderRadius: 999,
-                border: "1px solid #10B981",
-                background: "#fff",
-                color: "#065F46",
-                textDecoration: "none",
-                fontSize: 12,
-                fontWeight: 700,
+                fontSize: 14,
+                fontWeight: 900,
+                color: "var(--hyeni-friend-ink)",
+                lineHeight: 1.35,
+                marginTop: 2,
               }}
             >
-              📞 {p}
-            </a>
-          ))}
+              {placeName}에서 {friendChild}와 놀고 있어요
+            </div>
+          </div>
+          {isParent && (
+            <button
+              type="button"
+              onClick={handleStop}
+              disabled={busy}
+              aria-label="친구놀이 정지"
+              className="hyeni-tool-button hyeni-tool-button--accent-soft"
+              style={{
+                padding: "8px 14px",
+                minHeight: 36,
+                width: "auto",
+                fontSize: 12,
+                background: "var(--hyeni-emergency)",
+                color: "#fff",
+                border: 0,
+                cursor: busy ? "wait" : "pointer",
+              }}
+            >
+              <span className="hyeni-tool-button__label">정지</span>
+            </button>
+          )}
         </div>
-      )}
+
+        {isParent && phones.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+            {phones.map((p) => (
+              <a
+                key={p}
+                href={formatPhoneTel(p)}
+                className="hyeni-tool-tel"
+                style={{ minHeight: 32, padding: "6px 12px", fontSize: 12 }}
+              >
+                📞 {p}
+              </a>
+            ))}
+          </div>
+        )}
+      </article>
     </div>
   );
 }

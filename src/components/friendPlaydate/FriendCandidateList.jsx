@@ -6,60 +6,87 @@ export default function FriendCandidateList({ candidates, onStart, onCancel }) {
 
   if (!candidates || candidates.length === 0) {
     return (
-      <div>
-        <div style={{ padding: 16, textAlign: 'center', color: '#6b7280' }}>
-          지금 같은 곳에 친구가 없어요. 잠시 후 다시 봐요!
-        </div>
-        <button onClick={onCancel} style={{ width: '100%', padding: 12, marginTop: 8 }}>
-          닫기
+      <section className="hyeni-tool hyeni-tool--friend">
+        <article className="hyeni-tool-card">
+          <h2 className="hyeni-tool-card__title">아직 친구가 없어요</h2>
+          <p className="hyeni-tool-card__sub">
+            지금 같은 곳에 친구가 없어요. 잠시 후 다시 봐 주세요!
+          </p>
+        </article>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="hyeni-tool-button hyeni-tool-button--ghost hyeni-tool-button--small"
+        >
+          <span className="hyeni-tool-button__label">닫기</span>
         </button>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>누구랑 놀고 싶어?</div>
-      {candidates.map((c) => (
-        <label
-          key={c.child_user_id}
-          style={{
-            display: 'flex', alignItems: 'center', padding: 12,
-            border: selected?.child_user_id === c.child_user_id ? '2px solid #10b981' : '1px solid #e5e7eb',
-            borderRadius: 8, marginBottom: 8, cursor: 'pointer',
-          }}
-        >
-          <input
-            type="radio"
-            name="friend"
-            value={c.child_user_id}
-            checked={selected?.child_user_id === c.child_user_id}
-            onChange={() => setSelected(c)}
-            style={{ marginRight: 8 }}
-          />
-          <span>{c.child_name ?? '친구'}</span>
-        </label>
-      ))}
+    <section className="hyeni-tool hyeni-tool--friend">
+      <article className="hyeni-tool-card">
+        <h2 className="hyeni-tool-card__title">누구랑 놀고 싶어?</h2>
+        <p className="hyeni-tool-card__sub">한 명을 골라 보세요.</p>
+      </article>
+
+      <ul className="hyeni-tool-list" aria-label="친구 후보">
+        {candidates.map((c) => {
+          const checked = selected?.child_user_id === c.child_user_id;
+          return (
+            <li
+              key={c.child_user_id}
+              className="hyeni-tool-list__row"
+              style={
+                checked
+                  ? {
+                      background: 'var(--hyeni-friend-tint)',
+                      boxShadow: 'inset 3px 0 0 var(--hyeni-friend)',
+                    }
+                  : undefined
+              }
+            >
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="friend"
+                  value={c.child_user_id}
+                  checked={checked}
+                  onChange={() => setSelected(c)}
+                  style={{ accentColor: 'var(--hyeni-friend)' }}
+                />
+                <span className="hyeni-tool-list__primary">{c.child_name ?? '친구'}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+
       <button
+        type="button"
         onClick={() => onStart(selected)}
         disabled={!selected}
         aria-label="친구랑 놀래요 시작"
-        style={{
-          width: '100%', padding: 16, marginTop: 12,
-          backgroundColor: selected ? '#10b981' : '#9ca3af',
-          color: '#fff', border: 'none', borderRadius: 8,
-          fontSize: 18, fontWeight: 700,
-          cursor: selected ? 'pointer' : 'not-allowed',
-        }}
+        className="hyeni-tool-button"
       >
-        🤝 친구랑 놀래요
+        <span className="hyeni-tool-button__label">친구랑 놀래요</span>
       </button>
       <button
+        type="button"
         onClick={onCancel}
-        style={{ width: '100%', padding: 8, marginTop: 8, background: 'none', border: '1px solid #e5e7eb', borderRadius: 8 }}
+        className="hyeni-tool-button hyeni-tool-button--ghost hyeni-tool-button--small"
       >
-        취소
+        <span className="hyeni-tool-button__label">취소</span>
       </button>
-    </div>
+    </section>
   );
 }
