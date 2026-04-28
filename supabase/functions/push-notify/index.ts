@@ -1060,17 +1060,41 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
   const dateKey = `${year}-${month}-${day}`;
   const nowMinutes = kst.getUTCHours() * 60 + kst.getUTCMinutes();
 
-  const { data: events, error: evErr } = await supabase
+  // Cross-midnight 15-min reminder: an event at 00:05 KST tomorrow has
+  // targetMinutes = -10 against today's clock, so a cron tick at 23:50 today
+  // would never see it if we only query today's date_key. When we are within
+  // 15 min of midnight, also fetch tomorrow's events and project their
+  // targetMinutes by +1440 so the diff math against nowMinutes stays correct.
+  const queries = [supabase
     .from("events")
-    .select("id, family_id, title, time, emoji, category, location")
-    .eq("date_key", dateKey);
+    .select("id, family_id, title, time, emoji, category, location, date_key")
+    .eq("date_key", dateKey)];
 
-  if (evErr) {
-    console.error("Failed to fetch events:", evErr);
-    return jsonResponse({ error: "Failed to fetch events" }, 500);
+  let tomorrowKey: string | null = null;
+  if (nowMinutes >= 1440 - 15) {
+    const tomorrowKst = new Date(kst.getTime() + 24 * 60 * 60 * 1000);
+    tomorrowKey = `${tomorrowKst.getUTCFullYear()}-${tomorrowKst.getUTCMonth()}-${tomorrowKst.getUTCDate()}`;
+    queries.push(supabase
+      .from("events")
+      .select("id, family_id, title, time, emoji, category, location, date_key")
+      .eq("date_key", tomorrowKey));
   }
 
-  if (!events?.length) {
+  const results = await Promise.all(queries);
+  for (const r of results) {
+    if (r.error) {
+      console.error("Failed to fetch events:", r.error);
+      return jsonResponse({ error: "Failed to fetch events" }, 500);
+    }
+  }
+  const events = results.flatMap((r) => (r.data ?? []).map((e) => ({
+    ...e,
+    // Day offset relative to "today's midnight": 0 for today's rows,
+    // +1440 for tomorrow's. Used to project targetMinutes across midnight.
+    _minutesOffset: e.date_key === dateKey ? 0 : 1440,
+  })));
+
+  if (!events.length) {
     return jsonResponse({ sent: 0, checked: 0, message: "No events today" });
   }
 
@@ -1084,16 +1108,23 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
   ];
 
   for (const event of events) {
+    if (typeof event.time !== "string") continue;
     const [h, m] = event.time.split(":").map(Number);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) continue;
     const eventMinutes = h * 60 + m;
 
     for (const window of notifWindows) {
-      const targetMinutes = eventMinutes - window.minsBefore;
+      // _minutesOffset is 0 for today's rows, 1440 for tomorrow's — projects
+      // tomorrow's events onto today's clock so the diff math holds across
+      // the midnight boundary.
+      const targetMinutes = eventMinutes - window.minsBefore + event._minutesOffset;
       const diff = nowMinutes - targetMinutes;
 
       if (diff < -1 || diff > 1) continue;
 
-      const sentKey = `${window.key}-${dateKey}`;
+      // Dedup key uses the event's own date_key so today's run and the
+      // earlier "near-midnight tomorrow query" do not collide.
+      const sentKey = `${window.key}-${event.date_key}`;
       const pushId = `${event.id}-${sentKey}`;
       const { data: existing } = await supabase
         .from("push_sent")
