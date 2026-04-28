@@ -459,7 +459,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 : "부모님이 너를 찾고 있어요";
 
         Notification notif = new NotificationCompat.Builder(this, NotificationHelper.FORCE_RING_CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
+                .setSmallIcon(R.drawable.ic_hyeni_notification)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setPriority(NotificationCompat.PRIORITY_MAX)
