@@ -9,6 +9,7 @@ const PROJECT_REF = new URL(SUPABASE_URL).hostname.split(".")[0];
 const FAMILY_ID = "11111111-1111-4111-8111-111111111111";
 const PARENT_ID = "22222222-2222-4222-8222-222222222222";
 const CHILD_ID = "33333333-3333-4333-8333-333333333333";
+const SECOND_CHILD_ID = "44444444-4444-4444-8444-444444444444";
 const PAIR_CODE = "KID-804DF582";
 const TEST_PLACE = {
   lat: 37.5665,
@@ -101,6 +102,7 @@ async function installCriticalMocks(page, options = {}) {
     walkingRoute = "success",
     seedEvents = [],
     refreshLocationAfterRequest = false,
+    extraChild = false,
   } = options;
   const state = {
     paired: role === "parent" ? true : initiallyPaired,
@@ -407,12 +409,14 @@ async function installCriticalMocks(page, options = {}) {
         });
       }
       if (query.get("role")?.includes("child")) {
-        return fulfillJson([{ user_id: CHILD_ID }]);
+        return fulfillJson(extraChild ? [{ user_id: CHILD_ID }, { user_id: SECOND_CHILD_ID }] : [{ user_id: CHILD_ID }]);
       }
-      return fulfillJson([
+      const members = [
         { user_id: PARENT_ID, role: "parent", name: "엄마", emoji: "👩" },
         { user_id: CHILD_ID, role: "child", name: "혜니", emoji: "🐰" },
-      ]);
+      ];
+      if (extraChild) members.push({ user_id: SECOND_CHILD_ID, role: "child", name: "민이", emoji: "🐥" });
+      return fulfillJson(members);
     }
 
     if (table === "families") {
@@ -464,18 +468,24 @@ async function installCriticalMocks(page, options = {}) {
         && state.enableRefreshedLocation
         && state.locationRefreshRequests > 0
         && ++state.childLocationGetsAfterRefresh >= 2;
-      return fulfillJson(
-        method === "GET"
-          ? [
-              {
-                user_id: CHILD_ID,
-                lat: useRefreshedLocation ? 37.5699 : 37.5665,
-                lng: useRefreshedLocation ? 126.9822 : 126.978,
-                updated_at: new Date(Date.now() + (useRefreshedLocation ? 5000 : 0)).toISOString(),
-              },
-            ]
-          : [],
-      );
+      if (method !== "GET") return fulfillJson([]);
+      const locations = [
+        {
+          user_id: CHILD_ID,
+          lat: useRefreshedLocation ? 37.5699 : 37.5665,
+          lng: useRefreshedLocation ? 126.9822 : 126.978,
+          updated_at: new Date(Date.now() + (useRefreshedLocation ? 5000 : 0)).toISOString(),
+        },
+      ];
+      if (extraChild) {
+        locations.push({
+          user_id: SECOND_CHILD_ID,
+          lat: 37.5702,
+          lng: 126.9828,
+          updated_at: new Date(Date.now() + 2000).toISOString(),
+        });
+      }
+      return fulfillJson(locations);
     }
 
     if (
@@ -634,6 +644,27 @@ test.describe("critical Hyeni flows", () => {
 
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_location")).toBeTruthy();
+  });
+
+  test("parent dashboard device refresh targets every paired child", async ({ page }) => {
+    const state = await installCriticalMocks(page, { role: "parent", initiallyPaired: true, extraChild: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+    await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
+    state.functionCalls.length = 0;
+
+    await page.getByRole("button", { name: "지금 갱신" }).click();
+
+    await expect.poll(() => {
+      return state.functionCalls
+        .filter((call) => call.body?.action === "request_device_status")
+        .map((call) => call.body?.targetUserId)
+        .filter(Boolean)
+        .sort();
+    }).toEqual([CHILD_ID, SECOND_CHILD_ID].sort());
   });
 
   test("parent map refresh polls until refreshed child location is visible", async ({ page }) => {

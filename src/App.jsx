@@ -9376,8 +9376,21 @@ export default function KidsScheduler() {
     );
     const dashboardChildren = (pairedChildren.length > 0 ? pairedChildren : [{ user_id: "pending-child", name: "아이", emoji: "👧" }]).slice(0, 2);
     const primaryChildUserId = dashboardChildren[0]?.user_id || null;
-    const pairedChildIdsKey = pairedChildren.map(child => child.user_id).filter(Boolean).join(",");
-    const primaryChildDeviceStatus = primaryChildUserId ? childDeviceStatusMap[primaryChildUserId] : null;
+    const pairedChildIds = pairedChildren.map(child => child.user_id).filter(Boolean);
+    const pairedChildIdsKey = pairedChildIds.join(",");
+    const dashboardDeviceStatusEntry = dashboardChildren
+        .map(child => ({ child, status: child?.user_id ? childDeviceStatusMap[child.user_id] : null }))
+        .filter(entry => entry.status)
+        .reduce((latest, entry) => {
+            if (!latest) return entry;
+            const entryTime = Date.parse(entry.status?.updatedAt || entry.status?.updated_at || "");
+            const latestTime = Date.parse(latest.status?.updatedAt || latest.status?.updated_at || "");
+            return (Number.isFinite(entryTime) ? entryTime : 0) > (Number.isFinite(latestTime) ? latestTime : 0)
+                ? entry
+                : latest;
+        }, null);
+    const primaryChildDeviceStatus = dashboardDeviceStatusEntry?.status || null;
+    const primaryDeviceChildName = dashboardDeviceStatusEntry?.child?.name || dashboardChildren[0]?.name || "아이";
     const primaryDeviceBatteryLabel = Number.isFinite(Number(primaryChildDeviceStatus?.batteryLevel))
         ? `${Math.max(0, Math.min(100, Number(primaryChildDeviceStatus.batteryLevel)))}%`
         : "확인 중";
@@ -9397,49 +9410,52 @@ export default function KidsScheduler() {
         return "양호";
     })();
     const requestChildDeviceStatusRefresh = useCallback(async (reason = "device_status_refresh") => {
-        const targetUserId = primaryChildUserId;
-        if (!targetUserId || !familyId) return false;
-        const requestId = generateUUID();
-        const requestedAt = new Date().toISOString();
-        const payload = {
-            targetUserId,
-            requestId,
-            requestedAt,
-            requesterUserId: authUser?.id || null,
-            reason,
-        };
+        if (!familyId || pairedChildIds.length === 0) return false;
 
-        const broadcastPromise = sendBroadcastWhenReady(
-            realtimeChannel.current,
-            "child_device_status_request",
-            payload,
-            { timeoutMs: 1800, pollMs: 60 }
-        ).then((sent) => {
-            if (!sent) console.warn("[DeviceStatus] realtime request was not sent; falling back to push.");
-            return sent;
-        }).catch((error) => {
-            console.warn("[DeviceStatus] realtime refresh request failed:", error?.message || error);
-            return false;
-        });
+        const results = await Promise.all(pairedChildIds.map(async (targetUserId) => {
+            const requestId = generateUUID();
+            const requestedAt = new Date().toISOString();
+            const payload = {
+                targetUserId,
+                requestId,
+                requestedAt,
+                requesterUserId: authUser?.id || null,
+                reason,
+            };
 
-        const pushPromise = sendInstantPush({
-            action: "request_device_status",
-            familyId,
-            senderUserId: authUser?.id || "",
-            title: "",
-            message: "",
-            targetRole: "child",
-            reason,
-            ...payload,
-            idempotencyKey: requestId,
-        }).catch(error => {
-            console.warn("[DeviceStatus] FCM refresh request failed:", error?.message || error);
-            return false;
-        });
+            const broadcastPromise = sendBroadcastWhenReady(
+                realtimeChannel.current,
+                "child_device_status_request",
+                payload,
+                { timeoutMs: 1800, pollMs: 60 }
+            ).then((sent) => {
+                if (!sent) console.warn("[DeviceStatus] realtime request was not sent; falling back to push.");
+                return sent;
+            }).catch((error) => {
+                console.warn("[DeviceStatus] realtime refresh request failed:", error?.message || error);
+                return false;
+            });
 
-        await Promise.all([broadcastPromise, pushPromise]);
-        return true;
-    }, [authUser?.id, familyId, primaryChildUserId]);
+            const pushPromise = sendInstantPush({
+                action: "request_device_status",
+                familyId,
+                senderUserId: authUser?.id || "",
+                title: "",
+                message: "",
+                targetRole: "child",
+                reason,
+                ...payload,
+                idempotencyKey: requestId,
+            }).catch(error => {
+                console.warn("[DeviceStatus] FCM refresh request failed:", error?.message || error);
+                return false;
+            });
+
+            const [broadcastSent, pushSent] = await Promise.all([broadcastPromise, pushPromise]);
+            return Boolean(broadcastSent || pushSent);
+        }));
+        return results.some(Boolean);
+    }, [authUser?.id, familyId, pairedChildIdsKey]);
 
     const handleParentDeviceRefreshClick = useCallback(() => {
         void requestChildLocationRefresh("device_status_manual_refresh");
@@ -11042,7 +11058,7 @@ export default function KidsScheduler() {
                             fontFamily: FF
                         }}
                     >
-                        <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
                             <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
                                 <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>배터리</div>
