@@ -2,6 +2,7 @@ package com.hyeni.calendar;
 
 import android.Manifest;
 import android.app.ActivityOptions;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -84,11 +85,22 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             }
             ForceRingRequestStore.markLauncherShown(this, eventId);
 
-            Intent svc = new Intent(this, ForceRingService.class);
-            svc.putExtra(ForceRingService.EXTRA_EVENT_ID, eventId);
-            svc.putExtra(ForceRingService.EXTRA_MESSAGE, data.get("message"));
-            svc.putExtra(ForceRingService.EXTRA_INITIATOR, data.get("initiator_name"));
-            ContextCompat.startForegroundService(this, svc);
+            // Android 14+ (UDC, sdk 34) restricts FGS start from background FCM
+            // context (specialUse FGS has no implicit grace window). Post a
+            // high-importance fullScreenIntent notification on the alarm channel
+            // instead — the system launches ForceRingActivity, which then
+            // starts ForceRingService for sound/vibration in foreground context.
+            // Pre-UDC keeps the direct FGS start (works on those API levels).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                postForceRingFullScreenNotification(eventId,
+                        data.get("message"), data.get("initiator_name"));
+            } else {
+                Intent svc = new Intent(this, ForceRingService.class);
+                svc.putExtra(ForceRingService.EXTRA_EVENT_ID, eventId);
+                svc.putExtra(ForceRingService.EXTRA_MESSAGE, data.get("message"));
+                svc.putExtra(ForceRingService.EXTRA_INITIATOR, data.get("initiator_name"));
+                ContextCompat.startForegroundService(this, svc);
+            }
             return;
         }
 
@@ -406,6 +418,51 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             nm.notify(currentNotifId, builder.build());
         }
         return currentNotifId;
+    }
+
+    // UDC+ force_ring path: post a fullScreenIntent notification instead of
+    // starting ForceRingService directly. The system permits the system-driven
+    // activity launch under FGS background-start restrictions; ForceRingActivity
+    // onCreate then starts ForceRingService from foreground context for sound.
+    private void postForceRingFullScreenNotification(String eventId, String message, String initiator) {
+        NotificationHelper.ensureForceRingChannel(this);
+
+        Intent activityIntent = new Intent(this, ForceRingActivity.class);
+        activityIntent.putExtra(ForceRingService.EXTRA_EVENT_ID, eventId);
+        activityIntent.putExtra(ForceRingService.EXTRA_MESSAGE, message);
+        activityIntent.putExtra(ForceRingService.EXTRA_INITIATOR, initiator);
+        activityIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                | Intent.FLAG_ACTIVITY_NO_HISTORY);
+
+        PendingIntent fullScreenPI = PendingIntent.getActivity(
+                this,
+                ForceRingService.NOTIF_ID,
+                activityIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        String title = "응급 강제 알람";
+        String body = (initiator != null && !initiator.isEmpty())
+                ? initiator + "이(가) 너를 찾고 있어요"
+                : "부모님이 너를 찾고 있어요";
+
+        Notification notif = new NotificationCompat.Builder(this, NotificationHelper.FORCE_RING_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .setFullScreenIntent(fullScreenPI, true)
+                .setContentIntent(fullScreenPI)
+                .build();
+
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) {
+            nm.notify(ForceRingService.NOTIF_ID, notif);
+        }
     }
 
     private boolean launchRemoteListenActivity(Map<String, String> data, int launcherNotificationId) {

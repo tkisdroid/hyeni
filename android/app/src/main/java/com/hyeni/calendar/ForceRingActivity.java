@@ -17,6 +17,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -66,6 +67,24 @@ public class ForceRingActivity extends AppCompatActivity {
         String eventId = intent.getStringExtra(ForceRingService.EXTRA_EVENT_ID);
         String message = intent.getStringExtra(ForceRingService.EXTRA_MESSAGE);
         String initiator = intent.getStringExtra(ForceRingService.EXTRA_INITIATOR);
+
+        // UDC+ flow: MyFirebaseMessagingService posted a fullScreenIntent
+        // notification instead of starting the FGS directly (background FGS
+        // start was disallowed). Now that we are running in foreground, kick
+        // ForceRingService for sound + vibration. Pre-UDC, the service is
+        // already running (FCM started it) and this is a no-op since the
+        // service singleton handles repeat onStartCommand idempotently.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            Intent svc = new Intent(this, ForceRingService.class);
+            svc.putExtra(ForceRingService.EXTRA_EVENT_ID, eventId);
+            svc.putExtra(ForceRingService.EXTRA_MESSAGE, message);
+            svc.putExtra(ForceRingService.EXTRA_INITIATOR, initiator);
+            try {
+                ContextCompat.startForegroundService(this, svc);
+            } catch (Exception ignored) {
+                // Service start failed — UI still shows the alarm; ack works.
+            }
+        }
 
         ((TextView) findViewById(R.id.initiator_text)).setText(
                 initiator != null ? initiator : "부모님이 지금 너를 찾고 있어요");
