@@ -141,15 +141,24 @@ export async function installPlaydateRoutes(page, opts = {}) {
     }),
   );
 
+  // 다른 모든 supabase REST는 빈 응답 (events / academies / memos 등) — friend_playdate
+  // 외 영역은 이 spec에서 검증 대상 아님. Playwright route는 나중에 등록한
+  // handler가 먼저 실행되므로 catch-all을 먼저 등록해 아래 전용 mock이 우선되게 한다.
+  await page.route("**/rest/v1/**", (route) => {
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "[]",
+    });
+  });
+
   // families.playdate_enabled
   await page.route("**/rest/v1/families**", (route) => {
     if (route.request().method() === "GET") {
       route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([
-          { id: FAMILY_ID, playdate_enabled: enabled },
-        ]),
+        body: JSON.stringify({ id: FAMILY_ID, playdate_enabled: enabled }),
       });
       return;
     }
@@ -230,16 +239,6 @@ export async function installPlaydateRoutes(page, opts = {}) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ delivered: true }),
-    });
-  });
-
-  // 다른 모든 supabase REST는 빈 응답 (events / academies / memos 등) — friend_playdate
-  // 외 영역은 이 spec에서 검증 대상 아님.
-  await page.route("**/rest/v1/**", (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: "[]",
     });
   });
 

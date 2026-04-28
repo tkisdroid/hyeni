@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 
 const HOLD_MS = 5000;
 
-export function ForceRingTriggerButton({ onConfirm, disabled }) {
+export function ForceRingTriggerButton({ onConfirm, disabled, compact = false }) {
   const [progress, setProgress] = useState(0);
   const [holding, setHolding] = useState(false);
   const timerRef = useRef(null);
@@ -46,6 +46,8 @@ export function ForceRingTriggerButton({ onConfirm, disabled }) {
 
   const remaining = Math.max(0, Math.ceil((HOLD_MS - (HOLD_MS * progress) / 100) / 1000));
 
+  const buttonLabel = compact ? '5초 길게 누르기' : '🔴 5초 누르고 있기 (응급 신호 발송)';
+
   return (
     <button
       type="button"
@@ -60,16 +62,18 @@ export function ForceRingTriggerButton({ onConfirm, disabled }) {
       style={{
         background: disabled ? '#9CA3AF' : holding ? '#991B1B' : '#DC2626',
         color: 'white',
-        padding: '20px',
+        padding: compact ? '12px 14px' : '20px',
         border: 'none',
-        borderRadius: '12px',
-        width: '100%',
-        minHeight: '56px',
-        fontSize: '18px',
+        borderRadius: compact ? '14px' : '12px',
+        width: compact ? 'auto' : '100%',
+        minWidth: compact ? '132px' : undefined,
+        minHeight: compact ? '48px' : '56px',
+        fontSize: compact ? '13px' : '18px',
         fontWeight: 'bold',
         cursor: disabled ? 'not-allowed' : 'pointer',
         position: 'relative',
         overflow: 'hidden',
+        boxShadow: disabled ? 'none' : '0 8px 20px rgba(220,38,38,0.22)',
       }}
     >
       <span
@@ -85,10 +89,10 @@ export function ForceRingTriggerButton({ onConfirm, disabled }) {
         }}
       />
       <span style={{ position: 'relative', display: 'block' }}>
-        🔴 5초 누르고 있기 (응급 신호 발송)
+        {buttonLabel}
         {holding && (
-          <div style={{ fontSize: '14px', marginTop: '8px' }}>
-            응급 알람을 발송하려면 계속 누르세요... ({remaining}초 남음)
+          <div style={{ fontSize: compact ? '11px' : '14px', marginTop: compact ? '4px' : '8px' }}>
+            계속 누르세요 ({remaining}초)
           </div>
         )}
       </span>

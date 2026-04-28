@@ -9678,6 +9678,34 @@ export default function KidsScheduler() {
             palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(245,158,11,0.18)" },
             onClick: openAcademyManagement,
         } : null,
+        isParent ? {
+            key: "friend-playdate",
+            icon: "🤝",
+            label: "친구놀이",
+            ariaLabel: "🤝 친구놀이 관리",
+            palette: { bg: "linear-gradient(135deg,#ECFDF5,#D1FAE5)", color: "#047857", shadow: "rgba(16,185,129,0.15)" },
+            onClick: () => {
+                setShowParentMemoPage(false);
+                setActiveView("friendPlaydateSettings");
+                window.requestAnimationFrame(() => {
+                    window.scrollTo({ top: 0, behavior: "auto" });
+                });
+            },
+        } : null,
+        isParent ? {
+            key: "force-ring",
+            icon: "❗",
+            label: "응급알림",
+            ariaLabel: "❗ 응급 강제 알림",
+            palette: { bg: "linear-gradient(135deg,#FEF2F2,#FEE2E2)", color: "#B91C1C", shadow: "rgba(220,38,38,0.16)" },
+            onClick: () => {
+                setShowParentMemoPage(false);
+                setActiveView("forceRing");
+                window.requestAnimationFrame(() => {
+                    window.scrollTo({ top: 0, behavior: "auto" });
+                });
+            },
+        } : null,
         {
             key: "stickers",
             icon: "🏆",
@@ -11010,25 +11038,6 @@ export default function KidsScheduler() {
                         <span className="hyeni-v5-memo-count">{memoPreviewCount}</span>
                     </button>
 
-                    {familyId && (
-                        <section aria-label="친구놀이">
-                            <div className="hyeni-v5-section-head">
-                                <span>친구놀이</span>
-                                <span className="hyeni-v5-section-meta">안전장소에서 친구와 놀 때만</span>
-                            </div>
-                            <div style={{
-                                background: "white",
-                                borderRadius: 16,
-                                padding: "12px 14px",
-                                boxShadow: "0 6px 16px rgba(99,102,241,0.08)",
-                                border: "1px solid #FCE7F3",
-                                marginBottom: 12,
-                            }}>
-                                <FriendPlaydatePanel familyId={familyId} currentUserId={authUser?.id} hideActiveCard />
-                            </div>
-                        </section>
-                    )}
-
                     <div className="hyeni-v5-section-head">
                         <span>관리 바로가기</span>
                         <span className="hyeni-v5-section-meta">필요한 기능만 빠르게</span>
@@ -11255,6 +11264,79 @@ export default function KidsScheduler() {
                     </div>
 
                     {renderParentBottomTabbar("calendar", "hyeni-v5-tabbar-fixed")}
+                </section>
+            )}
+
+            {/* ── FRIEND PLAYDATE SETTINGS PAGE ── */}
+            {activeView === "friendPlaydateSettings" && isParent && (
+                <section className="hyeni-v5-calendar-page" aria-label="친구놀이 관리">
+                    <div className="hyeni-v5-page-head">
+                        <div>
+                            <div className="hyeni-v5-page-kicker">안전장소 매칭 설정</div>
+                            <h2>친구놀이</h2>
+                        </div>
+                        <button
+                            type="button"
+                            className="hyeni-v5-page-add"
+                            onClick={handleParentTodayTabClick}
+                            style={{ fontFamily: FF, fontSize: 18 }}
+                            aria-label="홈으로"
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div style={{
+                        background: "linear-gradient(135deg,#F0FDF4,#ECFDF5)",
+                        border: "1px solid #BBF7D0",
+                        borderRadius: 18,
+                        padding: "14px 16px",
+                        boxShadow: "0 8px 20px rgba(16,185,129,0.10)",
+                        fontFamily: FF,
+                    }}>
+                        {familyId ? (
+                            <FriendPlaydatePanel familyId={familyId} currentUserId={authUser?.id} />
+                        ) : (
+                            <div style={{ color: "#6B7280", fontSize: 14, fontWeight: 700 }}>
+                                가족 연동 후 친구놀이를 설정할 수 있어요.
+                            </div>
+                        )}
+                    </div>
+                    {renderParentBottomTabbar("tools", "hyeni-v5-tabbar-fixed")}
+                </section>
+            )}
+
+            {/* ── FORCE RING PAGE ── */}
+            {activeView === "forceRing" && isParent && (
+                <section className="hyeni-v5-calendar-page" aria-label="응급 강제 알림">
+                    <div className="hyeni-v5-page-head">
+                        <div>
+                            <div className="hyeni-v5-page-kicker">진짜 응급 상황에서만 사용</div>
+                            <h2>응급 강제 알림</h2>
+                        </div>
+                        <button
+                            type="button"
+                            className="hyeni-v5-page-add"
+                            onClick={handleParentTodayTabClick}
+                            style={{ fontFamily: FF, fontSize: 18 }}
+                            aria-label="홈으로"
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div style={{
+                        background: "linear-gradient(135deg,#FFF7F7,#FEF2F2)",
+                        border: "1px solid #FECACA",
+                        borderRadius: 18,
+                        padding: "14px 16px",
+                        boxShadow: "0 8px 20px rgba(220,38,38,0.10)",
+                        fontFamily: FF,
+                    }}>
+                        <ForceRingPanel
+                            familyId={familyId}
+                            hasChild={(familyInfo?.members ?? []).some(m => m.role === "child")}
+                        />
+                    </div>
+                    {renderParentBottomTabbar("tools", "hyeni-v5-tabbar-fixed")}
                 </section>
             )}
 
@@ -11589,14 +11671,6 @@ export default function KidsScheduler() {
                     familyId={familyId}
                     senderUserId={authUser?.id}
                     onClose={() => setShowRemoteAudio(false)}
-                />
-            )}
-
-            {/* Force Ring (강제 소리 울리기) — Spec: docs/superpowers/specs/2026-04-27-force-ring-design.md */}
-            {isParent && familyId && (
-                <ForceRingPanel
-                    familyId={familyId}
-                    hasChild={(familyInfo?.members ?? []).some(m => m.role === "child")}
                 />
             )}
 

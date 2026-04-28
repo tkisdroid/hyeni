@@ -1,5 +1,6 @@
 import process from "node:process";
 import dotenv from "dotenv";
+import { expect } from "@playwright/test";
 
 dotenv.config();
 
@@ -293,6 +294,15 @@ export async function dismissEmergencyBannerIfPresent(page) {
   if (await ackBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await ackBtn.click();
   }
+}
+
+export async function openForceRingPage(page) {
+  const shortcut = page.getByRole("button", { name: /응급 강제 알림|응급알림/ });
+  await shortcut.scrollIntoViewIfNeeded();
+  await shortcut.click();
+  await expect(page.getByRole("heading", { name: /응급 강제 알림/ })).toBeVisible({
+    timeout: 15_000,
+  });
 }
 
 export async function holdLongPressTrigger(page) {

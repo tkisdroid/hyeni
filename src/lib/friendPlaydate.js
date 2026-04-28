@@ -6,6 +6,13 @@
 import { supabase } from "./supabase.js";
 
 const VALID_STOP_REASONS = ["child_end", "parent_end", "auto_geofence_exit"];
+let playdateChannelSeq = 0;
+
+function getPlaydateChannelName(familyId) {
+  playdateChannelSeq = (playdateChannelSeq + 1) % Number.MAX_SAFE_INTEGER;
+  const safeFamilyId = String(familyId).replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `friend_playdate-${safeFamilyId}-${Date.now()}-${playdateChannelSeq}`;
+}
 
 export async function findCandidates(familyId) {
   if (!familyId) throw new Error("familyId required");
@@ -174,31 +181,36 @@ export async function fetchHistory(familyId, limit = 10) {
 
 export function subscribeActiveSession(familyId, onChange) {
   if (!familyId) throw new Error("familyId required");
-  const channel = supabase
-    .channel(`friend_playdate-${familyId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "friend_playdate_sessions",
-        filter: `family_a_id=eq.${familyId}`,
-      },
-      (payload) => onChange(payload),
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "friend_playdate_sessions",
-        filter: `family_b_id=eq.${familyId}`,
-      },
-      (payload) => onChange(payload),
-    )
-    .subscribe();
+  let channel = null;
+  try {
+    channel = supabase
+      .channel(getPlaydateChannelName(familyId))
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_playdate_sessions",
+          filter: `family_a_id=eq.${familyId}`,
+        },
+        (payload) => onChange(payload),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friend_playdate_sessions",
+          filter: `family_b_id=eq.${familyId}`,
+        },
+        (payload) => onChange(payload),
+      )
+      .subscribe();
+  } catch (error) {
+    console.warn("[subscribeActiveSession] failed to subscribe", error);
+  }
 
   return () => {
-    supabase.removeChannel(channel);
+    if (channel) supabase.removeChannel(channel);
   };
 }

@@ -320,4 +320,15 @@ describe("subscribeActiveSession", () => {
     const unsubscribe = subscribeActiveSession("fam-1", () => {});
     expect(typeof unsubscribe).toBe("function");
   });
+
+  it("uses a unique realtime topic for each subscription", () => {
+    subscribeActiveSession("fam-1", () => {});
+    subscribeActiveSession("fam-1", () => {});
+
+    const topics = supabase.channel.mock.calls.map(([topic]) => topic);
+    expect(topics).toHaveLength(2);
+    expect(new Set(topics).size).toBe(2);
+    expect(topics[0]).toMatch(/^friend_playdate-fam-1-/);
+    expect(topics[1]).toMatch(/^friend_playdate-fam-1-/);
+  });
 });

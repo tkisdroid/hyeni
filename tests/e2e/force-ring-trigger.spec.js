@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   installForceRingParentMocks,
   dismissEmergencyBannerIfPresent,
+  openForceRingPage,
   holdLongPressTrigger,
 } from "./_force-ring-fixtures.js";
 
@@ -17,10 +18,7 @@ test("force_ring trigger: long-press → modal → send → delivered status", a
 
   await page.goto("/");
   await dismissEmergencyBannerIfPresent(page);
-
-  await expect(page.getByRole("heading", { name: /응급 강제 알람/ })).toBeVisible({
-    timeout: 15_000,
-  });
+  await openForceRingPage(page);
 
   await holdLongPressTrigger(page);
 

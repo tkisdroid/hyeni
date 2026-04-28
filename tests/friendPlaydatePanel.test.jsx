@@ -84,7 +84,7 @@ describe("FriendPlaydatePanel", () => {
     });
   });
 
-  it("toggle OFF 상태에서는 안전장소 list/active/history 숨김", async () => {
+  it("toggle OFF 상태에서도 안전장소 설정은 표시", async () => {
     mockMaybeSingle.mockResolvedValueOnce({
       data: { id: "fam-1", playdate_enabled: false },
       error: null,
@@ -95,7 +95,19 @@ describe("FriendPlaydatePanel", () => {
         screen.getByRole("heading", { name: "친구놀이" }),
       ).toBeInTheDocument();
     });
-    expect(screen.queryByText(/친구놀이 안전장소/)).not.toBeInTheDocument();
+    expect(screen.getByText(/친구놀이 안전장소/)).toBeInTheDocument();
+  });
+
+  it("playdate_enabled 값이 없으면 기본 허용으로 표시", async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: { id: "fam-1" },
+      error: null,
+    });
+    render(<FriendPlaydatePanel familyId="fam-1" currentUserId="u-1" />);
+    await waitFor(() => {
+      expect(screen.getByRole("switch", { name: /친구놀이 기능/ })).toHaveAttribute("aria-checked", "true");
+    });
+    expect(screen.getByText(/친구놀이 안전장소/)).toBeInTheDocument();
   });
 
   it("loading 상태 표시 후 ready 전환", async () => {

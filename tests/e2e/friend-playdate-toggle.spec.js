@@ -44,10 +44,14 @@ test.describe('Friend Playdate — toggle flow', () => {
     await page.goto('/');
     await dismissEmergencyBannerIfPresent(page);
 
-    // Panel renders only when `familyId && isParent`. Heading proves the
-    // FriendPlaydatePanel mounted past loading state.
+    const shortcut = page.getByRole('button', { name: /친구놀이 관리/ });
+    await shortcut.scrollIntoViewIfNeeded();
+    await shortcut.click();
+
+    // Heading proves the dedicated FriendPlaydatePanel page mounted past
+    // loading state.
     await expect(
-      page.getByRole('heading', { name: '친구놀이' }),
+      page.getByLabel('친구놀이 패널').getByRole('heading', { name: '친구놀이' }),
     ).toBeVisible({ timeout: 15_000 });
 
     const toggle = page.getByRole('switch', { name: /친구놀이 기능/ });
