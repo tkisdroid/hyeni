@@ -19,9 +19,11 @@ vi.mock("../../src/lib/qonversion.js", () => ({
   purchaseChildSlot: vi.fn(),
 }));
 
+// id (family_members.id) is the lookup key into ents (= subscriptions.child_id).
+// user_id remains as auth identity but is NOT used for entitlement keying.
 const children = [
-  { user_id: "c1", name: "혜니", birthdate: "2015-03-21", color_hex: "#F779A8", child_order: 1 },
-  { user_id: "c2", name: "민준", birthdate: "2018-07-04", color_hex: "#3B82F6", child_order: 2 },
+  { id: "c1", user_id: "u1", name: "혜니", birthdate: "2015-03-21", color_hex: "#F779A8", child_order: 1 },
+  { id: "c2", user_id: "u2", name: "민준", birthdate: "2018-07-04", color_hex: "#3B82F6", child_order: 2 },
 ];
 
 describe("SubscriptionManagement (parent)", () => {

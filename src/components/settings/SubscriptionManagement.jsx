@@ -23,7 +23,7 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
   const [busyChildId, setBusyChildId] = useState(null);
 
   async function handleToggle(child, nextSubscribed) {
-    setBusyChildId(child.user_id);
+    setBusyChildId(child.id);
     try {
       if (nextSubscribed) {
         await purchaseChildSlot(child.child_order);
@@ -48,9 +48,9 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
         {childList.map((c) => (
           <PerChildToggle
-            key={c.user_id} child={c}
-            subscribed={ents[c.user_id]?.tier === "premium"}
-            busy={busyChildId === c.user_id}
+            key={c.id} child={c}
+            subscribed={ents[c.id]?.tier === "premium"}
+            busy={busyChildId === c.id}
             onToggle={(next) => handleToggle(c, next)}
           />
         ))}

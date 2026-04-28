@@ -10,12 +10,15 @@ const FREE_FEATURES = new Set([
 ]);
 
 export function deriveChildEntitlements(children, subscriptions) {
+  // subscriptions.child_id is family_members.id (per M3 backfill + FK target).
+  // Key the result map by the same family_members.id so callers must look up
+  // with child.id, not child.user_id (the previous bug — silently always free).
   const subByChild = new Map((subscriptions || []).map((s) => [s.child_id, s]));
   const result = {};
   for (const child of children) {
-    const sub = subByChild.get(child.user_id);
+    const sub = subByChild.get(child.id);
     const isPremium = sub && PREMIUM_STATUSES.has(sub.status);
-    result[child.user_id] = {
+    result[child.id] = {
       tier: isPremium ? "premium" : "free",
       status: sub?.status || "expired",
       priceKrw: sub?.price_krw || 1500,

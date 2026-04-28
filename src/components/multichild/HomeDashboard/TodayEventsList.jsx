@@ -11,8 +11,9 @@ export function TodayEventsList({ events, children }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {events.map((event) => {
+        // child_ids stores family_members.id (matches events_children.child_id FK).
         const eventChildren = (event.child_ids || [])
-          .map((id) => children.find((c) => c.user_id === id))
+          .map((id) => children.find((c) => c.id === id))
           .filter(Boolean);
         const isFamily = event.is_family_event;
         const firstColor = eventChildren[0]?.color_hex || "#9CA3AF";

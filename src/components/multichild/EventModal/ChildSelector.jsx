@@ -18,10 +18,11 @@ export function ChildSelector({ children, value, onChange }) {
       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1F2937" }}>대상</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {children.map((c) => {
-          const checked = childIds.includes(c.user_id);
+          // Use family_members.id (matches events_children.child_id FK target)
+          const checked = childIds.includes(c.id);
           return (
             <label
-              key={c.user_id}
+              key={c.id}
               style={{
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "10px 14px", borderRadius: 12,
@@ -32,8 +33,9 @@ export function ChildSelector({ children, value, onChange }) {
             >
               <input
                 type="checkbox" checked={checked}
-                onChange={() => toggleChild(c.user_id)}
+                onChange={() => toggleChild(c.id)}
                 aria-label={c.name}
+                data-child-id={c.id}
                 style={{ width: 20, height: 20, accentColor: c.color_hex }}
               />
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: c.color_hex }} />

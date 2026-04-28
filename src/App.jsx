@@ -6815,20 +6815,26 @@ export default function KidsScheduler() {
     // ── 다중 자녀 프라이버시 (원칙 5): 자녀 기기는 자기 데이터만 본다 ─────────────────
     // events 는 { [dateKey]: Event[] } 형태의 맵. 학부모는 그대로 두고,
     // 자녀 모드일 때만 가족 전체 일정 OR 본인이 포함된 일정으로 좁힌다.
+    // child_ids는 events_children.child_id (= family_members.id)이므로
+    // auth.uid()가 아닌 본인의 family_members.id로 비교한다.
+    const myFamilyMemberId = useMemo(() => {
+        if (isParent) return null;
+        return pairedChildren.find((c) => c.user_id === authUser?.id)?.id ?? null;
+    }, [pairedChildren, isParent, authUser?.id]);
     const visibleEvents = useMemo(() => {
         if (isParent) return events;
-        const myId = authUser?.id;
+        const myId = myFamilyMemberId;
         if (!events || typeof events !== "object") return events;
         if (Array.isArray(events)) {
-            return events.filter((e) => e?.is_family_event || (e?.child_ids || []).includes(myId));
+            return events.filter((e) => e?.is_family_event || (myId && (e?.child_ids || []).includes(myId)));
         }
         const filtered = {};
         for (const dk of Object.keys(events)) {
             const list = Array.isArray(events[dk]) ? events[dk] : [];
-            filtered[dk] = list.filter((e) => e?.is_family_event || (e?.child_ids || []).includes(myId));
+            filtered[dk] = list.filter((e) => e?.is_family_event || (myId && (e?.child_ids || []).includes(myId)));
         }
         return filtered;
-    }, [events, isParent, authUser?.id]);
+    }, [events, isParent, myFamilyMemberId]);
     const ownPosition = useMemo(() => {
         if (isParent) return null;
         const myId = authUser?.id;

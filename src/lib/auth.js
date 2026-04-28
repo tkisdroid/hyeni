@@ -198,7 +198,7 @@ export async function getMyFamily(userId) {
 
     const { data: members } = await supabase
       .from("family_members")
-      .select("user_id, role, name, emoji")
+      .select("id, user_id, role, name, emoji, child_order, color_hex, birthdate, photo_url")
       .eq("family_id", parentFamily.id);
 
     return {
@@ -232,7 +232,7 @@ export async function getMyFamily(userId) {
 
   const { data: members } = await supabase
     .from("family_members")
-    .select("user_id, role, name, emoji")
+    .select("id, user_id, role, name, emoji, child_order, color_hex, birthdate, photo_url")
     .eq("family_id", membership.family_id);
 
   return {

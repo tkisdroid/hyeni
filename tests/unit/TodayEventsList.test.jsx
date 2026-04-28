@@ -3,9 +3,10 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { TodayEventsList } from "../../src/components/multichild/HomeDashboard/TodayEventsList.jsx";
 
+// child_ids contains family_members.id values (events_children.child_id FK).
 const children = [
-  { user_id: "c1", name: "혜니", color_hex: "#F779A8" },
-  { user_id: "c2", name: "민준", color_hex: "#3B82F6" },
+  { id: "c1", user_id: "u1", name: "혜니", color_hex: "#F779A8" },
+  { id: "c2", user_id: "u2", name: "민준", color_hex: "#3B82F6" },
 ];
 
 const events = [
