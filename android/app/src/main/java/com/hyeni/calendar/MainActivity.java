@@ -82,7 +82,20 @@ public class MainActivity extends BridgeActivity {
 
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
-                callback.invoke(origin, true, true);
+                // Phase 5 Stream B: gate WebView geolocation on the OS-level
+                // ACCESS_FINE_LOCATION runtime permission. The previous
+                // unconditional callback.invoke(origin, true, true) auto-granted
+                // (and remembered, retain=true) any origin loaded in the WebView,
+                // bypassing the per-origin consent surface that PIPA + Play
+                // Console expect for a parent-child app. Now: granted only when
+                // the user has accepted ACCESS_FINE_LOCATION at the OS prompt;
+                // retain=false so the WebView re-checks if the OS permission is
+                // later revoked.
+                boolean osGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                        MainActivity.this,
+                        android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                callback.invoke(origin, osGranted, false);
             }
         });
 
