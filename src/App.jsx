@@ -6871,6 +6871,18 @@ export default function KidsScheduler() {
         openAcademyManagement();
     }, [openAcademyManagement]);
 
+    // Playdate context: bypass the academy-schedule entitlement gate. The user
+    // came here to register a 친구놀이 안전장소, not to manage academies, so
+    // showing them the ACADEMY_SCHEDULE paywall is wrong-feature messaging.
+    // NOTE: the SAVED_PLACES paywall inside AcademyManager still blocks
+    // free-tier users at the create step. Fully enabling free-tier playdate
+    // place creation requires a dedicated insert path (is_playdate_safe=true
+    // + public_place_id at INSERT time per FP-D10 RLS). Tracked as follow-up.
+    const handleOpenPlaydatePlaceMgr = useCallback(() => {
+        if (!isParent) return;
+        setShowAcademyMgr(true);
+    }, [isParent]);
+
     // ── Add form ───────────────────────────────────────────────────────────────
     const [newTitle, setNewTitle] = useState("");
     const [newTime, setNewTime] = useState("09:00");
@@ -11556,7 +11568,7 @@ export default function KidsScheduler() {
                             <FriendPlaydatePanel
                                 familyId={familyId}
                                 currentUserId={authUser?.id}
-                                onAddSafePlace={handleOpenSavedPlaceMgr}
+                                onAddSafePlace={handleOpenPlaydatePlaceMgr}
                             />
                         ) : (
                             <div className="hyeni-tool-empty">

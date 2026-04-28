@@ -22,11 +22,12 @@ export function ForceRingConfirmModal({ isOpen, onCancel, onConfirm, quotaInfo }
         </ul>
 
         <div className="hyeni-tool-modal__field">
-          <label>
+          <label htmlFor="force-ring-message">
             메시지 (선택)
             <span>{message.length} / 80</span>
           </label>
           <textarea
+            id="force-ring-message"
             maxLength={80}
             value={message}
             onChange={(e) => setMessage(e.target.value.slice(0, 80))}
