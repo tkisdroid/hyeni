@@ -6,13 +6,39 @@ export function PhotoUpload({ value, onChange, familyId, childOrder }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  // During the pairing wizard, the family row does not exist yet, so we
+  // cannot upload to Supabase Storage — the bucket policy requires the
+  // first folder segment to match an existing family_id where the caller
+  // is parent. Instead, we capture the file as a DataURL preview and let
+  // PairingWizard.submitChildren upload it to Storage right after the
+  // family + members are created. Post-family edits (familyId is a real
+  // uuid) keep the original direct-upload behavior.
+  const isPendingFamily = !familyId || familyId === "pending";
+
   async function handleFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
     setError(null);
     try {
-      const ext = file.name.split(".").pop();
+      if (isPendingFamily) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          onChange(reader.result);
+          setBusy(false);
+        };
+        reader.onerror = () => {
+          setError("사진 읽기 실패");
+          setBusy(false);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const dotIdx = file.name.lastIndexOf(".");
+      const ext = dotIdx > 0 && dotIdx < file.name.length - 1
+        ? file.name.slice(dotIdx + 1).toLowerCase()
+        : "jpg";
       const path = `${familyId}/child-${childOrder}-${Date.now()}.${ext}`;
       const bucket = supabase.storage.from("child-photos");
       const { error: upErr } = await bucket.upload(path, file, { upsert: true });
@@ -22,7 +48,7 @@ export function PhotoUpload({ value, onChange, familyId, childOrder }) {
     } catch (err) {
       setError(err.message || "업로드 실패");
     } finally {
-      setBusy(false);
+      if (!isPendingFamily) setBusy(false);
     }
   }
 

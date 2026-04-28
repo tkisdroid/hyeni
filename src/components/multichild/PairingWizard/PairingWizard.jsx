@@ -1,9 +1,56 @@
 // src/components/multichild/PairingWizard/PairingWizard.jsx
 import { useState } from "react";
 import { setupFamily } from "../../../lib/auth.js";
+import { supabase } from "../../../lib/supabase.js";
 import { autoAssignColor } from "../ChildPalette.js";
 import { ChildCountStep } from "./ChildCountStep.jsx";
 import { ChildDetailsStep } from "./ChildDetailsStep.jsx";
+
+// Upload DataURL-staged photos to Storage now that the family row exists.
+// Best-effort: a single upload failure must not roll back the family.
+async function uploadPendingPhotos(familyId, children) {
+  if (!familyId) return;
+  const pending = children
+    .map((c, i) => ({ child: c, order: i + 1 }))
+    .filter(({ child }) => typeof child.photo_url === "string" && child.photo_url.startsWith("data:"));
+  if (pending.length === 0) return;
+
+  // Need each placeholder family_member's id to UPDATE photo_url. Match by
+  // child_order (setupFamily writes child_order = i + 1 in the same loop).
+  const { data: members } = await supabase
+    .from("family_members")
+    .select("id, child_order")
+    .eq("family_id", familyId)
+    .eq("role", "child");
+  const memberByOrder = new Map((members || []).map((m) => [m.child_order, m]));
+
+  for (const { child, order } of pending) {
+    try {
+      const member = memberByOrder.get(order);
+      if (!member) continue;
+      const blob = await (await fetch(child.photo_url)).blob();
+      const ext = (blob.type.split("/")[1] || "jpg").split(";")[0] || "jpg";
+      const path = `${familyId}/child-${order}-${Date.now()}.${ext}`;
+      const bucket = supabase.storage.from("child-photos");
+      const { error: upErr } = await bucket.upload(path, blob, {
+        upsert: true,
+        contentType: blob.type || "image/jpeg",
+      });
+      if (upErr) {
+        console.error("[PairingWizard] photo upload failed:", upErr);
+        continue;
+      }
+      const { data: { publicUrl } } = bucket.getPublicUrl(path);
+      const { error: updErr } = await supabase
+        .from("family_members")
+        .update({ photo_url: publicUrl })
+        .eq("id", member.id);
+      if (updErr) console.error("[PairingWizard] photo url persist failed:", updErr);
+    } catch (e) {
+      console.error("[PairingWizard] photo persist error:", e);
+    }
+  }
+}
 
 export function PairingWizard({ userId, parentName, onComplete }) {
   const [stepIndex, setStepIndex] = useState(0);
@@ -35,9 +82,22 @@ export function PairingWizard({ userId, parentName, onComplete }) {
     setBusy(true);
     setError(null);
     try {
+      // Strip DataURL photos before insert — those are local previews captured
+      // in the wizard before the family/storage folder existed. Real photo_urls
+      // (from a re-edit flow) pass through unchanged.
+      const childrenForInsert = children.map((c) => ({
+        ...c,
+        photo_url: typeof c.photo_url === "string" && c.photo_url.startsWith("data:")
+          ? null
+          : (c.photo_url || null),
+      }));
       const created = await setupFamily(userId, parentName, {
-        familyName, plannedChildCount: childCount, children,
+        familyName, plannedChildCount: childCount, children: childrenForInsert,
       });
+      // Best-effort: upload pending photos now that the family folder exists.
+      // Failures are logged but the wizard still advances — user can re-add
+      // photos from a future settings UI if any single upload missed.
+      await uploadPendingPhotos(created.id, children);
       setFamily(created);
       setStepIndex(3);
     } catch (err) {
