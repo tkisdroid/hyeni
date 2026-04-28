@@ -232,6 +232,20 @@ export async function installPlaydateRoutes(page, opts = {}) {
     });
   });
 
+  // get_active_playdate_session RPC — fetchActiveSession routes through this
+  // (SECURITY DEFINER perspective-aware enrich, see src/lib/friendPlaydate.js
+  // fetchActiveSession). When the fixture caller seeds activeSession, return
+  // the same shape the client would render; otherwise return null so the
+  // child UI stays in 'idle' phase.
+  await page.route("**/rest/v1/rpc/get_active_playdate_session**", (route) => {
+    state.rpcCalls.push("get_active_playdate_session");
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(activeSession ?? null),
+    });
+  });
+
   // push-notify Edge Function
   await page.route("**/functions/v1/push-notify", async (route) => {
     state.pushNotifyCalls.push(await route.request().postDataJSON());

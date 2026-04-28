@@ -1513,12 +1513,14 @@ async function fetchWalkingRoute(start, destination, signal) {
     const destinationCoord = toRoutePosition(destination);
     if (!startCoord || !destinationCoord) throw new Error("invalid route coordinates");
 
-    try {
-        return await fetchKakaoWalkingRoute(startCoord, destinationCoord, signal);
-    } catch (error) {
-        if (signal?.aborted) throw error;
-        return fetchOsmFootRoute(startCoord, destinationCoord, signal);
-    }
+    // Kakao-only. The OSM (OSRM) fallback used to fire on Kakao failure but
+    // routed children through an open-data road-graph that did not match the
+    // walking-distance heuristics the in-app guidance card surfaces, so a
+    // failed Kakao request silently re-routed to OSM and the parent saw a
+    // distance that disagreed with the displayed straight-line. The caller
+    // (requestWalkingRoute) catches the throw and falls back to
+    // drawDirectRoute (in-app straight-line + 예상 직선거리 label).
+    return await fetchKakaoWalkingRoute(startCoord, destinationCoord, signal);
 }
 
 function formatLatLngLabel(position) {
@@ -3190,6 +3192,17 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
             if (signal?.aborted) return;
             console.warn("[Guidance] Walking route failed:", error);
             drawDirectRoute(start, destination, { fit });
+            // Settle loading=false + error=true so the "🔍 경로 검색 중..."
+            // overlay disappears and the route card switches to the
+            // "예상 직선거리 · 도보 약 …" label (rendered when
+            // routeInfo.error is truthy).
+            setRouteInfo((prev) => ({
+                distance: prev?.distance ?? null,
+                duration: prev?.duration ?? null,
+                loading: false,
+                error: true,
+                provider: "in_app_direct",
+            }));
         }
     }, [drawDirectRoute, drawRoutePath]);
 
