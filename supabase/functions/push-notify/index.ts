@@ -1243,12 +1243,14 @@ async function handlePlaydateStarted(
     return jsonResponse({ error: "forbidden" }, 403);
   }
 
-  const [placeRes, familyARes, familyBRes, childARes, childBRes] = await Promise.all([
+  const [placeRes, familyARes, familyBRes, childARes, childBRes, tierARes, tierBRes] = await Promise.all([
     supabase.from("public_places").select("name").eq("id", session.public_place_id).maybeSingle(),
     supabase.from("families").select("mom_phone, dad_phone, parent_id").eq("id", session.family_a_id).maybeSingle(),
     supabase.from("families").select("mom_phone, dad_phone, parent_id").eq("id", session.family_b_id).maybeSingle(),
     supabase.from("family_members").select("name").eq("user_id", session.child_a_id).maybeSingle(),
     supabase.from("family_members").select("name").eq("user_id", session.child_b_id).maybeSingle(),
+    supabase.rpc("family_subscription_effective_tier", { p_family_id: session.family_a_id }),
+    supabase.rpc("family_subscription_effective_tier", { p_family_id: session.family_b_id }),
   ]);
 
   const placeName = placeRes.data?.name ?? "안전장소";
@@ -1256,45 +1258,62 @@ async function handlePlaydateStarted(
   const childBName = childBRes.data?.name ?? "친구";
   const familyAPhones = [familyARes.data?.mom_phone, familyARes.data?.dad_phone].filter(Boolean) as string[];
   const familyBPhones = [familyBRes.data?.mom_phone, familyBRes.data?.dad_phone].filter(Boolean) as string[];
+  const tierA = (tierARes.data as string | null) ?? "free";
+  const tierB = (tierBRes.data as string | null) ?? "free";
 
   const [tokensA, tokensB] = await Promise.all([
     fetchFcmTokensForUser(supabase, familyARes.data?.parent_id),
     fetchFcmTokensForUser(supabase, familyBRes.data?.parent_id),
   ]);
 
-  const dataA: Record<string, string> = {
-    type: "playdate_started",
-    action: "playdate_started",
-    session_id: session.id,
-    place_name: placeName,
-    my_child_name: childAName,
-    friend_child_name: childBName,
-    friend_family_phones: JSON.stringify(familyBPhones),
-  };
-  const dataB: Record<string, string> = {
-    type: "playdate_started",
-    action: "playdate_started",
-    session_id: session.id,
-    place_name: placeName,
-    my_child_name: childBName,
-    friend_child_name: childAName,
-    friend_family_phones: JSON.stringify(familyAPhones),
+  // Tier-aware notification copy.
+  //   premium parents → full info (place name + friend family phones + stop CTA)
+  //   free parents    → upsell variant: child names only + subscription prompt.
+  //                     omit place_name and friend_family_phones so the client
+  //                     cannot render the premium-only fields from FCM data.
+  const buildPayload = (myChildName: string, friendChildName: string, friendPhones: string[], myTier: string) => {
+    if (myTier === "premium") {
+      return {
+        title: "친구놀이 시작",
+        body: `${myChildName}가 ${placeName}에서 ${friendChildName}와 놀고 있어요`,
+        data: {
+          type: "playdate_started",
+          action: "playdate_started",
+          tier: "premium",
+          session_id: session.id,
+          place_name: placeName,
+          my_child_name: myChildName,
+          friend_child_name: friendChildName,
+          friend_family_phones: JSON.stringify(friendPhones),
+        } as Record<string, string>,
+      };
+    }
+    return {
+      title: "친구놀이가 시작되었어요",
+      body: `${myChildName}와 ${friendChildName}가 함께 놀고 있어요. 구독하시면 안전장소와 알림을 받을 수 있어요`,
+      data: {
+        type: "playdate_started_upsell",
+        action: "playdate_started",
+        tier: "free",
+        session_id: session.id,
+        my_child_name: myChildName,
+        friend_child_name: friendChildName,
+      } as Record<string, string>,
+    };
   };
 
-  const titleA = "친구놀이 시작";
-  const bodyA = `${childAName}가 ${placeName}에서 ${childBName}와 놀고 있어요`;
-  const titleB = "친구놀이 시작";
-  const bodyB = `${childBName}가 ${placeName}에서 ${childAName}와 놀고 있어요`;
+  const payloadA = buildPayload(childAName, childBName, familyBPhones, tierA);
+  const payloadB = buildPayload(childBName, childAName, familyAPhones, tierB);
 
   const expiredIds: string[] = [];
   let sentCount = 0;
   for (const t of tokensA) {
-    const result = await sendFcmNotification(t.fcm_token, titleA, bodyA, dataA);
+    const result = await sendFcmNotification(t.fcm_token, payloadA.title, payloadA.body, payloadA.data);
     if (result === "sent") sentCount++;
     else if (result === "expired") expiredIds.push(t.id);
   }
   for (const t of tokensB) {
-    const result = await sendFcmNotification(t.fcm_token, titleB, bodyB, dataB);
+    const result = await sendFcmNotification(t.fcm_token, payloadB.title, payloadB.body, payloadB.data);
     if (result === "sent") sentCount++;
     else if (result === "expired") expiredIds.push(t.id);
   }
