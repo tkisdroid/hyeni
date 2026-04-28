@@ -76,17 +76,30 @@ export async function endPlaydate(sessionId, stopReason) {
     throw new Error(`invalid stop_reason: ${stopReason}`);
   }
 
-  const { error: updErr } = await supabase
+  // Idempotent: only the first end call wins. The .is("stopped_at", null)
+  // guard prevents a double-stop (parent presses 정지 + child presses 그만
+  // 놀래요 nearly simultaneously) from overwriting stop_reason. The Edge
+  // Function's playdate_ended handler also asserts stopped_at via 422, but
+  // gating the DB UPDATE here is the authoritative client-side fence.
+  const { data: rows, error: updErr } = await supabase
     .from("friend_playdate_sessions")
     .update({ stopped_at: new Date().toISOString(), stop_reason: stopReason })
     .eq("id", sessionId)
+    .is("stopped_at", null)
     .select();
   if (updErr) throw updErr;
+
+  // No row updated = already stopped by another caller. Skip the push so we
+  // don't double-fire playdate_ended notifications for the same session.
+  if (!rows || rows.length === 0) {
+    return { stopped: false, reason: "already_stopped" };
+  }
 
   const { error: pushErr } = await supabase.functions.invoke("push-notify", {
     body: { action: "playdate_ended", session_id: sessionId },
   });
   if (pushErr) console.warn("[endPlaydate] push failed", pushErr);
+  return { stopped: true };
 }
 
 export async function upsertPublicPlace({ kakaoPlaceId, name, lat, lng }) {

@@ -133,13 +133,16 @@ describe("startPlaydate", () => {
 
 describe("endPlaydate", () => {
   it("updates stopped_at + invokes push-notify playdate_ended", async () => {
+    // Mock chain: from().update().eq("id").is("stopped_at", null).select()
     const mockSelect = vi.fn().mockResolvedValueOnce({
       data: [{ id: "sess-1" }],
       error: null,
     });
     supabase.from.mockReturnValueOnce({
       update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({ select: mockSelect }),
+        eq: vi.fn().mockReturnValue({
+          is: vi.fn().mockReturnValue({ select: mockSelect }),
+        }),
       }),
     });
     supabase.functions.invoke.mockResolvedValueOnce({
@@ -154,6 +157,24 @@ describe("endPlaydate", () => {
         body: { action: "playdate_ended", session_id: "sess-1" },
       }),
     );
+  });
+
+  it("skips push when session already stopped (idempotent guard)", async () => {
+    // Mock returns no rows — the .is("stopped_at", null) filter excluded the
+    // row because another caller already set stopped_at.
+    supabase.from.mockReturnValueOnce({
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          is: vi.fn().mockReturnValue({
+            select: vi.fn().mockResolvedValueOnce({ data: [], error: null }),
+          }),
+        }),
+      }),
+    });
+
+    const result = await endPlaydate("sess-1", "parent_end");
+    expect(result).toEqual({ stopped: false, reason: "already_stopped" });
+    expect(supabase.functions.invoke).not.toHaveBeenCalled();
   });
 
   it("rejects invalid stop_reason", async () => {
