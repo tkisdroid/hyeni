@@ -6722,6 +6722,7 @@ export default function KidsScheduler() {
     const academyFocusAlertedRef = useRef(new Set());
     const childPosRef = useRef(null);
     const sosAutoTimersRef = useRef([]);
+    const parentBootstrapRefreshKeyRef = useRef("");
     const displayChildPositions = useMemo(
         () => effectiveChildPositions(allChildPositions, entitlement),
         [allChildPositions, entitlement]
@@ -7758,7 +7759,7 @@ export default function KidsScheduler() {
             .then((locs) => {
                 if (!locs?.length) return;
                 const latest = locs.slice().sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
-                setChildPos({ lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at });
+                setChildPos({ user_id: latest.user_id, userId: latest.user_id, lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at, updated_at: latest.updated_at });
                 const members = familyInfoRef.current?.members?.filter((m) => m.role === "child") || [];
                 const positions = locs.map((loc) => {
                     const member = members.find((c) => c.user_id === loc.user_id);
@@ -8170,11 +8171,15 @@ export default function KidsScheduler() {
 
         const applyPosition = (p) => {
             const newPos = {
+                user_id: authUser.id,
+                userId: authUser.id,
+                family_id: familyId,
                 lat: p.coords.latitude,
                 lng: p.coords.longitude,
                 accuracy: Number.isFinite(p.coords.accuracy) ? p.coords.accuracy : null,
                 updatedAt: new Date().toISOString(),
             };
+            newPos.updated_at = newPos.updatedAt;
             setChildPos(newPos);
             if (realtimeChannel.current && realtimeChannel.current.state === "joined") {
                 realtimeChannel.current.send({ type: "broadcast", event: "child_location", payload: newPos });
@@ -8315,7 +8320,7 @@ export default function KidsScheduler() {
             fetchChildLocations(familyId).then(locs => {
                 if (cancelled || !locs.length) return;
                 const latest = locs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
-                setChildPos({ lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at });
+                setChildPos({ user_id: latest.user_id, userId: latest.user_id, lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at, updated_at: latest.updated_at });
                 const latestMs = new Date(latest.updated_at).getTime();
                 if (Number.isFinite(latestMs)) {
                     setLocationRefreshRequestedAt(prev => (prev && latestMs >= prev ? null : prev));
@@ -9338,6 +9343,7 @@ export default function KidsScheduler() {
     );
     const dashboardChildren = (pairedChildren.length > 0 ? pairedChildren : [{ user_id: "pending-child", name: "아이", emoji: "👧" }]).slice(0, 2);
     const primaryChildUserId = dashboardChildren[0]?.user_id || null;
+    const pairedChildIdsKey = pairedChildren.map(child => child.user_id).filter(Boolean).join(",");
     const primaryChildDeviceStatus = primaryChildUserId ? childDeviceStatusMap[primaryChildUserId] : null;
     const primaryDeviceBatteryLabel = Number.isFinite(Number(primaryChildDeviceStatus?.batteryLevel))
         ? `${Math.max(0, Math.min(100, Number(primaryChildDeviceStatus.batteryLevel)))}%`
@@ -9357,9 +9363,9 @@ export default function KidsScheduler() {
         if (screenMs >= 3 * 60 * 60 * 1000) return "장시간 사용";
         return "양호";
     })();
-    const requestChildDeviceStatusRefresh = () => {
+    const requestChildDeviceStatusRefresh = useCallback(async (reason = "device_status_refresh") => {
         const targetUserId = primaryChildUserId;
-        if (!targetUserId || !familyId) return;
+        if (!targetUserId || !familyId) return false;
         const requestId = generateUUID();
         const requestedAt = new Date().toISOString();
         const payload = {
@@ -9367,30 +9373,49 @@ export default function KidsScheduler() {
             requestId,
             requestedAt,
             requesterUserId: authUser?.id || null,
+            reason,
         };
 
-        if (realtimeChannel.current?.state === "joined") {
-            realtimeChannel.current.send({
-                type: "broadcast",
-                event: "child_device_status_request",
-                payload,
-            });
-        }
+        const broadcastPromise = sendBroadcastWhenReady(
+            realtimeChannel.current,
+            "child_device_status_request",
+            payload,
+            { timeoutMs: 1800, pollMs: 60 }
+        ).then((sent) => {
+            if (!sent) console.warn("[DeviceStatus] realtime request was not sent; falling back to push.");
+            return sent;
+        }).catch((error) => {
+            console.warn("[DeviceStatus] realtime refresh request failed:", error?.message || error);
+            return false;
+        });
 
-        sendInstantPush({
-            action: "request_location",
+        const pushPromise = sendInstantPush({
+            action: "request_device_status",
             familyId,
             senderUserId: authUser?.id || "",
             title: "",
             message: "",
             targetRole: "child",
-            reason: "device_status_refresh",
+            reason,
             ...payload,
             idempotencyKey: requestId,
         }).catch(error => {
             console.warn("[DeviceStatus] FCM refresh request failed:", error?.message || error);
+            return false;
         });
-    };
+
+        await Promise.all([broadcastPromise, pushPromise]);
+        return true;
+    }, [authUser?.id, familyId, primaryChildUserId]);
+
+    useEffect(() => {
+        if (myRole !== "parent" || !familyId || !authUser?.id || !pairedChildIdsKey) return;
+        const refreshKey = `${familyId}:${authUser.id}:${pairedChildIdsKey}`;
+        if (parentBootstrapRefreshKeyRef.current === refreshKey) return;
+        parentBootstrapRefreshKeyRef.current = refreshKey;
+        void requestChildLocationRefresh("parent_dashboard_bootstrap");
+        void requestChildDeviceStatusRefresh("parent_dashboard_bootstrap");
+    }, [authUser?.id, familyId, myRole, pairedChildIdsKey, requestChildDeviceStatusRefresh, requestChildLocationRefresh]);
     const getDashboardChildPosition = (child, index) => {
         const matched = displayChildPositions.find(pos => pos.user_id && pos.user_id === child.user_id);
         if (matched) return matched;

@@ -598,6 +598,16 @@ test.describe("critical Hyeni flows", () => {
     });
   });
 
+  test("parent dashboard bootstraps child location and device status after reload", async ({ page }) => {
+    const state = await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+
+    await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_location")).toBeTruthy();
+    await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
+  });
+
   test("parent main calendar selection uses distinct colors and filters the schedule list", async ({ page }) => {
     const now = new Date();
     const targetDay = now.getDate() === 1 ? 2 : now.getDate() - 1;
