@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
+import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
 import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
@@ -6643,6 +6644,7 @@ export default function KidsScheduler() {
     const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
     const [showPhoneSettings, setShowPhoneSettings] = useState(false);
     const [showParentSetup, setShowParentSetup] = useState(false);
+    const [showCreateWizard, setShowCreateWizard] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedbackDraft, setFeedbackDraft] = useState("");
     const [feedbackBusy, setFeedbackBusy] = useState(false);
@@ -9986,9 +9988,29 @@ export default function KidsScheduler() {
     if (!myRole || (!authUser && !authLoading)) return <RoleSetupModal onSelect={r => { if (r === "child") handleChildSelect(); }} loading={authLoading} />;
 
     // ── Parent first login: choose "새 가족 만들기" or "기존 가족 합류" ────────
-    if (showParentSetup && !familyInfo) return (
-        <ParentSetupScreen onCreateFamily={handleCreateFamily} onJoinAsParent={handleJoinAsParent} />
-    );
+    // "새 가족 만들기" → PairingWizard (multi-child setup wizard)
+    // "기존 가족 합류" → existing handleJoinAsParent flow (preserved)
+    if (showParentSetup && !familyInfo) {
+        if (showCreateWizard && authUser) return (
+            <PairingWizard
+                userId={authUser.id}
+                parentName={authUser.user_metadata?.name || "부모"}
+                onComplete={async () => {
+                    try {
+                        const fam = await getMyFamily(authUser.id);
+                        if (fam) setFamilyInfo(fam);
+                    } catch (err) {
+                        console.error("[PairingWizard onComplete] getMyFamily failed:", err);
+                    }
+                    setShowCreateWizard(false);
+                    setShowParentSetup(false);
+                }}
+            />
+        );
+        return (
+            <ParentSetupScreen onCreateFamily={() => setShowCreateWizard(true)} onJoinAsParent={handleJoinAsParent} />
+        );
+    }
 
     // ── Phase 5 · GATE-01 / GATE-02 ────────────────────────────────────────────
     // Pre-pair UI gate for child sessions. While the child is anonymously
