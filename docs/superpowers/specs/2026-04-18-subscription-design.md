@@ -1,3 +1,6 @@
+> **⚠️ SUPERSEDED 2026-04-28**
+> 본 spec(가족 단위 1:1 구독)은 `docs/superpowers/specs/2026-04-28-multi-child-support-design.md`로 대체되었습니다. 신규 모델은 **per-child 구독 (자녀 1인당 ₩1,500/월)** 입니다. 새 구현은 새 spec 을 따르세요. 본 문서는 마이그레이션 시 grandfather 처리 정책 참고용으로만 보존합니다.
+
 # 구독 모델 설계 — hyeni
 
 ## Overview

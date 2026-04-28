@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>혜니캘린더 · 다중 자녀 UX Overview v1</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
+  :root {
+    --cat-school: #A78BFA; --cat-school-bg: #EDE9FE;
+    --cat-sports: #34D399; --cat-sports-bg: #D1FAE5;
+    --cat-hobby:  #F59E0B; --cat-hobby-bg:  #FEF3C7;
+    --cat-family: #F87171; --cat-family-bg: #FEE2E2;
+    --cat-friend: #60A5FA; --cat-friend-bg: #DBEAFE;
+    --cat-other:  #EC4899; --cat-other-bg:  #FCE7F3;
+    --pink: #F779A8; --pink-deep: #E65C92; --pink-darker: #C4447A; --pink-text: #B0477A;
+    --pink-soft: #FFD4E7; --pink-very-soft: #FFE4EF; --pink-cream: #FFF5FA; --cream: #FFFAF5;
+    --blue: #3B82F6; --blue-deep: #2563EB;
+    --ink: #38252D; --ink-soft: #75525C; --ink-muted: #9B7C85;
+    --success: #059669; --warn: #D97706; --danger: #DC2626;
+    --hyeni: #EC4899; --hyeni-bg: #FCE7F3;
+    --minjun: #60A5FA; --minjun-bg: #DBEAFE;
+    --family: #34D399; --family-bg: #D1FAE5;
+    --font-sans: 'Pretendard Variable','Pretendard','Noto Sans KR','Apple SD Gothic Neo', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    padding: 56px 24px 96px;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(247,121,168,0.10) 1px, transparent 0),
+      linear-gradient(180deg, #FFF8FB 0%, #FFEFF5 100%);
+    background-size: 22px 22px, auto;
+    font-family: var(--font-sans);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: auto;
+  }
+
+  .deck-header { text-align: center; margin: 0 auto 56px; max-width: 760px; }
+  .deck-eyebrow { font-size: 11px; letter-spacing: 0.18em; font-weight: 800; color: var(--pink-darker); text-transform: uppercase; margin-bottom: 14px; }
+  .deck-title { font-size: 38px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); margin: 0 0 14px; line-height: 1.18; }
+  .deck-sub { font-size: 15px; color: var(--ink-soft); font-weight: 500; line-height: 1.65; }
+  .deck-sub strong { color: var(--ink); font-weight: 700; }
+
+  .principle-strip { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 24px; }
+  .principle-pill { font-size: 11px; font-weight: 700; padding: 7px 12px; border-radius: 999px; background: #fff; border: 1.5px solid var(--pink-very-soft); color: var(--pink-darker); letter-spacing: -0.005em; }
+
+  .screen-row { display: flex; gap: 56px; flex-wrap: wrap; justify-content: center; padding: 16px 0; align-items: flex-start; }
+  .screen-block { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 440px; }
+  .screen-tag { font-size: 10px; letter-spacing: 0.14em; font-weight: 800; color: #fff; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; background: var(--pink-deep); }
+  .screen-tag.wire { background: var(--ink-muted); }
+  .screen-name { font-size: 19px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+  .screen-meta { font-size: 12.5px; color: var(--ink-soft); font-weight: 500; text-align: center; max-width: 380px; line-height: 1.6; margin-bottom: 6px; }
+
+  .ios-wrap { display: inline-block; padding: 11px; background: #0a0a0a; border-radius: 56px; box-shadow: 0 0 0 2px #1f2937, 0 30px 70px rgba(30,20,40,0.22), 0 12px 22px rgba(0,0,0,0.10); position: relative; }
+  .ios-screen { position: relative; border-radius: 45px; overflow: hidden; background: #FFF8FB; width: 380px; height: 760px; }
+  .ios-island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 108px; height: 32px; background: #000; border-radius: 999px; z-index: 30; }
+  .ios-statusbar { position: absolute; top: 0; left: 0; right: 0; height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 28px; font-size: 14px; font-weight: 600; z-index: 20; pointer-events: none; font-family: -apple-system, 'SF Pro Text', sans-serif; color: var(--ink); }
+  .ios-statusbar .icons { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .ios-content { position: absolute; top: 50px; left: 0; right: 0; bottom: 0; overflow-y: auto; }
+  .ios-home { position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; background: rgba(0,0,0,0.32); border-radius: 999px; z-index: 10; }
+
+  .tabbar { position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: rgba(255,255,255,0.92); backdrop-filter: blur(20px); border-top: 1.5px solid var(--pink-very-soft); display: flex; align-items: flex-start; justify-content: space-around; padding: 11px 8px 0; z-index: 5; }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; color: #B89BA4; flex: 1; }
+  .tab.on { color: var(--pink-deep); }
+  .tab svg { width: 24px; height: 24px; }
+
+  .card { background: #fff; border-radius: 22px; padding: 16px 18px; border: 1.5px solid var(--pink-very-soft); box-shadow: 0 4px 12px rgba(247,121,168,0.06); margin: 0 16px 12px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .card-title { font-size: 11px; font-weight: 800; color: var(--pink-darker); letter-spacing: 0.08em; text-transform: uppercase; }
+  .card-meta { font-size: 11px; font-weight: 600; color: var(--ink-muted); }
+
+  .avatar { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 15px; flex-shrink: 0; letter-spacing: -0.02em; }
+  .avatar.sm { width: 28px; height: 28px; border-radius: 9px; font-size: 12px; }
+  .avatar.lg { width: 52px; height: 52px; border-radius: 16px; font-size: 19px; }
+  .avatar.hyeni { background: linear-gradient(135deg, #FBA8C9 0%, var(--hyeni) 100%); }
+  .avatar.minjun { background: linear-gradient(135deg, #93C5FD 0%, var(--minjun) 100%); }
+
+  .btn-primary { display: block; width: 100%; padding: 16px; border-radius: 18px; background: linear-gradient(135deg, var(--pink) 0%, var(--pink-deep) 100%); color: #fff; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; border: none; box-shadow: 0 8px 18px rgba(247,121,168,0.28); cursor: pointer; font-family: var(--font-sans); }
+  .btn-ghost { background: transparent; border: none; color: var(--pink-deep); font-size: 13px; font-weight: 700; cursor: pointer; font-family: var(--font-sans); }
+
+  .field-label { font-size: 11px; color: var(--ink-muted); font-weight: 700; letter-spacing: 0.04em; margin: 0 0 4px 4px; }
+  .field { padding: 12px 14px; background: var(--pink-cream); border-radius: 12px; border: 1.5px solid var(--pink-very-soft); font-size: 14px; font-weight: 700; color: var(--ink); display: flex; justify-content: space-between; align-items: center; }
+  .field-aux { color: var(--ink-muted); font-size: 11px; font-weight: 600; }
+
+  .new-badge { position: absolute; top: -10px; right: 16px; background: linear-gradient(135deg, var(--pink) 0%, var(--pink-deep) 100%); color: #fff; font-size: 10px; font-weight: 800; padding: 5px 11px; border-radius: 999px; letter-spacing: 0.05em; box-shadow: 0 4px 10px rgba(247,121,168,0.35); z-index: 40; }
+
+  .anno-list { font-size: 12px; color: var(--ink-soft); line-height: 1.6; max-width: 380px; padding-left: 0; list-style: none; margin: 8px 0 0; }
+  .anno-list li { position: relative; padding-left: 20px; margin-bottom: 6px; }
+  .anno-list li::before { content: ''; position: absolute; left: 6px; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--pink-deep); }
+  .anno-list li strong { color: var(--ink); font-weight: 700; }
+
+  .footnote { max-width: 760px; margin: 80px auto 0; padding: 24px 28px; background: rgba(255,255,255,0.65); backdrop-filter: blur(8px); border: 1px solid var(--pink-very-soft); border-radius: 24px; font-size: 13px; color: var(--ink-soft); line-height: 1.7; }
+  .footnote h3 { font-size: 13px; color: var(--pink-darker); letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 12px; font-weight: 800; }
+  .footnote ul { padding-left: 20px; margin: 0; }
+  .footnote li { margin-bottom: 6px; }
+  .footnote code { background: var(--pink-very-soft); color: var(--pink-darker); padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: ui-monospace, 'JetBrains Mono', monospace; }
+
+  @media (max-width: 1100px) { .screen-row { gap: 32px; } }
+</style>
+</head>
+<body>
+
+<header class="deck-header">
+  <div class="deck-eyebrow">Multi-Child UX · Mockup v1 · 2026-04-28</div>
+  <h1 class="deck-title">자녀 2명+ 모드 ─ 5화면 Overview</h1>
+  <p class="deck-sub">
+    <strong>자녀 1명일 때는 현재 화면 큰틀 그대로 유지.</strong><br/>
+    아래 5화면은 자녀가 2명 이상으로 페어링됐을 때 새로 등장하는 흐름·모달입니다.<br/>
+    <em>v3 Illustrated Warm</em> 디자인 토큰을 그대로 재사용했습니다.
+  </p>
+  <div class="principle-strip">
+    <span class="principle-pill">자녀 1명 = 큰틀 그대로</span>
+    <span class="principle-pill">부모 단말 전용 다중 UI</span>
+    <span class="principle-pill">자녀 단말 = 본인 + 가족 공유</span>
+    <span class="principle-pill">일정 다중 귀속 + '가족 전체'</span>
+    <span class="principle-pill">구독 = per-child opt-in</span>
+    <span class="principle-pill">안전 = 무료 · 서버 비용 = 유료</span>
+  </div>
+</header>
+
+<div class="screen-row">
+
+  <!-- SCREEN 1 — 페어링 자녀 정보 입력 (Full) -->
+  <div class="screen-block">
+    <span class="screen-tag">화면 1 · 페어링</span>
+    <div class="screen-name">자녀 정보 입력</div>
+    <div class="screen-meta">자녀 수 stepper로 슬롯을 만들고, 자녀별 이름·생년월일·사진(선택)을 입력. 생년월일은 구독·표시의 식별자.</div>
+    <div class="ios-wrap">
+      <div class="ios-screen">
+        <div class="ios-island"></div>
+        <div class="ios-statusbar"><span>9:41</span><span class="icons">●●●● · 88%</span></div>
+        <div class="ios-content" style="padding-bottom: 100px;">
+
+          <!-- Progress 5단계 -->
+          <div style="padding: 14px 22px 4px; display: flex; align-items: center; gap: 5px;">
+            <div style="flex: 1; height: 4px; background: var(--pink-deep); border-radius: 999px;"></div>
+            <div style="flex: 1; height: 4px; background: var(--pink-deep); border-radius: 999px;"></div>
+            <div style="flex: 1; height: 4px; background: var(--pink); border-radius: 999px;"></div>
+            <div style="flex: 1; height: 4px; background: var(--pink-very-soft); border-radius: 999px;"></div>
+            <div style="flex: 1; height: 4px; background: var(--pink-very-soft); border-radius: 999px;"></div>
+          </div>
+
+          <div style="padding: 12px 22px 16px;">
+            <div style="font-size: 11px; letter-spacing: 0.12em; color: var(--pink-darker); font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">STEP 3 / 5 · 자녀</div>
+            <div style="font-size: 26px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.18;">자녀를<br/>알려주세요</div>
+            <div style="font-size: 13px; color: var(--ink-soft); margin-top: 10px; font-weight: 500; line-height: 1.55;">정보로 자녀를 구분해 표시합니다. 나중에 변경할 수 있어요.</div>
+          </div>
+
+          <!-- 자녀 수 stepper (강화) -->
+          <div style="margin: 4px 16px 14px; padding: 16px 18px; background: linear-gradient(135deg, #FFF, var(--pink-cream)); border-radius: 20px; border: 1.5px solid var(--pink-very-soft); display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-size: 14px; font-weight: 800; letter-spacing: -0.01em;">자녀 수</div>
+              <div style="font-size: 11px; color: var(--ink-muted); margin-top: 2px; font-weight: 600;">최대 5명까지</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <button style="width: 36px; height: 36px; border-radius: 12px; border: 1.5px solid var(--pink-soft); background: #fff; color: var(--pink-deep); font-size: 18px; font-weight: 800;">−</button>
+              <div style="font-size: 26px; font-weight: 800; width: 28px; text-align: center; letter-spacing: -0.03em;">2</div>
+              <button style="width: 36px; height: 36px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--pink) 0%, var(--pink-deep) 100%); color: #fff; font-size: 18px; font-weight: 800; box-shadow: 0 4px 10px rgba(247,121,168,0.3);">+</button>
+            </div>
+          </div>
+
+          <!-- 자녀 1 (혜니) — 풀 카드 -->
+          <div class="card">
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 14px;">
+              <div style="position: relative;">
+                <div class="avatar lg hyeni" style="width: 56px; height: 56px; border-radius: 18px; font-size: 22px;">혜</div>
+                <div style="position: absolute; bottom: -3px; right: -3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid var(--pink-soft); display: flex; align-items: center; justify-content: center;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--pink-deep)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3"/></svg>
+                </div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: 10px; color: var(--ink-muted); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">자녀 1</div>
+                <div style="font-size: 13px; font-weight: 700; margin-top: 1px;">사진 추가 가능 (선택)</div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+              <div><div class="field-label">이름</div><div class="field"><span>혜니</span></div></div>
+              <div><div class="field-label">생년월일</div><div class="field"><span>2015 · 03 · 12</span><span class="field-aux">만 11세</span></div></div>
+            </div>
+            <div>
+              <div class="field-label">색상 (자동 할당 · 변경 가능)</div>
+              <div style="display: flex; gap: 9px; padding: 6px 4px;">
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-other); position: relative; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--cat-other);">
+                  <svg width="14" height="14" viewBox="0 0 14 14" style="position: absolute; top: 7px; left: 7px;"><path d="M3 7l3 3 5-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                </div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-friend); opacity: 0.5;"></div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-school);"></div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-sports);"></div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-hobby);"></div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-family);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 자녀 2 (민준) — 풀 카드 -->
+          <div class="card">
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 14px;">
+              <div style="position: relative;">
+                <div class="avatar lg minjun" style="width: 56px; height: 56px; border-radius: 18px; font-size: 22px;">민</div>
+                <div style="position: absolute; bottom: -3px; right: -3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid var(--pink-soft); display: flex; align-items: center; justify-content: center;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--pink-deep)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3"/></svg>
+                </div>
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: 10px; color: var(--ink-muted); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">자녀 2</div>
+                <div style="font-size: 13px; font-weight: 700; margin-top: 1px;">사진 추가 가능 (선택)</div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+              <div><div class="field-label">이름</div><div class="field"><span>민준</span></div></div>
+              <div><div class="field-label">생년월일</div><div class="field"><span>2018 · 09 · 24</span><span class="field-aux">만 8세</span></div></div>
+            </div>
+            <div>
+              <div class="field-label">색상 (자동 할당 · 변경 가능)</div>
+              <div style="display: flex; gap: 9px; padding: 6px 4px;">
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-other); opacity: 0.5;"></div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-friend); position: relative; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--cat-friend);">
+                  <svg width="14" height="14" viewBox="0 0 14 14" style="position: absolute; top: 7px; left: 7px;"><path d="M3 7l3 3 5-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                </div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-school);"></div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-sports);"></div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-hobby);"></div>
+                <div style="width: 28px; height: 28px; border-radius: 9px; background: var(--cat-family);"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 개인정보 안내 -->
+          <div style="margin: 0 16px 14px; padding: 11px 14px; background: var(--cream); border-radius: 12px; border: 1px dashed var(--pink-soft); display: flex; align-items: center; gap: 10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600; line-height: 1.55;"><strong style="color: var(--ink);">개인정보 안내</strong> · 가족 내에서만 표시되며 외부 공유되지 않아요.</div>
+          </div>
+        </div>
+
+        <!-- bottom action -->
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 14px 18px 28px; background: linear-gradient(180deg, rgba(255,248,251,0) 0%, #FFF8FB 30%);">
+          <button class="btn-primary">다음 → 페어링 코드 발급</button>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+    <ul class="anno-list">
+      <li><strong>5단계 progress bar</strong>: 약관 → 부모 정보 → <em>자녀</em> → 페어링 코드 → 완료</li>
+      <li><strong>자녀 수 stepper</strong>: 1-5, 변경 시 슬롯 추가/삭제. 슬롯 N개 = 자녀 카드 N개 자동 생성</li>
+      <li><strong>사진 업로드</strong>: 카메라 아이콘 탭 → 사진 라이브러리 / 카메라 (선택)</li>
+      <li><strong>색상 6색 picker</strong>: 자동 할당된 색에 체크, 다른 색 클릭으로 변경 가능. 두 자녀가 같은 색 못 고르도록 disable</li>
+      <li>자녀 1명일 때는 자녀 수 stepper 자체가 안 나옴 (현재 페어링 흐름 유지)</li>
+    </ul>
+  </div>
+
+  <!-- SCREEN 2 — 홈 통합 대시보드 (Full) -->
+  <div class="screen-block">
+    <span class="screen-tag">화면 2 · 홈 (신규 탭)</span>
+    <div class="screen-name">통합 대시보드</div>
+    <div class="screen-meta">자녀 2명 이상일 때만 등장하는 새 '홈' 탭. 위치·일정·안전을 자녀별로 동시 비교. 자녀 1명 모드에서는 이 탭 자체가 숨김.</div>
+    <div class="ios-wrap">
+      <span class="new-badge">NEW</span>
+      <div class="ios-screen">
+        <div class="ios-island"></div>
+        <div class="ios-statusbar"><span>9:41</span><span class="icons">●●●● · 88%</span></div>
+        <div class="ios-content" style="padding-bottom: 100px;">
+
+          <div style="padding: 18px 22px 6px;">
+            <div style="font-size: 12px; letter-spacing: 0.06em; color: var(--pink-darker); font-weight: 800; text-transform: uppercase;">우리 가족 · 화요일 4월 28일</div>
+            <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.025em; margin-top: 4px;">두 아이 모두<br/><span style="color: var(--success);">이상 없음</span></div>
+          </div>
+
+          <div style="display: flex; gap: 10px; padding: 14px 16px 6px;">
+            <div style="flex: 1; min-width: 0; background: linear-gradient(135deg, #FFF, var(--hyeni-bg)); border: 1.5px solid var(--hyeni-bg); border-radius: 18px; padding: 12px 14px;">
+              <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 9px;">
+                <div class="avatar sm hyeni">혜</div>
+                <div><div style="font-size: 13px; font-weight: 800;">혜니</div><div style="font-size: 10px; color: var(--ink-muted); font-weight: 600;">11세 · 학교</div></div>
+              </div>
+              <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600; line-height: 1.5;">
+                <div style="display: flex; justify-content: space-between;"><span>배터리</span><strong style="color: var(--success);">78%</strong></div>
+                <div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>일정</span><strong style="color: var(--ink);">3건</strong></div>
+              </div>
+            </div>
+            <div style="flex: 1; min-width: 0; background: linear-gradient(135deg, #FFF, var(--minjun-bg)); border: 1.5px solid var(--minjun-bg); border-radius: 18px; padding: 12px 14px;">
+              <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 9px;">
+                <div class="avatar sm minjun">민</div>
+                <div><div style="font-size: 13px; font-weight: 800;">민준</div><div style="font-size: 10px; color: var(--ink-muted); font-weight: 600;">8세 · 집</div></div>
+              </div>
+              <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600; line-height: 1.5;">
+                <div style="display: flex; justify-content: space-between;"><span>배터리</span><strong style="color: var(--warn);">45%</strong></div>
+                <div style="display: flex; justify-content: space-between; margin-top: 2px;"><span>일정</span><strong style="color: var(--ink);">1건</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">현재 위치</span><span class="card-meta">2분 전 갱신</span></div>
+            <div style="position: relative; height: 130px; border-radius: 14px; overflow: hidden; background: linear-gradient(135deg, #F0F4FF 0%, #FCE7F3 100%);">
+              <svg width="100%" height="100%" viewBox="0 0 320 130" style="position: absolute; inset: 0;">
+                <path d="M0,80 L120,82 L180,40 L320,42" stroke="#fff" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
+                <path d="M60,0 L62,130" stroke="#fff" stroke-width="10" opacity="0.7"/>
+                <path d="M220,0 L222,130" stroke="#fff" stroke-width="10" opacity="0.7"/>
+              </svg>
+              <div style="position: absolute; left: 30%; top: 38%; display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                <div style="background: #fff; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; color: var(--hyeni); box-shadow: 0 2px 6px rgba(0,0,0,0.1); border: 1.5px solid var(--hyeni);">혜니</div>
+                <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--hyeni); border: 2.5px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.15);"></div>
+              </div>
+              <div style="position: absolute; left: 68%; top: 56%; display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                <div style="background: #fff; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; color: var(--minjun); box-shadow: 0 2px 6px rgba(0,0,0,0.1); border: 1.5px solid var(--minjun);">민준</div>
+                <div style="width: 14px; height: 14px; border-radius: 50%; background: var(--minjun); border: 2.5px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.15);"></div>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+              <div style="font-size: 12px; color: var(--ink-soft); font-weight: 600;">혜니 <strong style="color: var(--ink);">학교</strong> · 민준 <strong style="color: var(--ink);">집</strong></div>
+              <span class="btn-ghost">지도 자세히 →</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">오늘 일정</span><span class="card-meta">총 4건</span></div>
+            <div style="display: flex; flex-direction: column; gap: 9px;">
+              <div style="display: flex; gap: 12px; align-items: center; padding: 10px 12px; background: var(--hyeni-bg); border-radius: 14px; border-left: 3px solid var(--hyeni);">
+                <div class="avatar sm hyeni" style="width: 24px; height: 24px; font-size: 10px;">혜</div>
+                <div style="flex: 1;">
+                  <div style="font-size: 13px; font-weight: 800; letter-spacing: -0.01em;">수학 학원</div>
+                  <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600; margin-top: 1px;">14:00 - 15:30 · 강남구</div>
+                </div>
+                <div style="font-size: 10px; padding: 3px 8px; border-radius: 999px; background: var(--cat-school-bg); color: var(--cat-school); font-weight: 800; letter-spacing: 0.04em;">학원</div>
+              </div>
+              <div style="display: flex; gap: 12px; align-items: center; padding: 10px 12px; background: var(--minjun-bg); border-radius: 14px; border-left: 3px solid var(--minjun);">
+                <div class="avatar sm minjun" style="width: 24px; height: 24px; font-size: 10px;">민</div>
+                <div style="flex: 1;">
+                  <div style="font-size: 13px; font-weight: 800; letter-spacing: -0.01em;">축구 교실</div>
+                  <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600; margin-top: 1px;">16:30 - 18:00 · 동네 체육관</div>
+                </div>
+                <div style="font-size: 10px; padding: 3px 8px; border-radius: 999px; background: var(--cat-sports-bg); color: var(--cat-sports); font-weight: 800; letter-spacing: 0.04em;">운동</div>
+              </div>
+              <div style="display: flex; gap: 12px; align-items: center; padding: 10px 12px; background: var(--family-bg); border-radius: 14px; border-left: 3px solid var(--family);">
+                <div style="display: flex;">
+                  <div class="avatar sm hyeni" style="width: 22px; height: 22px; font-size: 9px;">혜</div>
+                  <div class="avatar sm minjun" style="width: 22px; height: 22px; font-size: 9px; margin-left: -8px; border: 1.5px solid #fff;">민</div>
+                </div>
+                <div style="flex: 1;">
+                  <div style="font-size: 13px; font-weight: 800; letter-spacing: -0.01em;">가족 도서관 가기</div>
+                  <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600; margin-top: 1px;">19:00 - 21:00 · 시립도서관</div>
+                </div>
+                <div style="font-size: 10px; padding: 3px 8px; border-radius: 999px; background: var(--family); color: #fff; font-weight: 800; letter-spacing: 0.04em;">가족</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">기기 안전 지표</span><span class="card-meta">실시간</span></div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 11px;">
+                <div class="avatar sm hyeni" style="width: 28px; height: 28px; font-size: 11px;">혜</div>
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700;"><span>혜니 폰</span><span style="color: var(--success);">정상</span></div>
+                  <div style="display: flex; gap: 11px; margin-top: 4px; font-size: 10.5px; color: var(--ink-soft); font-weight: 600;">
+                    <span>배터리 78%</span><span>LTE</span><span>위치 ON</span>
+                  </div>
+                </div>
+              </div>
+              <div style="height: 1px; background: var(--pink-very-soft);"></div>
+              <div style="display: flex; align-items: center; gap: 11px;">
+                <div class="avatar sm minjun" style="width: 28px; height: 28px; font-size: 11px;">민</div>
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700;"><span>민준 폰</span><span style="color: var(--warn);">배터리 낮음</span></div>
+                  <div style="display: flex; gap: 11px; margin-top: 4px; font-size: 10.5px; color: var(--ink-soft); font-weight: 600;">
+                    <span style="color: var(--warn); font-weight: 800;">배터리 45%</span><span>Wi-Fi</span><span>위치 ON</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabbar">
+          <div class="tab on">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12L12 4l9 8"/><path d="M5 10v10h14V10"/></svg>
+            <span>홈</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+            <span>캘린더</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c4 0 7 3 7 7 0 5-7 13-7 13S5 14 5 9c0-4 3-7 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span>지도</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4 4-7 8-7s8 3 8 7"/></svg>
+            <span>설정</span>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+    <ul class="anno-list">
+      <li><strong>홈 탭 = 신규</strong> · 자녀 1명일 땐 이 탭 자체가 숨김</li>
+      <li><strong>위→아래</strong>: 요약 카드 → 위치 → 일정 → 안전지표</li>
+      <li><strong>지도 미니맵</strong>: 두 자녀 핀 동시 + 자세히 보기</li>
+      <li><strong>일정 색상</strong>: 자녀 색 left-border + 가족 일정 = 그린</li>
+      <li>자녀 카드/일정 항목 탭 → 해당 영역 풀스크린 (드릴다운)</li>
+    </ul>
+  </div>
+
+  <!-- SCREEN 3 — 일정 등록 모달 (Full) -->
+  <div class="screen-block">
+    <span class="screen-tag">화면 3 · 모달</span>
+    <div class="screen-name">일정 등록 (자녀 다중 귀속)</div>
+    <div class="screen-meta">자녀 다중 체크박스 + '가족 전체' 옵션. 둘 다 같은 학원·가족 행사 시나리오 모두 커버. DB는 events_children M:N 조인.</div>
+    <div class="ios-wrap">
+      <div class="ios-screen" style="background: rgba(56, 37, 45, 0.55);">
+        <div class="ios-island"></div>
+        <div class="ios-statusbar" style="color: #fff;"><span>9:41</span><span class="icons">●●●● · 88%</span></div>
+
+        <div style="position: absolute; inset: 50px 0 0; opacity: 0.18;">
+          <div style="height: 100%; background: linear-gradient(180deg, #FFF8FB 0%, #FFEFF5 100%);"></div>
+        </div>
+
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; background: #FFF8FB; border-radius: 28px 28px 0 0; padding: 14px 0 28px; box-shadow: 0 -10px 32px rgba(0,0,0,0.18); z-index: 5;">
+          <div style="width: 40px; height: 5px; background: var(--pink-soft); border-radius: 999px; margin: 0 auto 14px;"></div>
+
+          <div style="padding: 0 22px 16px;">
+            <div style="font-size: 11px; letter-spacing: 0.1em; color: var(--pink-darker); font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">새 일정</div>
+            <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">일정 추가</div>
+          </div>
+
+          <div style="padding: 0 22px;">
+            <div style="margin-bottom: 12px;">
+              <div class="field-label">제목</div>
+              <div class="field"><span>수학 학원</span></div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+              <div style="flex: 1;"><div class="field-label">날짜</div><div class="field"><span>4월 28일 (화)</span></div></div>
+              <div style="flex: 1;"><div class="field-label">시간</div><div class="field"><span>14:00 - 15:30</span></div></div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+              <div class="field-label">카테고리</div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+                <div style="font-size: 11px; padding: 7px 12px; border-radius: 999px; background: var(--cat-school); color: #fff; font-weight: 800; letter-spacing: 0.04em;">학원</div>
+                <div style="font-size: 11px; padding: 7px 12px; border-radius: 999px; background: var(--cat-sports-bg); color: var(--cat-sports); font-weight: 800; letter-spacing: 0.04em;">운동</div>
+                <div style="font-size: 11px; padding: 7px 12px; border-radius: 999px; background: var(--cat-hobby-bg); color: var(--cat-hobby); font-weight: 800; letter-spacing: 0.04em;">취미</div>
+                <div style="font-size: 11px; padding: 7px 12px; border-radius: 999px; background: var(--cat-friend-bg); color: var(--cat-friend); font-weight: 800; letter-spacing: 0.04em;">친구</div>
+                <div style="font-size: 11px; padding: 7px 12px; border-radius: 999px; background: var(--cat-other-bg); color: var(--cat-other); font-weight: 800; letter-spacing: 0.04em;">기타</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 13px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em;">누구의 일정?</div>
+                <span style="font-size: 11px; color: var(--ink-muted); font-weight: 600;">여러 명 선택 가능</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: linear-gradient(135deg, #FFF, var(--hyeni-bg)); border-radius: 14px; border: 2px solid var(--hyeni);">
+                  <div style="width: 22px; height: 22px; border-radius: 7px; background: var(--hyeni); display: flex; align-items: center; justify-content: center;">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div class="avatar sm hyeni" style="width: 26px; height: 26px; font-size: 11px;">혜</div>
+                  <div style="flex: 1;"><div style="font-size: 13px; font-weight: 800;">혜니</div><div style="font-size: 10px; color: var(--ink-muted); font-weight: 600;">11세</div></div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #fff; border-radius: 14px; border: 2px solid var(--pink-very-soft);">
+                  <div style="width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--pink-soft); background: #fff;"></div>
+                  <div class="avatar sm minjun" style="width: 26px; height: 26px; font-size: 11px;">민</div>
+                  <div style="flex: 1;"><div style="font-size: 13px; font-weight: 800;">민준</div><div style="font-size: 10px; color: var(--ink-muted); font-weight: 600;">8세</div></div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #fff; border-radius: 14px; border: 2px dashed var(--family);">
+                  <div style="width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--family); background: #fff;"></div>
+                  <div class="avatar sm" style="width: 26px; height: 26px; font-size: 11px; background: linear-gradient(135deg, #6EE7B7, var(--family));">가</div>
+                  <div style="flex: 1;"><div style="font-size: 13px; font-weight: 800;">가족 전체</div><div style="font-size: 10px; color: var(--ink-muted); font-weight: 600;">자녀 모두 + 부모</div></div>
+                </label>
+              </div>
+            </div>
+
+            <button class="btn-primary">일정 추가</button>
+            <button class="btn-ghost" style="display: block; width: 100%; padding: 12px; margin-top: 6px; text-align: center;">취소</button>
+          </div>
+        </div>
+        <div class="ios-home" style="background: rgba(0,0,0,0.5);"></div>
+      </div>
+    </div>
+    <ul class="anno-list">
+      <li><strong>다중 체크박스</strong>: 둘 다 같은 학원 시나리오 가능</li>
+      <li><strong>'가족 전체'</strong>: 자녀 모두 + 부모. 점선 테두리로 구분</li>
+      <li>자녀 1명 모드에서는 이 섹션 자체가 안 나옴 (자동 본인 귀속)</li>
+      <li>DB: <code>events_children</code> M:N 조인 + <code>is_family_event</code> 플래그</li>
+    </ul>
+  </div>
+
+  <!-- SCREEN 4 — 구독 화면 (Full) -->
+  <div class="screen-block">
+    <span class="screen-tag">화면 4 · 구독</span>
+    <div class="screen-name">자녀별 구독 선택</div>
+    <div class="screen-meta">등록한 자녀 중 구독 적용할 자녀를 선택. 무료 자녀와 유료 자녀 혼재 가능. 가격 = 선택한 자녀 수 × 단가.</div>
+    <div class="ios-wrap">
+      <div class="ios-screen">
+        <div class="ios-island"></div>
+        <div class="ios-statusbar"><span>9:41</span><span class="icons">●●●● · 88%</span></div>
+        <div class="ios-content" style="padding-bottom: 100px;">
+
+          <div style="padding: 22px 22px 8px;">
+            <div style="font-size: 11px; letter-spacing: 0.1em; color: var(--pink-darker); font-weight: 800; text-transform: uppercase;">구독 · Premium</div>
+            <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.18; margin-top: 6px;">어떤 자녀에게<br/>적용할까요?</div>
+            <div style="font-size: 12px; color: var(--ink-soft); margin-top: 8px; font-weight: 500; line-height: 1.55;">자녀 1인당 <strong style="color: var(--ink);">월 1,500원</strong>. 등록한 자녀 모두 무료 기본 기능은 그대로 사용 가능.</div>
+          </div>
+
+          <div class="card" style="background: linear-gradient(135deg, #FFF 0%, #FFF5FA 100%); border-color: var(--pink); position: relative;">
+            <div style="position: absolute; top: 12px; right: 12px; padding: 4px 10px; background: linear-gradient(135deg, var(--pink) 0%, var(--pink-deep) 100%); color: #fff; font-size: 10px; font-weight: 800; border-radius: 999px; letter-spacing: 0.05em;">선택됨</div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div class="avatar lg hyeni">혜</div>
+              <div>
+                <div style="font-size: 16px; font-weight: 800; letter-spacing: -0.01em;">혜니</div>
+                <div style="font-size: 11px; color: var(--ink-muted); font-weight: 600;">2015. 03. 12 · 만 11세</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; font-size: 11px;">
+              <span style="padding: 4px 9px; border-radius: 999px; background: var(--cat-school-bg); color: var(--cat-school); font-weight: 700;">위치 30일 기록</span>
+              <span style="padding: 4px 9px; border-radius: 999px; background: var(--cat-sports-bg); color: var(--cat-sports); font-weight: 700;">SOS 음성 보관</span>
+              <span style="padding: 4px 9px; border-radius: 999px; background: var(--cat-hobby-bg); color: var(--cat-hobby); font-weight: 700;">일정 알림</span>
+              <span style="padding: 4px 9px; border-radius: 999px; background: var(--cat-friend-bg); color: var(--cat-friend); font-weight: 700;">메모 무제한</span>
+            </div>
+          </div>
+
+          <div class="card" style="background: linear-gradient(135deg, #FFF 0%, #EEF4FF 100%); border-color: var(--minjun); position: relative;">
+            <div style="position: absolute; top: 12px; right: 12px; padding: 4px 10px; background: linear-gradient(135deg, #93C5FD 0%, var(--minjun) 100%); color: #fff; font-size: 10px; font-weight: 800; border-radius: 999px; letter-spacing: 0.05em;">선택됨</div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div class="avatar lg minjun">민</div>
+              <div>
+                <div style="font-size: 16px; font-weight: 800; letter-spacing: -0.01em;">민준</div>
+                <div style="font-size: 11px; color: var(--ink-muted); font-weight: 600;">2018. 09. 24 · 만 8세</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; font-size: 11px;">
+              <span style="padding: 4px 9px; border-radius: 999px; background: var(--cat-school-bg); color: var(--cat-school); font-weight: 700;">위치 30일 기록</span>
+              <span style="padding: 4px 9px; border-radius: 999px; background: var(--cat-sports-bg); color: var(--cat-sports); font-weight: 700;">SOS 음성 보관</span>
+              <span style="padding: 4px 9px; border-radius: 999px; background: var(--cat-hobby-bg); color: var(--cat-hobby); font-weight: 700;">일정 알림</span>
+              <span style="padding: 4px 9px; border-radius: 999px; background: var(--cat-friend-bg); color: var(--cat-friend); font-weight: 700;">메모 무제한</span>
+            </div>
+          </div>
+
+          <div class="card" style="opacity: 0.65;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div class="avatar lg" style="background: linear-gradient(135deg, #FCD34D, var(--cat-hobby));">세</div>
+              <div>
+                <div style="font-size: 16px; font-weight: 800; letter-spacing: -0.01em;">세진</div>
+                <div style="font-size: 11px; color: var(--ink-muted); font-weight: 600;">2020. 11. 03 · 만 6세</div>
+              </div>
+              <button style="margin-left: auto; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--pink-soft); background: #fff; color: var(--pink-darker); font-size: 12px; font-weight: 800;">+ 추가</button>
+            </div>
+            <div style="margin-top: 12px; padding: 9px 11px; background: var(--cream); border-radius: 10px; border: 1px dashed var(--pink-soft); font-size: 11px; color: var(--ink-soft); font-weight: 600; line-height: 1.5;">
+              <strong style="color: var(--ink);">무료 사용 중</strong> · 위치 1회 조회·오늘 일정·SOS 트리거 가능
+            </div>
+          </div>
+
+          <div style="margin: 14px 16px 0; padding: 18px; border-radius: 22px; background: linear-gradient(135deg, var(--pink-cream) 0%, #FFF5FA 100%); border: 1.5px solid var(--pink-soft);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="font-size: 12px; color: var(--ink-soft); font-weight: 700;">선택한 자녀 2명 × 1,500원</span>
+              <span style="font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: -0.025em;">3,000<span style="font-size: 14px; color: var(--ink-soft); font-weight: 700;">원/월</span></span>
+            </div>
+            <div style="font-size: 11px; color: var(--ink-muted); font-weight: 500; line-height: 1.55;">자녀 추가·해제는 다음 결제부터 적용. 첫 7일 무료 체험.</div>
+          </div>
+        </div>
+
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 14px 18px 28px; background: linear-gradient(180deg, rgba(255,248,251,0) 0%, #FFF8FB 30%);">
+          <button class="btn-primary">7일 무료 체험 시작</button>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+    <ul class="anno-list">
+      <li><strong>per-child 토글</strong>: 등록 자녀 중 일부만 구독해도 OK</li>
+      <li><strong>가격 = 선택 × 단가</strong>: 실시간 합계 표시</li>
+      <li><strong>무료 자녀</strong>: 등록 유지 + 안전 기본 기능 사용</li>
+      <li><strong>B2B 교육청</strong>: <code>source = 'b2b_education_office'</code> · 가격 면제, 자녀 카드 = "교육청 지원" 배지</li>
+    </ul>
+  </div>
+
+  <!-- SCREEN 5 — 자녀 단말 홈 (Full) -->
+  <div class="screen-block">
+    <span class="screen-tag">화면 5 · 자녀 단말</span>
+    <div class="screen-name">자녀 본인 뷰 (혜니)</div>
+    <div class="screen-meta">자녀 단말은 다중 자녀 UI 적용 안 함. 본인 일정·위치 + '가족 전체' 공유 일정만. 형제·자매 단독 정보는 비공개.</div>
+    <div class="ios-wrap">
+      <div class="ios-screen">
+        <div class="ios-island"></div>
+        <div class="ios-statusbar"><span>9:41</span><span class="icons">●●●● · 78%</span></div>
+        <div class="ios-content" style="padding-bottom: 100px;">
+
+          <!-- 인사 -->
+          <div style="padding: 18px 22px 6px;">
+            <div style="font-size: 12px; letter-spacing: 0.06em; color: var(--pink-darker); font-weight: 800; text-transform: uppercase;">화요일 · 4월 28일</div>
+            <div style="font-size: 26px; font-weight: 800; letter-spacing: -0.025em; margin-top: 4px;">안녕, <span style="color: var(--hyeni);">혜니</span>!</div>
+            <div style="font-size: 12px; color: var(--ink-soft); margin-top: 4px; font-weight: 500;">학원 1개, 가족 일정 1개. 화이팅!</div>
+          </div>
+
+          <!-- 엄마가 보낸 메시지 카드 -->
+          <div class="card" style="background: linear-gradient(135deg, #FFF, var(--cat-hobby-bg)); border-color: #FDE68A;">
+            <div style="display: flex; gap: 11px; align-items: flex-start;">
+              <div class="avatar sm" style="background: linear-gradient(135deg, #FDE68A, var(--cat-hobby));">엄</div>
+              <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                  <div style="font-size: 12px; font-weight: 800; color: #92400E; letter-spacing: -0.01em;">엄마</div>
+                  <div style="font-size: 10px; color: var(--ink-muted); font-weight: 600;">10분 전</div>
+                </div>
+                <div style="font-size: 13px; font-weight: 700; color: #78350F; margin-top: 4px; line-height: 1.5;">학원 끝나면 바로 집으로 와! 도서관은 7시야</div>
+                <div style="display: flex; gap: 6px; margin-top: 9px;">
+                  <button style="font-size: 11px; padding: 6px 12px; border-radius: 999px; border: 1.5px solid #FDE68A; background: #fff; color: #92400E; font-weight: 800;">알겠어요</button>
+                  <button style="font-size: 11px; padding: 6px 12px; border-radius: 999px; border: 1.5px solid #FDE68A; background: #fff; color: #92400E; font-weight: 800;">답장</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 본인 위치 미니맵 -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">내 위치</span><span class="card-meta">실시간</span></div>
+            <div style="position: relative; height: 110px; border-radius: 14px; overflow: hidden; background: linear-gradient(135deg, #F0F4FF 0%, var(--hyeni-bg) 100%);">
+              <svg width="100%" height="100%" viewBox="0 0 320 110" style="position: absolute; inset: 0;">
+                <path d="M0,60 L120,62 L180,30 L320,32" stroke="#fff" stroke-width="14" stroke-linecap="round" opacity="0.85"/>
+                <path d="M150,0 L152,110" stroke="#fff" stroke-width="10" opacity="0.7"/>
+              </svg>
+              <div style="position: absolute; left: 47%; top: 38%; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+                <div style="background: #fff; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; color: var(--hyeni); border: 1.5px solid var(--hyeni);">나</div>
+                <div style="position: relative; width: 14px; height: 14px;">
+                  <div style="position: absolute; top: -7px; left: -7px; width: 28px; height: 28px; border-radius: 50%; background: rgba(236,72,153,0.18);"></div>
+                  <div style="position: absolute; top: -3px; left: -3px; width: 20px; height: 20px; border-radius: 50%; background: rgba(236,72,153,0.30);"></div>
+                  <div style="position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: 50%; background: var(--hyeni); border: 2.5px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.15);"></div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+              <div style="font-size: 12px; color: var(--ink-soft); font-weight: 600;"><strong style="color: var(--ink);">서초초등학교</strong> · 도착 5분 전</div>
+            </div>
+          </div>
+
+          <!-- 오늘 내 일정 -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">오늘 내 일정</span><span class="card-meta">2건</span></div>
+            <div style="display: flex; flex-direction: column; gap: 9px;">
+              <div style="display: flex; gap: 12px; align-items: center; padding: 11px 12px; background: var(--hyeni-bg); border-radius: 14px; border-left: 3px solid var(--hyeni);">
+                <div style="font-size: 11px; font-weight: 800; color: var(--hyeni); width: 38px;">14:00</div>
+                <div style="flex: 1;">
+                  <div style="font-size: 13px; font-weight: 800;">수학 학원</div>
+                  <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600;">강남구 · 90분</div>
+                </div>
+                <div style="font-size: 10px; padding: 3px 8px; border-radius: 999px; background: var(--cat-school-bg); color: var(--cat-school); font-weight: 800;">학원</div>
+              </div>
+              <div style="display: flex; gap: 12px; align-items: center; padding: 11px 12px; background: var(--family-bg); border-radius: 14px; border-left: 3px solid var(--family);">
+                <div style="font-size: 11px; font-weight: 800; color: var(--family); width: 38px;">19:00</div>
+                <div style="flex: 1;">
+                  <div style="font-size: 13px; font-weight: 800;">가족 도서관 가기</div>
+                  <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600;">시립도서관 · 가족 전체</div>
+                </div>
+                <div style="font-size: 10px; padding: 3px 8px; border-radius: 999px; background: var(--family); color: #fff; font-weight: 800;">가족</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 프라이버시 안내 -->
+          <div style="margin: 0 16px 12px; padding: 12px 14px; background: var(--cream); border-radius: 14px; border: 1px dashed var(--pink-soft); display: flex; align-items: center; gap: 10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            <div style="font-size: 11px; color: var(--ink-soft); font-weight: 600; line-height: 1.55;">동생 <strong style="color: var(--ink);">민준</strong>의 단독 일정·위치는 <strong>혜니에게 공개되지 않아요</strong>.</div>
+          </div>
+
+          <!-- SOS 강화 (안전 = 무료 강조) -->
+          <div style="padding: 8px 16px 0;">
+            <button style="display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 18px; border-radius: 22px; background: linear-gradient(135deg, #FCA5A5 0%, var(--danger) 100%); color: #fff; font-size: 16px; font-weight: 800; letter-spacing: -0.01em; border: none; box-shadow: 0 8px 22px rgba(220,38,38,0.32); font-family: var(--font-sans); position: relative;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 22h20L12 2z"/><path d="M12 9v5M12 17.5v.01"/></svg>
+              <span>꾹 길게 눌러 SOS</span>
+            </button>
+            <div style="font-size: 10px; color: var(--ink-muted); font-weight: 600; text-align: center; margin-top: 8px;">엄마·아빠에게 즉시 알림 · <strong style="color: var(--success);">무료 · 안전 우선</strong></div>
+          </div>
+        </div>
+
+        <div class="tabbar">
+          <div class="tab on">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+            <span>캘린더</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c4 0 7 3 7 7 0 5-7 13-7 13S5 14 5 9c0-4 3-7 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            <span>지도</span>
+          </div>
+          <div class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4 4-7 8-7s8 3 8 7"/></svg>
+            <span>설정</span>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+    <ul class="anno-list">
+      <li><strong>홈 탭 없음</strong> · 1명 모드와 동일한 3탭 구조 (캘린더·지도·설정)</li>
+      <li><strong>받은 메시지 카드</strong>: 엄마·아빠가 보낸 텍스트 + 빠른 답장 (메모 시스템 연동)</li>
+      <li><strong>본인 위치 미니맵</strong>: 본인 위치만, 동심원 ripple로 실시간 표시</li>
+      <li><strong>본인 + 가족 공유 일정만</strong>: 동생 단독 일정·위치는 RLS 단에서 차단</li>
+      <li><strong>SOS는 자녀 단말도 무료</strong> · 안전 = 무료 원칙 (배지로 강조)</li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="footnote">
+  <h3>설계 근거 · 9가지 분기 원칙 + 데이터 모델 매핑</h3>
+  <ul>
+    <li><strong>1·2·3·5번 화면</strong>은 클라이언트 라우팅 단의 <code>&lt;MultiChildShell&gt;</code> 래퍼에서 <code>paired_children.length &gt;= 2</code>일 때만 마운트.</li>
+    <li><strong>2번 홈 탭</strong>은 <code>activeView</code> enum에 <code>'home'</code> 추가 + 자녀 1명일 때 라우팅 자동 우회 (캘린더가 첫 화면).</li>
+    <li><strong>3번 모달</strong>의 자녀 다중 선택은 <code>events_children</code> M:N 조인 테이블에 INSERT. '가족 전체' 체크는 <code>events.is_family_event = true</code>로 분리 처리.</li>
+    <li><strong>4번 구독 화면</strong>은 자녀별 <code>subscriptions.child_id</code> row 단위로 토글. Qonversion 상품은 자녀 1인당 단가 기반.</li>
+    <li><strong>5번 자녀 단말</strong>은 <code>currentUserRole === 'child'</code>일 때 multi-child UI 분기 자체를 stop. RLS 단에서도 형제 자녀의 단독 events·locations에 접근 차단.</li>
+  </ul>
+</div>
+
+</body>
+</html>
