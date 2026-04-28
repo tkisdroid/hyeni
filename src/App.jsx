@@ -11553,7 +11553,11 @@ export default function KidsScheduler() {
                     </div>
                     <div style={{ fontFamily: FF }}>
                         {familyId ? (
-                            <FriendPlaydatePanel familyId={familyId} currentUserId={authUser?.id} />
+                            <FriendPlaydatePanel
+                                familyId={familyId}
+                                currentUserId={authUser?.id}
+                                onAddSafePlace={handleOpenSavedPlaceMgr}
+                            />
                         ) : (
                             <div className="hyeni-tool-empty">
                                 가족 연동 후 친구놀이를 설정할 수 있어요.

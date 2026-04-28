@@ -1,15 +1,28 @@
 import { useState } from 'react';
 import { setSavedPlacePlaydateSafe, upsertPublicPlace } from '../../lib/friendPlaydate.js';
 
-export default function PlaydateSafePlaceList({ places, onUpdate }) {
+export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
   const [busyId, setBusyId] = useState(null);
 
   if (!places || places.length === 0) {
     return (
-      <div className="hyeni-tool-empty">
-        친구놀이 안전장소를 먼저 등록하세요.
-        <br />
-        학교·공원·학원 같은 곳을 지정할 수 있어요.
+      <div className="hyeni-tool-empty" style={{ display: 'grid', gap: 10 }}>
+        <div>
+          친구놀이 안전장소를 먼저 등록하세요.
+          <br />
+          학교·공원·학원 같은 곳을 지정할 수 있어요.
+        </div>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="hyeni-tool-button hyeni-tool-button--accent-soft hyeni-tool-button--small"
+            style={{ justifySelf: 'center', width: 'auto', minHeight: 36, padding: '8px 14px' }}
+            aria-label="안전장소 추가"
+          >
+            <span className="hyeni-tool-button__label">+ 장소 추가하기</span>
+          </button>
+        )}
       </div>
     );
   }
