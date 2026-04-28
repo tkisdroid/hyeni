@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
+import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
+import { useChildren } from "./lib/childrenContext.js";
+import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
+import { saveEventWithChildren } from "./lib/sync.js";
 import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
@@ -40,6 +44,13 @@ const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse
 const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
 const FEEDBACK_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/feedback-email` : "";
 const FEEDBACK_RECIPIENT = "tkisdroid@gmail.com";
+
+const isToday = (d) => {
+  if (!d) return false;
+  const t = new Date();
+  const dt = new Date(d);
+  return t.toDateString() === dt.toDateString();
+};
 
 function normalizePairCodeInput(rawValue) {
     const raw = String(rawValue || "").trim();
@@ -6625,8 +6636,10 @@ export default function KidsScheduler() {
     const familyId = familyInfo?.familyId;
     const entitlement = useEntitlement(familyId);
     const pairCode = familyInfo?.pairCode || "";
-    const pairedChildren = familyInfo?.members?.filter(m => m.role === "child") || [];
-    const _pairedDevice = pairedChildren[0] || null; // 첫 번째 아이 (하위호환)
+    const childrenContext = useChildren(familyInfo);
+    const pairedChildren = childrenContext.list;
+    const _pairedDevice = pairedChildren[0] || null; // 하위호환 (단일 자녀)
+    const isMultiChild = childrenContext.isMultiChild;
     const globalNotif = DEFAULT_NOTIF;
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
@@ -6652,6 +6665,7 @@ export default function KidsScheduler() {
     // ── UI state ───────────────────────────────────────────────────────────────
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingEventId, setEditingEventId] = useState(null);
+    const [eventChildSelection, setEventChildSelection] = useState({ childIds: [], familyAll: false });
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [showChildTracker, setShowChildTracker] = useState(false);
     const [locationRefreshRequestedAt, setLocationRefreshRequestedAt] = useState(null);
@@ -6662,7 +6676,10 @@ export default function KidsScheduler() {
     const [bounce, setBounce] = useState(false);
     const [mapReady, setMapReady] = useState(false);
     const [mapLoadError, setMapLoadError] = useState("");
-    const [activeView, setActiveView] = useState("calendar");
+    const [activeView, setActiveView] = useState(() => {
+      const childCount = familyInfo?.members?.filter(m => m.role === "child")?.length || 0;
+      return (isParent && childCount >= 2) ? "home" : "calendar";
+    });
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
@@ -9122,8 +9139,9 @@ export default function KidsScheduler() {
         if (familyId && authUser) {
             try {
                 for (const { ev, dateKey: dk } of allEvents) {
-                    await insertEvent(ev, familyId, dk, authUser.id);
+                    await saveEventWithChildren({ ...ev, dateKey: dk, familyId, userId: authUser.id }, eventChildSelection);
                 }
+                setEventChildSelection({ childIds: [], familyAll: false });
                 maybeOpenTrialInvite();
                 sendInstantPush({
                     action: "new_event",
@@ -9354,6 +9372,17 @@ export default function KidsScheduler() {
     };
     const renderParentBottomTabbar = (activeTab = "today", extraClassName = "") => (
         <nav className={`hyeni-v5-tabbar${extraClassName ? ` ${extraClassName}` : ""}`} aria-label="부모 메인 탭">
+            {isMultiChild && (
+              <button
+                type="button"
+                onClick={() => setActiveView("home")}
+                aria-pressed={activeView === "home"}
+                className={activeView === "home" ? "active" : undefined}
+                style={{ fontFamily: FF }}
+              >
+                <span aria-hidden="true">🏠</span>홈
+              </button>
+            )}
             <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
                 <span aria-hidden="true">🏠</span>오늘
             </button>
@@ -11027,6 +11056,18 @@ export default function KidsScheduler() {
                 </div>
             </div>}
 
+            {/* ── HOME VIEW (multi-child only) ── */}
+            {activeView === "home" && isMultiChild && (
+              <HomeTab
+                children={pairedChildren}
+                positions={allChildPositions}
+                events={events.filter(e => isToday(e.date))}
+                childLocations={childLocationLabels}
+                childDeviceStatusMap={childDeviceStatusMap}
+                onMapTap={() => setActiveView("location")}
+              />
+            )}
+
             {/* ── CALENDAR VIEW ── */}
             {activeView === "calendar" && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
@@ -11171,7 +11212,14 @@ export default function KidsScheduler() {
                         <button type="button" className="hyeni-v5-ai-button" onClick={openAiSchedule} style={{ fontFamily: FF }}>
                             🤖 AI로 일정입력
                         </button>
-                        <button type="button" className="hyeni-v5-plus-button" onClick={() => setShowAddModal(true)} style={{ fontFamily: FF }} aria-label="+" title="일정 추가">
+                        <button type="button" className="hyeni-v5-plus-button" onClick={() => {
+                            if (pairedChildren.length === 1) {
+                              setEventChildSelection({ childIds: [pairedChildren[0].user_id], familyAll: false });
+                            } else {
+                              setEventChildSelection({ childIds: [], familyAll: false });
+                            }
+                            setShowAddModal(true);
+                          }} style={{ fontFamily: FF }} aria-label="+" title="일정 추가">
                             +
                         </button>
                     </div>
@@ -11629,6 +11677,15 @@ export default function KidsScheduler() {
                                 </>
                             )}
                         </div>}
+                        {isParent && pairedChildren.length >= 2 && (
+                          <div style={{ marginBottom: 14 }}>
+                            <ChildSelector
+                              children={pairedChildren}
+                              value={eventChildSelection}
+                              onChange={setEventChildSelection}
+                            />
+                          </div>
+                        )}
                         <button onClick={addEvent} style={primBtn}>{editingEventId ? "💾 수정 저장하기!" : (weeklyRepeat ? `🐰 앞으로 ${repeatWeeks === 4 ? "1개월" : repeatWeeks === 8 ? "2개월" : "3개월"}간 매주 추가!` : "🐰 일정 추가하기!")}</button>
                         <button onClick={() => { setShowAddModal(false); setEditingEventId(null); setNewTitle(""); setNewEndTime(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }} style={secBtn}>취소</button>
                     </div>
@@ -11739,10 +11796,9 @@ export default function KidsScheduler() {
                 >
                     <div style={{ width: "100%", maxWidth: 460 }}>
                         <SubscriptionManagement
-                            entitlement={entitlement}
-                            role={myRole}
-                            onRefresh={entitlement.refresh}
-                            onStartTrial={startTrial}
+                            role={isParent ? "parent" : "child"}
+                            familyId={familyId}
+                            childList={pairedChildren}
                         />
                         <button
                             type="button"
