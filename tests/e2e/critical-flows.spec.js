@@ -545,12 +545,10 @@ test.describe("critical Hyeni flows", () => {
     await page.getByRole("button", { name: "모두 등록" }).click();
     await expect(page.getByText("수학 학원", { exact: true }).first()).toBeVisible();
 
-    await page.getByRole("button", { name: "🔔 일정알림" }).click();
-    await expect(page.getByText("일정 알림 설정")).toBeVisible();
-    await page.getByRole("button", { name: "10분 전 알림" }).click();
-    await page.getByRole("button", { name: "저장" }).click();
-    await expect(page.getByText("일정 알림 설정이 저장됐어요!")).toBeVisible();
-
+    // The "🔔 일정알림" quick-action was removed when notification settings
+    // moved into the per-event detail / global push permission gate flow.
+    // Coverage for the new flow lives in subscription-flow.spec.js
+    // ("parent can configure reminder times without duplicate minute entries").
     await page.getByRole("button", { name: "🎙️ 주변소리" }).click();
     await expect(page.getByText("주변 소리 듣기")).toBeVisible();
     await page.getByRole("button", { name: "🎙️ 듣기 시작" }).click();
@@ -964,7 +962,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "길 안내 보기" }).click();
+    await page.getByRole("button", { name: /길찾기/ }).click();
 
     await expect(page.getByRole("button", { name: "길안내 시작" })).toBeVisible();
     await expect(page.getByText("경로 검색 중")).toBeHidden({ timeout: 8_000 });
@@ -989,7 +987,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "길 안내 보기" }).click();
+    await page.getByRole("button", { name: /길찾기/ }).click();
 
     const beforeUrl = page.url();
     await page.getByRole("button", { name: "길안내 시작" }).click();

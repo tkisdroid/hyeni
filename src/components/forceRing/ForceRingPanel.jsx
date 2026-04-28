@@ -154,11 +154,13 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false }) {
           )}
         </div>
         {quotaInfo && (
-          <div className="hyeni-tool-meter" aria-hidden="true">
-            <div className="hyeni-tool-meter__track">
+          <div className="hyeni-tool-meter">
+            <div className="hyeni-tool-meter__track" aria-hidden="true">
               <div className="hyeni-tool-meter__fill" style={{ width: `${quotaUsedPct}%` }} />
             </div>
-            <div className="hyeni-tool-meter__caption">오늘 사용량</div>
+            <div className="hyeni-tool-meter__caption">
+              오늘 남은 횟수: {quotaRemaining} / {quotaInfo.quota}
+            </div>
           </div>
         )}
       </article>

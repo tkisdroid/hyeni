@@ -77,7 +77,15 @@ test.describe('Friend Playdate — end session', () => {
       }
       if (method === 'PATCH') {
         state.sessionPatchCalled = true;
-        route.fulfill({ status: 204, body: '' });
+        // endPlaydate uses .update().eq().is("stopped_at", null).select(),
+        // so the mock must return the updated row(s) — empty body would
+        // make the client treat the call as already_stopped and skip the
+        // playdate_ended push-notify invocation.
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ ...sessionRow, stopped_at: new Date().toISOString(), stop_reason: 'child_end' }]),
+        });
         return;
       }
       if (method === 'POST') {
