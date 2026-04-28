@@ -430,6 +430,15 @@ async function sendFeedbackSuggestion({ content, familyId, user, role }) {
     throw new Error("제안 전송 경로가 준비되지 않았어요");
 }
 
+// Freemium location gate.
+//   premium (REALTIME_LOCATION): always show, isDelayed=false.
+//   free: show the most recent fix tagged isDelayed=true so the UI can
+//         render a "5분 지연" badge / fuzzed marker. The previous logic
+//         returned null whenever the fix was less than 5 min old, which
+//         meant a free parent whose child's GPS updates every 30s
+//         **never** saw a position at all (each fresh fix reset the gate).
+//         The honest gate is "free users see a delayed/marked position",
+//         not "free users see nothing while fixes are continuous".
 function effectiveChildLocation(location, entitlement) {
     if (!location) return null;
     if (entitlement?.canUse?.(FEATURES.REALTIME_LOCATION)) {
@@ -437,9 +446,6 @@ function effectiveChildLocation(location, entitlement) {
     }
     const updatedAtMs = new Date(location.updatedAt || location.updated_at || 0).getTime();
     if (!updatedAtMs || Number.isNaN(updatedAtMs)) return null;
-    if (Date.now() - updatedAtMs < 5 * 60 * 1000) {
-        return null;
-    }
     return {
         ...location,
         updatedAt: location.updatedAt || location.updated_at,
@@ -1441,10 +1447,16 @@ function parseOsmFootRoute(data) {
     };
 }
 
-let kakaoWalkingDirectionsDisabled = false;
+// Time-based latch: a single 401/403 from Kakao does not permanently
+// disable walking routes for the rest of the session. After KAKAO_WALKING_
+// COOLDOWN_MS we let the next caller probe the API again — recovers
+// automatically from transient quota glitches / brief deploys without
+// requiring a reload.
+const KAKAO_WALKING_COOLDOWN_MS = 5 * 60 * 1000;
+let kakaoWalkingDirectionsDisabledUntil = 0;
 
 async function fetchKakaoWalkingRoute(start, destination, signal) {
-    if (!KAKAO_REST_KEY || kakaoWalkingDirectionsDisabled) {
+    if (!KAKAO_REST_KEY || Date.now() < kakaoWalkingDirectionsDisabledUntil) {
         throw new Error("Kakao walking route unavailable");
     }
 
@@ -1469,11 +1481,14 @@ async function fetchKakaoWalkingRoute(start, destination, signal) {
 
     if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-            kakaoWalkingDirectionsDisabled = true;
+            kakaoWalkingDirectionsDisabledUntil = Date.now() + KAKAO_WALKING_COOLDOWN_MS;
         }
         throw createHttpError(`Kakao walking route HTTP ${response.status}`, response.status);
     }
 
+    // Successful probe — clear the latch so subsequent calls take the
+    // happy path immediately.
+    kakaoWalkingDirectionsDisabledUntil = 0;
     return parseKakaoWalkingRoute(await response.json());
 }
 

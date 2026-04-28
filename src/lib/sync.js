@@ -335,6 +335,16 @@ export async function fetchSavedPlaces(familyId, opts = {}) {
   return list;
 }
 
+// ── daily_supplies (PARKED for v1.1) ────────────────────────────────────────
+// The schema (migration 20260423090000_daily_supplies.sql), realtime
+// publication, RLS, and these helpers are all in place, but no UI in App.jsx
+// reads or writes them. v1.0 (production stabilization, no new features) is
+// not the right time to land the parent/child checklist UI; the helpers stay
+// here so v1.1 can wire them up without re-deriving the contract.
+//
+// Helpers exposed: fetchDailySupplies, upsertDailySupplies, getCachedDailySupplies,
+// cacheDailySupplies, plus subscribeFamily.onDailySuppliesChange.
+//
 export async function fetchDailySupplies(familyId) {
   const { data, error } = await supabase
     .from("daily_supplies")
