@@ -361,3 +361,35 @@ export function manageSubscriptionLink(productId = "premium_monthly") {
   }
   return `${GPB_MANAGE_URL}?${params.toString()}`;
 }
+
+const MAX_CHILD_SLOTS = 5;
+
+export function childSlotProductId(slot) {
+  if (!Number.isInteger(slot) || slot < 1 || slot > MAX_CHILD_SLOTS) {
+    throw new Error(`Invalid child slot: ${slot}. Must be 1-${MAX_CHILD_SLOTS}.`);
+  }
+  return `hyeni_child_slot_${slot}`;
+}
+
+export function childSlotEntitlementId(slot) {
+  if (!Number.isInteger(slot) || slot < 1 || slot > MAX_CHILD_SLOTS) {
+    throw new Error(`Invalid child slot: ${slot}. Must be 1-${MAX_CHILD_SLOTS}.`);
+  }
+  return `child_active_${slot}`;
+}
+
+export async function purchaseChildSlot(slot) {
+  const instance = getQonversionInstance();
+  if (!instance) {
+    throw new Error("Qonversion not initialized (web platform or missing project key)");
+  }
+  const productId = childSlotProductId(slot);
+  return await instance.purchase(productId);
+}
+
+export async function checkChildSlotEntitlement(slot) {
+  const instance = getQonversionInstance();
+  if (!instance) return null;
+  const entitlements = await instance.checkEntitlements();
+  return entitlements?.[childSlotEntitlementId(slot)] || null;
+}
