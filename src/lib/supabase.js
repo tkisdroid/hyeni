@@ -25,9 +25,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 clearLegacyMockStorage();
 
+// PKCE is the post-2.x default for supabase-js and is required for the ES256
+// JWT path documented in CLAUDE.md (auth.getClaims). Implicit flow (returns
+// the access token in the URL fragment) loses refresh tokens through
+// Capacitor's deep-link redirect on Android and is deprecated upstream.
+// The native callback handler at App.jsx:7074 already supports both flows
+// (#access_token=… for legacy sessions still in-flight, ?code=… for PKCE).
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     detectSessionInUrl: true,
-    flowType: "implicit",
+    flowType: "pkce",
   },
 });
