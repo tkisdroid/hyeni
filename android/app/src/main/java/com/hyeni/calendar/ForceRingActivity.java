@@ -5,10 +5,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -18,6 +20,16 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+
+import org.json.JSONObject;
+
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -149,6 +161,55 @@ public class ForceRingActivity extends AppCompatActivity {
                 .edit()
                 .putLong(eventId, System.currentTimeMillis())
                 .apply();
+        // Server-side ack: tells the reminder cron to stop and updates the
+        // parent's UI with acknowledged_at. Without this, the parent receives
+        // false "5분간 응답 없습니다" reminders even after the child dismissed.
+        postAckToServer(eventId);
+    }
+
+    private static final String TAG = "ForceRingActivity";
+    private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .build();
+
+    private void postAckToServer(String eventId) {
+        // Same prefs name as MyFirebaseMessagingService.PREFS_NAME ("hyeni_location_prefs") —
+        // populated by the WebView bridge at login so that the FCM service and
+        // native services share the Supabase credentials.
+        SharedPreferences prefs = getSharedPreferences("hyeni_location_prefs", MODE_PRIVATE);
+        String supabaseUrl = prefs.getString("supabaseUrl", null);
+        String supabaseKey = prefs.getString("supabaseKey", null);
+        String accessToken = prefs.getString("accessToken", null);
+        if (supabaseUrl == null || supabaseKey == null) {
+            Log.w(TAG, "ack skipped: push context missing");
+            return;
+        }
+        new Thread(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("p_event_id", eventId);
+                String bearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+                Request req = new Request.Builder()
+                        .url(supabaseUrl + "/rest/v1/rpc/force_ring_acknowledge")
+                        .header("apikey", supabaseKey)
+                        .header("Authorization", "Bearer " + bearer)
+                        .header("Content-Type", "application/json")
+                        .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+                        .build();
+                try (Response response = HTTP_CLIENT.newCall(req).execute()) {
+                    if (!response.isSuccessful()) {
+                        String errBody = response.body() != null ? response.body().string() : "";
+                        Log.w(TAG, "ack RPC failed: " + response.code() + " / " + errBody);
+                    } else {
+                        Log.i(TAG, "force_ring ack persisted to server");
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "ack RPC error", e);
+            }
+        }, "force-ring-ack").start();
     }
 
     @Override
