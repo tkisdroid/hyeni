@@ -7,7 +7,7 @@ function birthYear(birthdate) {
 export function PerChildToggle({ child, subscribed, onToggle, busy = false }) {
   const year = birthYear(child.birthdate);
   return (
-    <div style={{
+    <div data-child-id={child.user_id} style={{
       display: "flex", alignItems: "center", gap: 14,
       padding: 16, borderRadius: 14,
       background: subscribed ? "white" : "#F9FAFB",
