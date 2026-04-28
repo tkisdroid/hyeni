@@ -1,4 +1,12 @@
 import { spawn } from "node:child_process";
+import dotenv from "dotenv";
+
+// Load .env into process.env so the placeholder fallback below only kicks in
+// when no real Supabase config exists. Without this, dev-playwright.mjs spawns
+// Vite before any dotenv call (test specs run dotenv too late — after webServer
+// is already up), so the placeholder leaks in and produces a sb-<projectRef>
+// storage-key mismatch versus what test specs (which DO run dotenv) seed.
+dotenv.config();
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
