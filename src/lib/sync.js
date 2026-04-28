@@ -124,6 +124,10 @@ function rowToEvent(row) {
     location: row.location,
     notifOverride: row.notif_override,
     endTime: row.end_time || null,
+    is_family_event: !!row.is_family_event,
+    child_ids: Array.isArray(row.events_children)
+      ? row.events_children.map((ec) => ec.child_id)
+      : [],
   };
 }
 
@@ -209,7 +213,7 @@ function savedPlaceToRow(place, familyId) {
 export async function fetchEvents(familyId) {
   const { data, error } = await supabase
     .from("events")
-    .select("*")
+    .select("*, events_children(child_id)")
     .eq("family_id", familyId);
 
   if (error) {
