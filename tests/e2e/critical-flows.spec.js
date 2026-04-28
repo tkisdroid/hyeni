@@ -100,6 +100,7 @@ async function installCriticalMocks(page, options = {}) {
     insideArrivalZone = false,
     walkingRoute = "success",
     seedEvents = [],
+    refreshLocationAfterRequest = false,
   } = options;
   const state = {
     paired: role === "parent" ? true : initiallyPaired,
@@ -107,6 +108,9 @@ async function installCriticalMocks(page, options = {}) {
     functionCalls: [],
     rpcCalls: [],
     routeRequests: [],
+    locationRefreshRequests: 0,
+    childLocationGetsAfterRefresh: 0,
+    enableRefreshedLocation: false,
   };
   const userId = role === "child" ? CHILD_ID : PARENT_ID;
 
@@ -358,9 +362,13 @@ async function installCriticalMocks(page, options = {}) {
     }
 
     if (url.pathname.includes("/functions/v1/")) {
+      const body = request.postData() ? request.postDataJSON() : null;
+      if (body?.action === "request_location") {
+        state.locationRefreshRequests += 1;
+      }
       state.functionCalls.push({
         name: url.pathname.split("/").pop(),
-        body: request.postData() ? request.postDataJSON() : null,
+        body,
       });
       return fulfillJson({ ok: true });
     }
@@ -452,14 +460,18 @@ async function installCriticalMocks(page, options = {}) {
     }
 
     if (table === "child_locations") {
+      const useRefreshedLocation = refreshLocationAfterRequest
+        && state.enableRefreshedLocation
+        && state.locationRefreshRequests > 0
+        && ++state.childLocationGetsAfterRefresh >= 2;
       return fulfillJson(
         method === "GET"
           ? [
               {
                 user_id: CHILD_ID,
-                lat: 37.5665,
-                lng: 126.978,
-                updated_at: new Date().toISOString(),
+                lat: useRefreshedLocation ? 37.5699 : 37.5665,
+                lng: useRefreshedLocation ? 126.9822 : 126.978,
+                updated_at: new Date(Date.now() + (useRefreshedLocation ? 5000 : 0)).toISOString(),
               },
             ]
           : [],
@@ -501,7 +513,7 @@ test.describe("critical Hyeni flows", () => {
 
     await expect(page.getByRole("button", { name: "🔗 연동 (1명)" })).toBeVisible();
     await page.getByRole("button", { name: "📍 우리아이" }).click();
-    await expect(page.getByText("아이 위치 · 안전")).toBeVisible();
+    await expect(page.getByRole("button", { name: "현재 위치 다시 확인" })).toBeVisible();
     await expect(page.getByText("혜니 실시간")).toBeVisible();
     await page.getByRole("button", { name: "← 돌아가기" }).click();
 
@@ -589,7 +601,7 @@ test.describe("critical Hyeni flows", () => {
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await page.getByRole("button", { name: "📍 우리아이" }).click();
-    await expect(page.getByText("아이 위치 · 안전")).toBeVisible();
+    await expect(page.getByRole("button", { name: "현재 위치 다시 확인" })).toBeVisible();
 
     await expect.poll(() => state.functionCalls.find((call) => call.body?.action === "request_location")?.body).toMatchObject({
       action: "request_location",
@@ -606,6 +618,45 @@ test.describe("critical Hyeni flows", () => {
 
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_location")).toBeTruthy();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
+  });
+
+  test("parent dashboard manual refresh requests child location and device status together", async ({ page }) => {
+    const state = await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+    await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
+    state.functionCalls.length = 0;
+
+    await page.getByRole("button", { name: "지금 갱신" }).click();
+
+    await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
+    await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_location")).toBeTruthy();
+  });
+
+  test("parent map refresh polls until refreshed child location is visible", async ({ page }) => {
+    const state = await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      refreshLocationAfterRequest: true,
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+    await page.getByRole("button", { name: "📍 우리아이" }).click();
+    await expect(page.getByRole("button", { name: /37\.56650,\s*126\.97800/ })).toBeVisible();
+
+    state.locationRefreshRequests = 0;
+    state.childLocationGetsAfterRefresh = 0;
+    state.enableRefreshedLocation = true;
+    await page.getByRole("button", { name: "현재 위치 다시 확인" }).click();
+
+    await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_location")).toBeTruthy();
+    await expect(page.getByRole("button", { name: /37\.56990,\s*126\.98220/ })).toBeVisible({ timeout: 7_000 });
   });
 
   test("parent main calendar selection uses distinct colors and filters the schedule list", async ({ page }) => {

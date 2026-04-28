@@ -7752,12 +7752,18 @@ export default function KidsScheduler() {
             idempotencyKey: requestId,
         });
 
-        // Surface last-known DB position immediately so the UI updates the moment
-        // the parent taps refresh, instead of waiting for the child's broadcast.
-        // Realtime postgres_changes will overwrite this with the fresh GPS fix.
-        const fetchPromise = fetchChildLocations(familyId)
-            .then((locs) => {
-                if (!locs?.length) return;
+        const refreshLocationTrail = async () => {
+            if (!showChildTracker) return;
+            try {
+                const rows = await fetchTodayLocationHistory(familyId);
+                setLocationTrail(Array.isArray(rows) ? rows : []);
+            } catch (err) {
+                console.warn("[GPS] location trail refresh failed:", err);
+            }
+        };
+
+        const applyFetchedLocations = (locs) => {
+            if (!locs?.length) return false;
                 const latest = locs.slice().sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
                 setChildPos({ user_id: latest.user_id, userId: latest.user_id, lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at, updated_at: latest.updated_at });
                 const members = familyInfoRef.current?.members?.filter((m) => m.role === "child") || [];
@@ -7773,8 +7779,33 @@ export default function KidsScheduler() {
                     };
                 });
                 setAllChildPositions(positions);
-            })
+            const latestMs = new Date(latest.updated_at).getTime();
+            if (Number.isFinite(latestMs) && latestMs >= requestedAt) {
+                setLocationRefreshRequestedAt(prev => (prev === requestedAt || (prev && latestMs >= prev) ? null : prev));
+                return true;
+            }
+            return false;
+        };
+
+        const fetchLatestLocations = () => fetchChildLocations(familyId)
+            .then(applyFetchedLocations)
             .catch((err) => console.warn("[GPS] immediate refetch failed:", err));
+
+        // Surface last-known DB position immediately so the UI updates the moment
+        // the parent taps refresh, instead of waiting for the child's broadcast.
+        // Then poll briefly because the child may save the fresh GPS fix a few
+        // seconds after the request push/broadcast is delivered.
+        const fetchPromise = fetchLatestLocations();
+
+        const pollFreshLocation = async () => {
+            for (let attempt = 0; attempt < 8; attempt += 1) {
+                await new Promise((resolve) => setTimeout(resolve, 1200));
+                const isFresh = await fetchLatestLocations();
+                await refreshLocationTrail();
+                if (isFresh) return true;
+            }
+            return false;
+        };
 
         try {
             const sent = await sendBroadcastWhenReady(
@@ -7787,14 +7818,16 @@ export default function KidsScheduler() {
                 console.warn("[GPS] location_refresh_request was not sent; showing saved location.");
             }
             await Promise.all([pushPromise, fetchPromise]);
+            void pollFreshLocation();
             return sent;
         } catch (error) {
             console.error("[GPS] location_refresh_request failed:", error);
             await pushPromise;
             await fetchPromise.catch(() => {});
+            void pollFreshLocation();
             return false;
         }
-    }, [authUser?.id, familyId, myRole]);
+    }, [authUser?.id, familyId, myRole, showChildTracker]);
 
     useEffect(() => {
         if (myRole !== "parent" || !familyId || !showChildTracker) return;
@@ -9407,6 +9440,11 @@ export default function KidsScheduler() {
         await Promise.all([broadcastPromise, pushPromise]);
         return true;
     }, [authUser?.id, familyId, primaryChildUserId]);
+
+    const handleParentDeviceRefreshClick = useCallback(() => {
+        void requestChildLocationRefresh("device_status_manual_refresh");
+        void requestChildDeviceStatusRefresh("device_status_manual_refresh");
+    }, [requestChildDeviceStatusRefresh, requestChildLocationRefresh]);
 
     useEffect(() => {
         if (myRole !== "parent" || !familyId || !authUser?.id || !pairedChildIdsKey) return;
@@ -11040,7 +11078,7 @@ export default function KidsScheduler() {
                             </div>
                             <button
                                 type="button"
-                                onClick={requestChildDeviceStatusRefresh}
+                                onClick={handleParentDeviceRefreshClick}
                                 style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                             >
                                 지금 갱신
