@@ -226,6 +226,24 @@ export async function fetchEvents(familyId) {
   return map;
 }
 
+// Fetch a single event with its events_children join — used by the realtime
+// handler so that INSERT/UPDATE notifications carry the full child_ids +
+// is_family_event projection (the raw postgres_changes payload is the events
+// row only and does not include the M:N join).
+export async function fetchEventById(eventId) {
+  if (!eventId) return null;
+  const { data, error } = await supabase
+    .from("events")
+    .select("*, events_children(child_id)")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (error || !data) {
+    if (error) console.warn("[sync] fetchEventById error:", error);
+    return null;
+  }
+  return { dateKey: data.date_key, event: rowToEvent(data) };
+}
+
 export async function fetchAcademies(familyId) {
   const { data, error } = await supabase
     .from("academies")

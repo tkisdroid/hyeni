@@ -5,7 +5,7 @@ import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { saveEventWithChildren } from "./lib/sync.js";
-import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
+import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { FEATURES } from "./lib/features.js";
@@ -7393,24 +7393,42 @@ export default function KidsScheduler() {
 
         // Subscribe to realtime changes
         realtimeChannel.current = subscribeFamily(familyId, {
-            onEventsChange: (type, newRow, oldRow) => {
+            onEventsChange: async (type, newRow, oldRow) => {
+                // DELETE has no row id from join — handle synchronously.
+                if (type === "DELETE" && oldRow) {
+                    setEvents(prev => {
+                        const updated = { ...prev };
+                        Object.keys(updated).forEach(k => {
+                            updated[k] = (updated[k] || []).filter(e => e.id !== oldRow.id);
+                            if (updated[k].length === 0) delete updated[k];
+                        });
+                        cacheEvents(updated);
+                        return updated;
+                    });
+                    return;
+                }
+
+                if (!newRow?.id) return;
+
+                // INSERT/UPDATE — postgres_changes only carries the events row,
+                // not the events_children join. Re-fetch to populate child_ids
+                // and is_family_event so the multi-child visibility filter
+                // works without waiting for the next full fetchEvents.
+                const fetched = await fetchEventById(newRow.id);
+                if (!fetched) return;
+                const { dateKey: dk, event: ev } = fetched;
+
                 setEvents(prev => {
                     const updated = { ...prev };
-                    if (type === "INSERT" && newRow) {
-                        const dk = newRow.date_key;
-                        const ev = { id: newRow.id, title: newRow.title, time: newRow.time, endTime: newRow.end_time || null, category: newRow.category, emoji: newRow.emoji, color: newRow.color, bg: newRow.bg, memo: newRow.memo || "", location: newRow.location, notifOverride: newRow.notif_override };
-                        updated[dk] = [...(updated[dk] || []), ev].sort((a, b) => a.time.localeCompare(b.time));
-                        // Deduplicate by id
-                        updated[dk] = updated[dk].filter((e, i, arr) => arr.findIndex(x => x.id === e.id) === i);
-                    } else if (type === "UPDATE" && newRow) {
-                        const dk = newRow.date_key;
-                        const ev = { id: newRow.id, title: newRow.title, time: newRow.time, endTime: newRow.end_time || null, category: newRow.category, emoji: newRow.emoji, color: newRow.color, bg: newRow.bg, memo: newRow.memo || "", location: newRow.location, notifOverride: newRow.notif_override };
-                        // Remove from old date_key if changed, add to new
-                        Object.keys(updated).forEach(k => { updated[k] = (updated[k] || []).filter(e => e.id !== newRow.id); if (updated[k].length === 0) delete updated[k]; });
-                        updated[dk] = [...(updated[dk] || []), ev].sort((a, b) => a.time.localeCompare(b.time));
-                    } else if (type === "DELETE" && oldRow) {
-                        Object.keys(updated).forEach(k => { updated[k] = (updated[k] || []).filter(e => e.id !== oldRow.id); if (updated[k].length === 0) delete updated[k]; });
+                    if (type === "UPDATE") {
+                        // Remove the row from any previous date_key bucket in case it moved.
+                        Object.keys(updated).forEach(k => {
+                            updated[k] = (updated[k] || []).filter(e => e.id !== ev.id);
+                            if (updated[k].length === 0) delete updated[k];
+                        });
                     }
+                    updated[dk] = [...(updated[dk] || []).filter(e => e.id !== ev.id), ev]
+                        .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
                     cacheEvents(updated);
                     return updated;
                 });
