@@ -5295,9 +5295,37 @@ function LocationMapView({
                         유료계정은 자주가는 장소를 무제한 등록할 수 있어요
                     </div>
                 )}
-                {!childPos && locationHint && (
-                    <div style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, marginBottom: 12 }}>
-                        {locationHint}
+                {locationHint && (
+                    <div
+                        role="status"
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            background: "#FEF3C7",
+                            color: "#92400E",
+                            borderRadius: 14,
+                            padding: "10px 12px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            marginBottom: 12,
+                            lineHeight: 1.5,
+                        }}
+                    >
+                        <span aria-hidden="true" style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 18,
+                            height: 18,
+                            borderRadius: 999,
+                            background: "#FBBF24",
+                            color: "#fff",
+                            fontWeight: 900,
+                            fontSize: 11,
+                            flexShrink: 0,
+                        }}>!</span>
+                        <span>{locationHint}</span>
                     </div>
                 )}
                 {savedPlaceItems.length > 0 && (
@@ -6860,8 +6888,18 @@ export default function KidsScheduler() {
         return allChildPositions.find((p) => p.user_id === myId) || null;
     }, [allChildPositions, isParent, authUser?.id]);
     useEffect(() => { childPosRef.current = childPos; }, [childPos]);
-    const locationGateHint = isParent && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
-        ? "무료 플랜에서는 5분 지난 위치만 표시돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
+    // Hint surface for the freemium location gate.
+    //   Case A — no child position at all + free tier: legacy "5분 지난 위치만"
+    //     message (still useful on cold start before the first fix arrives).
+    //   Case B — child position present + free tier (M1 now always returns
+    //     the latest fix tagged isDelayed=true): inform the parent why the
+    //     marker isn't real-time, with an upgrade nudge.
+    const locationGateHint = isParent && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
+        ? (!displayChildPos && allChildPositions.length > 0
+            ? "무료 플랜에서는 위치 표시가 잠시 지연돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
+            : displayChildPos?.isDelayed
+                ? "무료 플랜이라 위치가 잠시 지연되어 표시돼요. 실시간으로 보려면 프리미엄으로 업그레이드해 주세요."
+                : "")
         : "";
 
     const openFeatureLock = useCallback((feature, title = "", body = "") => {
@@ -9440,6 +9478,10 @@ export default function KidsScheduler() {
         ? [
             childLocationInfo.precise ? "도로명 기준" : "좌표 기준",
             childPos.updatedAt ? `${getRelativeTime(childPos.updatedAt)} 업데이트` : "",
+            // Surface the freemium delay so a parent doesn't mistake a stale
+            // marker for a real-time fix. Set by effectiveChildLocation when
+            // the family lacks REALTIME_LOCATION entitlement.
+            childPos.isDelayed ? "지연 표시 (프리미엄 시 실시간)" : "",
         ].filter(Boolean).join(" · ")
         : "위치 권한을 허용하면 현재 위치를 바로 확인해요";
     const heroLine = isParent
