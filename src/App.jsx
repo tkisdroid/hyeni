@@ -6638,7 +6638,9 @@ export default function KidsScheduler() {
     const pairCode = familyInfo?.pairCode || "";
     const childrenContext = useChildren(familyInfo);
     const pairedChildren = childrenContext.list;
-    const _pairedDevice = pairedChildren[0] || null; // 하위호환 (단일 자녀)
+    const _pairedDevice = isParent
+      ? null
+      : (pairedChildren.find((c) => c.user_id === authUser?.id) || pairedChildren[0] || null);
     const isMultiChild = childrenContext.isMultiChild;
     const globalNotif = DEFAULT_NOTIF;
 
