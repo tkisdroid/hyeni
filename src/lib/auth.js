@@ -83,42 +83,59 @@ export async function logout() {
 }
 
 // ── Setup family (parent, after login) ──────────────────────────────────────
-export async function setupFamily(userId, parentName) {
-  const { data: existing, error: existingError } = await supabase
+export async function setupFamily(userId, parentName, options = {}) {
+  const { familyName = "", plannedChildCount = 1, children = [] } = options;
+
+  const { data: existing } = await supabase
     .from("families")
-    .select("id, pair_code")
+    .select("id, pair_code, planned_child_count")
     .eq("parent_id", userId)
     .limit(1)
     .maybeSingle();
-  if (existingError) console.warn("[setupFamily] existing family query failed:", existingError);
 
+  let family;
   if (existing) {
-    const { error: memberError } = await supabase
-      .from("family_members")
-      .upsert({ family_id: existing.id, user_id: userId, role: "parent", name: parentName || "부모" }, { onConflict: "family_id,user_id" });
-    if (memberError) {
-      console.error("[setupFamily] parent membership upsert failed:", memberError);
+    family = existing;
+    if (plannedChildCount && plannedChildCount !== existing.planned_child_count) {
+      await supabase.from("families")
+        .update({ planned_child_count: plannedChildCount })
+        .eq("id", existing.id);
     }
-    return { familyId: existing.id, pairCode: existing.pair_code };
+  } else {
+    const { data: created, error: createError } = await supabase
+      .from("families")
+      .insert({
+        parent_id: userId,
+        pair_code: generatePairCode(),
+        planned_child_count: plannedChildCount,
+        name: familyName,
+      })
+      .select("id, pair_code")
+      .single();
+    if (createError) throw createError;
+    family = created;
   }
 
-  const pairCode = generatePairCode();
-  const { data: family, error } = await supabase
-    .from("families")
-    .insert({ parent_id: userId, pair_code: pairCode, parent_name: parentName || "" })
-    .select("id, pair_code")
-    .single();
+  await supabase.from("family_members").upsert(
+    { family_id: family.id, user_id: userId, role: "parent", name: parentName || "부모" },
+    { onConflict: "family_id,user_id" }
+  );
 
-  if (error) throw error;
-
-  const { error: memberError } = await supabase
-    .from("family_members")
-    .insert({ family_id: family.id, user_id: userId, role: "parent", name: parentName || "부모" });
-  if (memberError) {
-    console.error("[setupFamily] parent membership insert failed:", memberError);
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i];
+    await supabase.from("family_members").insert({
+      family_id: family.id,
+      user_id: null,
+      role: "child",
+      name: c.name,
+      birthdate: c.birthdate || null,
+      color_hex: c.color_hex,
+      photo_url: c.photo_url || null,
+      child_order: i + 1,
+    });
   }
 
-  return { familyId: family.id, pairCode: family.pair_code };
+  return family;
 }
 
 // ── Join family (child, via pair code) ──────────────────────────────────────

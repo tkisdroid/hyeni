@@ -59,6 +59,7 @@ env
 
 # Supabase temp
 supabase/.temp
+supabase/.branches
 
 # Test artifacts
 test-results/

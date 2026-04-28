@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
+import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
+import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
+import { useChildren } from "./lib/childrenContext.js";
+import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
+import { saveEventWithChildren } from "./lib/sync.js";
 import { fetchEvents, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
@@ -39,6 +44,13 @@ const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse
 const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
 const FEEDBACK_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/feedback-email` : "";
 const FEEDBACK_RECIPIENT = "tkisdroid@gmail.com";
+
+const isToday = (d) => {
+  if (!d) return false;
+  const t = new Date();
+  const dt = new Date(d);
+  return t.toDateString() === dt.toDateString();
+};
 
 function normalizePairCodeInput(rawValue) {
     const raw = String(rawValue || "").trim();
@@ -4985,11 +4997,14 @@ function LocationMapView({
     isParentMode = false,
     savedPlacesLocked = false,
     onAddSavedPlace,
+    displayChildPositions = [],
+    pairedChildren = [],
 }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const markersRef = useRef([]);
     const myMarkerRef = useRef();
+    const childPinsRef = useRef([]);
     const initialBoundsAppliedRef = useRef(false);
     const [selected, setSelected] = useState(null);
 
@@ -5019,9 +5034,26 @@ function LocationMapView({
         markersRef.current.forEach(m => m.setMap(null));
         markersRef.current = [];
         if (myMarkerRef.current) { myMarkerRef.current.setMap(null); myMarkerRef.current = null; }
+        childPinsRef.current.forEach(m => m.setMap(null));
+        childPinsRef.current = [];
 
-        // My location marker (blue dot)
-        if (childPos) {
+        // 다중 자녀 핀: 학부모 + 자녀 2명 이상이면 자녀별 색상 마커를 렌더
+        const multiChildPins = isParentMode && Array.isArray(displayChildPositions) && displayChildPositions.length > 1;
+        if (multiChildPins) {
+            displayChildPositions.forEach((pos) => {
+                if (!Number.isFinite(Number(pos?.lat)) || !Number.isFinite(Number(pos?.lng))) return;
+                const child = pairedChildren.find((c) => c.user_id === pos.user_id);
+                const color = child?.color_hex || "#3B82F6";
+                const overlay = new window.kakao.maps.CustomOverlay({
+                    position: new window.kakao.maps.LatLng(Number(pos.lat), Number(pos.lng)),
+                    content: `<div style="width:18px;height:18px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px ${color}80"></div>`,
+                    yAnchor: 0.5, xAnchor: 0.5,
+                });
+                overlay.setMap(mapObj.current);
+                childPinsRef.current.push(overlay);
+            });
+        } else if (childPos) {
+            // 단일 자녀(또는 자녀 모드): 기존 단일 파란 점
             const myOverlay = new window.kakao.maps.CustomOverlay({
                 position: new window.kakao.maps.LatLng(childPos.lat, childPos.lng),
                 content: '<div style="width:18px;height:18px;background:#3B82F6;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(59,130,246,0.5)"></div>',
@@ -5034,7 +5066,13 @@ function LocationMapView({
         // Event location markers
         const bounds = new window.kakao.maps.LatLngBounds();
         let boundCount = 0;
-        if (childPos) {
+        if (multiChildPins) {
+            displayChildPositions.forEach((pos) => {
+                if (!Number.isFinite(Number(pos?.lat)) || !Number.isFinite(Number(pos?.lng))) return;
+                bounds.extend(new window.kakao.maps.LatLng(Number(pos.lat), Number(pos.lng)));
+                boundCount += 1;
+            });
+        } else if (childPos) {
             bounds.extend(new window.kakao.maps.LatLng(childPos.lat, childPos.lng));
             boundCount += 1;
         }
@@ -5084,7 +5122,7 @@ function LocationMapView({
             mapObj.current.setBounds(bounds, 60);
             initialBoundsAppliedRef.current = true;
         }
-    }, [mapReady, childPos, eventPlaceItems, savedPlaceItems, center.lat, center.lng]);
+    }, [mapReady, childPos, eventPlaceItems, savedPlaceItems, center.lat, center.lng, isParentMode, displayChildPositions, pairedChildren]);
 
     // Handle click on overlay via map container click delegation
     useEffect(() => {
@@ -6584,6 +6622,36 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 다중 자녀: 자녀별 기기 안전 카드 (배터리 / 마지막 접속)
+// ─────────────────────────────────────────────────────────────────────────────
+function ChildDeviceCard({ child, status }) {
+    const color = child?.color_hex || "#9CA3AF";
+    const battery = Number.isFinite(Number(status?.batteryLevel))
+        ? Math.max(0, Math.min(100, Number(status.batteryLevel)))
+        : null;
+    const updatedAt = status?.updatedAt || status?.updated_at || null;
+    const minutesAgo = updatedAt
+        ? Math.max(0, Math.round((Date.now() - new Date(updatedAt).getTime()) / 60000))
+        : null;
+    return (
+        <div style={{
+            padding: 14,
+            borderRadius: 14,
+            background: "white",
+            border: `1.5px solid ${color}30`,
+        }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
+                <div style={{ fontSize: 14, fontWeight: 800 }}>{child?.name || "아이"}</div>
+            </div>
+            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 8 }}>
+                배터리: {battery == null ? "—" : battery}% · 마지막 접속: {minutesAgo == null ? "—" : minutesAgo}분 전
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main App
 // ─────────────────────────────────────────────────────────────────────────────
 export default function KidsScheduler() {
@@ -6624,8 +6692,12 @@ export default function KidsScheduler() {
     const familyId = familyInfo?.familyId;
     const entitlement = useEntitlement(familyId);
     const pairCode = familyInfo?.pairCode || "";
-    const pairedChildren = familyInfo?.members?.filter(m => m.role === "child") || [];
-    const _pairedDevice = pairedChildren[0] || null; // 첫 번째 아이 (하위호환)
+    const childrenContext = useChildren(familyInfo);
+    const pairedChildren = childrenContext.list;
+    const _pairedDevice = isParent
+      ? null
+      : (pairedChildren.find((c) => c.user_id === authUser?.id) || pairedChildren[0] || null);
+    const isMultiChild = childrenContext.isMultiChild;
     const globalNotif = DEFAULT_NOTIF;
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
@@ -6643,6 +6715,7 @@ export default function KidsScheduler() {
     const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
     const [showPhoneSettings, setShowPhoneSettings] = useState(false);
     const [showParentSetup, setShowParentSetup] = useState(false);
+    const [showCreateWizard, setShowCreateWizard] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedbackDraft, setFeedbackDraft] = useState("");
     const [feedbackBusy, setFeedbackBusy] = useState(false);
@@ -6650,6 +6723,7 @@ export default function KidsScheduler() {
     // ── UI state ───────────────────────────────────────────────────────────────
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingEventId, setEditingEventId] = useState(null);
+    const [eventChildSelection, setEventChildSelection] = useState({ childIds: [], familyAll: false });
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [showChildTracker, setShowChildTracker] = useState(false);
     const [locationRefreshRequestedAt, setLocationRefreshRequestedAt] = useState(null);
@@ -6660,7 +6734,10 @@ export default function KidsScheduler() {
     const [bounce, setBounce] = useState(false);
     const [mapReady, setMapReady] = useState(false);
     const [mapLoadError, setMapLoadError] = useState("");
-    const [activeView, setActiveView] = useState("calendar");
+    const [activeView, setActiveView] = useState(() => {
+      const childCount = familyInfo?.members?.filter(m => m.role === "child")?.length || 0;
+      return (isParent && childCount >= 2) ? "home" : "calendar";
+    });
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
@@ -6735,6 +6812,28 @@ export default function KidsScheduler() {
         () => effectiveChildLocation(childPos, entitlement) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
         [childPos, displayChildPositions, entitlement]
     );
+    // ── 다중 자녀 프라이버시 (원칙 5): 자녀 기기는 자기 데이터만 본다 ─────────────────
+    // events 는 { [dateKey]: Event[] } 형태의 맵. 학부모는 그대로 두고,
+    // 자녀 모드일 때만 가족 전체 일정 OR 본인이 포함된 일정으로 좁힌다.
+    const visibleEvents = useMemo(() => {
+        if (isParent) return events;
+        const myId = authUser?.id;
+        if (!events || typeof events !== "object") return events;
+        if (Array.isArray(events)) {
+            return events.filter((e) => e?.is_family_event || (e?.child_ids || []).includes(myId));
+        }
+        const filtered = {};
+        for (const dk of Object.keys(events)) {
+            const list = Array.isArray(events[dk]) ? events[dk] : [];
+            filtered[dk] = list.filter((e) => e?.is_family_event || (e?.child_ids || []).includes(myId));
+        }
+        return filtered;
+    }, [events, isParent, authUser?.id]);
+    const ownPosition = useMemo(() => {
+        if (isParent) return null;
+        const myId = authUser?.id;
+        return allChildPositions.find((p) => p.user_id === myId) || null;
+    }, [allChildPositions, isParent, authUser?.id]);
     useEffect(() => { childPosRef.current = childPos; }, [childPos]);
     const locationGateHint = isParent && !displayChildPos && allChildPositions.length > 0 && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
         ? "무료 플랜에서는 5분 지난 위치만 표시돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
@@ -9120,8 +9219,9 @@ export default function KidsScheduler() {
         if (familyId && authUser) {
             try {
                 for (const { ev, dateKey: dk } of allEvents) {
-                    await insertEvent(ev, familyId, dk, authUser.id);
+                    await saveEventWithChildren({ ...ev, dateKey: dk, familyId, userId: authUser.id }, eventChildSelection);
                 }
+                setEventChildSelection({ childIds: [], familyAll: false });
                 maybeOpenTrialInvite();
                 sendInstantPush({
                     action: "new_event",
@@ -9352,6 +9452,17 @@ export default function KidsScheduler() {
     };
     const renderParentBottomTabbar = (activeTab = "today", extraClassName = "") => (
         <nav className={`hyeni-v5-tabbar${extraClassName ? ` ${extraClassName}` : ""}`} aria-label="부모 메인 탭">
+            {isMultiChild && (
+              <button
+                type="button"
+                onClick={() => setActiveView("home")}
+                aria-pressed={activeView === "home"}
+                className={activeView === "home" ? "active" : undefined}
+                style={{ fontFamily: FF }}
+              >
+                <span aria-hidden="true">🏠</span>홈
+              </button>
+            )}
             <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
                 <span aria-hidden="true">🏠</span>오늘
             </button>
@@ -9986,9 +10097,29 @@ export default function KidsScheduler() {
     if (!myRole || (!authUser && !authLoading)) return <RoleSetupModal onSelect={r => { if (r === "child") handleChildSelect(); }} loading={authLoading} />;
 
     // ── Parent first login: choose "새 가족 만들기" or "기존 가족 합류" ────────
-    if (showParentSetup && !familyInfo) return (
-        <ParentSetupScreen onCreateFamily={handleCreateFamily} onJoinAsParent={handleJoinAsParent} />
-    );
+    // "새 가족 만들기" → PairingWizard (multi-child setup wizard)
+    // "기존 가족 합류" → existing handleJoinAsParent flow (preserved)
+    if (showParentSetup && !familyInfo) {
+        if (showCreateWizard && authUser) return (
+            <PairingWizard
+                userId={authUser.id}
+                parentName={authUser.user_metadata?.name || "부모"}
+                onComplete={async () => {
+                    try {
+                        const fam = await getMyFamily(authUser.id);
+                        if (fam) setFamilyInfo(fam);
+                    } catch (err) {
+                        console.error("[PairingWizard onComplete] getMyFamily failed:", err);
+                    }
+                    setShowCreateWizard(false);
+                    setShowParentSetup(false);
+                }}
+            />
+        );
+        return (
+            <ParentSetupScreen onCreateFamily={() => setShowCreateWizard(true)} onJoinAsParent={handleJoinAsParent} />
+        );
+    }
 
     // ── Phase 5 · GATE-01 / GATE-02 ────────────────────────────────────────────
     // Pre-pair UI gate for child sessions. While the child is anonymously
@@ -11005,6 +11136,18 @@ export default function KidsScheduler() {
                 </div>
             </div>}
 
+            {/* ── HOME VIEW (multi-child only) ── */}
+            {activeView === "home" && isMultiChild && (
+              <HomeTab
+                children={pairedChildren}
+                positions={allChildPositions}
+                events={events.filter(e => isToday(e.date))}
+                childLocations={childLocationLabels}
+                childDeviceStatusMap={childDeviceStatusMap}
+                onMapTap={() => setActiveView("location")}
+              />
+            )}
+
             {/* ── CALENDAR VIEW ── */}
             {activeView === "calendar" && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
@@ -11045,62 +11188,98 @@ export default function KidsScheduler() {
                         })}
                     </div>
 
-                    <section
-                        aria-label="아이 기기 사용 지표"
-                        style={{
-                            marginTop: 12,
-                            marginBottom: 12,
-                            background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
-                            border: "1px solid #E0E7FF",
-                            borderRadius: 16,
-                            padding: "12px 14px",
-                            boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
-                            fontFamily: FF
-                        }}
-                    >
-                        <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>배터리</div>
-                                <div style={{ fontSize: 16, color: "#111827", fontWeight: 900, marginTop: 2 }}>🔋 {primaryDeviceBatteryLabel}</div>
+                    {isParent && pairedChildren.length > 1 ? (
+                        <section
+                            aria-label="아이 기기 사용 지표"
+                            style={{
+                                marginTop: 12,
+                                marginBottom: 12,
+                                background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
+                                border: "1px solid #E0E7FF",
+                                borderRadius: 16,
+                                padding: "12px 14px",
+                                boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
+                                fontFamily: FF
+                            }}
+                        >
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3" }}>📱 아이 기기 안전 지표</div>
+                                <button
+                                    type="button"
+                                    onClick={handleParentDeviceRefreshClick}
+                                    style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                >
+                                    지금 갱신
+                                </button>
                             </div>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>충전 상태</div>
-                                <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⚡ {primaryDeviceChargingLabel}</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                {pairedChildren.map((c) => (
+                                    <ChildDeviceCard
+                                        key={c.user_id}
+                                        child={c}
+                                        status={childDeviceStatusMap[c.user_id]}
+                                    />
+                                ))}
                             </div>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>화면 켜짐(앱 기준)</div>
-                                <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⏱️ {primaryDeviceScreenLabel}</div>
-                            </div>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>네트워크</div>
-                                <div style={{ fontSize: 14, color: "#111827", fontWeight: 900, marginTop: 2 }}>📶 {primaryDeviceConnectionLabel}</div>
-                            </div>
-                            <div style={{ background: "white", borderRadius: 12, padding: "9px 10px", gridColumn: "1 / -1" }}>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>최근 실행 앱</div>
-                                <div style={{ fontSize: 13, color: "#1F2937", fontWeight: 800, marginTop: 2 }}>
-                                    {primaryChildDeviceStatus?.recentApp || "운영체제 사용기록 권한이 필요해요"}
+                        </section>
+                    ) : (
+                        <section
+                            aria-label="아이 기기 사용 지표"
+                            style={{
+                                marginTop: 12,
+                                marginBottom: 12,
+                                background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
+                                border: "1px solid #E0E7FF",
+                                borderRadius: 16,
+                                padding: "12px 14px",
+                                boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
+                                fontFamily: FF
+                            }}
+                        >
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>배터리</div>
+                                    <div style={{ fontSize: 16, color: "#111827", fontWeight: 900, marginTop: 2 }}>🔋 {primaryDeviceBatteryLabel}</div>
                                 </div>
-                                {primaryChildDeviceStatus?.usagePermission === "requires_permission" && (
-                                    <div style={{ fontSize: 10, color: "#B45309", marginTop: 3, fontWeight: 700 }}>
-                                        Usage Access 권한을 켜면 실제 최근 앱 목록을 가져와요.
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>충전 상태</div>
+                                    <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⚡ {primaryDeviceChargingLabel}</div>
+                                </div>
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>화면 켜짐(앱 기준)</div>
+                                    <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⏱️ {primaryDeviceScreenLabel}</div>
+                                </div>
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>네트워크</div>
+                                    <div style={{ fontSize: 14, color: "#111827", fontWeight: 900, marginTop: 2 }}>📶 {primaryDeviceConnectionLabel}</div>
+                                </div>
+                                <div style={{ background: "white", borderRadius: 12, padding: "9px 10px", gridColumn: "1 / -1" }}>
+                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>최근 실행 앱</div>
+                                    <div style={{ fontSize: 13, color: "#1F2937", fontWeight: 800, marginTop: 2 }}>
+                                        {primaryChildDeviceStatus?.recentApp || "운영체제 사용기록 권한이 필요해요"}
                                     </div>
-                                )}
+                                    {primaryChildDeviceStatus?.usagePermission === "requires_permission" && (
+                                        <div style={{ fontSize: 10, color: "#B45309", marginTop: 3, fontWeight: 700 }}>
+                                            Usage Access 권한을 켜면 실제 최근 앱 목록을 가져와요.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
-                            <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 600 }}>
-                                마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "#B45309", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
+                                <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 600 }}>
+                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "#B45309", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleParentDeviceRefreshClick}
+                                    style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                >
+                                    지금 갱신
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={handleParentDeviceRefreshClick}
-                                style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
-                            >
-                                지금 갱신
-                            </button>
-                        </div>
-                    </section>
+                        </section>
+                    )}
 
                     <button
                         type="button"
@@ -11149,7 +11328,14 @@ export default function KidsScheduler() {
                         <button type="button" className="hyeni-v5-ai-button" onClick={openAiSchedule} style={{ fontFamily: FF }}>
                             🤖 AI로 일정입력
                         </button>
-                        <button type="button" className="hyeni-v5-plus-button" onClick={() => setShowAddModal(true)} style={{ fontFamily: FF }} aria-label="+" title="일정 추가">
+                        <button type="button" className="hyeni-v5-plus-button" onClick={() => {
+                            if (pairedChildren.length === 1) {
+                              setEventChildSelection({ childIds: [pairedChildren[0].user_id], familyAll: false });
+                            } else {
+                              setEventChildSelection({ childIds: [], familyAll: false });
+                            }
+                            setShowAddModal(true);
+                          }} style={{ fontFamily: FF }} aria-label="+" title="일정 추가">
                             +
                         </button>
                     </div>
@@ -11200,7 +11386,8 @@ export default function KidsScheduler() {
                             const isSel = day === selectedDate;
                             const isSun = (firstDay + i) % 7 === 0;
                             const isSat = (firstDay + i) % 7 === 6;
-                            const dayEvs = getEvs(day);
+                            // 자녀 프라이버시: visibleEvents 사용
+                            const dayEvs = visibleEvents[`${currentYear}-${currentMonth}-${day}`] || [];
                             const activeCell = isSel || isToday;
                             return (
                                 <button
@@ -11279,7 +11466,7 @@ export default function KidsScheduler() {
                 {/* Day Timetable */}
                 <div style={{ ...cardSt, marginBottom: 0 }}>
                     <DayTimetable
-                        events={selectedEvs}
+                        events={visibleEvents[dateKey] || []}
                         dateLabel={`${currentMonth + 1}월 ${selectedDate}일`}
                         isToday={currentYear === new Date().getFullYear() && currentMonth === new Date().getMonth() && selectedDate === new Date().getDate()}
                         isFuture={new Date(currentYear, currentMonth, selectedDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0)}
@@ -11423,13 +11610,17 @@ export default function KidsScheduler() {
             {activeView === "maplist" && (
                 <div className={isParent ? "hyeni-v5-maplist-with-tabbar" : undefined}>
                     <LocationMapView
-                        events={events} childPos={displayChildPos} mapReady={mapReady}
+                        events={isParent ? events : visibleEvents}
+                        childPos={isParent ? displayChildPos : (ownPosition || displayChildPos)}
+                        mapReady={mapReady}
                         arrivedSet={arrivedSet}
                         locationHint={locationGateHint}
                         savedPlaces={savedPlaces}
                         isParentMode={isParent}
                         savedPlacesLocked={!entitlement.canUse(FEATURES.SAVED_PLACES)}
                         onAddSavedPlace={handleOpenSavedPlaceMgr}
+                        displayChildPositions={isParent ? displayChildPositions : []}
+                        pairedChildren={isParent ? pairedChildren : []}
                     />
                     {isParent && renderParentBottomTabbar("maplist", "hyeni-v5-tabbar-fixed")}
                 </div>
@@ -11607,6 +11798,15 @@ export default function KidsScheduler() {
                                 </>
                             )}
                         </div>}
+                        {isParent && pairedChildren.length >= 2 && (
+                          <div style={{ marginBottom: 14 }}>
+                            <ChildSelector
+                              children={pairedChildren}
+                              value={eventChildSelection}
+                              onChange={setEventChildSelection}
+                            />
+                          </div>
+                        )}
                         <button onClick={addEvent} style={primBtn}>{editingEventId ? "💾 수정 저장하기!" : (weeklyRepeat ? `🐰 앞으로 ${repeatWeeks === 4 ? "1개월" : repeatWeeks === 8 ? "2개월" : "3개월"}간 매주 추가!` : "🐰 일정 추가하기!")}</button>
                         <button onClick={() => { setShowAddModal(false); setEditingEventId(null); setNewTitle(""); setNewEndTime(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }} style={secBtn}>취소</button>
                     </div>
@@ -11717,10 +11917,9 @@ export default function KidsScheduler() {
                 >
                     <div style={{ width: "100%", maxWidth: 460 }}>
                         <SubscriptionManagement
-                            entitlement={entitlement}
-                            role={myRole}
-                            onRefresh={entitlement.refresh}
-                            onStartTrial={startTrial}
+                            role={isParent ? "parent" : "child"}
+                            familyId={familyId}
+                            childList={pairedChildren}
                         />
                         <button
                             type="button"

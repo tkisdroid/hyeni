@@ -10,6 +10,7 @@ export default defineConfig({
         url: "http://localhost/",
       },
     },
+    globals: true,
     setupFiles: "./tests/setup.js",
     include: ["tests/**/*.test.{js,jsx}"],
     css: true,
