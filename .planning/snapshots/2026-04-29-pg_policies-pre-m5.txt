@@ -1,0 +1,13 @@
+Pre-M5 pg_policies snapshot — captured 2026-04-29 via Supabase MCP execute_sql
+
+Query:
+  SELECT schemaname, tablename, policyname, cmd, qual, with_check
+  FROM pg_policies
+  WHERE schemaname='public' AND tablename IN ('subscriptions','events_children','child_device_stats')
+  ORDER BY tablename, policyname;
+
+Result: 0 rows.
+
+Rationale: subscriptions and events_children tables do not exist on live yet (M3/M4 committed but not pushed). child_device_stats also does not exist. M5 forward migration's DO $cds_gate$ block will skip on apply via IF EXISTS guard, which is intentional.
+
+This snapshot serves as the baseline for M5 down migration: dropping the policies M5 creates restores live to this empty state.
