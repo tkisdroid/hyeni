@@ -4997,11 +4997,14 @@ function LocationMapView({
     isParentMode = false,
     savedPlacesLocked = false,
     onAddSavedPlace,
+    displayChildPositions = [],
+    pairedChildren = [],
 }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const markersRef = useRef([]);
     const myMarkerRef = useRef();
+    const childPinsRef = useRef([]);
     const initialBoundsAppliedRef = useRef(false);
     const [selected, setSelected] = useState(null);
 
@@ -5031,9 +5034,26 @@ function LocationMapView({
         markersRef.current.forEach(m => m.setMap(null));
         markersRef.current = [];
         if (myMarkerRef.current) { myMarkerRef.current.setMap(null); myMarkerRef.current = null; }
+        childPinsRef.current.forEach(m => m.setMap(null));
+        childPinsRef.current = [];
 
-        // My location marker (blue dot)
-        if (childPos) {
+        // 다중 자녀 핀: 학부모 + 자녀 2명 이상이면 자녀별 색상 마커를 렌더
+        const multiChildPins = isParentMode && Array.isArray(displayChildPositions) && displayChildPositions.length > 1;
+        if (multiChildPins) {
+            displayChildPositions.forEach((pos) => {
+                if (!Number.isFinite(Number(pos?.lat)) || !Number.isFinite(Number(pos?.lng))) return;
+                const child = pairedChildren.find((c) => c.user_id === pos.user_id);
+                const color = child?.color_hex || "#3B82F6";
+                const overlay = new window.kakao.maps.CustomOverlay({
+                    position: new window.kakao.maps.LatLng(Number(pos.lat), Number(pos.lng)),
+                    content: `<div style="width:18px;height:18px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px ${color}80"></div>`,
+                    yAnchor: 0.5, xAnchor: 0.5,
+                });
+                overlay.setMap(mapObj.current);
+                childPinsRef.current.push(overlay);
+            });
+        } else if (childPos) {
+            // 단일 자녀(또는 자녀 모드): 기존 단일 파란 점
             const myOverlay = new window.kakao.maps.CustomOverlay({
                 position: new window.kakao.maps.LatLng(childPos.lat, childPos.lng),
                 content: '<div style="width:18px;height:18px;background:#3B82F6;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(59,130,246,0.5)"></div>',
@@ -5046,7 +5066,13 @@ function LocationMapView({
         // Event location markers
         const bounds = new window.kakao.maps.LatLngBounds();
         let boundCount = 0;
-        if (childPos) {
+        if (multiChildPins) {
+            displayChildPositions.forEach((pos) => {
+                if (!Number.isFinite(Number(pos?.lat)) || !Number.isFinite(Number(pos?.lng))) return;
+                bounds.extend(new window.kakao.maps.LatLng(Number(pos.lat), Number(pos.lng)));
+                boundCount += 1;
+            });
+        } else if (childPos) {
             bounds.extend(new window.kakao.maps.LatLng(childPos.lat, childPos.lng));
             boundCount += 1;
         }
@@ -5096,7 +5122,7 @@ function LocationMapView({
             mapObj.current.setBounds(bounds, 60);
             initialBoundsAppliedRef.current = true;
         }
-    }, [mapReady, childPos, eventPlaceItems, savedPlaceItems, center.lat, center.lng]);
+    }, [mapReady, childPos, eventPlaceItems, savedPlaceItems, center.lat, center.lng, isParentMode, displayChildPositions, pairedChildren]);
 
     // Handle click on overlay via map container click delegation
     useEffect(() => {
@@ -11502,6 +11528,8 @@ export default function KidsScheduler() {
                         isParentMode={isParent}
                         savedPlacesLocked={!entitlement.canUse(FEATURES.SAVED_PLACES)}
                         onAddSavedPlace={handleOpenSavedPlaceMgr}
+                        displayChildPositions={displayChildPositions}
+                        pairedChildren={pairedChildren}
                     />
                     {isParent && renderParentBottomTabbar("maplist", "hyeni-v5-tabbar-fixed")}
                 </div>
