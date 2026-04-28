@@ -4320,7 +4320,9 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                 <div style={{ position: "absolute", left: 11, top: 8, bottom: 8, width: 3, background: "linear-gradient(to bottom, #E879A0, #F9A8D4, #60A5FA)", borderRadius: 4 }} />
 
                 {events.map((ev, i) => {
+                    if (typeof ev.time !== "string") return null;
                     const [h, m] = ev.time.split(":").map(Number);
+                    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
                     const evMin = h * 60 + m;
                     const endMin = ev.endTime ? (() => { const [eh, em] = ev.endTime.split(":").map(Number); return eh * 60 + em; })() : evMin + 60;
                     const isPast = isToday ? nowMin > endMin : !isFuture;  // 오늘이면 시간비교, 과거 날짜면 전부 past
@@ -6158,7 +6160,9 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
         [events, todayKey]
     );
     const nextEvent = todayLocEvents.find(e => {
+        if (typeof e.time !== "string") return false;
         const [h, m] = e.time.split(":").map(Number);
+        if (!Number.isFinite(h) || !Number.isFinite(m)) return false;
         return h * 60 + m > nowMin;
     });
     const activeChildLocation = selectedChild || childPos;
@@ -8640,8 +8644,16 @@ export default function KidsScheduler() {
     useEffect(() => {
         if (!childPos) return;
         const iv = setInterval(() => {
-            const now = new Date();
-            const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+            // Anchor the arrival/departure clock to the child's GPS fix time
+            // (server-stamped via upsert_child_location RPC), NOT the device's
+            // local now(). Using parent local time misclassifies early/on-time/
+            // late when parent + child clocks drift, and writes the wrong day
+            // key when the child is in a different timezone.
+            const fixIso = childPos?.updatedAt || childPos?.updated_at;
+            const fixTime = fixIso ? new Date(fixIso) : new Date();
+            const refMs = Number.isFinite(fixTime.getTime()) ? fixTime.getTime() : Date.now();
+            const ref = new Date(refMs);
+            const key = `${ref.getFullYear()}-${ref.getMonth()}-${ref.getDate()}`;
             (events[key] || []).forEach(ev => {
                 if (!ev.location) return;
                 const dist = haversineM(childPos.lat, childPos.lng, ev.location.lat, ev.location.lng);
@@ -8649,9 +8661,11 @@ export default function KidsScheduler() {
 
                 // ── Arrival detection (only 30min before ~ event time) ──
                 if (inside && !arrivedSet.has(ev.id)) {
+                    if (typeof ev.time !== "string") return;
                     const [h, m] = ev.time.split(":").map(Number);
-                    const evTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
-                    const diff = Math.round((now.getTime() - evTime) / 60000);
+                    if (!Number.isFinite(h) || !Number.isFinite(m)) return;
+                    const evTime = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), h, m).getTime();
+                    const diff = Math.round((refMs - evTime) / 60000);
                     // Only check arrival from 30min before to 10min after event time
                     if (diff < -30 || diff > 10) return;
                     const isEarly = diff <= -10;                     // 10분+ 일찍
@@ -8696,7 +8710,7 @@ export default function KidsScheduler() {
                     // Child left the zone — start countdown
                     if (!departureTimers.current[ev.id]) {
                         departureTimers.current[ev.id] = {
-                            leftAt: Date.now(),
+                            leftAt: refMs,
                             timer: setTimeout(() => {
                                 // Still outside after DEPARTURE_TIMEOUT (1.5 min)?
                                 setDepartedAlerts(prev => new Set([...prev, ev.id]));
@@ -8720,7 +8734,18 @@ export default function KidsScheduler() {
                 }
             });
         }, 10000); // check every 10s
-        return () => clearInterval(iv);
+        return () => {
+            clearInterval(iv);
+            // Cancel all pending departure setTimeout callbacks. Without this,
+            // a timer scheduled when the user is on the home screen can still
+            // fire setDepartedAlerts / sendInstantPush after the screen
+            // unmounts (logout, family switch, child unpair).
+            const timers = departureTimers.current;
+            for (const id of Object.keys(timers)) {
+                try { clearTimeout(timers[id].timer); } catch { /* ignore */ }
+                delete timers[id];
+            }
+        };
     }, [childPos, events, arrivedSet, globalNotif, addAlert, familyId, authUser, departedAlerts, isParent, myRole, showNotif]);
 
     // ── Advance notifications (friendly messages) ─────────────────────────────
@@ -8739,7 +8764,9 @@ export default function KidsScheduler() {
             const now = new Date(); const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
             const nowMs = now.getTime();
             (events[key] || []).forEach(ev => {
+                if (typeof ev.time !== "string") return;
                 const [h, m] = ev.time.split(":").map(Number);
+                if (!Number.isFinite(h) || !Number.isFinite(m)) return;
                 const evMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
                 const eff = normalizeNotifSettings(ev.notifOverride, globalNotif);
                 eff.minutesBefore.forEach(mins => {
@@ -8769,7 +8796,9 @@ export default function KidsScheduler() {
 
             (events[key] || []).forEach(ev => {
                 if (!ev.location || firedExactStatuses.has(ev.id)) return;
+                if (typeof ev.time !== "string") return;
                 const [h, m] = ev.time.split(":").map(Number);
+                if (!Number.isFinite(h) || !Number.isFinite(m)) return;
                 const eventTimeMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
                 const isExactMinuteWindow = nowMs >= eventTimeMs && nowMs < eventTimeMs + 60_000;
                 if (!isExactMinuteWindow) return;
@@ -9004,7 +9033,9 @@ export default function KidsScheduler() {
             const now = new Date();
             const nowMin = now.getHours() * 60 + now.getMinutes();
             const nextEv = todayEvs.find(ev => {
+                if (typeof ev.time !== "string") return false;
                 const [h, m] = ev.time.split(":").map(Number);
+                if (!Number.isFinite(h) || !Number.isFinite(m)) return false;
                 return (h * 60 + m) >= nowMin && ev.location;
             }) || todayEvs.find(ev => ev.location);
 
