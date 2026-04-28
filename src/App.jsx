@@ -7187,16 +7187,19 @@ export default function KidsScheduler() {
     // 네이티브 앱(Android)에서는 FCM을 사용하므로 Web Push 구독 안 함 (이중 알림 방지)
     useEffect(() => {
         if (isNativeApp) {
-            // Android: 기존 Web Push 구독 해제 + SW 해제 (이중 알림 완전 차단)
+            // Android: this device's Web Push subscription (if any was registered
+            // before going native) is removed by unsubscribeFromPush — that helper
+            // does an endpoint-scoped DELETE on push_subscriptions. We deliberately
+            // do NOT broaden to .eq("user_id", ...) because the same auth user may
+            // have an active web tab on another device whose subscription must
+            // survive. Stale rows whose SW was unregistered without this hook
+            // running are pruned server-side: the push-notify Edge Function deletes
+            // any push_subscriptions row that returns 404/410 on send.
             unsubscribeFromPush().catch(() => {});
             if ("serviceWorker" in navigator) {
                 navigator.serviceWorker.getRegistrations().then(regs => {
                     regs.forEach(r => r.unregister());
                 });
-            }
-            // DB에서도 이 기기의 push_subscriptions 삭제
-            if (authUser?.id) {
-                supabase.from("push_subscriptions").delete().eq("user_id", authUser.id).then(() => {});
             }
             return;
         }
