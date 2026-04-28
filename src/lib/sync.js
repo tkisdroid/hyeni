@@ -701,6 +701,10 @@ export function subscribeFamily(familyId, callbacks) {
                                   // scope (Qonversion integration is a later phase);
                                   // the channel must subscribe regardless so the
                                   // postgres_changes path is exercised end-to-end.
+    onFamilyMembersChange,        // pairing/unpair: parent UI refreshes when a
+                                  // child INSERTs (joinFamily) or DELETEs
+                                  // (unpairChild). Publication enabled by
+                                  // 20260429000011_family_members_realtime.sql.
     onLocationChange,
     onLocationRefreshRequest,
     onKkuk,
@@ -747,6 +751,11 @@ export function subscribeFamily(familyId, callbacks) {
   const dailySuppliesCh = subscribeTableChanges(
     `daily_supplies-${familyId}`, "daily_supplies", familyId, "*",
     onDailySuppliesChange
+  );
+
+  const familyMembersCh = subscribeTableChanges(
+    `family_members-${familyId}`, "family_members", familyId, "*",
+    onFamilyMembersChange
   );
 
   // child_locations: postgres_changes serves as a fallback for the broadcast
@@ -836,7 +845,7 @@ export function subscribeFamily(familyId, callbacks) {
   // subscription. Stored on the broadcast channel itself so a single handle
   // (the broadcast channel — callers already use it as a channel for .send()
   // and .state checks) carries the full cleanup responsibility.
-  const postgresChannels = [eventsCh, academiesCh, memosCh, savedPlacesCh, familySubCh, memoRepliesCh, dailySuppliesCh, childLocationsCh];
+  const postgresChannels = [eventsCh, academiesCh, memosCh, savedPlacesCh, familySubCh, memoRepliesCh, dailySuppliesCh, childLocationsCh, familyMembersCh];
   broadcastCh._channels = postgresChannels;
   broadcastCh._dispose = () => {
     broadcastDisposed = true;

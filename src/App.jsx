@@ -7603,6 +7603,19 @@ export default function KidsScheduler() {
                     return [...prev, { id: newRow.id, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at }];
                 });
             },
+            onFamilyMembersChange: async () => {
+                // Pairing/unpair signal. Refetch full family info so members list,
+                // child counts, color/photo derivations all update without
+                // requiring a manual reload.
+                if (!authUser?.id) return;
+                try {
+                    const fam = await getMyFamily(authUser.id);
+                    if (fam) setFamilyInfo(fam);
+                    else setFamilyInfo(null);  // child unpaired by parent
+                } catch (err) {
+                    console.warn("[onFamilyMembersChange] refetch failed:", err);
+                }
+            },
             // Child: remote listen - parent requests mic recording
             onRemoteListenStart: async (payload) => {
                 if (isParent) return; // only child responds
