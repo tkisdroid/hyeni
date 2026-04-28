@@ -222,7 +222,19 @@ public class LocationService extends Service {
         }
 
         try {
-            startForeground(NOTIFICATION_ID, buildForegroundNotification());
+            // Android 14+ (UDC, sdk 34) requires the foreground service type
+            // to be passed at startForeground. The manifest already declares
+            // foregroundServiceType="location"; the runtime mismatch otherwise
+            // crashes with MissingForegroundServiceTypeException.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    buildForegroundNotification(),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                );
+            } else {
+                startForeground(NOTIFICATION_ID, buildForegroundNotification());
+            }
         } catch (SecurityException e) {
             Log.e(TAG, "Cannot start foreground service: " + e.getMessage());
             stopSelf();
