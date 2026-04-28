@@ -34,6 +34,14 @@ public class ForceRingService extends Service {
     private int originalAlarmVolume = -1;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable autoStop = this::stopSelf;
+
+    // Set when the service is started, cleared on destroy. Used by
+    // MyFirebaseMessagingService to verify that an incoming force_ring_stop
+    // FCM matches the currently-ringing event before stopping — defense in
+    // depth against a spoofed/stale stop that would otherwise silence any
+    // running alarm.
+    private static volatile String activeEventId = null;
+    public static String getActiveEventId() { return activeEventId; }
     private String currentEventId;
 
     @Nullable
@@ -47,6 +55,7 @@ public class ForceRingService extends Service {
             return START_NOT_STICKY;
         }
         currentEventId = intent.getStringExtra(EXTRA_EVENT_ID);
+        activeEventId = currentEventId;
         String message = intent.getStringExtra(EXTRA_MESSAGE);
         String initiator = intent.getStringExtra(EXTRA_INITIATOR);
 
@@ -150,6 +159,7 @@ public class ForceRingService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        activeEventId = null;
         handler.removeCallbacks(autoStop);
         if (mediaPlayer != null) {
             try { mediaPlayer.stop(); mediaPlayer.release(); } catch (Exception ignored) {}

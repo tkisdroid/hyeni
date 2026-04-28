@@ -105,6 +105,18 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
 
         if ("force_ring_stop".equals(action)) {
+            // Defense in depth: only honor stop pushes that match the
+            // currently-ringing event_id. The Edge Function authorizes the
+            // stop server-side (initiator_user_id check), but a stale or
+            // spoofed FCM should not silence a different alarm.
+            String stopEventId = data.get("event_id");
+            String activeEventId = ForceRingService.getActiveEventId();
+            if (activeEventId != null && stopEventId != null
+                    && !activeEventId.equals(stopEventId)) {
+                Log.w(TAG, "force_ring_stop ignored: event_id mismatch "
+                        + "(active=" + activeEventId + ", stop=" + stopEventId + ")");
+                return;
+            }
             stopService(new Intent(this, ForceRingService.class));
             sendBroadcast(new Intent("com.hyeni.calendar.FORCE_RING_STOP")
                     .setPackage(getPackageName()));
