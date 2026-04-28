@@ -1,0 +1,57 @@
+// src/components/multichild/EventModal/ChildSelector.jsx
+export function ChildSelector({ children, value, onChange }) {
+  if (!children || children.length < 2) return null;
+
+  const { childIds = [], familyAll = false } = value || {};
+
+  function toggleChild(id) {
+    const next = childIds.includes(id) ? childIds.filter((x) => x !== id) : [...childIds, id];
+    onChange({ childIds: next, familyAll: false });
+  }
+
+  function pickFamily() {
+    onChange({ childIds: [], familyAll: true });
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1F2937" }}>대상</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {children.map((c) => {
+          const checked = childIds.includes(c.user_id);
+          return (
+            <label
+              key={c.user_id}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "10px 14px", borderRadius: 12,
+                border: checked ? `2px solid ${c.color_hex}` : "1.5px solid #E5E7EB",
+                background: checked ? `${c.color_hex}15` : "white",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox" checked={checked}
+                onChange={() => toggleChild(c.user_id)}
+                aria-label={c.name}
+                style={{ width: 20, height: 20, accentColor: c.color_hex }}
+              />
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: c.color_hex }} />
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#1F2937" }}>{c.name}</span>
+            </label>
+          );
+        })}
+      </div>
+      <button
+        type="button" onClick={pickFamily}
+        style={{
+          marginTop: 12, width: "100%", padding: "12px 14px",
+          borderRadius: 12, border: `2px dashed ${familyAll ? "#1F2937" : "#9CA3AF"}`,
+          background: familyAll ? "#F3F4F6" : "white",
+          fontSize: 14, fontWeight: 700, color: "#1F2937",
+          cursor: "pointer",
+        }}
+      >가족 전체</button>
+    </div>
+  );
+}
