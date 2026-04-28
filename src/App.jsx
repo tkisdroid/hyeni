@@ -7597,13 +7597,33 @@ export default function KidsScheduler() {
                 // Native notification (wakes screen on Android)
                 showKkukNotification(senderLabel, payload.dedup_key);
             },
-            onMemoRepliesChange: (newRow) => {
+            onMemoRepliesChange: (newRow, eventType = "INSERT", oldRow) => {
+                // DELETE: oldRow only — drop from local state if present.
+                if (eventType === "DELETE") {
+                    if (!oldRow?.id) return;
+                    setMemoReplies(prev => prev.filter(r => r.id !== oldRow.id));
+                    return;
+                }
                 if (!newRow) return;
-                if (newRow.user_id === authUser?.id) return;
                 if (newRow.date_key !== dateKeyRef.current) return;
+
+                // UPDATE: read receipts (read_by) on a reply we are already
+                // showing. Merge the new read_by so the sender's "읽음 ✓"
+                // badge updates without a manual reload. Do not skip on
+                // newRow.user_id === self — the UPDATE may be triggered by
+                // any reader (including us), and the merge is idempotent.
+                if (eventType === "UPDATE") {
+                    setMemoReplies(prev => prev.map(r =>
+                        r.id === newRow.id ? { ...r, read_by: newRow.read_by ?? r.read_by } : r
+                    ));
+                    return;
+                }
+
+                // INSERT: ignore self-echo so optimistic state isn't doubled.
+                if (newRow.user_id === authUser?.id) return;
                 setMemoReplies(prev => {
                     if (prev.some(r => r.id === newRow.id)) return prev;
-                    return [...prev, { id: newRow.id, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at }];
+                    return [...prev, { id: newRow.id, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at, read_by: newRow.read_by ?? [] }];
                 });
             },
             onFamilyMembersChange: async () => {

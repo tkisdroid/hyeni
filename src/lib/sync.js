@@ -519,26 +519,38 @@ export async function markMemoRead(familyId, dateKey, userId) {
 // markMemoReplyRead (Phase 4 · MEMO-02):
 // Append `userId` to memo_replies.read_by ONLY AFTER the user has had the
 // reply visible in their viewport for ≥3 seconds (IntersectionObserver in
-// App.jsx). Read-modify-write is acceptable here because read_by grows
-// monotonically — last-writer-wins on the merged union is still correct.
-// Idempotent: the dedup step (Array.from(Set)) guarantees we don't balloon
-// the array on repeated triggers.
+// App.jsx). Routes through the SECURITY DEFINER mark_memo_reply_read RPC so
+// concurrent appends do an atomic UPDATE … read_by = read_by || ARRAY[…]
+// instead of the lost-update read-modify-write the previous JS path used.
+// Idempotent: the RPC's NOT (p_user_id = ANY(read_by)) WHERE clause keeps
+// repeated triggers a no-op.
 export async function markMemoReplyRead(replyId, userId) {
   if (!replyId || !userId) return;
-  const { data, error: selErr } = await supabase
-    .from("memo_replies")
-    .select("read_by")
-    .eq("id", replyId)
-    .single();
-  if (selErr) { console.error("[markMemoReplyRead:select]", selErr); return; }
-  const current = data?.read_by || [];
-  if (current.includes(userId)) return;        // fast-path: already marked
-  const merged = Array.from(new Set([...current, userId]));
-  const { error: updErr } = await supabase
-    .from("memo_replies")
-    .update({ read_by: merged })
-    .eq("id", replyId);
-  if (updErr) console.error("[markMemoReplyRead:update]", updErr);
+  const { error: rpcErr } = await supabase.rpc("mark_memo_reply_read", {
+    p_reply_id: replyId,
+    p_user_id: userId,
+  });
+  if (rpcErr && (rpcErr.code === "PGRST202" || /does not exist/i.test(rpcErr.message || ""))) {
+    // RPC not deployed yet — fall back to the legacy read-modify-write path.
+    // Same race risk as before, surfaces during deploy lag only.
+    console.warn("[markMemoReplyRead] mark_memo_reply_read RPC missing; legacy path");
+    const { data, error: selErr } = await supabase
+      .from("memo_replies")
+      .select("read_by")
+      .eq("id", replyId)
+      .single();
+    if (selErr) { console.error("[markMemoReplyRead:select]", selErr); return; }
+    const current = data?.read_by || [];
+    if (current.includes(userId)) return;
+    const merged = Array.from(new Set([...current, userId]));
+    const { error: updErr } = await supabase
+      .from("memo_replies")
+      .update({ read_by: merged })
+      .eq("id", replyId);
+    if (updErr) console.error("[markMemoReplyRead:update]", updErr);
+    return;
+  }
+  if (rpcErr) console.error("[markMemoReplyRead:rpc]", rpcErr);
 }
 
 // ── Child location (DB-persisted) ───────────────────────────────────────────
@@ -741,10 +753,14 @@ export function subscribeFamily(familyId, callbacks) {
     onFamilySubscriptionChange  // undefined handler is fine — events simply drop
   );
 
+  // memo_replies: subscribe to "*" so the receiver also gets read_by UPDATEs
+  // for in-flight conversations. INSERT delivers new replies; UPDATE delivers
+  // read receipts; DELETE delivers admin removal. Handler routes each by
+  // eventType so the existing INSERT-only consumer stays compatible.
   const memoRepliesCh = subscribeTableChanges(
-    `memo_replies-${familyId}`, "memo_replies", familyId, "INSERT",
+    `memo_replies-${familyId}`, "memo_replies", familyId, "*",
     onMemoRepliesChange
-      ? (_eventType, newRow) => onMemoRepliesChange(newRow)
+      ? (eventType, newRow, oldRow) => onMemoRepliesChange(newRow, eventType, oldRow)
       : null
   );
 
