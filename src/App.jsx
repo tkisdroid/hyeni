@@ -313,7 +313,7 @@ async function sendInstantPush({ action, familyId, senderUserId, title, message,
 
 const REMOTE_AUDIO_CHUNK_MS = 1000;
 const REMOTE_AUDIO_DEFAULT_DURATION_SEC = 60;
-const REMOTE_AUDIO_WAITING_HELP_MS = 15_000;
+const REMOTE_AUDIO_WAITING_HELP_MS = 25_000;
 const TRIAL_INVITE_SHOWN_KEY = "hyeni-trial-invite-shown";
 const REMOTE_AUDIO_MIME_TYPES = [
     "audio/webm;codecs=opus",
@@ -2813,7 +2813,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                 <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
                                                     style={{ width: 80, minWidth: 0, padding: "6px 8px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
                                                     maxLength={10} />
-                                                <button onClick={() => { if (editName.trim() && onRename && canManageFamily && child.user_id) { onRename(child.user_id, editName.trim()); } setEditingId(null); }}
+                                                <button onClick={() => { if (editName.trim() && onRename && canManageFamily && child.id) { onRename(child.id, editName.trim()); } setEditingId(null); }}
                                                     style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
                                                 <button onClick={() => setEditingId(null)}
                                                     style={{ padding: "6px 8px", borderRadius: 10, background: "#F3F4F6", color: "#6B7280", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
@@ -2821,7 +2821,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                         ) : (
                                             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
-                                                {canManageFamily && child.user_id && (
+                                                {canManageFamily && child.id && (
                                                     <button
                                                         type="button"
                                                         onClick={() => { setEditingId(child.id); setEditName(child.name); }}
@@ -5170,7 +5170,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
         clearRemoteAudioWaitingHint();
         remoteAudioWaitingHintTimerRef.current = setTimeout(() => {
             setStatus(prev => (prev === "listening" || prev === "idle" ? prev : "waiting_for_child_notification"));
-            setErrorMessage(prev => prev || "아이 기기 설정 또는 OS 제한으로 자동 연결이 막혔어요. 아이 기기에 남은 연결 알림을 확인해 주세요.");
+            setErrorMessage(prev => prev || "연결까지 시간이 오래 걸리고 있어요. 아이 기기 화면을 깨우거나 알림을 확인해 주세요.");
         }, REMOTE_AUDIO_WAITING_HELP_MS);
         // 1. Broadcast for when child app is already open
         const startPayload = {
@@ -5200,16 +5200,17 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                 channel,
                 "remote_listen_start",
                 startPayload,
-                { timeoutMs: 1800, pollMs: 60 }
+                { timeoutMs: 4000, pollMs: 80 }
             );
             if (!realtimeSent) {
-                setStatus(prev => (prev === "listening" ? prev : "waiting_for_child_notification"));
-                setErrorMessage("실시간 채널 연결 대기 중입니다. 아이 기기에는 자동 연결 알림을 보냈어요.");
+                // Channel wasn't joined yet on parent side. Stay in "auto_waking_child"
+                // so the user sees "연결 시도 중" instead of the alarming "OS blocked"
+                // copy — the child app may still wake up via the FCM push and the
+                // first audio chunk will flip status to "listening" naturally.
             }
         } catch (error) {
             console.warn("[Audio] remote_listen_start broadcast failed:", error?.message || error);
-            setStatus(prev => (prev === "listening" ? prev : "waiting_for_child_notification"));
-            setErrorMessage("실시간 채널 연결 대기 중입니다. 아이 기기에는 자동 연결 알림을 보냈어요.");
+            // Same rationale as above — keep optimistic state.
         } finally {
             await pushPromise.catch((error) => {
                 console.warn("[Audio] remote listen push failed:", error?.message || error);
@@ -5366,7 +5367,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
         idle: { icon: "🎤", title: "주변 소리 듣기", description: "프리미엄 회원은 아이 기기의 마이크를 1분간 원격으로 켜서 주변 소리를 들을 수 있어요", hint: "" },
         pushing: { icon: "📡", title: "연결 요청 전송 중", description: "아이 기기에 FCM 요청을 보내고 있어요", hint: "잠시만 기다려 주세요." },
         auto_waking_child: { icon: "📲", title: "아이 기기 자동 연결 시도 중", description: "전체화면 연결 화면을 자동으로 띄우고 있어요", hint: "기기 상태에 따라 몇 초 걸릴 수 있어요." },
-        waiting_for_child_notification: { icon: "🔔", title: "OS가 자동 실행을 막아 알림 대기 중", description: "아이 기기에 남은 연결 알림으로 이어서 연결할 수 있어요", hint: "잠금, 방해금지, 배터리 제한이 켜져 있으면 자동 연결이 막힐 수 있어요." },
+        waiting_for_child_notification: { icon: "🔔", title: "아이 기기 응답 대기 중", description: "아이 기기에 알림이 도착했어요. 화면을 깨우면 즉시 연결됩니다", hint: "1분 이상 응답이 없으면 잠금화면 알림이나 배터리 제한 설정을 확인해 주세요." },
         listening: { icon: "🔊", title: "아이 주변 소리 듣는 중...", description: `${duration}초 수신 중`, hint: "" },
         failed: { icon: "⚠️", title: "연결 요청 실패", description: "네트워크 또는 권한 상태를 확인한 뒤 다시 시도해 주세요", hint: "" },
     }[status] || { icon: "🎤", title: "주변 소리 듣기", description: "", hint: "" };
@@ -12072,8 +12073,11 @@ export default function KidsScheduler() {
                                     className="hyeni-v5-kid-card"
                                     style={{ cursor: "pointer", fontFamily: FF }}
                                 >
-                                    <span className={`hyeni-v5-kid-avatar ${index % 2 === 1 ? "blue" : ""}`}>
-                                        {child.emoji || (index % 2 === 1 ? "🦊" : "🐰")}
+                                    <span
+                                        className={`hyeni-v5-kid-avatar ${index % 2 === 1 ? "blue" : ""}`}
+                                        style={child.photo_url ? { backgroundImage: `url(${child.photo_url})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}
+                                    >
+                                        {child.photo_url ? "" : (child.emoji || (index % 2 === 1 ? "🦊" : "🐰"))}
                                         {getDashboardChildPosition(child, index) && <span className="live" />}
                                     </span>
                                     <span className="hyeni-v5-kid-info">
@@ -12091,7 +12095,7 @@ export default function KidsScheduler() {
                         })}
                     </div>
 
-                    {isParent && pairedChildren.length > 1 ? (
+                    {isParent && pairedChildren.filter(c => c.user_id).length > 1 ? (
                         <section
                             aria-label="아이 기기 사용 지표"
                             style={{
@@ -12116,7 +12120,7 @@ export default function KidsScheduler() {
                                 </button>
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                {pairedChildren.map((c) => (
+                                {pairedChildren.filter(c => c.user_id).map((c) => (
                                     <ChildDeviceCard
                                         key={c.user_id}
                                         child={c}
@@ -12781,9 +12785,9 @@ export default function KidsScheduler() {
                             showNotif("연동이 해제됐어요");
                         } catch (err) { console.error("[unpair]", err); showNotif("해제 실패", "error"); }
                     }}
-                    onRename={async (userId, newName) => {
+                    onRename={async (memberId, newName) => {
                         try {
-                            const { error } = await supabase.rpc("rename_family_member", { p_family_id: familyId, p_user_id: userId, p_new_name: newName });
+                            const { error } = await supabase.rpc("rename_family_member_by_id", { p_family_id: familyId, p_member_id: memberId, p_new_name: newName });
                             if (error) throw error;
                             const fam = await getMyFamily(authUser.id);
                             if (fam) setFamilyInfo(fam);
