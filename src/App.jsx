@@ -2318,6 +2318,10 @@ function ParentAuthScreen({ onBack }) {
             clearParentPairingIntent();
             console.error("[kakaoLogin]", err);
             setError(err?.message || "카카오 로그인에 실패했어요");
+        } finally {
+            // Browser.open resolves once the OAuth tab is shown — the user may
+            // still cancel and return. Clear busy here so the ID/PW button is
+            // usable on return; success path unmounts this screen anyway.
             setBusy("");
         }
     };
@@ -2806,10 +2810,21 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                     maxLength={10} />
                                                 <button onClick={() => { if (editName.trim() && onRename && canManageFamily) { onRename(child.user_id, editName.trim()); } setEditingId(null); }}
                                                     style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
+                                                <button onClick={() => setEditingId(null)}
+                                                    style={{ padding: "6px 8px", borderRadius: 10, background: "#F3F4F6", color: "#6B7280", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
                                             </div>
                                         ) : (
-                                            <div onClick={() => { if (!canManageFamily) return; setEditingId(child.user_id); setEditName(child.name); }} style={{ cursor: canManageFamily ? "pointer" : "default" }}>
-                                                <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46" }}>{child.name} {canManageFamily && <span style={{ fontSize: 11, color: "#9CA3AF" }}>✏️</span>}</div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
+                                                {canManageFamily && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setEditingId(child.user_id); setEditName(child.name); }}
+                                                        style={{ padding: "4px 10px", borderRadius: 10, background: "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
+                                                    >
+                                                        ✏️ 이름 수정
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                         <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 기기 {i + 1}</div>
@@ -7171,6 +7186,8 @@ function ChildDeviceCard({ child, status }) {
     const minutesAgo = updatedAt
         ? Math.max(0, Math.round((Date.now() - new Date(updatedAt).getTime()) / 60000))
         : null;
+    const screenLabel = formatDeviceDuration(Number(status?.screenOnMs || 0));
+    const recentApp = status?.recentApp || "사용기록 권한 필요";
     return (
         <div style={{
             padding: 14,
@@ -7183,7 +7200,17 @@ function ChildDeviceCard({ child, status }) {
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{child?.name || "아이"}</div>
             </div>
             <div style={{ fontSize: 12, color: "#6B7280", marginTop: 8 }}>
-                배터리: {battery == null ? "—" : battery}% · 마지막 접속: {minutesAgo == null ? "—" : minutesAgo}분 전
+                배터리: {battery == null ? "—" : `${battery}%`} · 마지막 접속: {minutesAgo == null ? "—" : `${minutesAgo}분 전`}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
+                <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "6px 8px" }}>
+                    <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 700 }}>화면 켜짐 시간</div>
+                    <div style={{ fontSize: 13, color: "#111827", fontWeight: 900, marginTop: 2 }}>⏱️ {screenLabel}</div>
+                </div>
+                <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "6px 8px", minWidth: 0 }}>
+                    <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 700 }}>가장 많이 실행한 앱</div>
+                    <div style={{ fontSize: 12.5, color: "#1F2937", fontWeight: 800, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📱 {recentApp}</div>
+                </div>
             </div>
         </div>
     );
@@ -12190,7 +12217,8 @@ export default function KidsScheduler() {
                     <div className="hyeni-v5-event-list hyeni-v1-home-event-list">
                         {selectedEventsSorted.length > 0 ? selectedEventsSorted.slice(0, 5).map(renderParentScheduleCard) : (
                             <div className="hyeni-v5-empty">
-                                선택한 날짜에 등록된 일정이 없어요. 아래 + 버튼으로 일정을 추가해 주세요.
+                                <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
+                                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>아래 + 버튼으로 일정을 추가해 주세요.</div>
                             </div>
                         )}
                     </div>
@@ -12367,7 +12395,8 @@ export default function KidsScheduler() {
                     <div className="hyeni-v5-event-list hyeni-v5-timeline-list">
                         {selectedEventsSorted.length > 0 ? selectedEventsSorted.map(renderParentScheduleCard) : (
                             <div className="hyeni-v5-empty">
-                                선택한 날짜에 등록된 일정이 없어요. 오른쪽 위 + 버튼으로 일정을 추가해 주세요.
+                                <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
+                                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>오른쪽 위 + 버튼으로 일정을 추가해 주세요.</div>
                             </div>
                         )}
                     </div>
