@@ -12,7 +12,7 @@ test.describe("multichild — legacy 1-child grandfather", () => {
     await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
 
-    await page.click("button:has-text('설정')");
+    await page.click("button[aria-label='💎 구독']");
     await expect(page.locator("text=프리미엄")).toBeVisible();
     await expect(page.locator(`[data-child-id='${child_id}'] [role='switch']`)).toBeChecked();
   });

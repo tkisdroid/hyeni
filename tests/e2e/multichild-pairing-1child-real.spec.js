@@ -1,27 +1,19 @@
 import { test, expect } from "@playwright/test";
-import { signupParent } from "./_helpers.js";
+import { seedLegacyFamily, loginAsExistingParent } from "./_helpers.js";
 
-test.describe("multichild — 1-child pairing keeps current UI", () => {
+test.describe("multichild — 1-child mode UI (seeded family)", () => {
+  // Email-auth signup cannot pass the families.insert RLS policy
+  // (only Kakao sessions are permitted — see family-journey-real.spec.js:124).
+  // We seed a 1-child family via service role then login as the parent.
   test.skip(
-    !process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY,
-    "VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set for real-services E2E",
+    !process.env.SUPABASE_SERVICE_ROLE_KEY,
+    "SUPABASE_SERVICE_ROLE_KEY required (email-auth cannot pass families RLS)",
   );
 
-  test("신규 가족 페어링 (자녀 1명) → 1자녀 모드 큰틀 유지", async ({ page }) => {
-    await signupParent(page);
+  test("자녀 1명 가족 → 홈 탭 hidden, 자녀 이름 표시", async ({ page }) => {
+    const { parent_email, parent_password } = await seedLegacyFamily();
+    await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
-
-    await page.fill("input[name='familyName'], input[placeholder*='혜니네']", "혜니네");
-    await page.click("button:has-text('다음')");
-    await page.click("button:has-text('1명')");
-    await page.click("button:has-text('다음')");
-    await page.fill("input[type='text']", "혜니");
-    await page.fill("input[type='date']", "2015-03-21");
-    await page.click("button:has-text('다음')");
-
-    await expect(page.locator("text=KID-")).toBeVisible({ timeout: 10000 });
-    await page.click("button:has-text('모든 자녀 페어링 완료')");
-    await page.click("button:has-text('시작하기')");
 
     // 1자녀 모드: 홈 탭 hidden
     await expect(page.locator("button:has-text('홈')")).not.toBeVisible();

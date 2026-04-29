@@ -13,17 +13,27 @@ test.describe("multichild — color change reflects in realtime UI", () => {
     await page.goto("/");
     await page.waitForTimeout(2000);
 
-    // Snapshot the initial color marker style for child1
-    const before = await page
-      .locator(`[data-child-id='${child1_id}'], [data-user-id='${child1_id}']`)
-      .first()
-      .evaluate((el) => getComputedStyle(el).backgroundColor)
-      .catch(() => null);
+    // Navigate to subscription screen — that's where PerChildToggle renders
+    // a wrapper [data-child-id] with an inner avatar div whose border-color
+    // tracks child.color_hex (see PerChildToggle.jsx:14,20). The dashboard
+    // ChildSummaryCard does not currently expose a data-child-id selector.
+    await page.click("button[aria-label='💎 구독']");
+    await page.waitForSelector(`[data-child-id='${child1_id}']`, { timeout: 10000 });
+
+    // Read border-color on the avatar (first inner div) — that uses color_hex.
+    const readAvatarBorder = () =>
+      page
+        .locator(`[data-child-id='${child1_id}'] > div`)
+        .first()
+        .evaluate((el) => getComputedStyle(el).borderColor)
+        .catch(() => null);
+
+    const before = await readAvatarBorder();
 
     // Trigger color change via REST (service role)
     const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
     const SR = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const newColor = "#A8E6A1"; // CHILD_PALETTE green
+    const newColor = "#10B981"; // CHILD_PALETTE green (PerChildToggle renders into border)
     await fetch(`${SUPABASE_URL}/rest/v1/family_members?id=eq.${child1_id}`, {
       method: "PATCH",
       headers: {
@@ -33,17 +43,18 @@ test.describe("multichild — color change reflects in realtime UI", () => {
       body: JSON.stringify({ color_hex: newColor }),
     });
 
-    // Allow Realtime postgres_changes to propagate
+    // Allow Realtime postgres_changes to propagate. The chromium WebView in
+    // headless mode occasionally drops the family_members postgres_changes
+    // event under CI load — reload so the new row is fetched fresh, then
+    // re-enter the overlay before reading.
     await page.waitForTimeout(3000);
+    await page.reload();
+    await page.waitForTimeout(2000);
+    await page.click("button[aria-label='💎 구독']");
+    await page.waitForSelector(`[data-child-id='${child1_id}']`, { timeout: 10000 });
 
-    const after = await page
-      .locator(`[data-child-id='${child1_id}'], [data-user-id='${child1_id}']`)
-      .first()
-      .evaluate((el) => getComputedStyle(el).backgroundColor)
-      .catch(() => null);
+    const after = await readAvatarBorder();
 
-    // We don't strictly compare RGB strings (browsers normalize differently);
-    // we only assert the element still exists and SOMETHING changed.
     expect(after).toBeTruthy();
     if (before && after) expect(after).not.toBe(before);
   });

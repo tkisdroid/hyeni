@@ -990,11 +990,16 @@ export async function markAlertRead(alertId) {
 export async function saveEventWithChildren(event, selection) {
   const { childIds = [], familyAll = false } = selection || {};
 
+  // Convert camelCase event fields → snake_case row via the shared eventToRow
+  // helper so the DB upsert matches the actual `events` schema (date_key,
+  // end_time, notif_override, created_by). Without this the upsert hits
+  // PGRST204 ("Could not find the 'dateKey' column of 'events'") and the
+  // events_children insert never runs.
+  const { familyId, userId, dateKey, ...evCore } = event;
   const eventRow = {
-    ...event,
+    ...eventToRow(evCore, familyId, dateKey, userId),
     is_family_event: !!familyAll,
   };
-  delete eventRow.child_ids;
 
   const { data: saved, error: eventError } = await supabase
     .from("events")

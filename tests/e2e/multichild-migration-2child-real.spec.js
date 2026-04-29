@@ -13,9 +13,11 @@ test.describe("multichild — legacy 2-child grandfather (first only)", () => {
     await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
 
-    await page.click("button:has-text('설정')");
+    await page.click("button[aria-label='💎 구독']");
+    await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
+    await page.waitForSelector(`[data-child-id='${child1_id}'] [role='switch']`, { timeout: 8000 });
     await expect(page.locator(`[data-child-id='${child1_id}'] [role='switch']`)).toBeChecked();
     await expect(page.locator(`[data-child-id='${child2_id}'] [role='switch']`)).not.toBeChecked();
-    await expect(page.locator("text=₩1,500/월")).toBeVisible();
+    await expect(page.locator("text=₩1,500/월").first()).toBeVisible();
   });
 });

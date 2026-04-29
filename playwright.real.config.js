@@ -33,11 +33,11 @@ export default defineConfig({
     timeout: 10_000,
   },
   fullyParallel: false,
-  retries: 1,
-  // Cap workers so Supabase auth rate limits (30 req/5min per IP by default
-  // on the free tier) don't cascade into false failures when running the
-  // real-services suite across 3 browsers.
-  workers: 2,
+  retries: 0,
+  // Sequential single-worker run avoids Supabase free-tier auth rate limits
+  // (30 req / 5 min / IP) cascading into false failures when seeding fresh
+  // families across the suite.
+  workers: 1,
   use: {
     baseURL: "http://localhost:4173",
     trace: "retain-on-failure",
@@ -51,23 +51,15 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 120_000,
   },
+  // Real-services suite runs chromium only — production app is a Capacitor
+  // Android WebView (Chromium-based), so single-engine coverage matches the
+  // shipping runtime. Cross-engine coverage is handled by the mocked-services
+  // suite (playwright.config.js).
   projects: [
     {
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-      },
-    },
-    {
-      name: "firefox",
-      use: {
-        ...devices["Desktop Firefox"],
-      },
-    },
-    {
-      name: "webkit",
-      use: {
-        ...devices["Desktop Safari"],
       },
     },
   ],

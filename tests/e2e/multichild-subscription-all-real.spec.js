@@ -8,17 +8,40 @@ test.describe("multichild — both children subscribed shows ₩3,000 total", ()
   );
 
   test("두 자녀 모두 구독 → 합계 ₩3,000 표시, 양쪽 모두 device stats", async ({ page }) => {
-    const { parent_email, parent_password, child1_id, child2_id } =
+    const { parent_email, parent_password, child1_id, child2_id, family_id } =
       await seedFamilyWith2Children();
+
+    // Activate both children's subscriptions via service-role REST. The UI
+    // PerChildToggle path goes through Qonversion native, which throws on web
+    // (qonversion.js:381). Write both rows directly, then assert the live UI
+    // PriceSummary reflects ₩3,000 once realtime hydrates.
+    const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+    const SR = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const expires = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
+    for (const [child_id, product_id] of [
+      [child1_id, "hyeni_child_slot_1"],
+      [child2_id, "hyeni_child_slot_2"],
+    ]) {
+      await fetch(`${SUPABASE_URL}/rest/v1/subscriptions`, {
+        method: "POST",
+        headers: {
+          apikey: SR, Authorization: `Bearer ${SR}`,
+          "Content-Type": "application/json", Prefer: "return=minimal",
+        },
+        body: JSON.stringify({
+          family_id, child_id,
+          status: "active", product_id, price_krw: 1500, expires_at: expires,
+        }),
+      });
+    }
+
     await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
 
-    await page.click("button:has-text('설정')");
-    await page.click(`[data-child-id='${child1_id}'] [role='switch']`);
-    await page.waitForTimeout(1500);
-    await page.click(`[data-child-id='${child2_id}'] [role='switch']`);
-    await page.waitForTimeout(2000);
+    await page.click("button[aria-label='💎 구독']");
+    await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
+    await page.waitForSelector(`[data-child-id='${child1_id}'] [role='switch']`, { timeout: 8000 });
 
-    await expect(page.locator("text=₩3,000")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("text=₩3,000").first()).toBeVisible({ timeout: 8000 });
   });
 });

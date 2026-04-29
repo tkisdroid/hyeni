@@ -49,14 +49,19 @@ export async function signupParent(page, prefix = "e2e-parent") {
 }
 
 // Inject a Supabase session into page localStorage so the app boots authenticated.
-export async function injectSession(page, session) {
+// Also seeds `hyeni-my-role` so the role-chooser screen is bypassed and the app
+// lands directly in the parent/child surface (matches family-journey-real.spec.js:149).
+export async function injectSession(page, session, role = "parent") {
   const projectRef = projectRefFromUrl(SUPABASE_URL);
   if (!projectRef) throw new Error("could not derive project ref");
-  await page.addInitScript(({ key, value }) => {
+  await page.addInitScript(({ key, value, role }) => {
     window.localStorage.setItem(key, value);
+    window.localStorage.setItem("hyeni-my-role", role);
+    window.sessionStorage.setItem("hyeni-my-role", role);
   }, {
     key: `sb-${projectRef}-auth-token`,
     value: JSON.stringify(session),
+    role,
   });
 }
 
@@ -205,6 +210,48 @@ export async function seedFamilyWith2Children() {
   };
 }
 
+// Seeds family with 3 children (no subscription). Used by pairing-3child UI spec
+// to verify multi-child mode (≥2 children) home-tab + per-child cards behavior
+// without going through the wizard (which can't run under email-auth E2E).
+export async function seedFamilyWith3Children() {
+  const parent = await signupParentDirect();
+  const family = await srFetch(`/rest/v1/families`, {
+    method: "POST",
+    body: JSON.stringify({
+      name: "테스트네",
+      parent_id: parent.user_id,
+      pair_code: generatePairCode(),
+    }),
+  });
+  const family_id = family[0].id;
+  await srFetch(`/rest/v1/family_members`, {
+    method: "POST",
+    body: JSON.stringify({ family_id, user_id: parent.user_id, role: "parent" }),
+  });
+  const kids = [
+    ["혜니", "2015-03-21", "#F779A8"],
+    ["민준", "2018-07-04", "#7DC9F1"],
+    ["세진", "2020-11-09", "#10B981"],
+  ];
+  const inserted = [];
+  for (let i = 0; i < kids.length; i++) {
+    const [name, birthdate, color_hex] = kids[i];
+    const row = await srFetch(`/rest/v1/family_members`, {
+      method: "POST",
+      body: JSON.stringify({
+        family_id, user_id: null, role: "child",
+        child_order: i + 1, name, color_hex, birthdate,
+      }),
+    });
+    inserted.push(row[0]);
+  }
+  return {
+    parent_email: parent.email, parent_password: parent.password,
+    parent_user_id: parent.user_id, family_id,
+    child1_id: inserted[0].id, child2_id: inserted[1].id, child3_id: inserted[2].id,
+  };
+}
+
 // Seeds family with 1 child, no subscription.
 export async function seedLegacyFamily() {
   const parent = await signupParentDirect();
@@ -267,7 +314,7 @@ export async function loginAsChild(page, child_id) {
       body: JSON.stringify({ user_id: body.user.id }),
     });
   }
-  await injectSession(page, body);
+  await injectSession(page, body, "child");
   return body;
 }
 
