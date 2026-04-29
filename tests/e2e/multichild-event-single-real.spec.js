@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent, getDbRowCount } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, getDbRowCount, selectChildOnHomeIfMulti } from "./_helpers.js";
 
 test.describe("multichild — single-child event creates 1 events_children row", () => {
   test.skip(
@@ -21,6 +21,10 @@ test.describe("multichild — single-child event creates 1 events_children row",
     await page.goto("/");
     // Let pairedChildren hydrate from family_members fetch before opening the modal.
     await page.waitForTimeout(2500);
+    // Multi-child mode lands on the home tab; tap a child card to unlock the
+    // calendar/event UI. Helper is no-op in single-child families.
+    await selectChildOnHomeIfMulti(page, "혜니");
+    await page.waitForTimeout(500);
 
     const before = await getDbRowCount("events_children", "");
 

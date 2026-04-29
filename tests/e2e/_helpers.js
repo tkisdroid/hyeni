@@ -343,6 +343,21 @@ export async function getDbRowCount(table, filter = "") {
   return Number.parseInt(cnt || "0", 10);
 }
 
+// Multi-child mode (>=2 children) lands the parent on the home tab. Tap the
+// matching child card to enter that child's context and unlock the rest of
+// the bottom-tab UI. Single-child families skip the home tab so this is a
+// no-op when the card is absent within the timeout.
+export async function selectChildOnHomeIfMulti(page, childName, { timeoutMs = 4000 } = {}) {
+  const card = page.locator(`button[aria-label='${childName} 보기']`).first();
+  try {
+    await card.waitFor({ state: "visible", timeout: timeoutMs });
+  } catch {
+    return false;
+  }
+  await card.click();
+  return true;
+}
+
 // Internal: fresh email parent signup (returns auth body + email/password)
 async function signupParentDirect(prefix = "e2e-seed") {
   const ts = Date.now() + Math.floor(Math.random() * 10000);

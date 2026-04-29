@@ -7277,31 +7277,6 @@ export default function KidsScheduler() {
       ? null
       : (pairedChildren.find((c) => c.user_id === authUser?.id) || pairedChildren[0] || null);
     const isMultiChild = childrenContext.isMultiChild;
-    // Single-child families pin selectedChildId automatically so existing
-    // single-child rendering paths see a non-null value with no UX delta.
-    // Multi-child families clear it whenever the chosen child disappears
-    // (e.g., parent unpaired the active slot).
-    useEffect(() => {
-      if (!isParent) return;
-      const validIds = new Set(pairedChildren.map((c) => c.id));
-      if (selectedChildId && !validIds.has(selectedChildId)) {
-        setSelectedChildId(null);
-        return;
-      }
-      if (pairedChildren.length === 1 && !selectedChildId) {
-        setSelectedChildId(pairedChildren[0].id);
-      }
-    }, [isParent, pairedChildren, selectedChildId]);
-    // Force-route multi-child parents back to home whenever no child is
-    // selected — every non-home tab needs a per-child context.
-    useEffect(() => {
-      if (isParent && isMultiChild && !selectedChildId && activeView !== "home") {
-        setActiveView("home");
-      }
-    }, [isParent, isMultiChild, selectedChildId, activeView]);
-    const selectedChild = selectedChildId
-      ? pairedChildren.find((c) => c.id === selectedChildId)
-      : null;
     const globalNotif = DEFAULT_NOTIF;
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
@@ -7347,6 +7322,30 @@ export default function KidsScheduler() {
     // within a single selected child's context. For 1-child families, this is
     // auto-set so existing single-child UX is preserved.
     const [selectedChildId, setSelectedChildId] = useState(null);
+    // Single-child families pin selectedChildId automatically so existing
+    // single-child rendering paths see a non-null value with no UX delta.
+    // Multi-child families clear it whenever the chosen child disappears.
+    useEffect(() => {
+      if (!isParent) return;
+      const validIds = new Set(pairedChildren.map((c) => c.id));
+      if (selectedChildId && !validIds.has(selectedChildId)) {
+        setSelectedChildId(null);
+        return;
+      }
+      if (pairedChildren.length === 1 && !selectedChildId) {
+        setSelectedChildId(pairedChildren[0].id);
+      }
+    }, [isParent, pairedChildren, selectedChildId]);
+    // Force-route multi-child parents back to home whenever no child is
+    // selected — every non-home tab needs a per-child context.
+    useEffect(() => {
+      if (isParent && isMultiChild && !selectedChildId && activeView !== "home") {
+        setActiveView("home");
+      }
+    }, [isParent, isMultiChild, selectedChildId, activeView]);
+    const selectedChild = selectedChildId
+      ? pairedChildren.find((c) => c.id === selectedChildId)
+      : null;
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
