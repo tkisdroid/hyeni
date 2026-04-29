@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAuthProfileFromUser,
+  normalizeBirthdate,
+  normalizeGender,
   normalizePhoneForAuth,
   normalizePhoneForStorage,
   requestPhoneSignupCode,
@@ -21,6 +23,8 @@ describe("parent account auth helpers", () => {
       loginId: " Parent_01 ",
       password: "secret1",
       passwordConfirm: "secret1",
+      gender: "엄마",
+      birthdate: "1985-03-14",
       phone: "010-1234-5678",
     });
 
@@ -29,6 +33,8 @@ describe("parent account auth helpers", () => {
       name: "홍길동",
       loginId: "parent_01",
       password: "secret1",
+      gender: "mom",
+      birthdate: "1985-03-14",
       phoneAuth: "+821012345678",
       phoneStorage: "01012345678",
     });
@@ -40,12 +46,65 @@ describe("parent account auth helpers", () => {
       loginId: "가나다",
       password: "secret1",
       passwordConfirm: "secret2",
+      gender: "엄마",
+      birthdate: "1985-03-14",
       phone: "01012345678",
     });
 
     expect(result.ok).toBe(false);
     expect(result.errors.loginId).toContain("영문");
     expect(result.errors.passwordConfirm).toContain("일치");
+  });
+
+  it("normalizes Korean gender labels to mom/dad and rejects others", () => {
+    expect(normalizeGender("엄마")).toBe("mom");
+    expect(normalizeGender("아빠")).toBe("dad");
+    expect(normalizeGender("mom")).toBe("mom");
+    expect(normalizeGender("dad")).toBe("dad");
+    expect(normalizeGender("")).toBe("");
+    expect(normalizeGender("기타")).toBe("");
+    expect(normalizeGender(null)).toBe("");
+  });
+
+  it("validates birthdate is a real YYYY-MM-DD date in range", () => {
+    expect(normalizeBirthdate("1985-03-14")).toBe("1985-03-14");
+    expect(normalizeBirthdate("1985-3-14")).toBe("");
+    expect(normalizeBirthdate("1985-13-01")).toBe("");
+    expect(normalizeBirthdate("1985-02-30")).toBe("");
+    expect(normalizeBirthdate("1899-12-31")).toBe("");
+    expect(normalizeBirthdate("3000-01-01")).toBe("");
+    expect(normalizeBirthdate("")).toBe("");
+    expect(normalizeBirthdate(null)).toBe("");
+  });
+
+  it("rejects signup form when gender is missing or invalid", () => {
+    const result = validateParentSignupForm({
+      name: "홍길동",
+      loginId: "parent01",
+      password: "secret1",
+      passwordConfirm: "secret1",
+      gender: "",
+      birthdate: "1985-03-14",
+      phone: "010-1234-5678",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.gender).toBeTruthy();
+  });
+
+  it("rejects signup form when birthdate is missing or malformed", () => {
+    const result = validateParentSignupForm({
+      name: "홍길동",
+      loginId: "parent01",
+      password: "secret1",
+      passwordConfirm: "secret1",
+      gender: "아빠",
+      birthdate: "not-a-date",
+      phone: "010-1234-5678",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.birthdate).toBeTruthy();
   });
 
   it("builds a DB profile from Kakao metadata without guessing missing fields", () => {
@@ -99,6 +158,8 @@ describe("parent account auth helpers", () => {
       loginId: "Parent01",
       password: "secret1",
       passwordConfirm: "secret1",
+      gender: "엄마",
+      birthdate: "1985-03-14",
       phone: "010-1234-5678",
     }, fakeClient);
 
@@ -112,11 +173,15 @@ describe("parent account auth helpers", () => {
           login_id: "parent01",
           name: "홍길동",
           phone: "01012345678",
+          gender: "mom",
+          birthdate: "1985-03-14",
         },
       },
     });
     expect(result.phone).toBe("+821012345678");
     expect(result.profile.login_id).toBe("parent01");
+    expect(result.profile.gender).toBe("mom");
+    expect(result.profile.birthdate).toBe("1985-03-14");
   });
 
   it("checks login ID availability before sending an SMS", async () => {
@@ -140,6 +205,8 @@ describe("parent account auth helpers", () => {
       loginId: "Parent01",
       password: "secret1",
       passwordConfirm: "secret1",
+      gender: "엄마",
+      birthdate: "1985-03-14",
       phone: "010-1234-5678",
     }, fakeClient)).rejects.toThrow("이미 사용 중인 ID");
 

@@ -57,6 +57,43 @@ function maybeNormalizePhoneForAuth(value) {
   }
 }
 
+const GENDER_VALUES = new Set(["mom", "dad"]);
+const KOREAN_GENDER_LABEL_TO_VALUE = { "엄마": "mom", "아빠": "dad" };
+
+export function normalizeGender(value) {
+  if (value == null) return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  if (GENDER_VALUES.has(raw)) return raw;
+  if (KOREAN_GENDER_LABEL_TO_VALUE[raw]) return KOREAN_GENDER_LABEL_TO_VALUE[raw];
+  return "";
+}
+
+export function normalizeBirthdate(value) {
+  if (value == null) return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return "";
+  const [yearStr, monthStr, dayStr] = raw.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (year < 1900) return "";
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  if (year > todayYear) return "";
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return "";
+  }
+  if (date.getTime() > today.getTime()) return "";
+  return raw;
+}
+
 export function getUserDisplayName(user, fallback = {}) {
   const metadata = user?.user_metadata || {};
   const identityData = (user?.identities || []).map((identity) => identity?.identity_data || {});
@@ -134,14 +171,21 @@ export function buildAuthProfileFromUser(user, fallback = {}) {
   if (!user?.id) throw new Error("사용자 정보를 확인하지 못했어요");
   const loginId = normalizeLoginId(firstText(fallback.loginId, user?.user_metadata?.login_id));
   const phone = getUserPhone(user, fallback);
+  const gender = normalizeGender(firstText(fallback.gender, user?.user_metadata?.gender));
+  const birthdate = normalizeBirthdate(firstText(fallback.birthdate, user?.user_metadata?.birthdate));
 
-  return {
+  const profile = {
     user_id: user.id,
     login_id: isValidLoginId(loginId) ? loginId : null,
     display_name: getUserDisplayName(user, fallback) || "",
     phone: phone || null,
     provider: getAuthProvider(user, fallback),
   };
+
+  if (gender) profile.gender = gender;
+  if (birthdate) profile.birthdate = birthdate;
+
+  return profile;
 }
 
 export function validateParentSignupForm(input) {
@@ -149,6 +193,8 @@ export function validateParentSignupForm(input) {
   const loginId = normalizeLoginId(input?.loginId);
   const password = String(input?.password || "");
   const passwordConfirm = String(input?.passwordConfirm || "");
+  const gender = normalizeGender(input?.gender);
+  const birthdate = normalizeBirthdate(input?.birthdate);
   const errors = {};
   let phoneAuth = "";
   let phoneStorage = "";
@@ -159,6 +205,8 @@ export function validateParentSignupForm(input) {
   }
   if (password.length < 6) errors.password = "비밀번호는 6자 이상이어야 해요";
   if (password !== passwordConfirm) errors.passwordConfirm = "비밀번호 확인이 일치하지 않아요";
+  if (!gender) errors.gender = "엄마 또는 아빠를 선택해 주세요";
+  if (!birthdate) errors.birthdate = "생년월일을 YYYY-MM-DD 형식으로 입력해 주세요";
 
   try {
     phoneAuth = normalizePhoneForAuth(input?.phone);
@@ -172,12 +220,13 @@ export function validateParentSignupForm(input) {
   return {
     ok: true,
     errors: {},
-    values: { name, loginId, password, phoneAuth, phoneStorage },
+    values: { name, loginId, password, gender, birthdate, phoneAuth, phoneStorage },
   };
 }
 
 function firstValidationError(errors) {
-  return errors.name || errors.loginId || errors.password || errors.passwordConfirm || errors.phone || "입력값을 확인해 주세요";
+  return errors.name || errors.loginId || errors.password || errors.passwordConfirm
+    || errors.gender || errors.birthdate || errors.phone || "입력값을 확인해 주세요";
 }
 
 export async function syncAuthProfile(user, fallback = {}, client = supabase) {
@@ -193,7 +242,7 @@ export async function requestPhoneSignupCode(input, client = supabase) {
   const validation = validateParentSignupForm(input);
   if (!validation.ok) throw new Error(firstValidationError(validation.errors));
 
-  const { name, loginId, password, phoneAuth, phoneStorage } = validation.values;
+  const { name, loginId, password, gender, birthdate, phoneAuth, phoneStorage } = validation.values;
   if (typeof client.rpc === "function") {
     const { data: available, error: availabilityError } = await client.rpc("is_login_id_available", {
       p_login_id: loginId,
@@ -207,6 +256,8 @@ export async function requestPhoneSignupCode(input, client = supabase) {
     login_id: loginId,
     name,
     phone: phoneStorage,
+    gender,
+    birthdate,
   };
 
   const { data, error } = await client.auth.signUp({
@@ -225,10 +276,16 @@ export async function requestPhoneSignupCode(input, client = supabase) {
     display_name: name,
     phone: phoneAuth,
     provider: "phone",
+    gender,
+    birthdate,
   };
 
   if (data?.session && data?.user?.id) {
-    await syncAuthProfile(data.user, { ...profile, name, phone: phoneAuth, loginId, provider: "phone" }, client);
+    await syncAuthProfile(
+      data.user,
+      { ...profile, name, phone: phoneAuth, loginId, provider: "phone", gender, birthdate },
+      client,
+    );
   }
 
   return {
@@ -260,6 +317,8 @@ export async function verifyPhoneSignupCode({ phone, token, profile }, client = 
     name: profile?.display_name,
     phone: profile?.phone || phoneAuth,
     provider: "phone",
+    gender: profile?.gender,
+    birthdate: profile?.birthdate,
   }, client);
 
   return data;

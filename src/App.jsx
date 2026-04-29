@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser } from "./lib/auth.js";
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
+import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
 import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { useChildren } from "./lib/childrenContext.js";
@@ -2233,7 +2234,7 @@ function ParentAuthScreen({ onBack }) {
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
     const [login, setLogin] = useState({ loginId: "", password: "" });
-    const [signup, setSignup] = useState({ name: "", loginId: "", password: "", passwordConfirm: "", phone: "" });
+    const [signup, setSignup] = useState({ name: "", loginId: "", password: "", passwordConfirm: "", gender: "", birthdate: "", phone: "" });
     const [otp, setOtp] = useState("");
     const [pendingSignup, setPendingSignup] = useState(null);
     const codeSent = !!pendingSignup && !pendingSignup.session;
@@ -2452,6 +2453,58 @@ function ParentAuthScreen({ onBack }) {
                                 onChange={(event) => setSignup((prev) => ({ ...prev, passwordConfirm: event.target.value }))}
                                 autoComplete="new-password"
                                 placeholder="비밀번호 재입력"
+                                disabled={codeSent}
+                                style={inputStyle()}
+                            />
+                        </label>
+                        <fieldset disabled={codeSent} style={{ ...fieldWrapStyle, border: "none", padding: 0, margin: 0 }}>
+                            <legend style={labelStyle}>성별</legend>
+                            <div role="radiogroup" aria-label="성별" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                {[
+                                    { value: "엄마", emoji: "🤱" },
+                                    { value: "아빠", emoji: "👨" },
+                                ].map((option) => {
+                                    const selected = signup.gender === option.value;
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={selected}
+                                            disabled={codeSent}
+                                            onClick={() => setSignup((prev) => ({ ...prev, gender: option.value }))}
+                                            style={{
+                                                padding: "12px 10px",
+                                                borderRadius: 14,
+                                                border: `1.5px solid ${selected ? "#BE185D" : "#E5E7EB"}`,
+                                                background: selected ? "#FDF2F8" : "white",
+                                                color: selected ? "#BE185D" : "#374151",
+                                                fontWeight: 800,
+                                                fontFamily: FF,
+                                                cursor: codeSent ? "not-allowed" : "pointer",
+                                                fontSize: 14,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                gap: 6,
+                                            }}
+                                        >
+                                            <span aria-hidden="true">{option.emoji}</span>
+                                            <span>{option.value}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </fieldset>
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>생년월일</span>
+                            <input
+                                type="date"
+                                value={signup.birthdate}
+                                onChange={(event) => setSignup((prev) => ({ ...prev, birthdate: event.target.value }))}
+                                autoComplete="bday"
+                                max={`${new Date().getFullYear()}-12-31`}
+                                min="1900-01-01"
                                 disabled={codeSent}
                                 style={inputStyle()}
                             />
@@ -7031,6 +7084,14 @@ export default function KidsScheduler() {
     }, [myRole, roleStorage]);
 
     const isParent = familyInfo?.myRole === "parent" || myRole === "parent";
+    const parentCapabilities = useMemo(
+        () => deriveParentCapabilities(familyInfo, authUser, myRole),
+        [familyInfo, authUser, myRole],
+    );
+    const isPrimaryParent = parentCapabilities.isPrimaryParent;
+    const isCoParent = parentCapabilities.isCoParent;
+    void isPrimaryParent;
+    void isCoParent;
     const isNativeApp = typeof window !== "undefined" && !!window.Capacitor?.isNativePlatform?.();
     const familyId = familyInfo?.familyId;
     const entitlement = useEntitlement(familyId);
@@ -8264,6 +8325,10 @@ export default function KidsScheduler() {
 
     const requestChildLocationRefresh = useCallback(async (reason = "parent_lookup") => {
         if (myRole !== "parent" || !familyId) return false;
+        if (!parentCapabilities.canRequestChildLocation) {
+            showNotif("아이 제어는 구독한 보호자만 사용할 수 있어요.", "error");
+            return false;
+        }
         const requestedAt = Date.now();
         setLocationRefreshRequestedAt(requestedAt);
 
@@ -8362,7 +8427,7 @@ export default function KidsScheduler() {
             void pollFreshLocation();
             return false;
         }
-    }, [authUser?.id, familyId, myRole, showChildTracker]);
+    }, [authUser?.id, familyId, myRole, showChildTracker, parentCapabilities.canRequestChildLocation, showNotif]);
 
     useEffect(() => {
         if (myRole !== "parent" || !familyId || !showChildTracker) return;
@@ -9373,6 +9438,10 @@ export default function KidsScheduler() {
     };
 
     const openAiSchedule = () => {
+        if (isParent && !parentCapabilities.canWriteSchedule) {
+            showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
+            return;
+        }
         if (!entitlement.canUse(FEATURES.AI_ANALYSIS)) {
             openFeatureLock(FEATURES.AI_ANALYSIS);
             return;
@@ -9409,6 +9478,10 @@ export default function KidsScheduler() {
         }
 
         if (parsed.action === "add_memo") {
+            if (isParent && !parentCapabilities.canWriteSchedule) {
+                showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
+                return;
+            }
             // Find target event and append memo
             const targetId = parsed.targetEventId;
             const memoText = parsed.memoText || "";
@@ -9444,6 +9517,10 @@ export default function KidsScheduler() {
         }
 
         // action === "add_event"
+        if (isParent && !parentCapabilities.canWriteSchedule) {
+            showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
+            return;
+        }
         const matchedAcademy = parsed.academyName
             ? academies.find(a => a.name === parsed.academyName) : null;
         const catId = parsed.category || "other";
@@ -9568,6 +9645,10 @@ export default function KidsScheduler() {
     // ── Open edit modal: pre-populate fields with existing event ───────────────
     const openEditEventModal = (event) => {
         if (!event) return;
+        if (isParent && !parentCapabilities.canWriteSchedule) {
+            showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
+            return;
+        }
         setEditingEventId(event.id);
         setNewTitle(event.title || "");
         setNewTime(event.time || "09:00");
@@ -9583,6 +9664,10 @@ export default function KidsScheduler() {
 
     // ── Add or update event (manual) ───────────────────────────────────────────
     const addEvent = async () => {
+        if (isParent && !parentCapabilities.canWriteSchedule) {
+            showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
+            return;
+        }
         const title = newTitle.trim() || (selectedPreset ? selectedPreset.label : "");
         if (!title) { showNotif("일정 이름을 입력해 줘요! 🐰", "error"); return; }
         const cat = CATEGORIES.find(c => c.id === newCategory);
@@ -9711,6 +9796,10 @@ export default function KidsScheduler() {
     };
 
     const handleDeleteEvent = async (id) => {
+        if (isParent && !parentCapabilities.canWriteSchedule) {
+            showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
+            return;
+        }
         setEvents(prev => ({ ...prev, [dateKey]: (prev[dateKey] || []).filter(e => e.id !== id) }));
         showNotif("🗑️ 일정을 지웠어요");
         if (familyId) {
@@ -9719,6 +9808,10 @@ export default function KidsScheduler() {
     };
 
     const updateEvField = async (id, field, value) => {
+        if (isParent && !parentCapabilities.canWriteSchedule) {
+            showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
+            return;
+        }
         setEvents(prev => { const out = {}; Object.entries(prev).forEach(([k, evs]) => { out[k] = evs.map(e => e.id === id ? { ...e, [field]: value } : e); }); return out; });
         if (familyId) {
             try { await updateEvent(id, { [field]: value }); } catch (err) { console.error("[updateEvField]", err); }
@@ -9989,6 +10082,10 @@ export default function KidsScheduler() {
     })();
     const requestChildDeviceStatusRefresh = useCallback(async (reason = "device_status_refresh") => {
         if (!familyId || pairedChildIds.length === 0) return false;
+        if (!parentCapabilities.canRequestChildLocation) {
+            showNotif("아이 제어는 구독한 보호자만 사용할 수 있어요.", "error");
+            return false;
+        }
 
         const results = await Promise.all(pairedChildIds.map(async (targetUserId) => {
             const requestId = generateUUID();
@@ -10033,7 +10130,7 @@ export default function KidsScheduler() {
             return Boolean(broadcastSent || pushSent);
         }));
         return results.some(Boolean);
-    }, [authUser?.id, familyId, pairedChildIdsKey]);
+    }, [authUser?.id, familyId, pairedChildIdsKey, parentCapabilities.canRequestChildLocation, showNotif]);
 
     const handleParentDeviceRefreshClick = useCallback(() => {
         void requestChildLocationRefresh("device_status_manual_refresh");
@@ -10319,7 +10416,7 @@ export default function KidsScheduler() {
             palette: { bg: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: "#BE185D", shadow: "rgba(232,121,160,0.16)" },
             onClick: () => setActiveView("calendar"),
         } : null,
-        isParent ? {
+        isParent && parentCapabilities.canRequestChildLocation ? {
             key: "child-tracker",
             icon: "📍",
             label: "우리아이",
@@ -10327,7 +10424,7 @@ export default function KidsScheduler() {
             palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: "#1D4ED8", shadow: "rgba(59,130,246,0.16)" },
             onClick: () => setShowChildTracker(true),
         } : null,
-        isParent ? {
+        isParent && parentCapabilities.canManagePlaces ? {
             key: "academy",
             icon: "🏫",
             label: "학원관리",
@@ -10335,7 +10432,7 @@ export default function KidsScheduler() {
             palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(245,158,11,0.18)" },
             onClick: openAcademyManagement,
         } : null,
-        isParent ? {
+        isParent && parentCapabilities.canManageFamily ? {
             key: "friend-playdate",
             icon: "🤝",
             label: "친구놀이",
@@ -10349,7 +10446,7 @@ export default function KidsScheduler() {
                 });
             },
         } : null,
-        isParent ? {
+        isParent && parentCapabilities.canUseForceRing ? {
             key: "force-ring",
             icon: "❗",
             label: "응급알림",
@@ -10378,7 +10475,7 @@ export default function KidsScheduler() {
                 }
             },
         },
-        isParent ? {
+        isParent && parentCapabilities.canManageSubscription ? {
             key: "subscription",
             icon: "💎",
             label: "구독",
@@ -10386,7 +10483,7 @@ export default function KidsScheduler() {
             palette: { bg: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: DESIGN.colors.brand, shadow: "rgba(190,24,93,0.14)" },
             onClick: () => setShowSubscriptionSettings(true),
         } : null,
-        isParent ? {
+        isParent && parentCapabilities.canEditParentPhones ? {
             key: "contacts",
             icon: "📞",
             label: "연락처",
@@ -10394,7 +10491,7 @@ export default function KidsScheduler() {
             palette: { bg: "linear-gradient(135deg,#FDF2F8,#FCE7F3)", color: "#BE185D", shadow: "rgba(236,72,153,0.15)" },
             onClick: () => setShowPhoneSettings(true),
         } : null,
-        isParent ? {
+        isParent && parentCapabilities.canUseRemoteListen ? {
             key: "remote-audio",
             icon: "🎙️",
             label: "주변소리",
@@ -10412,7 +10509,7 @@ export default function KidsScheduler() {
                 setShowRemoteAudio(true);
             },
         } : null,
-        isParent ? {
+        isParent && parentCapabilities.canManagePlaces ? {
             key: "danger-zones",
             icon: "⚠️",
             label: "위험지역",
@@ -10623,6 +10720,10 @@ export default function KidsScheduler() {
         <>
         <AcademyManager academies={academies} savedPlaces={savedPlaces} savedPlacesLocked={!entitlement.canUse(FEATURES.SAVED_PLACES)} currentPos={childPos}
             onSave={async (newList) => {
+                if (!parentCapabilities.canManagePlaces) {
+                    showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
+                    return false;
+                }
                 // Diff old vs new to determine DB operations
                 const oldMap = new Map(academies.filter(a => a.id).map(a => [a.id, a]));
                 const newMap = new Map(newList.filter(a => a.id).map(a => [a.id, a]));
@@ -10782,6 +10883,10 @@ export default function KidsScheduler() {
             }}
             onSavedPlacesLocked={() => openFeatureLock(FEATURES.SAVED_PLACES)}
             onSavedPlacesSave={async (nextList) => {
+                if (!parentCapabilities.canManagePlaces) {
+                    showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
+                    return false;
+                }
                 if (!entitlement.canUse(FEATURES.SAVED_PLACES)) {
                     openFeatureLock(FEATURES.SAVED_PLACES);
                     return false;
@@ -11794,6 +11899,7 @@ export default function KidsScheduler() {
                         {renderParentCalendarGrid("parent-main")}
                     </section>
 
+                    {parentCapabilities.canWriteSchedule && (
                     <div className="hyeni-v5-add-row">
                         <button type="button" className="hyeni-v5-ai-button" onClick={openAiSchedule} style={{ fontFamily: FF }}>
                             🤖 AI로 일정입력
@@ -11809,6 +11915,7 @@ export default function KidsScheduler() {
                             +
                         </button>
                     </div>
+                    )}
 
                     <div className="hyeni-v5-section-head">
                         <span>{selectedDate === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear() ? "오늘의 일정" : "선택한 날짜 일정"}</span>
@@ -11921,6 +12028,7 @@ export default function KidsScheduler() {
                 </div>
 
                 {/* AI 일정입력 + 수동 추가 */}
+                {(!isParent || parentCapabilities.canWriteSchedule) && (
                 <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", gap: 8, marginBottom: 14 }}>
                     <button onClick={openAiSchedule}
                         style={{
@@ -11932,6 +12040,7 @@ export default function KidsScheduler() {
                     <button onClick={() => setShowAddModal(true)}
                         style={{ minWidth: isParent ? 44 : 56, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#F9A8D4,#E879A0)", color: "white", border: "none", fontSize: isParent ? 22 : 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 3px 12px rgba(232,121,160,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FF, gap: 2, padding: isParent ? 0 : "0 12px" }}>{isParent ? "+" : "✏️ 추가"}</button>
                 </div>
+                )}
 
                 {/* Day Timetable */}
                 <div style={{ ...cardSt, marginBottom: 0 }}>
@@ -11967,6 +12076,7 @@ export default function KidsScheduler() {
                             <div className="hyeni-v5-page-kicker">일정 한눈에 보기</div>
                             <h2>캘린더</h2>
                         </div>
+                        {parentCapabilities.canWriteSchedule && (
                         <button
                             type="button"
                             className="hyeni-v5-page-add"
@@ -11976,6 +12086,7 @@ export default function KidsScheduler() {
                         >
                             +
                         </button>
+                        )}
                     </div>
 
                     {renderParentCalendarGrid("parent-page")}
@@ -12297,6 +12408,10 @@ export default function KidsScheduler() {
                     lockedMessage={!entitlement.canUse(FEATURES.MULTI_CHILD) ? "두 번째 아이를 추가하려면 프리미엄을 시작해 주세요" : ""}
                     pairCodeExpiresAt={familyInfo?.pairCodeExpiresAt || null}
                     onRegenerate={async () => {
+                        if (!parentCapabilities.canManageFamily) {
+                            showNotif("보조 보호자는 연동 코드를 변경할 수 없어요.", "error");
+                            throw new Error("co-parent regenerate blocked");
+                        }
                         try {
                             await regeneratePairCode(familyId);
                             const fam = await getMyFamily(authUser.id);
@@ -12309,6 +12424,10 @@ export default function KidsScheduler() {
                         }
                     }}
                     onUnpair={async (childUserId) => {
+                        if (!parentCapabilities.canManageFamily) {
+                            showNotif("보조 보호자는 연동을 해제할 수 없어요.", "error");
+                            return;
+                        }
                         try {
                             await unpairChild(familyId, childUserId);
                             const fam = await getMyFamily(authUser.id);
@@ -12484,6 +12603,11 @@ export default function KidsScheduler() {
             {showPhoneSettings && <PhoneSettingsModal
                 phones={parentPhones}
                 onSave={async (phones) => {
+                    if (!parentCapabilities.canEditParentPhones) {
+                        showNotif("보조 보호자는 연락처를 변경할 수 없어요.", "error");
+                        setShowPhoneSettings(false);
+                        return;
+                    }
                     setParentPhones(phones);
                     setShowPhoneSettings(false);
                     showNotif("📞 연락처가 저장됐어요!");
@@ -12529,7 +12653,7 @@ export default function KidsScheduler() {
             />}
 
             {/* ── AI Schedule Modal (학부모 전용) ── */}
-            {showAiSchedule && <AiScheduleModal
+            {showAiSchedule && parentCapabilities.canWriteSchedule && <AiScheduleModal
                 academies={academies}
                 currentDate={{ year: currentYear, month: currentMonth, day: selectedDate }}
                 familyId={familyId}
@@ -12537,6 +12661,10 @@ export default function KidsScheduler() {
                 events={events[dateKey] || []}
                 startVoiceFn={startVoice}
                 onSave={(newEv, dk) => {
+                    if (!parentCapabilities.canWriteSchedule) {
+                        showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
+                        return;
+                    }
                     setEvents(prev => ({ ...prev, [dk]: [...(prev[dk] || []), newEv].sort((a, b) => a.time.localeCompare(b.time)) }));
                     showNotif(`${newEv.emoji} ${newEv.title} 등록 완료!`);
                 }}
@@ -12550,6 +12678,10 @@ export default function KidsScheduler() {
                 familyId={familyId}
                 mapReady={mapReady}
                 onAdd={async (zone) => {
+                    if (!parentCapabilities.canManagePlaces) {
+                        showNotif("보조 보호자는 위험지역을 수정할 수 없어요.", "error");
+                        throw new Error("co-parent danger zone blocked");
+                    }
                     if (dangerZones.length >= 1 && !entitlement.canUse(FEATURES.MULTI_GEOFENCE)) {
                         openFeatureLock(FEATURES.MULTI_GEOFENCE);
                         throw new Error("프리미엄 구독이 필요합니다");
@@ -12560,6 +12692,10 @@ export default function KidsScheduler() {
                     return saved;
                 }}
                 onDelete={async (id) => {
+                    if (!parentCapabilities.canManagePlaces) {
+                        showNotif("보조 보호자는 위험지역을 수정할 수 없어요.", "error");
+                        return;
+                    }
                     await deleteDangerZone(id);
                     setDangerZones(prev => prev.filter(z => z.id !== id));
                     setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(id); return n; });
