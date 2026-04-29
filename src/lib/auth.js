@@ -214,7 +214,7 @@ export async function getMyFamily(userId) {
   if (!membership) {
     const { data: parentFamily, error: parentFamilyError } = await supabase
       .from("families")
-      .select("id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
+      .select("id, parent_id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
       .eq("parent_id", userId)
       .limit(1)
       .maybeSingle();
@@ -246,12 +246,15 @@ export async function getMyFamily(userId) {
       members: members || [],
       phones: { mom: parentFamily.mom_phone || "", dad: parentFamily.dad_phone || "" },
       pairCodeExpiresAt: parentFamily.pair_code_expires_at ? new Date(parentFamily.pair_code_expires_at) : null,
+      primaryParentId: parentFamily.parent_id,
+      isPrimaryParent: parentFamily.parent_id === userId,
+      isCoParent: false,
     };
   }
 
   const { data: family, error: familyError } = await supabase
     .from("families")
-    .select("id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
+    .select("id, parent_id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
     .eq("id", membership.family_id)
     .single();
   if (familyError) console.warn("[getMyFamily] family query failed:", familyError);
@@ -280,6 +283,9 @@ export async function getMyFamily(userId) {
     members: members || [],
     phones: { mom: family?.mom_phone || "", dad: family?.dad_phone || "" },
     pairCodeExpiresAt: family?.pair_code_expires_at ? new Date(family.pair_code_expires_at) : null,
+    primaryParentId: family?.parent_id || "",
+    isPrimaryParent: family?.parent_id === userId,
+    isCoParent: membership.role === "parent" && family?.parent_id !== userId,
   };
 }
 
