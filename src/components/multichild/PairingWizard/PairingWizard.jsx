@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { setupFamily } from "../../../lib/auth.js";
 import { supabase } from "../../../lib/supabase.js";
+import { useBackHandler } from "../../../lib/backHandler.js";
 import { autoAssignColor } from "../ChildPalette.js";
 import { ChildCountStep } from "./ChildCountStep.jsx";
 import { ChildDetailsStep } from "./ChildDetailsStep.jsx";
@@ -52,7 +53,7 @@ async function uploadPendingPhotos(familyId, children) {
   }
 }
 
-export function PairingWizard({ userId, parentName, parentPhone = "", onComplete }) {
+export function PairingWizard({ userId, parentName, parentPhone = "", onComplete, onCancel }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [familyName, setFamilyName] = useState("");
   const [childCount, setChildCount] = useState(null);
@@ -60,6 +61,26 @@ export function PairingWizard({ userId, parentName, parentPhone = "", onComplete
   const [family, setFamily] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  // Hardware back: step back through the wizard. At step 0, fall out via onCancel.
+  // After family is created (steps 3, 4), back finalises via onComplete instead of
+  // re-opening the children form (data has already been committed to the server).
+  useBackHandler(() => {
+    if (busy) return true;
+    if (stepIndex >= 3) {
+      onComplete?.(family);
+      return true;
+    }
+    if (stepIndex > 0) {
+      setStepIndex(stepIndex - 1);
+      return true;
+    }
+    if (onCancel) {
+      onCancel();
+      return true;
+    }
+    return false;
+  });
 
   function startChildren() {
     if (children.length === 0) {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser } from "./lib/auth.js";
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
+import { dispatchBack, useBackHandler } from "./lib/backHandler.js";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
 import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { useChildren } from "./lib/childrenContext.js";
@@ -2343,6 +2344,28 @@ function ParentAuthScreen({ onBack }) {
         setOtp("");
         setBusy("");
     };
+
+    // Hardware back: codeSent → back to form; signup form → back to login;
+    // login → fall out via onBack (returns to role-selection screen).
+    useBackHandler(() => {
+        if (busy) return true;
+        if (codeSent) {
+            setPendingSignup(null);
+            setOtp("");
+            setError("");
+            setMessage("");
+            return true;
+        }
+        if (mode === "signup") {
+            switchMode("login");
+            return true;
+        }
+        if (onBack) {
+            onBack();
+            return true;
+        }
+        return false;
+    });
 
     return (
         <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF, padding: 20 }}>
@@ -8685,6 +8708,9 @@ export default function KidsScheduler() {
             try {
                 const { App: CapApp } = await import("@capacitor/app");
                 handle = await CapApp.addListener("backButton", () => {
+                    // Screen-local handlers (e.g. PairingWizard step-back, ParentAuthScreen
+                    // codeSent → form → mode-switch) get first crack via the registered stack.
+                    if (dispatchBack()) return;
                     const s = backStateRef.current;
                     if (s.routeEvent)          { setRouteEvent(null);           return; }
                     if (s.showChildTracker)    { setShowChildTracker(false);    return; }
@@ -10671,6 +10697,7 @@ export default function KidsScheduler() {
                 userId={authUser.id}
                 parentName={getParentNameFromUser(authUser)}
                 parentPhone={getParentPhoneFromUser(authUser)}
+                onCancel={() => setShowCreateWizard(false)}
                 onComplete={async () => {
                     try {
                         const fam = await getMyFamily(authUser.id);
