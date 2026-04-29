@@ -1,0 +1,77 @@
+# pg_policies snapshot — pre co-parent migration (20260429120000_coparent_permissions.sql)
+# Captured: 2026-04-29 22:51:40 (local)
+# Project: hyeni production (project_ref=qzrrscryacxhprnrtpjd)
+# Live family verified present: 4c781fb7-677a-45d9-8fd2-74d0083fe9b4
+#   - parent_id (primary): d0f747e0... (TK)
+#   - family_members: 2 rows, both role='parent'
+#       * 497a7c46... → user_id=d0f747e0... (TK)
+#       * 312b694e... → user_id=2d175b0d... (이윤미)
+# Captured against: live production (user explicitly chose direct apply, no branch)
+#
+# Query:
+# SELECT schemaname, tablename, policyname, cmd, qual, with_check
+# FROM pg_policies
+# WHERE schemaname = 'public'
+#   AND tablename IN ('events', 'events_children', 'stickers')
+# ORDER BY tablename, policyname;
+#
+# Result rows (6 policies — `stickers` table has no row-level policies at this time):
+
+[
+  {
+    "schemaname": "public",
+    "tablename": "events",
+    "policyname": "ev_del",
+    "cmd": "DELETE",
+    "qual": "(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "events",
+    "policyname": "ev_ins",
+    "cmd": "INSERT",
+    "qual": null,
+    "with_check": "(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))"
+  },
+  {
+    "schemaname": "public",
+    "tablename": "events",
+    "policyname": "ev_sel",
+    "cmd": "SELECT",
+    "qual": "(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "events",
+    "policyname": "ev_upd",
+    "cmd": "UPDATE",
+    "qual": "(family_id IN ( SELECT get_my_family_ids() AS get_my_family_ids))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "events_children",
+    "policyname": "events_children_modify_parent",
+    "cmd": "ALL",
+    "qual": "(event_id IN ( SELECT events.id FROM events WHERE (events.family_id IN ( SELECT family_members.family_id FROM family_members WHERE ((family_members.user_id = auth.uid()) AND (family_members.role = 'parent'::text))))))",
+    "with_check": null
+  },
+  {
+    "schemaname": "public",
+    "tablename": "events_children",
+    "policyname": "events_children_select_family",
+    "cmd": "SELECT",
+    "qual": "(event_id IN ( SELECT events.id FROM events WHERE (events.family_id IN ( SELECT family_members.family_id FROM family_members WHERE (family_members.user_id = auth.uid())))))",
+    "with_check": null
+  }
+]
+
+# Notes:
+# - Policies the migration replaces (within the same transaction): ev_ins, ev_upd, ev_del, events_children_modify_parent.
+# - Policies left untouched: ev_sel, events_children_select_family (read paths unchanged).
+# - `stickers` is RLS-permissive (no policies) — sticker writes flow through SECURITY DEFINER `add_sticker` RPC.
+# - Live family 4c781fb7…: TK is families.parent_id (primary). 이윤미 is a co-parent in family_members
+#   and will lose direct event INSERT/UPDATE/DELETE under the new policy. They retain SELECT
+#   (ev_sel/events_children_select_family unchanged) plus memo/praise via add_sticker per Task 4 plan.

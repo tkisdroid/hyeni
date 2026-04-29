@@ -15,6 +15,9 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+export const SUPABASE_TEST_URL = SUPABASE_URL;
+export const SUPABASE_TEST_ANON_KEY = SUPABASE_ANON_KEY;
+
 export function projectRefFromUrl(url) {
   const match = /^https?:\/\/([^.]+)\.supabase\.co/i.exec(url || "");
   return match ? match[1] : null;
@@ -66,7 +69,7 @@ export async function injectSession(page, session, role = "parent") {
 }
 
 // REST helper using service role to seed legacy data. Throws if SR key missing.
-async function srFetch(path, init = {}) {
+export async function srFetch(path, init = {}) {
   if (!SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY not set in env — legacy seed helpers unavailable");
   }
@@ -82,6 +85,12 @@ async function srFetch(path, init = {}) {
   });
   if (!res.ok) throw new Error(`SR ${path} ${res.status}: ${await res.text()}`);
   return res.json();
+}
+
+// Create a fresh email-only auth user (used by Task 4 co-parent E2E).
+// Returns the auth body augmented with { email, password, user_id }.
+export async function createEmailUser(prefix = "e2e-user") {
+  return signupParentDirect(prefix);
 }
 
 // Seeds: parent + 1 child + active per-child subscription (grandfather scenario).
@@ -335,9 +344,9 @@ export async function getDbRowCount(table, filter = "") {
 }
 
 // Internal: fresh email parent signup (returns auth body + email/password)
-async function signupParentDirect() {
+async function signupParentDirect(prefix = "e2e-seed") {
   const ts = Date.now() + Math.floor(Math.random() * 10000);
-  const email = `e2e-seed-${ts}@hyeni.test`;
+  const email = `${prefix}-${ts}@hyeni.test`;
   const password = `E2e-pw-${ts}!`;
   const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
     method: "POST",
