@@ -64,6 +64,10 @@ supabase/.branches
 # Test artifacts
 test-results/
 
+# Locally-built APKs and ad-hoc debug scripts
+apks/
+tmp/
+
 # OS files
 Thumbs.db
 
