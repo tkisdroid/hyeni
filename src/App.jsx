@@ -2913,6 +2913,9 @@ function QrPairScanner({ onDetected, onClose }) {
 function ChildPairInput({ userId, onPaired }) {
     const [code, setCode] = useState("");
     const [busy, setBusy] = useState(false);
+    // "" → idle, "connecting" → joinFamily RPC in flight, "loading" → RPC succeeded,
+    // onPaired (getMyFamily + setFamilyInfo + permission prompt) still resolving.
+    const [phase, setPhase] = useState("");
     const [error, setError] = useState("");
     const [showScanner, setShowScanner] = useState(false);
 
@@ -2925,14 +2928,18 @@ function ChildPairInput({ userId, onPaired }) {
         }
 
         setCode(fullCode.replace("KID-", ""));
-        setBusy(true); setError("");
+        setBusy(true); setError(""); setPhase("connecting");
         try {
             const result = await joinFamily(fullCode, userId, "아이");
             console.log("[ChildPairInput] joinFamily result:", result);
+            // Show success screen IMMEDIATELY so the user knows the code worked,
+            // even if onPaired (getMyFamily + permission prompt) takes a few seconds.
+            setPhase("loading");
             await onPaired();
             return true;
         } catch (err) {
             console.error("[ChildPairInput] error:", err);
+            setPhase("");
             if (err?.message?.includes("프리미엄")) {
                 setError(err.message);
             } else if (err?.message?.includes("만료된 연동 코드")) {
@@ -2943,6 +2950,18 @@ function ChildPairInput({ userId, onPaired }) {
             return false;
         } finally { setBusy(false); }
     };
+
+    if (phase === "loading") {
+        return (
+            <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF, textAlign: "center" }}>
+                <div style={{ fontSize: 64, marginBottom: 18 }}>🎉</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: "#BE185D", marginBottom: 10 }}>연결됐어요!</div>
+                <div style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.55 }}>
+                    가족 정보를 불러오는 중이에요...<br />위치 권한을 묻는 창이 뜨면 허용해 주세요.
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
