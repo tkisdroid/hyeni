@@ -200,12 +200,15 @@ function rowToSavedPlace(row) {
 }
 
 function savedPlaceToRow(place, familyId) {
-  return {
+  const row = {
     id: place.id,
     family_id: familyId,
     name: place.name,
     location: place.location || null,
   };
+  if ("is_playdate_safe" in place) row.is_playdate_safe = !!place.is_playdate_safe;
+  if ("public_place_id" in place) row.public_place_id = place.public_place_id || null;
+  return row;
 }
 
 // ── Fetch all data for a family ─────────────────────────────────────────────

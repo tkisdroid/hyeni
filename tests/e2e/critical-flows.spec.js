@@ -587,9 +587,9 @@ test.describe("critical Hyeni flows", () => {
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
-    await expect(mainTabbar.getByRole("button", { name: "캘린더" })).toBeVisible();
+    await expect(mainTabbar.getByRole("button", { name: "일정" })).toBeVisible();
 
-    await mainTabbar.getByRole("button", { name: "캘린더" }).click();
+    await mainTabbar.getByRole("button", { name: "일정" }).click();
 
     await expect(page.getByRole("region", { name: "부모 캘린더" })).toBeVisible();
     await expect(page.getByRole("region", { name: "오늘의 가족" })).toHaveCount(0);
@@ -605,7 +605,7 @@ test.describe("critical Hyeni flows", () => {
         scrollY: Math.round(window.scrollY),
       };
     });
-    expect(navState.activeText).toContain("캘린더");
+    expect(navState.activeText).toContain("일정");
     expect(navState.position).toBe("fixed");
     expect(navState.bottomGap).toBeLessThanOrEqual(16);
     expect(navState.scrollY).toBe(0);
@@ -759,7 +759,7 @@ test.describe("critical Hyeni flows", () => {
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
-    await mainTabbar.getByRole("button", { name: "캘린더" }).click();
+    await mainTabbar.getByRole("button", { name: "일정" }).click();
     await expect(page.getByRole("region", { name: "부모 캘린더" })).toBeVisible();
 
     await expectCalendarEventStatus(page, minuteEvent, /^\d+분 뒤$/);
@@ -781,7 +781,7 @@ test.describe("critical Hyeni flows", () => {
     await expect(calendar.locator(".hyeni-v5-calendar-card")).toBeVisible();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
-    await mainTabbar.getByRole("button", { name: "캘린더" }).click();
+    await mainTabbar.getByRole("button", { name: "일정" }).click();
     const calendarPage = page.getByRole("region", { name: "부모 캘린더" });
     await expect(calendarPage.locator(".hyeni-v5-timeline-list .hyeni-v5-event-card").first()).toBeVisible();
 

@@ -28,6 +28,7 @@ import { SubscriptionManagement } from "./components/settings/SubscriptionManage
 import FriendPlaydatePanel from "./components/friendPlaydate/FriendPlaydatePanel.jsx";
 import FriendPlaydateChildPanel from "./components/friendPlaydate/FriendPlaydateChildPanel.jsx";
 import ActivePlaydateBanner from "./components/friendPlaydate/ActivePlaydateBanner.jsx";
+import { upsertPublicPlace } from "./lib/friendPlaydate.js";
 import { ForceRingPanel } from "./components/forceRing/ForceRingPanel.jsx";
 import "./App.css";
 
@@ -48,13 +49,6 @@ const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse
 const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
 const FEEDBACK_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/feedback-email` : "";
 const FEEDBACK_RECIPIENT = "tkisdroid@gmail.com";
-
-const isToday = (d) => {
-  if (!d) return false;
-  const t = new Date();
-  const dt = new Date(d);
-  return t.toDateString() === dt.toDateString();
-};
 
 function normalizePairCodeInput(rawValue) {
     const raw = String(rawValue || "").trim();
@@ -2169,6 +2163,60 @@ function EmergencyBanner({ emergencies, onDismiss }) {
     );
 }
 
+function AppConfirmDialog({ dialog, onCancel, onConfirm }) {
+    if (!dialog) return null;
+    const isDanger = dialog.tone === "danger";
+    const titleId = "hyeni-confirm-dialog-title";
+    const descId = "hyeni-confirm-dialog-description";
+    return (
+        <div
+            role="presentation"
+            style={{ position: "fixed", inset: 0, zIndex: 10020, background: "rgba(31,41,55,0.36)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 22, fontFamily: FF }}
+            onClick={onCancel}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                aria-describedby={descId}
+                onClick={(event) => event.stopPropagation()}
+                style={{ width: "100%", maxWidth: 360, borderRadius: 24, background: "rgba(255,255,255,0.98)", border: "1.5px solid rgba(244,114,182,0.20)", boxShadow: "0 24px 72px rgba(190,24,93,0.24)", padding: 20, boxSizing: "border-box" }}
+            >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                    <div
+                        aria-hidden="true"
+                        style={{ width: 42, height: 42, borderRadius: 16, background: isDanger ? "#FEE2E2" : DESIGN.colors.pinkSoft, color: isDanger ? "#DC2626" : DESIGN.colors.brand, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 950, flexShrink: 0 }}
+                    >
+                        {dialog.icon || (isDanger ? "!" : "?")}
+                    </div>
+                    <h2 id={titleId} style={{ margin: 0, color: DESIGN.colors.ink, fontSize: 18, fontWeight: 950, lineHeight: 1.25 }}>
+                        {dialog.title || "확인"}
+                    </h2>
+                </div>
+                <p id={descId} style={{ margin: "0 0 18px", color: "#64748B", fontSize: 14, lineHeight: 1.55, fontWeight: 700 }}>
+                    {dialog.message || "계속 진행할까요?"}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        style={{ ...makeSecondaryButtonStyle({ padding: "12px 14px", background: "#F8FAFC", color: "#475569" }), minHeight: 46 }}
+                    >
+                        {dialog.cancelLabel || "취소"}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        style={{ ...makePrimaryButtonStyle({ padding: "12px 14px", background: isDanger ? "linear-gradient(135deg,#EF4444,#DC2626)" : DESIGN.gradients.primary }), minHeight: 46 }}
+                    >
+                        {dialog.confirmLabel || "확인"}
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Role Setup Modal  (first launch)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2589,7 +2637,7 @@ function ParentAuthScreen({ onBack }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Pair Code Section (shows code prominently or in collapsible after pairing)
 // ─────────────────────────────────────────────────────────────────────────────
-function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null }) {
+function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, onConfirm = null }) {
     const [showCode, setShowCode] = useState(childrenCount === 0);
     const canAddMore = childrenCount < maxChildren;
     // Phase 2 PAIR-01 UI: Korean-locale pair_code TTL formatter (inline, no external helper — monolith policy).
@@ -2606,8 +2654,20 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
     })();
     const handleRegenerate = async () => {
         if (!onRegenerate) return;
-        if (!window.confirm("연동 코드를 새로 만들면 기존 코드는 바로 무효가 돼요. 계속할까요?")) return;
-        try { await onRegenerate(); } catch (err) { console.error("[regenerate]", err); alert("새 코드 생성에 실패했어요: " + (err?.message || err)); }
+        const run = async () => {
+            try { await onRegenerate(); } catch (err) { console.error("[regenerate]", err); }
+        };
+        if (onConfirm) {
+            onConfirm({
+                title: "연동 코드 새로 만들기",
+                message: "연동 코드를 새로 만들면 기존 코드는 바로 무효가 돼요. 계속할까요?",
+                confirmLabel: "새로 만들기",
+                tone: "danger",
+                onConfirm: run,
+            });
+            return;
+        }
+        await run();
     };
     const ttlLine = ttlLabel ? (
         <div style={{ fontSize: 11, fontWeight: 700, marginTop: 10, color: ttlLabel.expired ? "#DC2626" : "#047857" }}>
@@ -2692,7 +2752,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
@@ -2718,7 +2778,8 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                             maxChildren={maxChildren}
                             lockedMessage={lockedMessage}
                             pairCodeExpiresAt={pairCodeExpiresAt}
-                            onRegenerate={isParent ? onRegenerate : null}
+                            onRegenerate={isParent && canManageFamily ? onRegenerate : null}
+                            onConfirm={onConfirm}
                         />
                     ) : children.length === 0 ? (
                         <div style={{ background: "#FEF3C7", border: "1.5px solid #FCD34D", borderRadius: 16, padding: "16px", marginBottom: 20, textAlign: "center" }}>
@@ -2743,20 +2804,35 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                 <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
                                                     style={{ width: 80, minWidth: 0, padding: "6px 8px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
                                                     maxLength={10} />
-                                                <button onClick={() => { if (editName.trim() && onRename) { onRename(child.user_id, editName.trim()); } setEditingId(null); }}
+                                                <button onClick={() => { if (editName.trim() && onRename && canManageFamily) { onRename(child.user_id, editName.trim()); } setEditingId(null); }}
                                                     style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
                                             </div>
                                         ) : (
-                                            <div onClick={() => { setEditingId(child.user_id); setEditName(child.name); }} style={{ cursor: "pointer" }}>
-                                                <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46" }}>{child.name} <span style={{ fontSize: 11, color: "#9CA3AF" }}>✏️</span></div>
+                                            <div onClick={() => { if (!canManageFamily) return; setEditingId(child.user_id); setEditName(child.name); }} style={{ cursor: canManageFamily ? "pointer" : "default" }}>
+                                                <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46" }}>{child.name} {canManageFamily && <span style={{ fontSize: 11, color: "#9CA3AF" }}>✏️</span>}</div>
                                             </div>
                                         )}
                                         <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 기기 {i + 1}</div>
                                     </div>
-                                    <button onClick={() => { if (window.confirm(`${child.name} 연동을 해제할까요?`)) onUnpair(child.user_id); }}
-                                        style={{ fontSize: 11, padding: "6px 12px", borderRadius: 10, background: "#FEE2E2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
-                                        해제
-                                    </button>
+                                    {canManageFamily && (
+                                        <button onClick={() => {
+                                            const run = () => onUnpair(child.user_id);
+                                            if (onConfirm) {
+                                                onConfirm({
+                                                    title: "아이 연동 해제",
+                                                    message: `${child.name} 연동을 해제할까요?`,
+                                                    confirmLabel: "해제",
+                                                    tone: "danger",
+                                                    onConfirm: run,
+                                                });
+                                                return;
+                                            }
+                                            run();
+                                        }}
+                                            style={{ fontSize: 11, padding: "6px 12px", borderRadius: 10, background: "#FEE2E2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
+                                            해제
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -3013,7 +3089,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
     const [showSavedForm, setShowSavedForm] = useState(false);
     const [showSavedMap, setShowSavedMap] = useState(false);
     const [savedEditIdx, setSavedEditIdx] = useState(null);
-    const [savedForm, setSavedForm] = useState({ name: "", location: null });
+    const [savedForm, setSavedForm] = useState({ name: "", location: null, is_playdate_safe: false, public_place_id: null });
     const DAYS_LABEL = ["일", "월", "화", "수", "목", "금", "토"];
     const academyListChanged = JSON.stringify(list) !== JSON.stringify(academies);
     const savedPlacesChanged = JSON.stringify(savedList) !== JSON.stringify(savedPlaces);
@@ -3049,14 +3125,26 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
     };
     const openNewSavedPlace = () => {
         if (!canEditSavedPlaces()) return;
-        setSavedForm({ name: "", location: null });
+        setSavedForm({ name: "", location: null, is_playdate_safe: false, public_place_id: null });
+        setSavedEditIdx(null);
+        setShowSavedForm(true);
+        setShowForm(false);
+    };
+    const openNewSafePlace = () => {
+        if (!canEditSavedPlaces()) return;
+        setSavedForm({ name: "", location: null, is_playdate_safe: true, public_place_id: null });
         setSavedEditIdx(null);
         setShowSavedForm(true);
         setShowForm(false);
     };
     const openSavedPlaceEdit = (idx) => {
         if (!canEditSavedPlaces()) return;
-        setSavedForm({ ...savedList[idx] });
+        const place = savedList[idx] || {};
+        setSavedForm({
+            ...place,
+            is_playdate_safe: !!place.is_playdate_safe,
+            public_place_id: place.public_place_id || null,
+        });
         setSavedEditIdx(idx);
         setShowSavedForm(true);
         setShowForm(false);
@@ -3088,13 +3176,14 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
         <MapPicker
             initial={savedForm.location}
             currentPos={currentPos}
-            title="📍 자주 가는 장소 설정"
+            title={savedForm.is_playdate_safe ? "🛡️ 안전장소 설정" : "📍 자주 가는 장소 설정"}
             onClose={() => setShowSavedMap(false)}
             onConfirm={loc => {
                 setSavedForm(prev => ({
                     ...prev,
                     location: loc,
-                    name: prev.name.trim() ? prev.name : (loc.address || "").split(" ").slice(-1)[0] || "자주 가는 장소",
+                    name: prev.name.trim() ? prev.name : (prev.is_playdate_safe ? "안전장소" : (loc.address || "").split(" ").slice(-1)[0] || "자주 가는 장소"),
+                    public_place_id: loc.kakao_place_id && loc.kakao_place_id === prev.location?.kakao_place_id ? prev.public_place_id || null : null,
                 }));
                 setShowSavedMap(false);
             }}
@@ -3141,11 +3230,15 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             ))}
                             <button onClick={() => openNew()}
                                 style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #F9A8D4", background: "#FFF0F7", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#E879A0" }}>
-                                + 직접 입력
+                                + 학원 입력
                             </button>
                             <button onClick={openNewSavedPlace}
                                 style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #F9A8D4", background: savedPlacesLocked ? "#F3F4F6" : "#FFF0F7", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: savedPlacesLocked ? "#9CA3AF" : "#BE185D" }}>
                                 + 자주 가는 장소
+                            </button>
+                            <button onClick={openNewSafePlace}
+                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #86EFAC", background: savedPlacesLocked ? "#F3F4F6" : "#F0FDF4", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: savedPlacesLocked ? "#9CA3AF" : "#047857" }}>
+                                + 안전장소
                             </button>
                         </div>
                     </>
@@ -3238,13 +3331,13 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
 
                 {showSavedForm && (
                     <div style={{ background: "#FFF7FB", borderRadius: 20, padding: "18px", marginBottom: 16, border: "1px solid #FCE7F3" }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", marginBottom: 14 }}>{savedEditIdx !== null ? "✏️ 장소 수정" : "➕ 자주 가는 장소 추가"}</div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", marginBottom: 14 }}>{savedEditIdx !== null ? "✏️ 장소 수정" : savedForm.is_playdate_safe ? "➕ 안전장소 추가" : "➕ 자주 가는 장소 추가"}</div>
                         <div style={{ marginBottom: 12 }}>
                             <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>장소 이름</label>
                             <input
                                 value={savedForm.name}
                                 onChange={e => setSavedForm(prev => ({ ...prev, name: e.target.value }))}
-                                placeholder="예) 집, 할머니 집, 도서관"
+                                placeholder={savedForm.is_playdate_safe ? "예) 학교 정문, 태권도장, 놀이터" : "예) 집, 할머니 집, 도서관"}
                                 style={{ width: "100%", padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
                             />
                         </div>
@@ -3327,9 +3420,16 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                 {savedList.map((place, index) => (
                     <div key={place.id || index} style={{ background: "#FFF7FB", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: "4px solid #F472B6" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ fontSize: 24 }}>📍</div>
+                            <div style={{ fontSize: 24 }}>{place.is_playdate_safe ? "🛡️" : "📍"}</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 800, fontSize: 15, color: "#1F2937" }}>{place.name}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                    <div style={{ fontWeight: 800, fontSize: 15, color: "#1F2937" }}>{place.name}</div>
+                                    {place.is_playdate_safe && (
+                                        <span style={{ borderRadius: 999, background: "#DCFCE7", color: "#047857", padding: "2px 7px", fontSize: 10, fontWeight: 900 }}>
+                                            안전장소
+                                        </span>
+                                    )}
+                                </div>
                                 <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.location?.address || "위치 미등록"}</div>
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
@@ -7175,6 +7275,7 @@ export default function KidsScheduler() {
     const [locationRefreshRequestedAt, setLocationRefreshRequestedAt] = useState(null);
     const [_listening, setListening] = useState(false);
     const [notification, setNotification] = useState(null);
+    const [confirmDialog, setConfirmDialog] = useState(null);
     const [alerts, setAlerts] = useState([]);
     const [emergencies, setEmergencies] = useState([]);
     const [bounce, setBounce] = useState(false);
@@ -7322,12 +7423,15 @@ export default function KidsScheduler() {
 
     const openAcademyManagement = useCallback(() => {
         if (!isParent) return;
+        if (!parentCapabilities.canManagePlaces) return;
         if (academies.length === 0 && !entitlement.canUse(FEATURES.ACADEMY_SCHEDULE)) {
             openFeatureLock(FEATURES.ACADEMY_SCHEDULE);
             return;
         }
+        setShowSavedPlaceMgr(false);
+        setShowDangerZones(false);
         setShowAcademyMgr(true);
-    }, [academies.length, entitlement, isParent, openFeatureLock]);
+    }, [academies.length, entitlement, isParent, openFeatureLock, parentCapabilities.canManagePlaces]);
 
     const handleOpenSavedPlaceMgr = useCallback(() => {
         openAcademyManagement();
@@ -7342,8 +7446,9 @@ export default function KidsScheduler() {
     // + public_place_id at INSERT time per FP-D10 RLS). Tracked as follow-up.
     const handleOpenPlaydatePlaceMgr = useCallback(() => {
         if (!isParent) return;
+        if (!parentCapabilities.canManagePlaces) return;
         setShowAcademyMgr(true);
-    }, [isParent]);
+    }, [isParent, parentCapabilities.canManagePlaces]);
 
     // ── Add form ───────────────────────────────────────────────────────────────
     const [newTitle, setNewTitle] = useState("");
@@ -8364,6 +8469,30 @@ export default function KidsScheduler() {
         if (notifTimer.current) clearTimeout(notifTimer.current);
         notifTimer.current = setTimeout(() => setNotification(null), 3500);
     }, []);
+    const openConfirmDialog = useCallback((options = {}) => {
+        setConfirmDialog({
+            title: options.title || "확인",
+            message: options.message || "계속 진행할까요?",
+            confirmLabel: options.confirmLabel || "확인",
+            cancelLabel: options.cancelLabel || "취소",
+            tone: options.tone || "default",
+            icon: options.icon || "",
+            onConfirm: typeof options.onConfirm === "function" ? options.onConfirm : null,
+        });
+    }, []);
+    const closeConfirmDialog = useCallback(() => {
+        setConfirmDialog(null);
+    }, []);
+    const handleConfirmDialogConfirm = useCallback(async () => {
+        const action = confirmDialog?.onConfirm;
+        setConfirmDialog(null);
+        if (!action) return;
+        try {
+            await action();
+        } catch (err) {
+            console.error("[confirm-dialog]", err);
+        }
+    }, [confirmDialog]);
 
     const requestChildLocationRefresh = useCallback(async (reason = "parent_lookup") => {
         if (myRole !== "parent" || !familyId) return false;
@@ -9994,7 +10123,13 @@ export default function KidsScheduler() {
         }
         setRouteEvent(homeRouteEvent);
     };
+    const closeParentManagementPanels = useCallback(() => {
+        setShowAcademyMgr(false);
+        setShowSavedPlaceMgr(false);
+        setShowDangerZones(false);
+    }, []);
     const handleParentCalendarTabClick = () => {
+        closeParentManagementPanels();
         setShowParentMemoPage(false);
         setActiveView("parentCalendar");
         setCurrentYear(today.getFullYear());
@@ -10005,6 +10140,7 @@ export default function KidsScheduler() {
         });
     };
     const handleParentTodayTabClick = () => {
+        closeParentManagementPanels();
         setShowParentMemoPage(false);
         setActiveView("calendar");
         window.requestAnimationFrame(() => {
@@ -10013,12 +10149,15 @@ export default function KidsScheduler() {
     };
     const handleParentMapTabClick = () => {
         setShowParentMemoPage(false);
+        setShowSavedPlaceMgr(false);
+        setShowDangerZones(false);
         openAcademyManagement();
         window.requestAnimationFrame(() => {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
     };
     const handleParentMemoOpen = () => {
+        closeParentManagementPanels();
         setCurrentYear(today.getFullYear());
         setCurrentMonth(today.getMonth());
         setSelectedDate(today.getDate());
@@ -10052,31 +10191,70 @@ export default function KidsScheduler() {
         });
     };
     const handleParentFamilyTabClick = () => {
+        closeParentManagementPanels();
         setShowParentMemoPage(false);
         setShowPairing(true);
     };
+    const handleParentHomeTabClick = () => {
+        closeParentManagementPanels();
+        setShowParentMemoPage(false);
+        setActiveView("home");
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, behavior: "auto" });
+        });
+    };
+    const homeChildLocationLabels = useMemo(() => {
+        const labels = {};
+        displayChildPositions.forEach((pos) => {
+            if (!pos?.user_id) return;
+            const locationKey = getPositionLocationKey(pos);
+            const resolved = childLocationLabels[locationKey] || {};
+            const label = resolved.label
+                || resolved.shortLabel
+                || extractNeighborhoodLabel(pos.label, pos)
+                || formatLatLngLabel(pos)
+                || "";
+            if (!label) return;
+            labels[pos.user_id] = {
+                ...resolved,
+                label,
+                shortLabel: resolved.shortLabel || extractNeighborhoodLabel(label, pos) || label,
+            };
+        });
+        return labels;
+    }, [childLocationLabels, displayChildPositions]);
+    const parentBottomTabCount = (isMultiChild ? 1 : 0)
+        + 2
+        + (parentCapabilities.canManagePlaces ? 1 : 0)
+        + 2;
     const renderParentBottomTabbar = (activeTab = "today", extraClassName = "") => (
-        <nav className={`hyeni-v5-tabbar${extraClassName ? ` ${extraClassName}` : ""}`} aria-label="부모 메인 탭">
+        <nav
+            className={`hyeni-v5-tabbar${extraClassName ? ` ${extraClassName}` : ""}`}
+            aria-label="부모 메인 탭"
+            style={{ gridTemplateColumns: `repeat(${parentBottomTabCount}, minmax(0, 1fr))` }}
+        >
             {isMultiChild && (
               <button
                 type="button"
-                onClick={() => setActiveView("home")}
-                aria-pressed={activeView === "home"}
-                className={activeView === "home" ? "active" : undefined}
+                onClick={handleParentHomeTabClick}
+                aria-pressed={activeTab === "home"}
+                className={activeTab === "home" ? "active" : undefined}
                 style={{ fontFamily: FF }}
               >
-                <span aria-hidden="true">🏠</span>홈
+                <span aria-hidden="true">🏡</span>홈
               </button>
             )}
             <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
-                <span aria-hidden="true">🏠</span>오늘
+                <span aria-hidden="true">☀️</span>오늘
             </button>
             <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={handleParentCalendarTabClick} style={{ fontFamily: FF }}>
-                <span aria-hidden="true">📅</span>캘린더
+                <span aria-hidden="true">📅</span>일정
             </button>
-            <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={handleParentMapTabClick} style={{ fontFamily: FF }}>
-                <span aria-hidden="true">📍</span>위치
-            </button>
+            {parentCapabilities.canManagePlaces && (
+                <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={handleParentMapTabClick} style={{ fontFamily: FF }}>
+                    <span aria-hidden="true">📍</span>장소관리
+                </button>
+            )}
             <button
                 type="button"
                 className={activeTab === "memo" ? "active" : undefined}
@@ -10764,7 +10942,7 @@ export default function KidsScheduler() {
 
     if (showAcademyMgr) return (
         <>
-        <AcademyManager academies={academies} savedPlaces={savedPlaces} savedPlacesLocked={!entitlement.canUse(FEATURES.SAVED_PLACES)} currentPos={childPos}
+        <AcademyManager academies={academies} savedPlaces={savedPlaces} savedPlacesLocked={!parentCapabilities.canManagePlaces || !entitlement.canUse(FEATURES.SAVED_PLACES)} currentPos={childPos}
             onSave={async (newList) => {
                 if (!parentCapabilities.canManagePlaces) {
                     showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
@@ -10927,7 +11105,13 @@ export default function KidsScheduler() {
                 showNotif("🏫 학원 목록이 저장됐어요!");
                 return true;
             }}
-            onSavedPlacesLocked={() => openFeatureLock(FEATURES.SAVED_PLACES)}
+            onSavedPlacesLocked={() => {
+                if (!parentCapabilities.canManagePlaces) {
+                    showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
+                    return;
+                }
+                openFeatureLock(FEATURES.SAVED_PLACES);
+            }}
             onSavedPlacesSave={async (nextList) => {
                 if (!parentCapabilities.canManagePlaces) {
                     showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
@@ -10938,11 +11122,36 @@ export default function KidsScheduler() {
                     return false;
                 }
 
-                const normalizedNext = nextList.map((place) => ({
-                    ...place,
-                    id: place.id || generateUUID(),
-                    name: place.name.trim(),
-                }));
+                const normalizedNext = [];
+                for (const place of nextList) {
+                    const normalizedPlace = {
+                        ...place,
+                        id: place.id || generateUUID(),
+                        name: place.name.trim(),
+                        is_playdate_safe: !!place.is_playdate_safe,
+                        public_place_id: place.public_place_id || null,
+                    };
+                    if (
+                        normalizedPlace.is_playdate_safe
+                        && !normalizedPlace.public_place_id
+                        && normalizedPlace.location?.lat != null
+                        && normalizedPlace.location?.lng != null
+                    ) {
+                        try {
+                            normalizedPlace.public_place_id = await upsertPublicPlace({
+                                kakaoPlaceId: normalizedPlace.location?.kakao_place_id || null,
+                                name: normalizedPlace.name,
+                                lat: normalizedPlace.location.lat,
+                                lng: normalizedPlace.location.lng,
+                            });
+                        } catch (error) {
+                            console.error("[saved-place] safe place public mapping failed:", error);
+                            showNotif("안전장소 등록에 실패했어요. 카카오 장소 검색으로 위치를 선택해 주세요", "error");
+                            return false;
+                        }
+                    }
+                    normalizedNext.push(normalizedPlace);
+                }
                 const previousList = savedPlaces;
                 const previousMap = new Map(previousList.map((place) => [place.id, place]));
                 const nextMap = new Map(normalizedNext.map((place) => [place.id, place]));
@@ -10965,11 +11174,15 @@ export default function KidsScheduler() {
                         }
 
                         const changed = previous.name !== place.name
-                            || JSON.stringify(previous.location) !== JSON.stringify(place.location);
+                            || JSON.stringify(previous.location) !== JSON.stringify(place.location)
+                            || !!previous.is_playdate_safe !== !!place.is_playdate_safe
+                            || (previous.public_place_id || null) !== (place.public_place_id || null);
                         if (changed) {
                             await updateSavedPlace(place.id, {
                                 name: place.name,
                                 location: place.location || null,
+                                is_playdate_safe: !!place.is_playdate_safe,
+                                public_place_id: place.public_place_id || null,
                             });
                         }
                     }
@@ -11759,14 +11972,17 @@ export default function KidsScheduler() {
 
             {/* ── HOME VIEW (multi-child only) ── */}
             {activeView === "home" && isMultiChild && (
-              <HomeTab
-                children={pairedChildren}
-                positions={allChildPositions}
-                events={events.filter(e => isToday(e.date))}
-                childLocations={childLocationLabels}
-                childDeviceStatusMap={childDeviceStatusMap}
-                onMapTap={() => setActiveView("location")}
-              />
+              <div className="hyeni-v5-parent-main" aria-label="가족 홈">
+                <HomeTab
+                  children={pairedChildren}
+                  positions={displayChildPositions}
+                  events={todayEvents}
+                  childLocations={homeChildLocationLabels}
+                  childDeviceStatusMap={childDeviceStatusMap}
+                  onMapTap={handleParentMapTabClick}
+                />
+                {renderParentBottomTabbar("home", "hyeni-v5-tabbar-fixed")}
+              </div>
             )}
 
             {/* ── CALENDAR VIEW ── */}
@@ -12453,6 +12669,7 @@ export default function KidsScheduler() {
                     maxChildren={entitlement.canUse(FEATURES.MULTI_CHILD) ? 2 : 1}
                     lockedMessage={!entitlement.canUse(FEATURES.MULTI_CHILD) ? "두 번째 아이를 추가하려면 프리미엄을 시작해 주세요" : ""}
                     pairCodeExpiresAt={familyInfo?.pairCodeExpiresAt || null}
+                    canManageFamily={parentCapabilities.canManageFamily}
                     onRegenerate={async () => {
                         if (!parentCapabilities.canManageFamily) {
                             showNotif("보조 보호자는 연동 코드를 변경할 수 없어요.", "error");
@@ -12490,6 +12707,7 @@ export default function KidsScheduler() {
                             showNotif(`이름이 "${newName}"으로 변경됐어요`);
                         } catch (err) { console.error("[rename]", err); showNotif("이름 변경 실패: " + (err.message || err), "error"); }
                     }}
+                    onConfirm={openConfirmDialog}
                     onClose={() => setShowPairing(false)} />
             )}
 
@@ -12749,6 +12967,12 @@ export default function KidsScheduler() {
                 }}
                 onClose={() => setShowDangerZones(false)}
             />}
+
+            <AppConfirmDialog
+                dialog={confirmDialog}
+                onCancel={closeConfirmDialog}
+                onConfirm={handleConfirmDialogConfirm}
+            />
 
             {/* ── Phase 5 RL-02: child-side persistent listening indicator ── */}
             {listeningSession && !isParent && (
