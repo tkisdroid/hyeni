@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { getUserDisplayName, getUserPhoneLocal, normalizePhoneForStorage } from "./accountAuth.js";
 
 const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
 const NATIVE_OAUTH_REDIRECT_URL = "hyenicalendar://auth-callback";
@@ -34,6 +35,7 @@ export async function kakaoLogin() {
     provider: "kakao",
     options: {
       redirectTo,
+      scopes: "profile_nickname name phone_number",
       skipBrowserRedirect: native,
     },
   });
@@ -84,22 +86,44 @@ export async function logout() {
 
 // ── Setup family (parent, after login) ──────────────────────────────────────
 export async function setupFamily(userId, parentName, options = {}) {
-  const { familyName = "", plannedChildCount = 1, children = [] } = options;
+  const { familyName = "", plannedChildCount = 1, children = [], parentPhone = "" } = options;
+  const normalizedParentPhone = (() => {
+    try {
+      return parentPhone ? normalizePhoneForStorage(parentPhone) : "";
+    } catch {
+      return "";
+    }
+  })();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("families")
-    .select("id, pair_code, planned_child_count")
+    .select("id, pair_code, planned_child_count, mom_phone")
     .eq("parent_id", userId)
     .limit(1)
     .maybeSingle();
+  if (existingError) throw existingError;
 
   let family;
   if (existing) {
     family = existing;
+    const updates = {};
     if (plannedChildCount && plannedChildCount !== existing.planned_child_count) {
-      await supabase.from("families")
-        .update({ planned_child_count: plannedChildCount })
+      updates.planned_child_count = plannedChildCount;
+    }
+    if (parentName) {
+      updates.parent_name = parentName;
+    }
+    if (familyName) {
+      updates.name = familyName;
+    }
+    if (normalizedParentPhone && !existing.mom_phone) {
+      updates.mom_phone = normalizedParentPhone;
+    }
+    if (Object.keys(updates).length > 0) {
+      const { error: updateError } = await supabase.from("families")
+        .update(updates)
         .eq("id", existing.id);
+      if (updateError) throw updateError;
     }
   } else {
     const { data: created, error: createError } = await supabase
@@ -108,6 +132,8 @@ export async function setupFamily(userId, parentName, options = {}) {
         parent_id: userId,
         pair_code: generatePairCode(),
         planned_child_count: plannedChildCount,
+        parent_name: parentName || "부모",
+        mom_phone: normalizedParentPhone,
         name: familyName,
       })
       .select("id, pair_code")
@@ -116,14 +142,15 @@ export async function setupFamily(userId, parentName, options = {}) {
     family = created;
   }
 
-  await supabase.from("family_members").upsert(
+  const { error: memberError } = await supabase.from("family_members").upsert(
     { family_id: family.id, user_id: userId, role: "parent", name: parentName || "부모" },
     { onConflict: "family_id,user_id" }
   );
+  if (memberError) throw memberError;
 
   for (let i = 0; i < children.length; i++) {
     const c = children[i];
-    await supabase.from("family_members").insert({
+    const { error: childError } = await supabase.from("family_members").insert({
       family_id: family.id,
       user_id: null,
       role: "child",
@@ -133,9 +160,18 @@ export async function setupFamily(userId, parentName, options = {}) {
       photo_url: c.photo_url || null,
       child_order: i + 1,
     });
+    if (childError) throw childError;
   }
 
   return family;
+}
+
+export function getParentNameFromUser(user) {
+  return getUserDisplayName(user) || "부모";
+}
+
+export function getParentPhoneFromUser(user) {
+  return getUserPhoneLocal(user);
 }
 
 // ── Join family (child, via pair code) ──────────────────────────────────────

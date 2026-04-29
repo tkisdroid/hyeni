@@ -52,7 +52,7 @@ async function uploadPendingPhotos(familyId, children) {
   }
 }
 
-export function PairingWizard({ userId, parentName, onComplete }) {
+export function PairingWizard({ userId, parentName, parentPhone = "", onComplete }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [familyName, setFamilyName] = useState("");
   const [childCount, setChildCount] = useState(null);
@@ -92,7 +92,7 @@ export function PairingWizard({ userId, parentName, onComplete }) {
           : (c.photo_url || null),
       }));
       const created = await setupFamily(userId, parentName, {
-        familyName, plannedChildCount: childCount, children: childrenForInsert,
+        familyName, plannedChildCount: childCount, children: childrenForInsert, parentPhone,
       });
       // Best-effort: upload pending photos now that the family folder exists.
       // Failures are logged but the wizard still advances — user can re-add

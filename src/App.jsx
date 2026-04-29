@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID } from "./lib/auth.js";
+import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser } from "./lib/auth.js";
+import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
 import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { useChildren } from "./lib/childrenContext.js";
@@ -2169,7 +2170,7 @@ function EmergencyBanner({ emergencies, onDismiss }) {
 // Role Setup Modal  (first launch)
 // ─────────────────────────────────────────────────────────────────────────────
 function RoleSetupModal({ onSelect, loading }) {
-    const [busy, setBusy] = useState(false);
+    const [showParentAuth, setShowParentAuth] = useState(false);
     const isReturning = (() => {
         try { return !!localStorage.getItem("hyeni-has-visited"); } catch { return false; }
     })();
@@ -2179,14 +2180,13 @@ function RoleSetupModal({ onSelect, loading }) {
         try { localStorage.setItem("hyeni-has-visited", "1"); } catch { /* intentionally empty */ }
     }, []);
 
-    const handleParent = async () => {
-        setBusy(true);
-        rememberParentPairingIntent();
-        try { await kakaoLogin(); } catch (e) { clearParentPairingIntent(); console.error(e); setBusy(false); }
-        // After OAuth redirect, auth listener in main component handles the rest
-    };
+    const handleParent = () => setShowParentAuth(true);
 
     const handleChild = () => { onSelect("child"); };
+
+    if (showParentAuth) {
+        return <ParentAuthScreen onBack={() => setShowParentAuth(false)} />;
+    }
 
     return (
         <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", fontFamily: FF, overflowY: "auto" }}>
@@ -2203,12 +2203,12 @@ function RoleSetupModal({ onSelect, loading }) {
                     사용할 역할을 선택해 주세요
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
-                    <button onClick={handleParent} disabled={busy}
-                        style={{ padding: "18px", background: "white", color: "#1E3A8A", border: "1.5px solid #DBEAFE", borderRadius: DESIGN.radius.lg, cursor: busy ? "wait" : "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 14px 34px rgba(37,99,235,0.12)", opacity: busy ? 0.7 : 1, display: "flex", alignItems: "center", gap: 14 }}>
+                    <button onClick={handleParent}
+                        style={{ padding: "18px", background: "white", color: "#1E3A8A", border: "1.5px solid #DBEAFE", borderRadius: DESIGN.radius.lg, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 14px 34px rgba(37,99,235,0.12)", display: "flex", alignItems: "center", gap: 14 }}>
                         <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 16, background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>👨‍👩‍👧</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
-                            <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>{busy ? "카카오 로그인 중..." : "학부모"}</span>
-                            <span style={{ display: "block", fontSize: 13, color: "#64748B", marginTop: 4, lineHeight: 1.45, fontWeight: 600 }}>카카오 계정으로 로그인하여 아이 일정을 관리해요</span>
+                            <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>학부모</span>
+                            <span style={{ display: "block", fontSize: 13, color: "#64748B", marginTop: 4, lineHeight: 1.45, fontWeight: 600 }}>ID/PW 또는 카카오로 로그인해요</span>
                         </span>
                         <span aria-hidden="true" style={{ color: "#2563EB", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
                     </button>
@@ -2222,6 +2222,289 @@ function RoleSetupModal({ onSelect, loading }) {
                         <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
                     </button>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function ParentAuthScreen({ onBack }) {
+    const [mode, setMode] = useState("login");
+    const [busy, setBusy] = useState("");
+    const [error, setError] = useState("");
+    const [message, setMessage] = useState("");
+    const [login, setLogin] = useState({ loginId: "", password: "" });
+    const [signup, setSignup] = useState({ name: "", loginId: "", password: "", passwordConfirm: "", phone: "" });
+    const [otp, setOtp] = useState("");
+    const [pendingSignup, setPendingSignup] = useState(null);
+    const codeSent = !!pendingSignup && !pendingSignup.session;
+
+    const inputStyle = (hasError = false) => ({
+        width: "100%",
+        minHeight: 48,
+        padding: "12px 14px",
+        border: `1.5px solid ${hasError ? "#FCA5A5" : "#E5E7EB"}`,
+        borderRadius: 14,
+        fontSize: 15,
+        fontWeight: 700,
+        fontFamily: FF,
+        outline: "none",
+        boxSizing: "border-box",
+        background: "white",
+        color: "#111827",
+    });
+
+    const fieldWrapStyle = { display: "flex", flexDirection: "column", gap: 7, textAlign: "left" };
+    const labelStyle = { fontSize: 12, fontWeight: 900, color: "#475569" };
+
+    const handleKakao = async () => {
+        setBusy("kakao");
+        setError("");
+        setMessage("");
+        rememberParentPairingIntent();
+        try {
+            await kakaoLogin();
+        } catch (err) {
+            clearParentPairingIntent();
+            console.error("[kakaoLogin]", err);
+            setError(err?.message || "카카오 로그인에 실패했어요");
+            setBusy("");
+        }
+    };
+
+    const handleLogin = async (event) => {
+        event.preventDefault();
+        setBusy("login");
+        setError("");
+        setMessage("");
+        rememberParentPairingIntent();
+        try {
+            await signInWithLoginId(login);
+            setMessage("로그인됐어요. 가족 정보를 불러오는 중이에요.");
+        } catch (err) {
+            clearParentPairingIntent();
+            console.error("[parent login]", err);
+            setError("ID 또는 비밀번호를 확인해 주세요");
+            setBusy("");
+        }
+    };
+
+    const handleRequestCode = async (event) => {
+        event.preventDefault();
+        setBusy("signup");
+        setError("");
+        setMessage("");
+        setOtp("");
+        setPendingSignup(null);
+        rememberParentPairingIntent();
+        try {
+            const result = await requestPhoneSignupCode(signup);
+            setPendingSignup(result);
+            if (result.session) {
+                setMessage("가입이 완료됐어요. 가족 설정을 이어가 주세요.");
+            } else {
+                setMessage("인증번호를 보냈어요. 문자로 받은 6자리를 입력해 주세요.");
+            }
+        } catch (err) {
+            clearParentPairingIntent();
+            console.error("[parent signup request]", err);
+            setError(err?.message || "인증번호 요청에 실패했어요");
+        } finally {
+            setBusy("");
+        }
+    };
+
+    const handleVerifyCode = async (event) => {
+        event.preventDefault();
+        if (!pendingSignup) return;
+        setBusy("verify");
+        setError("");
+        setMessage("");
+        rememberParentPairingIntent();
+        try {
+            await verifyPhoneSignupCode({
+                phone: pendingSignup.phone,
+                token: otp,
+                profile: pendingSignup.profile,
+            });
+            setMessage("전화번호 인증이 완료됐어요. 가족 설정을 이어가 주세요.");
+        } catch (err) {
+            console.error("[parent signup verify]", err);
+            setError(err?.message || "인증번호를 확인하지 못했어요");
+            setBusy("");
+        }
+    };
+
+    const switchMode = (nextMode) => {
+        setMode(nextMode);
+        setError("");
+        setMessage("");
+        setPendingSignup(null);
+        setOtp("");
+        setBusy("");
+    };
+
+    return (
+        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF, padding: 20 }}>
+            <div style={makeCardStyle({ padding: "26px 22px", maxWidth: 400, width: "100%" })}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                    <button type="button" onClick={onBack} aria-label="뒤로"
+                        style={{ width: 36, height: 36, borderRadius: 12, border: "1.5px solid #E5E7EB", background: "white", cursor: "pointer", fontSize: 18, fontWeight: 900, color: "#64748B", fontFamily: FF }}>
+                        ←
+                    </button>
+                    <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
+                        <AppBrandLogo size={64} radius={18} />
+                    </div>
+                    <div style={{ width: 36 }} />
+                </div>
+
+                <div style={{ textAlign: "center", marginBottom: 18 }}>
+                    <div style={{ fontSize: 21, fontWeight: 900, color: "#BE185D", marginBottom: 6 }}>학부모 로그인</div>
+                    <div style={{ fontSize: 13, color: "#64748B", fontWeight: 700 }}>아이 일정 관리를 시작해요</div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                    <button type="button" onClick={() => switchMode("login")}
+                        style={{ padding: "11px 10px", borderRadius: 14, border: "none", background: mode === "login" ? "#BE185D" : "#F3F4F6", color: mode === "login" ? "white" : "#64748B", fontWeight: 900, cursor: "pointer", fontFamily: FF }}>
+                        로그인
+                    </button>
+                    <button type="button" onClick={() => switchMode("signup")}
+                        style={{ padding: "11px 10px", borderRadius: 14, border: "none", background: mode === "signup" ? "#BE185D" : "#F3F4F6", color: mode === "signup" ? "white" : "#64748B", fontWeight: 900, cursor: "pointer", fontFamily: FF }}>
+                        회원가입
+                    </button>
+                </div>
+
+                {mode === "login" && (
+                    <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>ID</span>
+                            <input
+                                value={login.loginId}
+                                onChange={(event) => setLogin((prev) => ({ ...prev, loginId: event.target.value }))}
+                                autoComplete="username"
+                                placeholder="parent01"
+                                style={inputStyle()}
+                            />
+                        </label>
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>PW</span>
+                            <input
+                                type="password"
+                                value={login.password}
+                                onChange={(event) => setLogin((prev) => ({ ...prev, password: event.target.value }))}
+                                autoComplete="current-password"
+                                placeholder="비밀번호"
+                                style={inputStyle()}
+                            />
+                        </label>
+                        <button type="submit" disabled={!!busy}
+                            style={makePrimaryButtonStyle({ marginTop: 2, opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
+                            {busy === "login" ? "로그인 중..." : "로그인"}
+                        </button>
+                        <button type="button" onClick={handleKakao} disabled={!!busy}
+                            style={makeSecondaryButtonStyle({ background: "#FEE500", color: "#111827", border: "1.5px solid #FACC15", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
+                            {busy === "kakao" ? "카카오 로그인 중..." : "카카오로 로그인"}
+                        </button>
+                    </form>
+                )}
+
+                {mode === "signup" && (
+                    <form onSubmit={codeSent ? handleVerifyCode : handleRequestCode} style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>이름</span>
+                            <input
+                                value={signup.name}
+                                onChange={(event) => setSignup((prev) => ({ ...prev, name: event.target.value }))}
+                                autoComplete="name"
+                                placeholder="홍길동"
+                                maxLength={30}
+                                disabled={codeSent}
+                                style={inputStyle()}
+                            />
+                        </label>
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>ID</span>
+                            <input
+                                value={signup.loginId}
+                                onChange={(event) => setSignup((prev) => ({ ...prev, loginId: event.target.value }))}
+                                autoComplete="username"
+                                placeholder="parent01"
+                                disabled={codeSent}
+                                style={inputStyle()}
+                            />
+                        </label>
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>PW</span>
+                            <input
+                                type="password"
+                                value={signup.password}
+                                onChange={(event) => setSignup((prev) => ({ ...prev, password: event.target.value }))}
+                                autoComplete="new-password"
+                                placeholder="6자 이상"
+                                disabled={codeSent}
+                                style={inputStyle()}
+                            />
+                        </label>
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>PW 확인</span>
+                            <input
+                                type="password"
+                                value={signup.passwordConfirm}
+                                onChange={(event) => setSignup((prev) => ({ ...prev, passwordConfirm: event.target.value }))}
+                                autoComplete="new-password"
+                                placeholder="비밀번호 재입력"
+                                disabled={codeSent}
+                                style={inputStyle()}
+                            />
+                        </label>
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>전화번호</span>
+                            <input
+                                type="tel"
+                                inputMode="tel"
+                                value={signup.phone}
+                                onChange={(event) => setSignup((prev) => ({ ...prev, phone: event.target.value }))}
+                                autoComplete="tel"
+                                placeholder="010-1234-5678"
+                                disabled={codeSent}
+                                style={inputStyle()}
+                            />
+                        </label>
+                        {codeSent && (
+                            <label style={fieldWrapStyle}>
+                                <span style={labelStyle}>인증번호</span>
+                                <input
+                                    value={otp}
+                                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                                    inputMode="numeric"
+                                    autoComplete="one-time-code"
+                                    placeholder="6자리"
+                                    style={inputStyle()}
+                                />
+                            </label>
+                        )}
+                        <button type="submit" disabled={!!busy}
+                            style={makePrimaryButtonStyle({ marginTop: 2, opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
+                            {busy === "signup" ? "인증번호 요청 중..." : busy === "verify" ? "확인 중..." : codeSent ? "인증번호 확인 후 가입" : "인증번호 받기"}
+                        </button>
+                        {codeSent && (
+                            <button type="button" disabled={!!busy} onClick={handleRequestCode}
+                                style={makeSecondaryButtonStyle({ opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
+                                인증번호 다시 받기
+                            </button>
+                        )}
+                    </form>
+                )}
+
+                {message && (
+                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "#ECFDF5", color: "#047857", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
+                        {message}
+                    </div>
+                )}
+                {error && (
+                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "#FEF2F2", color: "#DC2626", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
+                        {error}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -7325,6 +7608,20 @@ export default function KidsScheduler() {
     // ── Shared auth handler (used by both init and onAuthChange) ────────────────
     const handleAuthUser = useCallback(async (user) => {
         setAuthUser(user);
+        const provider = getAuthProvider(user);
+        const isKakao = provider === "kakao"
+            || user.app_metadata?.provider === "kakao"
+            || user.identities?.some(i => i.provider === "kakao")
+            || user.user_metadata?.provider === "kakao";
+        const isPhoneParent = provider === "phone"
+            || !!user.phone
+            || user.user_metadata?.auth_provider === "phone";
+
+        if (isKakao || isPhoneParent) {
+            syncAuthProfile(user).catch((err) => {
+                console.warn("[syncAuthProfile]", err?.message || err);
+            });
+        }
 
         let fam = null;
         try {
@@ -7339,11 +7636,8 @@ export default function KidsScheduler() {
             return;
         }
 
-        // Kakao user with no family → show parent setup choice (don't auto-create)
-        const isKakao = user.app_metadata?.provider === "kakao"
-            || user.identities?.some(i => i.provider === "kakao")
-            || user.user_metadata?.provider === "kakao";
-        if (isKakao) {
+        // Parent account with no family → show parent setup choice (don't auto-create)
+        if (isKakao || isPhoneParent) {
             setMyRole("parent");
             setShowParentSetup(true); // Show "새 가족 만들기 / 기존 가족 합류" choice
         }
@@ -10213,7 +10507,9 @@ export default function KidsScheduler() {
     const handleCreateFamily = async () => {
         if (!authUser) return;
         try {
-            await setupFamily(authUser.id, authUser.user_metadata?.name || "부모");
+            await setupFamily(authUser.id, getParentNameFromUser(authUser), {
+                parentPhone: getParentPhoneFromUser(authUser),
+            });
             const fam = await getMyFamily(authUser.id);
             if (fam) {
                 setFamilyInfo(fam);
@@ -10234,7 +10530,7 @@ export default function KidsScheduler() {
         if (!normalizedCode) throw new Error("연동 코드를 정확히 입력해주세요");
 
         try {
-            await joinFamilyAsParent(normalizedCode, authUser.id, authUser.user_metadata?.name || "부모");
+            await joinFamilyAsParent(normalizedCode, authUser.id, getParentNameFromUser(authUser));
             const fam = await getMyFamily(authUser.id);
             if (!fam) throw new Error("합류 후 가족 정보를 불러오지 못했어요. 앱을 새로고침해 주세요.");
             setFamilyInfo(fam);
@@ -10276,7 +10572,8 @@ export default function KidsScheduler() {
         if (showCreateWizard && authUser) return (
             <PairingWizard
                 userId={authUser.id}
-                parentName={authUser.user_metadata?.name || "부모"}
+                parentName={getParentNameFromUser(authUser)}
+                parentPhone={getParentPhoneFromUser(authUser)}
                 onComplete={async () => {
                     try {
                         const fam = await getMyFamily(authUser.id);
