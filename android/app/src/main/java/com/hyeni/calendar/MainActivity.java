@@ -64,7 +64,10 @@ public class MainActivity extends BridgeActivity {
         // functional equivalent of the legacy grant: if the user previously
         // said "Allow" we forward the request, otherwise we require explicit
         // consent via JS UI (to be wired in v1.1 native-deploy ticket).
-        getBridge().getWebView().setWebChromeClient(new WebChromeClient() {
+        // Subclass Capacitor's BridgeWebChromeClient (not raw WebChromeClient) so
+        // file picker (onShowFileChooser), console, and other Bridge defaults are
+        // preserved. We only override mic/geo to enforce OS-level permission gates.
+        getBridge().getWebView().setWebChromeClient(new com.getcapacitor.BridgeWebChromeClient(getBridge()) {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
