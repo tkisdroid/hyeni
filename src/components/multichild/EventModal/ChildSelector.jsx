@@ -18,8 +18,10 @@ export function ChildSelector({ children, value, onChange }) {
       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1F2937" }}>대상</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {children.map((c) => {
-          // Use family_members.id (matches events_children.child_id FK target)
-          const checked = childIds.includes(c.id);
+          // Use family_members.id (matches events_children.child_id FK target).
+          // When familyAll is on, mark every checkbox as checked for visual parity
+          // — the underlying flag still drives the save path (is_family_event=true).
+          const checked = familyAll || childIds.includes(c.id);
           return (
             <label
               key={c.id}

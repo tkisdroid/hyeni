@@ -86,7 +86,7 @@ export async function logout() {
 
 // ── Setup family (parent, after login) ──────────────────────────────────────
 export async function setupFamily(userId, parentName, options = {}) {
-  const { familyName = "", plannedChildCount = 1, children = [], parentPhone = "" } = options;
+  const { familyName = "", plannedChildCount = 1, children = [], parentPhone = "", parentGender = "" } = options;
   const normalizedParentPhone = (() => {
     try {
       return parentPhone ? normalizePhoneForStorage(parentPhone) : "";
@@ -94,10 +94,14 @@ export async function setupFamily(userId, parentName, options = {}) {
       return "";
     }
   })();
+  // Route the signing-up parent's phone to their gender's slot. "dad" → dad_phone,
+  // anything else (mom/empty/legacy) → mom_phone — keeps contact card consistent
+  // with the gender they picked at signup.
+  const phoneColumn = parentGender === "dad" ? "dad_phone" : "mom_phone";
 
   const { data: existing, error: existingError } = await supabase
     .from("families")
-    .select("id, pair_code, planned_child_count, mom_phone")
+    .select("id, pair_code, planned_child_count, mom_phone, dad_phone")
     .eq("parent_id", userId)
     .limit(1)
     .maybeSingle();
@@ -116,8 +120,8 @@ export async function setupFamily(userId, parentName, options = {}) {
     if (familyName) {
       updates.name = familyName;
     }
-    if (normalizedParentPhone && !existing.mom_phone) {
-      updates.mom_phone = normalizedParentPhone;
+    if (normalizedParentPhone && !existing[phoneColumn]) {
+      updates[phoneColumn] = normalizedParentPhone;
     }
     if (Object.keys(updates).length > 0) {
       const { error: updateError } = await supabase.from("families")
@@ -126,16 +130,17 @@ export async function setupFamily(userId, parentName, options = {}) {
       if (updateError) throw updateError;
     }
   } else {
+    const insertRow = {
+      parent_id: userId,
+      pair_code: generatePairCode(),
+      planned_child_count: plannedChildCount,
+      parent_name: parentName || "부모",
+      name: familyName,
+    };
+    insertRow[phoneColumn] = normalizedParentPhone;
     const { data: created, error: createError } = await supabase
       .from("families")
-      .insert({
-        parent_id: userId,
-        pair_code: generatePairCode(),
-        planned_child_count: plannedChildCount,
-        parent_name: parentName || "부모",
-        mom_phone: normalizedParentPhone,
-        name: familyName,
-      })
+      .insert(insertRow)
       .select("id, pair_code")
       .single();
     if (createError) throw createError;
@@ -172,6 +177,16 @@ export function getParentNameFromUser(user) {
 
 export function getParentPhoneFromUser(user) {
   return getUserPhoneLocal(user);
+}
+
+// Returns "mom" | "dad" | "" — based on user_metadata.gender saved at signup.
+// Used by setupFamily to route the signing-up parent's phone to the right slot.
+export function getParentGenderFromUser(user) {
+  const raw = user?.user_metadata?.gender;
+  if (raw === "mom" || raw === "dad") return raw;
+  if (raw === "엄마") return "mom";
+  if (raw === "아빠") return "dad";
+  return "";
 }
 
 // ── Join family (child, via pair code) ──────────────────────────────────────

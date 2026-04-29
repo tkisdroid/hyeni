@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser } from "./lib/auth.js";
+import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
 import { dispatchBack, useBackHandler } from "./lib/backHandler.js";
@@ -200,8 +200,8 @@ function ChildSafetySetupGate({ steps, health, onOpenStep, onRefresh }) {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {steps.map((step, index) => (
-                        <div key={step.id} style={{ background: "rgba(255,255,255,0.92)", border: `1px solid ${step.ready ? "#BBF7D0" : "#FECACA"}`, borderRadius: 18, padding: "13px 14px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 6px 18px rgba(15,23,42,0.05)" }}>
-                            <div style={{ width: 30, height: 30, borderRadius: 12, background: step.ready ? "#DCFCE7" : "#FEE2E2", color: step.ready ? "#15803D" : "#DC2626", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 950, flexShrink: 0 }}>
+                        <div key={step.id} style={{ background: "rgba(255,255,255,0.92)", border: `1px solid ${step.ready ? "#BBF7D0" : "#FDE68A"}`, borderRadius: 18, padding: "13px 14px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 6px 18px rgba(15,23,42,0.05)" }}>
+                            <div style={{ width: 30, height: 30, borderRadius: 12, background: step.ready ? "#DCFCE7" : "#FEF3C7", color: step.ready ? "#15803D" : "#B45309", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 950, flexShrink: 0 }}>
                                 {step.ready ? "✓" : index + 1}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -826,7 +826,9 @@ const DESIGN = Object.freeze({
         warm: "linear-gradient(135deg,#FFFFFF 0%,#FFF5FA 100%)",
         onboard: "radial-gradient(500px 400px at 50% 0%, #FFDCEC 0%, transparent 60%), radial-gradient(400px 300px at 100% 100%, #FFEBC2 0%, transparent 60%), radial-gradient(400px 350px at 0% 80%, #D0E4FA 0%, transparent 60%), linear-gradient(180deg, #FFF8F2 0%, #F6E9F0 100%)",
         map: "radial-gradient(200px 200px at 30% 30%, #FFE4EF 0%, transparent 60%), radial-gradient(300px 220px at 70% 60%, #E0F0FE 0%, transparent 60%), radial-gradient(200px 180px at 50% 90%, #FFEBBE 0%, transparent 60%), linear-gradient(180deg, #FDF5F0 0%, #F0E8F3 100%)",
-        danger: "linear-gradient(135deg,#EF4444,#B91C1C)",
+        // Non-emergency destructive/warn confirmation gradient (amber tones).
+        // Saturated red reserved for SOS, 긴급, 하트 visuals only.
+        danger: "linear-gradient(135deg,#F59E0B,#B45309)",
     },
     radius: {
         sm: 12,
@@ -1030,7 +1032,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                                 placeholder="KID-804DF582 또는 804DF582"
                                 style={{ width: "100%", padding: "11px 14px", border: `2px solid ${joinError ? "#FCA5A5" : "#E5E7EB"}`, borderRadius: 12, fontSize: 16, fontWeight: 800, fontFamily: "monospace", textAlign: "center", letterSpacing: 1, boxSizing: "border-box", outline: "none", color: "#111827", background: "white" }} />
                         </div>
-                        {joinError && <div style={{ fontSize: 13, color: "#EF4444", fontWeight: 700, marginBottom: 12 }}>{joinError}</div>}
+                        {joinError && <div style={{ fontSize: 13, color: "#B45309", fontWeight: 700, marginBottom: 12 }}>{joinError}</div>}
                         <button disabled={!canJoin} onClick={handleJoinClick}
                             style={{ padding: "14px 32px", background: "#2563EB", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: canJoin ? "pointer" : "default", fontFamily: FF, opacity: canJoin ? 1 : 0.6, boxShadow: canJoin ? "0 10px 22px rgba(37,99,235,0.18)" : "none" }}>
                             {busy ? "합류 중..." : "합류하기"}
@@ -2185,7 +2187,7 @@ function AppConfirmDialog({ dialog, onCancel, onConfirm }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                     <div
                         aria-hidden="true"
-                        style={{ width: 42, height: 42, borderRadius: 16, background: isDanger ? "#FEE2E2" : DESIGN.colors.pinkSoft, color: isDanger ? "#DC2626" : DESIGN.colors.brand, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 950, flexShrink: 0 }}
+                        style={{ width: 42, height: 42, borderRadius: 16, background: isDanger ? "#FEF3C7" : DESIGN.colors.pinkSoft, color: isDanger ? "#B45309" : DESIGN.colors.brand, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 950, flexShrink: 0 }}
                     >
                         {dialog.icon || (isDanger ? "!" : "?")}
                     </div>
@@ -2207,7 +2209,7 @@ function AppConfirmDialog({ dialog, onCancel, onConfirm }) {
                     <button
                         type="button"
                         onClick={onConfirm}
-                        style={{ ...makePrimaryButtonStyle({ padding: "12px 14px", background: isDanger ? "linear-gradient(135deg,#EF4444,#DC2626)" : DESIGN.gradients.primary }), minHeight: 46 }}
+                        style={{ ...makePrimaryButtonStyle({ padding: "12px 14px", background: isDanger ? DESIGN.gradients.danger : DESIGN.gradients.primary }), minHeight: 46 }}
                     >
                         {dialog.confirmLabel || "확인"}
                     </button>
@@ -2629,7 +2631,7 @@ function ParentAuthScreen({ onBack }) {
                     </div>
                 )}
                 {error && (
-                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "#FEF2F2", color: "#DC2626", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
+                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "#FFFBEB", color: "#B45309", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
                         {error}
                     </div>
                 )}
@@ -2674,7 +2676,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
         await run();
     };
     const ttlLine = ttlLabel ? (
-        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 10, color: ttlLabel.expired ? "#DC2626" : "#047857" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 10, color: ttlLabel.expired ? "#B45309" : "#047857" }}>
             ⏱️ {ttlLabel.text}
         </div>
     ) : null;
@@ -2803,12 +2805,15 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                                     <div style={{ fontSize: 28 }}>{child.emoji || "🐰"}</div>
                                     <div style={{ flex: 1 }}>
-                                        {editingId === child.user_id ? (
+                                        {/* Track editing by family_member.id (always present) — using user_id
+                                            previously caused unpaired placeholders (user_id=null) to match a
+                                            null editingId and auto-render the input + keyboard with empty value. */}
+                                        {editingId && editingId === child.id ? (
                                             <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0, maxWidth: "100%" }}>
                                                 <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
                                                     style={{ width: 80, minWidth: 0, padding: "6px 8px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
                                                     maxLength={10} />
-                                                <button onClick={() => { if (editName.trim() && onRename && canManageFamily) { onRename(child.user_id, editName.trim()); } setEditingId(null); }}
+                                                <button onClick={() => { if (editName.trim() && onRename && canManageFamily && child.user_id) { onRename(child.user_id, editName.trim()); } setEditingId(null); }}
                                                     style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
                                                 <button onClick={() => setEditingId(null)}
                                                     style={{ padding: "6px 8px", borderRadius: 10, background: "#F3F4F6", color: "#6B7280", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
@@ -2816,10 +2821,10 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                         ) : (
                                             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
-                                                {canManageFamily && (
+                                                {canManageFamily && child.user_id && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => { setEditingId(child.user_id); setEditName(child.name); }}
+                                                        onClick={() => { setEditingId(child.id); setEditName(child.name); }}
                                                         style={{ padding: "4px 10px", borderRadius: 10, background: "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
                                                     >
                                                         ✏️ 이름 수정
@@ -2844,7 +2849,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                             }
                                             run();
                                         }}
-                                            style={{ fontSize: 11, padding: "6px 12px", borderRadius: 10, background: "#FEE2E2", color: "#DC2626", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
+                                            style={{ fontSize: 11, padding: "6px 12px", borderRadius: 10, background: "#FEF3C7", color: "#B45309", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
                                             해제
                                         </button>
                                     )}
@@ -2994,7 +2999,7 @@ function QrPairScanner({ onDetected, onClose }) {
                     <div style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.8)" }}>
                         QR을 인식하면 코드 입력 없이 바로 연동을 시작해요
                     </div>
-                    {error && <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "#FCA5A5" }}>{error}</div>}
+                    {error && <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "#B45309" }}>{error}</div>}
                 </div>
             </div>
         </div>
@@ -3065,7 +3070,7 @@ function ChildPairInput({ userId, onPaired }) {
                     placeholder="XXXXXXXX" maxLength={8}
                     style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid #F3E8F0", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "#374151", background: "white", boxShadow: "0 2px 8px rgba(232,121,160,0.1)" }} />
             </div>
-            {error && <div style={{ fontSize: 13, color: "#EF4444", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
+            {error && <div style={{ fontSize: 13, color: "#B45309", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
             <button onClick={() => { void handleJoin(); }} disabled={busy}
                 style={{ ...makePrimaryButtonStyle({ maxWidth: 320, padding: "16px", fontSize: 16, marginTop: 8, opacity: busy ? 0.7 : 1 }), cursor: busy ? "wait" : "pointer" }}>
                 {busy ? "연결 중..." : "🔗 연결하기"}
@@ -3314,10 +3319,10 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             {form.schedule?.days?.length > 0 && (
                                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                     <input type="time" value={form.schedule?.startTime || "15:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, startTime: e.target.value } }))}
-                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none" }} />
+                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
                                     <span style={{ fontSize: 14, fontWeight: 700, color: "#9CA3AF" }}>~</span>
                                     <input type="time" value={form.schedule?.endTime || "16:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, endTime: e.target.value } }))}
-                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none" }} />
+                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
                                 </div>
                             )}
                             {form.schedule?.days?.length > 0 && (
@@ -3989,7 +3994,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                         {gpsError ? (
                             <>
                                 <div style={{ fontSize: 40 }}>📍</div>
-                                <div style={{ fontSize: 15, fontWeight: 800, color: "#EF4444", fontFamily: FF }}>
+                                <div style={{ fontSize: 15, fontWeight: 800, color: "#B45309", fontFamily: FF }}>
                                     위치를 찾을 수 없어요
                                 </div>
                                 <div style={{ fontSize: 12, color: "#6B7280", fontFamily: FF, textAlign: "center", lineHeight: 1.5 }}>
@@ -4610,8 +4615,8 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     bottom: "max(80px, calc(80px + env(safe-area-inset-bottom)))",
                     left: "50%",
                     transform: "translateX(-50%)",
-                    background: "#FEE2E2",
-                    color: "#991B1B",
+                    background: "#FEF3C7",
+                    color: "#92400E",
                     borderRadius: 24,
                     padding: "12px 20px",
                     fontSize: 14,
@@ -4620,7 +4625,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    boxShadow: "0 4px 16px rgba(153,27,27,0.15)",
+                    boxShadow: "0 4px 16px rgba(146,64,14,0.15)",
                     whiteSpace: "nowrap",
                     zIndex: 9999
                 }}
@@ -4630,7 +4635,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     type="button"
                     aria-label="메시지 전송 다시 시도"
                     onClick={handleRetry}
-                    style={{ background: "transparent", border: "1px solid #991B1B", borderRadius: 12, color: "#991B1B", fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", marginLeft: 8 }}
+                    style={{ background: "transparent", border: "1px solid #92400E", borderRadius: 12, color: "#92400E", fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", marginLeft: 8 }}
                 >
                     다시 시도
                 </button>
@@ -4638,7 +4643,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     type="button"
                     aria-label="전송 실패 숨김"
                     onClick={() => { setShowSendFailureToast(false); if (sendFailureTimerRef.current) clearTimeout(sendFailureTimerRef.current); }}
-                    style={{ background: "transparent", border: "none", color: "#991B1B", fontSize: 16, cursor: "pointer", padding: "0 0 0 4px", lineHeight: 1, minWidth: 24, minHeight: 24 }}
+                    style={{ background: "transparent", border: "none", color: "#92400E", fontSize: 16, cursor: "pointer", padding: "0 0 0 4px", lineHeight: 1, minWidth: 24, minHeight: 24 }}
                 >
                     ×
                 </button>
@@ -5380,7 +5385,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                 {status === "listening" && (
                     <div style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 3 }}>
-                            {REMOTE_AUDIO_LEVEL_BARS.map((height, i) => <div key={i} style={{ width: 4, height, background: "#DC2626", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
+                            {REMOTE_AUDIO_LEVEL_BARS.map((height, i) => <div key={i} style={{ width: 4, height, background: "#D97706", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
                         </div>
                     </div>
                 )}
@@ -5388,14 +5393,14 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                     <div style={{ marginBottom: 16, fontSize: 12, color: "#F59E0B", fontWeight: 700, lineHeight: 1.45 }}>{statusCopy.hint}</div>
                 )}
                 {errorMessage && (
-                    <div role="alert" style={{ marginBottom: 16, fontSize: 12, color: "#B91C1C", fontWeight: 800, lineHeight: 1.45 }}>
+                    <div role="alert" style={{ marginBottom: 16, fontSize: 12, color: "#B45309", fontWeight: 800, lineHeight: 1.45 }}>
                         {errorMessage}
                     </div>
                 )}
                 <div style={{ display: "flex", gap: 10 }}>
                     {canStartListening && (
                         <button onClick={startListening}
-                            style={{ flex: 1, padding: "14px", background: "linear-gradient(135deg, #DC2626, #B91C1C)", color: "white", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
+                            style={{ flex: 1, padding: "14px", background: DESIGN.gradients.primary, color: "white", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
                             {status === "failed" ? "다시 시도" : "🎙️ 듣기 시작"}
                         </button>
                     )}
@@ -7654,10 +7659,33 @@ export default function KidsScheduler() {
 
     // ── Sync parent phones from familyInfo ─────────────────────────────────────
     useEffect(() => {
-        if (familyInfo?.phones) {
-            setParentPhones(familyInfo.phones);
+        if (!familyInfo?.phones) return;
+        // Legacy data: pre-fix, every signing-up parent's phone landed in mom_phone
+        // regardless of gender. If the current user is the primary parent and chose
+        // "아빠" at signup, swap the slots once so the contact card matches identity.
+        const gender = getParentGenderFromUser(authUser);
+        const isPrimary = authUser?.id && familyInfo?.primaryParentId === authUser.id;
+        if (
+            isPrimary &&
+            gender === "dad" &&
+            familyInfo.phones.mom &&
+            !familyInfo.phones.dad &&
+            familyInfo.familyId
+        ) {
+            const swapped = { mom: "", dad: familyInfo.phones.mom };
+            setParentPhones(swapped);
+            saveParentPhones(familyInfo.familyId, swapped.mom, swapped.dad)
+                .then(() => {
+                    setFamilyInfo((prev) => prev ? { ...prev, phones: swapped } : prev);
+                })
+                .catch((err) => {
+                    console.warn("[parent-phone-migration] swap failed:", err?.message || err);
+                    setParentPhones(familyInfo.phones);
+                });
+            return;
         }
-    }, [familyInfo]);
+        setParentPhones(familyInfo.phones);
+    }, [familyInfo, authUser]);
 
     const handleNativeAuthCallback = useCallback(async (url) => {
         if (!url || !url.startsWith("hyenicalendar://auth-callback")) {
@@ -10746,7 +10774,7 @@ export default function KidsScheduler() {
             icon: "🎙️",
             label: "주변소리",
             ariaLabel: "🎙️ 주변소리",
-            palette: { bg: "linear-gradient(135deg,#FEF2F2,#FEE2E2)", color: "#DC2626", shadow: "rgba(239,68,68,0.15)" },
+            palette: { bg: "linear-gradient(135deg,#FFFBEB,#FEF3C7)", color: "#B45309", shadow: "rgba(217,119,6,0.15)" },
             onClick: () => {
                 if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
                     openFeatureLock(
@@ -10856,6 +10884,7 @@ export default function KidsScheduler() {
         try {
             await setupFamily(authUser.id, getParentNameFromUser(authUser), {
                 parentPhone: getParentPhoneFromUser(authUser),
+                parentGender: getParentGenderFromUser(authUser),
             });
             const fam = await getMyFamily(authUser.id);
             if (fam) {
@@ -10921,6 +10950,7 @@ export default function KidsScheduler() {
                 userId={authUser.id}
                 parentName={getParentNameFromUser(authUser)}
                 parentPhone={getParentPhoneFromUser(authUser)}
+                parentGender={getParentGenderFromUser(authUser)}
                 onCancel={() => setShowCreateWizard(false)}
                 onComplete={async () => {
                     try {
@@ -11320,8 +11350,8 @@ export default function KidsScheduler() {
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "#FEE2E2" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
-                    color: notification.type === "error" ? "#DC2626" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
+                    background: notification.type === "error" ? "#FEF3C7" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
+                    color: notification.type === "error" ? "#B45309" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {notification.msg}
@@ -11344,8 +11374,8 @@ export default function KidsScheduler() {
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "#FEE2E2" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
-                    color: notification.type === "error" ? "#DC2626" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
+                    background: notification.type === "error" ? "#FEF3C7" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
+                    color: notification.type === "error" ? "#B45309" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {notification.msg}
@@ -11399,8 +11429,8 @@ export default function KidsScheduler() {
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "#FEE2E2" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
-                    color: notification.type === "error" ? "#DC2626" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
+                    background: notification.type === "error" ? "#FEF3C7" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
+                    color: notification.type === "error" ? "#B45309" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {notification.msg}
@@ -11520,7 +11550,7 @@ export default function KidsScheduler() {
                                     style={{ flex: 1, padding: "11px", background: "linear-gradient(135deg,#10B981,#059669)", color: "white", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✅ 달력에서 보기</button>
                                 <button onClick={() => { setVoicePreview(null); setNewTitle(voicePreview.ev.title); setNewTime(voicePreview.ev.time); setNewEndTime(voicePreview.ev.endTime || ""); setNewCategory(voicePreview.ev.category); setNewLocation(voicePreview.ev.location); setEvents(prev => ({ ...prev, [voicePreview.dateKey]: (prev[voicePreview.dateKey] || []).filter(e => e.id !== voicePreview.ev.id) })); setShowAddModal(true); }}
                                     style={{ flex: 1, padding: "11px", background: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep, border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✏️ 수정</button>
-                                <button onClick={undoVoiceEvent} style={{ padding: "11px 14px", background: "#FEE2E2", color: "#DC2626", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>↩</button>
+                                <button onClick={undoVoiceEvent} style={{ padding: "11px 14px", background: "#F3F4F6", color: "#475569", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>↩</button>
                             </div>
                         </div>
                     </div>
@@ -11532,11 +11562,11 @@ export default function KidsScheduler() {
 
             {/* ── Background location permission banner (child mode) ── */}
             {isNativeApp && !isParent && !bgLocationGranted && (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "14px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FEF2F2, #FEE2E2)", border: "1.5px solid #FECACA", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(239,68,68,0.12)" }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "14px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FFFBEB, #FEF3C7)", border: "1.5px solid #FDE68A", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(217,119,6,0.12)" }}>
                     <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📍</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: "#DC2626" }}>위치 권한을 "항상 허용"으로 바꿔주세요</div>
-                        <div style={{ fontSize: 11, color: "#991B1B", marginTop: 3, lineHeight: 1.45 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: "#B45309" }}>위치 권한을 "항상 허용"으로 바꿔주세요</div>
+                        <div style={{ fontSize: 11, color: "#92400E", marginTop: 3, lineHeight: 1.45 }}>
                             앱을 꺼도 위치가 부모님께 전달돼요
                         </div>
                     </div>
@@ -11550,7 +11580,7 @@ export default function KidsScheduler() {
                         } catch (error) {
                             void error;
                         }
-                    }} style={{ padding: "9px 13px", borderRadius: 12, background: "#DC2626", color: "white", border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(220,38,38,0.2)" }}>
+                    }} style={{ padding: "9px 13px", borderRadius: 12, background: "#D97706", color: "white", border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(217,119,6,0.2)" }}>
                         설정 열기
                     </button>
                 </div>
@@ -11671,24 +11701,33 @@ export default function KidsScheduler() {
                         💗 꾹
                     </button>
                     {isParent && (
-                        <button onClick={async () => {
-                            if (!window.confirm("로그아웃 하시겠어요?")) return;
-                            try {
-                                await stopNativeLocationService();
-                                await unsubscribeFromPush();
-                                await logout();
-                                setMyRole(null);
-                                setFamilyInfo(null);
-                                setAuthUser(null);
-                                setEvents({});
-                                setAcademies([]);
-                                setMemos({});
-                                setParentPhones({ mom: "", dad: "" });
-                                showNotif("로그아웃 되었어요");
-                            } catch (err) {
-                                console.error("[logout]", err);
-                                showNotif("로그아웃 실패");
-                            }
+                        <button onClick={() => {
+                            setConfirmDialog({
+                                title: "로그아웃 하시겠어요?",
+                                message: "현재 기기에서 계정이 로그아웃돼요. 다음에 다시 로그인하면 가족 정보가 복구돼요.",
+                                confirmLabel: "로그아웃",
+                                cancelLabel: "취소",
+                                tone: "danger",
+                                icon: "👋",
+                                onConfirm: async () => {
+                                    try {
+                                        await stopNativeLocationService();
+                                        await unsubscribeFromPush();
+                                        await logout();
+                                        setMyRole(null);
+                                        setFamilyInfo(null);
+                                        setAuthUser(null);
+                                        setEvents({});
+                                        setAcademies([]);
+                                        setMemos({});
+                                        setParentPhones({ mom: "", dad: "" });
+                                        showNotif("로그아웃 되었어요");
+                                    } catch (err) {
+                                        console.error("[logout]", err);
+                                        showNotif("로그아웃 실패");
+                                    }
+                                },
+                            });
                         }}
                             style={{ fontSize: 10, padding: "6px 8px", borderRadius: 8, background: "#F3F4F6", color: "#9CA3AF", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: FF, whiteSpace: "nowrap" }}>
                             로그아웃
@@ -12493,7 +12532,22 @@ export default function KidsScheduler() {
                 <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAddModal(false); setEditingEventId(null); } }}>
                     <div style={makeSheetStyle({ padding: "24px 20px 36px", width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" })}>
                         <div style={{ fontSize: 20, fontWeight: 800, color: "#374151", marginBottom: 4 }}>{editingEventId ? "✏️ 일정 수정" : "✨ 새 일정 추가"}</div>
-                        {isParent && pairedChildren.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EFF6FF", borderRadius: 10, padding: "6px 12px", marginBottom: 14, display: "inline-block" }}>📡 저장 시 {pairedChildren.map(c => c.name).join(", ")}에게 자동 전송</div>}
+                        {isParent && pairedChildren.length > 0 && (() => {
+                            // ChildSelector stores family_members.id values in childIds (events_children FK target).
+                            const selectedNames = pairedChildren
+                                .filter((c) => eventChildSelection.childIds.includes(c.id))
+                                .map((c) => c.name);
+                            const allChildNames = pairedChildren.map((c) => c.name).join(", ");
+                            let msg;
+                            if (eventChildSelection.familyAll) {
+                                msg = `📡 저장 시 가족 전체 (${allChildNames})에게 전송`;
+                            } else if (selectedNames.length > 0) {
+                                msg = `📡 저장 시 ${selectedNames.join(", ")}에게만 전송`;
+                            } else {
+                                msg = "📌 아래에서 받을 아이를 선택해 주세요";
+                            }
+                            return <div style={{ fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EFF6FF", borderRadius: 10, padding: "6px 12px", marginBottom: 14, display: "inline-block" }}>{msg}</div>;
+                        })()}
 
                         <div style={{ marginBottom: 14 }}>
                             <label style={labelSt}>⚡ 빠른 선택</label>
@@ -12521,7 +12575,7 @@ export default function KidsScheduler() {
                         <div style={{ marginBottom: 14 }}>
                             <label style={labelSt}>⏰ 시간 {selectedPreset && findLastEventByTitle(selectedPreset.label) && <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>(지난번 시간)</span>}</label>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                                <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} style={{ padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1 }} />
+                                <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} style={{ padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
                                 <div style={{ display: "flex", gap: 4 }}>
                                     <button onClick={() => { const [h, m] = newTime.split(":").map(Number); const nh = m > 0 ? h : Math.max(0, h - 1); const nm = m > 0 ? 0 : 30; setNewTime(`${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`); }}
                                         style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid #F3F4F6", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "#6B7280", display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
@@ -12542,7 +12596,7 @@ export default function KidsScheduler() {
                             <label style={labelSt}>🏁 종료시간 <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>(선택)</span></label>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <input type="time" value={newEndTime} onChange={e => setNewEndTime(e.target.value)}
-                                    style={{ padding: "12px 14px", border: `2px solid ${newEndTime ? "#E879A0" : "#F3F4F6"}`, borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1 }} />
+                                    style={{ padding: "12px 14px", border: `2px solid ${newEndTime ? "#E879A0" : "#F3F4F6"}`, borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
                                 {newEndTime && (
                                     <button onClick={() => setNewEndTime("")}
                                         style={{ padding: "6px 12px", borderRadius: 12, border: "none", background: "#F3F4F6", color: "#9CA3AF", cursor: "pointer", fontSize: 13, fontFamily: FF }}>삭제</button>
@@ -12846,16 +12900,16 @@ export default function KidsScheduler() {
                 >
                     <div style={{ width: "100%", maxWidth: 420, background: "white", borderRadius: 24, padding: "22px 20px 20px", boxShadow: "0 16px 42px rgba(15,23,42,0.24)", fontFamily: FF }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                            <div style={{ width: 46, height: 46, borderRadius: 16, background: "#FEE2E2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>🎤</div>
+                            <div style={{ width: 46, height: 46, borderRadius: 16, background: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>🎤</div>
                             <div>
-                                <div id="mic-permission-title" style={{ fontSize: 18, fontWeight: 900, color: "#991B1B" }}>마이크 권한이 필요해요</div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", marginTop: 2 }}>주위 소리 듣기 연결이 중단됐어요</div>
+                                <div id="mic-permission-title" style={{ fontSize: 18, fontWeight: 900, color: "#92400E" }}>마이크 권한이 필요해요</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: "#B45309", marginTop: 2 }}>주위 소리 듣기 연결이 중단됐어요</div>
                             </div>
                         </div>
                         <div style={{ fontSize: 13, lineHeight: 1.6, color: "#4B5563", fontWeight: 600, marginBottom: 14 }}>
                             아이 기기에서 마이크 권한을 허용해야 부모님과 주위 소리 듣기 세션을 안전하게 연결할 수 있어요.
                         </div>
-                        <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 16, padding: "12px 14px", color: "#7F1D1D", fontSize: 12, lineHeight: 1.55, fontWeight: 800, marginBottom: 16 }}>
+                        <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 16, padding: "12px 14px", color: "#92400E", fontSize: 12, lineHeight: 1.55, fontWeight: 800, marginBottom: 16 }}>
                             Android 설정 &gt; 앱 &gt; 혜니캘린더 &gt; 권한 &gt; 마이크 &gt; 허용
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
@@ -12863,7 +12917,7 @@ export default function KidsScheduler() {
                                 <button
                                     type="button"
                                     onClick={openAppPermissionSettings}
-                                    style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "#DC2626", color: "white", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
+                                    style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "#D97706", color: "white", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
                                 >
                                     설정 열기
                                 </button>

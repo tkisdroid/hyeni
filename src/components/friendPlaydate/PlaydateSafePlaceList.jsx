@@ -60,33 +60,46 @@ export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
   };
 
   return (
-    <ul className="hyeni-tool-list" aria-label="친구놀이 안전장소">
-      {places.map((place) => {
-        const eligible = isPlaydateEligible(place);
-        const lockedOff = !eligible && !place.is_playdate_safe;
-        return (
-          <li key={place.id} className="hyeni-tool-list__row">
-            <div>
-              <div className="hyeni-tool-list__primary">{place.name}</div>
-              {lockedOff && (
-                <div className="hyeni-tool-list__secondary">
-                  카카오 장소 검색으로 등록된 곳만 지정 가능
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={place.is_playdate_safe}
-              aria-label={`${place.name} 친구놀이 토글`}
-              disabled={busyId === place.id || lockedOff}
-              onClick={() => handleToggle(place)}
-              className="hyeni-tool-toggle__switch"
-              style={lockedOff ? { opacity: 0.4 } : undefined}
-            />
-          </li>
-        );
-      })}
-    </ul>
+    <div style={{ display: 'grid', gap: 12 }}>
+      <ul className="hyeni-tool-list" aria-label="친구놀이 안전장소">
+        {places.map((place) => {
+          const eligible = isPlaydateEligible(place);
+          const lockedOff = !eligible && !place.is_playdate_safe;
+          return (
+            <li key={place.id} className="hyeni-tool-list__row">
+              <div>
+                <div className="hyeni-tool-list__primary">{place.name}</div>
+                {lockedOff && (
+                  <div className="hyeni-tool-list__secondary">
+                    카카오 장소 검색으로 등록된 곳만 지정 가능
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={place.is_playdate_safe}
+                aria-label={`${place.name} 친구놀이 토글`}
+                disabled={busyId === place.id || lockedOff}
+                onClick={() => handleToggle(place)}
+                className="hyeni-tool-toggle__switch"
+                style={lockedOff ? { opacity: 0.4 } : undefined}
+              />
+            </li>
+          );
+        })}
+      </ul>
+      {onAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="hyeni-tool-button hyeni-tool-button--accent-soft hyeni-tool-button--small"
+          style={{ justifySelf: 'center', width: 'auto', minHeight: 36, padding: '8px 14px' }}
+          aria-label="안전장소 추가"
+        >
+          <span className="hyeni-tool-button__label">+ 장소 추가하기</span>
+        </button>
+      )}
+    </div>
   );
 }

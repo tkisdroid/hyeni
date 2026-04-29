@@ -127,36 +127,13 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
 
       <div>
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
           margin: '4px 2px 8px',
+          color: 'var(--hyeni-ink-700)',
+          fontSize: 12,
+          fontWeight: 900,
+          letterSpacing: '0.02em',
         }}>
-          <div style={{
-            color: 'var(--hyeni-ink-700)',
-            fontSize: 12,
-            fontWeight: 900,
-            letterSpacing: '0.02em',
-          }}>
-            친구놀이 안전장소
-          </div>
-          {onAddSafePlace && (
-            <button
-              type="button"
-              onClick={onAddSafePlace}
-              className="hyeni-tool-button hyeni-tool-button--accent-soft hyeni-tool-button--small"
-              aria-label="안전장소 추가"
-              style={{
-                width: 'auto',
-                minHeight: 32,
-                padding: '6px 12px',
-                fontSize: 12,
-              }}
-            >
-              <span className="hyeni-tool-button__label">+ 장소 추가</span>
-            </button>
-          )}
+          친구놀이 안전장소
         </div>
         <PlaydateSafePlaceList
           places={places}
