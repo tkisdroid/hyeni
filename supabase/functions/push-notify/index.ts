@@ -8,6 +8,11 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import {
+  canCallerSendAction,
+  isEmergencyNotificationType,
+  selectParentRecipientsForAction,
+} from "./notificationRouting.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -78,16 +83,9 @@ function toStringValue(value: unknown): string {
 }
 
 function isEmergencyNotification(type: string, data: Record<string, unknown> = {}): boolean {
-  if (EMERGENCY_ACTIONS.has(type)) return true;
-  if (String(data.urgent || "").toLowerCase() === "true") return true;
-  if (type !== "parent_alert") return false;
-
-  const severity = toStringValue(data.severity).toLowerCase();
-  const alertType = toStringValue(data.alertType || data.alert_type).toLowerCase();
-  return severity === "emergency"
-    || severity === "critical"
-    || severity === "urgent"
-    || EMERGENCY_ALERT_TYPES.has(alertType);
+  // Delegated to ./notificationRouting.ts so the kkuk/sos separation rule
+  // is unit-testable without standing up the Deno Edge runtime.
+  return isEmergencyNotificationType(type, data);
 }
 
 function hasPremiumRemoteListenStatus(value: unknown): boolean {
@@ -844,6 +842,36 @@ async function handleInstantNotification(
     }
   }
 
+  // ── Co-parent control-action gate (Task 5 of co-parent SMS auth plan) ─
+  // Co-parents (role=parent but families.parent_id !== their user_id) MUST NOT
+  // be able to trigger remote-control actions (remote_listen, request_location,
+  // force_ring, etc.). Compute primary-parent status from existing columns —
+  // do NOT depend on the public.is_primary_parent SQL helper that ships in
+  // parallel Task 4. Service-role cron callers bypass (already trusted).
+  let callerIsPrimaryParent = false;
+  let resolvedCallerRole = callerRole;
+  if (callerRole !== "service_role") {
+    const { data: callerMember } = await supabase
+      .from("family_members")
+      .select("role, families!inner(parent_id)")
+      .eq("family_id", familyId)
+      .eq("user_id", callerUserId)
+      .maybeSingle();
+
+    const callerMemberRole = (callerMember as { role?: string } | null)?.role;
+    const callerFamily = (callerMember as { families?: { parent_id?: string } | null } | null)?.families;
+    callerIsPrimaryParent = callerMemberRole === "parent"
+      && callerFamily?.parent_id === callerUserId;
+    if (callerMemberRole) resolvedCallerRole = callerMemberRole;
+
+    if (!canCallerSendAction(action, {
+      role: resolvedCallerRole,
+      isPrimaryParent: callerIsPrimaryParent,
+    })) {
+      return jsonResponse({ error: "primary_parent_required" }, 403);
+    }
+  }
+
   if (isRemoteListen) {
     const remoteListenGate = await validateRemoteListenEntitlement(supabase, familyId);
     if (remoteListenGate) return remoteListenGate;
@@ -973,6 +1001,38 @@ async function handleInstantNotification(
     }
   }
 
+  // ── Parent recipient routing for sos/kkuk (Task 5) ──────────────────
+  // sos → both parents · kkuk → primary parent only.
+  // For child-native commands the caller already constrains recipients
+  // via childNativeRecipientIds, so we keep that path untouched.
+  let parentRecipientIds: Set<string> | null = null;
+  if (!isChildNativeCommand && (action === "sos" || action === "kkuk")) {
+    const { data: parentMembers, error: parentMembersErr } = await supabase
+      .from("family_members")
+      .select("user_id, role, families!inner(parent_id)")
+      .eq("family_id", familyId)
+      .eq("role", "parent");
+    if (parentMembersErr) {
+      console.error("push-notify parent-routing query failed:", parentMembersErr);
+    } else {
+      parentRecipientIds = selectParentRecipientsForAction(
+        action,
+        (parentMembers || []).map((member) => {
+          const row = member as {
+            user_id?: string | null;
+            role?: string | null;
+            families?: { parent_id?: string } | null;
+          };
+          return {
+            user_id: row.user_id,
+            role: row.role,
+            is_primary_parent: row.families?.parent_id === row.user_id,
+          };
+        }),
+      );
+    }
+  }
+
   // ── FCM (Android native) ───────────────────────────────────────────
   const fcmSent = await sendFcmToFamily(
     supabase,
@@ -982,7 +1042,7 @@ async function handleInstantNotification(
     message,
     action,
     fcmExtraData,
-    childNativeRecipientIds,
+    childNativeRecipientIds ?? parentRecipientIds,
   );
 
   // ── PUSH-03 / PUSH-04 (D-A04): always record pending_notifications with
