@@ -3,6 +3,7 @@ import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFa
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
 import { dispatchBack, useBackHandler } from "./lib/backHandler.js";
+import { BirthdatePicker } from "./components/birthdate/BirthdatePicker.jsx";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
 import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { useChildren } from "./lib/childrenContext.js";
@@ -2521,15 +2522,14 @@ function ParentAuthScreen({ onBack }) {
                         </fieldset>
                         <label style={fieldWrapStyle}>
                             <span style={labelStyle}>생년월일</span>
-                            <input
-                                type="date"
+                            <BirthdatePicker
                                 value={signup.birthdate}
-                                onChange={(event) => setSignup((prev) => ({ ...prev, birthdate: event.target.value }))}
-                                autoComplete="bday"
+                                onChange={(yyyymmdd) => setSignup((prev) => ({ ...prev, birthdate: yyyymmdd }))}
                                 max={`${new Date().getFullYear()}-12-31`}
                                 min="1900-01-01"
                                 disabled={codeSent}
-                                style={inputStyle()}
+                                placeholder="생년월일 선택"
+                                defaultYearOffset={30}
                             />
                         </label>
                         <label style={fieldWrapStyle}>

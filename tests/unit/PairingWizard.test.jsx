@@ -25,7 +25,8 @@ describe("PairingWizard", () => {
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
     fireEvent.change(screen.getByLabelText(/이름/i), { target: { value: "혜니" } });
-    fireEvent.change(screen.getByLabelText(/생년월일/i), { target: { value: "2015-03-21" } });
+    fireEvent.click(screen.getByRole("button", { name: /생년월일 선택/ }));
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
     await waitFor(() => {

@@ -1,4 +1,5 @@
 // src/components/multichild/PairingWizard/ChildDetailsStep.jsx
+import { BirthdatePicker } from "../../birthdate/BirthdatePicker.jsx";
 import { ColorPicker } from "./ColorPicker.jsx";
 import { PhotoUpload } from "./PhotoUpload.jsx";
 
@@ -35,17 +36,17 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
         />
       </label>
 
-      <label style={{ display: "block", fontSize: 14, fontWeight: 700, marginTop: 16, marginBottom: 6, color: "#1F2937" }}>
-        생년월일
-        <input
-          type="date" value={child.birthdate}
-          onChange={(e) => update({ birthdate: e.target.value })}
-          style={{
-            display: "block", width: "100%", padding: "12px 14px", marginTop: 6,
-            borderRadius: 12, border: "1.5px solid #E5E7EB", fontSize: 16,
-          }}
+      <div style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "#1F2937" }}>생년월일</div>
+        <BirthdatePicker
+          value={child.birthdate}
+          onChange={(yyyymmdd) => update({ birthdate: yyyymmdd })}
+          max={`${new Date().getFullYear()}-12-31`}
+          min="2005-01-01"
+          placeholder="생년월일 선택"
+          defaultYearOffset={8}
         />
-      </label>
+      </div>
 
       <div style={{ marginTop: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1F2937" }}>색</div>
