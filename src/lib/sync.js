@@ -589,7 +589,8 @@ export async function fetchTodayLocationHistory(familyId, childUserId = null) {
     .select("user_id")
     .eq("family_id", familyId)
     .eq("role", "child");
-  const memberChildUserIds = (members || []).map(m => m.user_id);
+  // Drop placeholder rows (user_id IS NULL) — same reason as fetchChildLocations.
+  const memberChildUserIds = (members || []).map(m => m.user_id).filter(Boolean);
   const childUserIds = childUserId
     ? memberChildUserIds.filter(userId => userId === childUserId)
     : memberChildUserIds;
@@ -617,7 +618,10 @@ export async function fetchChildLocations(familyId) {
     .select("user_id")
     .eq("family_id", familyId)
     .eq("role", "child");
-  const childUserIds = (members || []).map(m => m.user_id);
+  // PairingWizard inserts placeholder child rows with user_id = NULL before
+  // the child joins. Drop those — passing null into .in() makes PostgREST
+  // emit ?user_id=in.(null) and Postgres rejects the uuid cast.
+  const childUserIds = (members || []).map(m => m.user_id).filter(Boolean);
   if (!childUserIds.length) return [];
 
   // Step 2: fetch their locations
