@@ -7277,6 +7277,31 @@ export default function KidsScheduler() {
       ? null
       : (pairedChildren.find((c) => c.user_id === authUser?.id) || pairedChildren[0] || null);
     const isMultiChild = childrenContext.isMultiChild;
+    // Single-child families pin selectedChildId automatically so existing
+    // single-child rendering paths see a non-null value with no UX delta.
+    // Multi-child families clear it whenever the chosen child disappears
+    // (e.g., parent unpaired the active slot).
+    useEffect(() => {
+      if (!isParent) return;
+      const validIds = new Set(pairedChildren.map((c) => c.id));
+      if (selectedChildId && !validIds.has(selectedChildId)) {
+        setSelectedChildId(null);
+        return;
+      }
+      if (pairedChildren.length === 1 && !selectedChildId) {
+        setSelectedChildId(pairedChildren[0].id);
+      }
+    }, [isParent, pairedChildren, selectedChildId]);
+    // Force-route multi-child parents back to home whenever no child is
+    // selected — every non-home tab needs a per-child context.
+    useEffect(() => {
+      if (isParent && isMultiChild && !selectedChildId && activeView !== "home") {
+        setActiveView("home");
+      }
+    }, [isParent, isMultiChild, selectedChildId, activeView]);
+    const selectedChild = selectedChildId
+      ? pairedChildren.find((c) => c.id === selectedChildId)
+      : null;
     const globalNotif = DEFAULT_NOTIF;
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
@@ -7318,6 +7343,10 @@ export default function KidsScheduler() {
       const childCount = familyInfo?.members?.filter(m => m.role === "child")?.length || 0;
       return (isParent && childCount >= 2) ? "home" : "calendar";
     });
+    // Per-child UI selection. For 2+ child families, all non-home tabs operate
+    // within a single selected child's context. For 1-child families, this is
+    // auto-set so existing single-child UX is preserved.
+    const [selectedChildId, setSelectedChildId] = useState(null);
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
@@ -12037,6 +12066,56 @@ export default function KidsScheduler() {
                 </div>
             </div>}
 
+            {/* Selected-child header (multi-child only, on non-home tabs) */}
+            {isParent && isMultiChild && selectedChild && activeView !== "home" && (
+              <div
+                role="status"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 16px",
+                  background: "linear-gradient(135deg,#FDF4FF,#F3E8FF)",
+                  borderBottom: "1px solid #E9D5FF",
+                  fontFamily: FF,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    background: selectedChild.photo_url ? `url(${selectedChild.photo_url}) center/cover` : (selectedChild.color_hex || "#A78BFA"),
+                    border: `2px solid ${selectedChild.color_hex || "#A78BFA"}`,
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 800, color: "#4C1D95", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {selectedChild.name} 관리 중
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "#6D28D9",
+                    background: "white",
+                    border: "1px solid #DDD6FE",
+                    borderRadius: 10,
+                    padding: "5px 10px",
+                    cursor: "pointer",
+                    fontFamily: FF,
+                    flexShrink: 0,
+                  }}
+                  aria-label="다른 자녀 선택"
+                >
+                  ← 다른 자녀
+                </button>
+              </div>
+            )}
+
             {/* ── HOME VIEW (multi-child only) ── */}
             {activeView === "home" && isMultiChild && (
               <div className="hyeni-v5-parent-main" aria-label="가족 홈">
@@ -12047,6 +12126,10 @@ export default function KidsScheduler() {
                   childLocations={homeChildLocationLabels}
                   childDeviceStatusMap={childDeviceStatusMap}
                   onMapTap={handleParentMapTabClick}
+                  onSelectChild={(childId) => {
+                    setSelectedChildId(childId);
+                    setActiveView("calendar");
+                  }}
                 />
                 {renderParentBottomTabbar("home", "hyeni-v5-tabbar-fixed")}
               </div>
@@ -12237,8 +12320,14 @@ export default function KidsScheduler() {
                             🤖 AI로 일정입력
                         </button>
                         <button type="button" className="hyeni-v5-plus-button" onClick={() => {
-                            if (pairedChildren.length === 1) {
-                              setEventChildSelection({ childIds: [pairedChildren[0].user_id], familyAll: false });
+                            // Default the recipient to the active child context: the
+                            // selected child (multi-child mode) or the lone paired
+                            // child (single-child mode). Falls back to empty when no
+                            // valid context exists yet.
+                            const defaultChildId = selectedChildId
+                              || (pairedChildren.length === 1 ? pairedChildren[0].id : null);
+                            if (defaultChildId) {
+                              setEventChildSelection({ childIds: [defaultChildId], familyAll: false });
                             } else {
                               setEventChildSelection({ childIds: [], familyAll: false });
                             }

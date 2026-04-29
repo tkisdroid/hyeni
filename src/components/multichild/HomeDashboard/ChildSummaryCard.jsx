@@ -1,14 +1,24 @@
 // src/components/multichild/HomeDashboard/ChildSummaryCard.jsx
 const DOT_COLORS = { green: "#10B981", yellow: "#F59E0B", red: "#EF4444" };
 
-export function ChildSummaryCard({ child, location, safetyDots = [] }) {
+export function ChildSummaryCard({ child, location, safetyDots = [], onClick }) {
+  const interactive = typeof onClick === "function";
+  const Wrapper = interactive ? "button" : "div";
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 14,
-      padding: 14, borderRadius: 16,
-      background: "white", border: "1.5px solid #F3F4F6",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
-    }}>
+    <Wrapper
+      type={interactive ? "button" : undefined}
+      onClick={interactive ? () => onClick(child.id) : undefined}
+      aria-label={interactive ? `${child.name} 보기` : undefined}
+      style={{
+        display: "flex", alignItems: "center", gap: 14,
+        padding: 14, borderRadius: 16,
+        background: "white", border: "1.5px solid #F3F4F6",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
+        textAlign: "left", width: "100%",
+        cursor: interactive ? "pointer" : "default",
+        font: "inherit",
+      }}
+    >
       <div style={{
         width: 48, height: 48, borderRadius: "50%",
         background: child.photo_url ? `url(${child.photo_url}) center/cover` : child.color_hex,
@@ -29,6 +39,6 @@ export function ChildSummaryCard({ child, location, safetyDots = [] }) {
           }} />
         ))}
       </div>
-    </div>
+    </Wrapper>
   );
 }

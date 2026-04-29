@@ -12,19 +12,20 @@ function deriveSafetyDots(deviceStatus) {
   ];
 }
 
-export function HomeTab({ children, positions, events, childLocations, childDeviceStatusMap, onMapTap }) {
+export function HomeTab({ children, positions, events, childLocations, childDeviceStatusMap, onMapTap, onSelectChild }) {
   return (
     <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 20 }}>
       <section>
         <h3 style={{ fontSize: 12, fontWeight: 800, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
-          자녀 ({children.length}명)
+          자녀 ({children.length}명){onSelectChild ? " — 탭하여 관리" : ""}
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {children.map((c) => (
             <ChildSummaryCard
-              key={c.user_id} child={c}
+              key={c.user_id || c.id} child={c}
               location={childLocations[c.user_id]?.label}
               safetyDots={deriveSafetyDots(childDeviceStatusMap[c.user_id])}
+              onClick={onSelectChild}
             />
           ))}
         </div>
