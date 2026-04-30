@@ -33,7 +33,7 @@ import ActivePlaydateBanner from "./components/friendPlaydate/ActivePlaydateBann
 import { upsertPublicPlace } from "./lib/friendPlaydate.js";
 import { ForceRingPanel } from "./components/forceRing/ForceRingPanel.jsx";
 import { getDeviceLabelFromUA } from "./lib/deviceInfo.js";
-import { applyTheme, subscribeFamilyTheme } from "./lib/theme.js";
+import { THEMES, applyTheme, subscribeFamilyTheme } from "./lib/theme.js";
 import "./App.css";
 
 function normalizeKakaoAppKey(value) {
@@ -2815,7 +2815,7 @@ function ChildRemoteListenReadiness({ health }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onPhotoChange, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null, childDeviceStatusMap = {} }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onPhotoChange, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null, childDeviceStatusMap = {}, theme = "warm-pink", onThemeChange = null }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
@@ -2999,6 +2999,42 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                 {!isParent && !parent && (
                     <div style={{ textAlign: "center", padding: "20px 0", color: "#9CA3AF", fontSize: 14 }}>
                         부모님과 아직 연동되지 않았어요
+                    </div>
+                )}
+
+                {/* v1.1 Theme — 우리집 색깔 (parent only) */}
+                {isParent && onThemeChange && (
+                    <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #F3E9EC" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7280", marginBottom: 6 }}>우리집 색깔</div>
+                        <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 12, lineHeight: 1.5 }}>가족 단말기에 모두 적용돼요. 변경하면 즉시 반영돼요.</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                            {Object.entries(THEMES).map(([id, themeDef]) => {
+                                const selected = theme === id;
+                                return (
+                                    <button
+                                        key={id} type="button" onClick={() => onThemeChange(id)}
+                                        style={{
+                                            padding: 10, borderRadius: 12,
+                                            background: selected ? themeDef.tokens.soft : "white",
+                                            border: selected
+                                                ? `2px solid ${themeDef.tokens.primary}`
+                                                : "1.5px solid #E5E7EB",
+                                            cursor: "pointer", textAlign: "center",
+                                            fontFamily: FF, transition: "all 0.15s ease",
+                                        }}
+                                    >
+                                        <div style={{
+                                            height: 8, borderRadius: 4, marginBottom: 6,
+                                            background: themeDef.tokens["grad-primary"],
+                                        }} />
+                                        <div style={{
+                                            fontSize: 11, fontWeight: 700,
+                                            color: selected ? themeDef.tokens.text : "#6B7280",
+                                        }}>{themeDef.name}</div>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </div>
@@ -8236,11 +8272,22 @@ export default function KidsScheduler() {
 
     // ── v1.1 Theme: apply per-family theme to :root --th-* variables ────────────
     // Re-runs whenever familyInfo.theme changes (initial load + Realtime UPDATE
-    // payloads from subscribeFamilyTheme in Phase D). Falls back to default when
+    // payloads from subscribeFamilyTheme below). Falls back to default when
     // family is not yet loaded so :root keeps the warm-pink baseline.
     useEffect(() => {
         applyTheme(familyInfo?.theme || "warm-pink");
     }, [familyInfo?.theme]);
+
+    // ── v1.1 Theme: Realtime sync — when one parent device updates families.theme,
+    // sibling devices receive UPDATE and call applyTheme(). Also patches
+    // familyInfo.theme so settings UI radios reflect the new value.
+    useEffect(() => {
+        if (!familyId) return;
+        const unsub = subscribeFamilyTheme(familyId, supabase, (newTheme) => {
+            setFamilyInfo((prev) => prev ? { ...prev, theme: newTheme } : prev);
+        });
+        return () => { if (unsub) unsub(); };
+    }, [familyId]);
 
     // ── Fetch data + subscribe when familyId is available ───────────────────────
     useEffect(() => {
@@ -13226,6 +13273,21 @@ export default function KidsScheduler() {
                         }
                     }}
                     onConfirm={openConfirmDialog}
+                    theme={familyInfo?.theme || "warm-pink"}
+                    onThemeChange={async (themeId) => {
+                        try {
+                            const { error } = await supabase.from("families")
+                                .update({ theme: themeId })
+                                .eq("id", familyId);
+                            if (error) throw error;
+                            setFamilyInfo((prev) => prev ? { ...prev, theme: themeId } : prev);
+                            applyTheme(themeId);
+                            showNotif("우리집 색깔이 바뀌었어요");
+                        } catch (err) {
+                            console.error("[theme update]", err);
+                            showNotif("색깔 변경 실패: " + (err?.message || err), "error");
+                        }
+                    }}
                     onClose={() => setShowPairing(false)} />
             )}
 
