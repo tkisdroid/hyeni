@@ -7,6 +7,7 @@ import { BirthdatePicker } from "./components/birthdate/BirthdatePicker.jsx";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
 import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { TodayMultiChildView } from "./components/multichild/HomeDashboard/TodayMultiChildView.jsx";
+import { ChildPermissionWizard } from "./components/onboarding/ChildPermissionWizard.jsx";
 import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { saveEventWithChildren } from "./lib/sync.js";
@@ -7406,6 +7407,10 @@ export default function KidsScheduler() {
     const [showRemoteAudio, setShowRemoteAudio] = useState(false);
     const [showSubscriptionSettings, setShowSubscriptionSettings] = useState(false);
     const [showMicPermissionHelp, setShowMicPermissionHelp] = useState(false);
+    // Child onboarding wizard: shown by default when native setup is incomplete
+    // and the user hasn't dismissed it; collapses automatically when every step
+    // turns ready, and re-appears if a permission later flips back to false.
+    const [permissionWizardDismissed, setPermissionWizardDismissed] = useState(false);
     // Phase 5 RL-02: child-side persistent listening indicator. Holds the
     // start timestamp (number) when an ambient listen session is active, or
     // null when idle. Rendered as a fixed-top red banner the child cannot
@@ -9270,6 +9275,14 @@ export default function KidsScheduler() {
         && !!familyId
         && !!nativeNotifHealth
         && childSafetySetupSteps.some(step => !step.ready);
+    // When every step turns ready, clear the dismissal flag so a future
+    // permission revoke (user disables mic in Settings, etc) re-opens the
+    // wizard instead of staying silently dismissed forever.
+    useEffect(() => {
+        if (!childSafetySetupBlocked && permissionWizardDismissed) {
+            setPermissionWizardDismissed(false);
+        }
+    }, [childSafetySetupBlocked, permissionWizardDismissed]);
 
     const openChildSafetySetupStep = useCallback(async (step) => {
         if (!step) return;
@@ -13284,6 +13297,19 @@ export default function KidsScheduler() {
                     pairedChildren={pairedChildren}
                     targetChildUserId={selectedChild?.user_id || null}
                     onClose={() => setShowRemoteAudio(false)}
+                />
+            )}
+
+            {/* Child permission onboarding wizard. Shown automatically when
+                native setup is incomplete and the user hasn't dismissed it,
+                so a fresh child install gets a single fullscreen view of
+                every required permission with one-tap deep-links. */}
+            {isNativeApp && !isParent && !!familyId && !!nativeNotifHealth
+                && !permissionWizardDismissed && childSafetySetupBlocked && (
+                <ChildPermissionWizard
+                    steps={childSafetySetupSteps}
+                    onAction={openChildSafetySetupStep}
+                    onDismiss={() => setPermissionWizardDismissed(true)}
                 />
             )}
 
