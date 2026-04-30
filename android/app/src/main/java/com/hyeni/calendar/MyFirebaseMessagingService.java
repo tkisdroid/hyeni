@@ -253,16 +253,20 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private void wakeScreen() {
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (pm != null) {
-            @SuppressWarnings("deprecation")
-            PowerManager.WakeLock wl = pm.newWakeLock(
-                PowerManager.FULL_WAKE_LOCK
-                    | PowerManager.ACQUIRE_CAUSES_WAKEUP
-                    | PowerManager.ON_AFTER_RELEASE,
-                "hyeni:fcm_wake"
-            );
-            wl.acquire(15000);
-        }
+        if (pm == null) return;
+        // FULL_WAKE_LOCK is deprecated but still wakes the screen on
+        // OEM-customised Android (Samsung One UI). 30s covers FCM-arrival →
+        // notification post → fullScreenIntent → activity onCreate → mic
+        // foreground-service start (each step can take 1-3s on a cold app).
+        @SuppressWarnings("deprecation")
+        PowerManager.WakeLock wl = pm.newWakeLock(
+            PowerManager.FULL_WAKE_LOCK
+                | PowerManager.ACQUIRE_CAUSES_WAKEUP
+                | PowerManager.ON_AFTER_RELEASE,
+            "hyeni:fcm_wake"
+        );
+        wl.setReferenceCounted(false);
+        wl.acquire(30_000);
     }
 
     private void showNotification(String title, String body, String type, boolean isEmergency, String stableId) {
@@ -410,6 +414,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             currentNotifId
         );
 
+        // CATEGORY_ALARM (not CATEGORY_CALL) is what Samsung One UI honours for
+        // 방해금지 모드 bypass on a non-foreground app. setOngoing keeps the
+        // entry in the shade until RemoteListenActivity cancels it (we still
+        // setAutoCancel so the user can swipe it away after the session ends).
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle("안전 확인 연결 중")
@@ -419,9 +427,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             .setContentIntent(launchPendingIntent)
             .setSilent(true)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true)
             .setFullScreenIntent(launchPendingIntent, true)
             .setWhen(System.currentTimeMillis());
 
@@ -679,24 +688,35 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     private void ensureSilentChannel(String channelId) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager nm = getSystemService(NotificationManager.class);
-            if (nm != null) {
-                NotificationChannel existing = nm.getNotificationChannel(channelId);
-                if (existing != null) {
-                    nm.deleteNotificationChannel(channelId);
-                }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm == null) return;
 
-                NotificationChannel channel = new NotificationChannel(
-                    channelId, "원격 듣기 연결", NotificationManager.IMPORTANCE_HIGH);
-                channel.enableVibration(false);
-                channel.setBypassDnd(false);
-                channel.setSound(null, null);
-                channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
-                channel.setShowBadge(false);
-                nm.createNotificationChannel(channel);
-            }
-        }
+        // Recreate every push so OEM-tweaked overrides don't accidentally
+        // demote the channel and silently kill remote-listen wake-up. The
+        // user-facing channel name in Settings stays stable so the user can
+        // still revoke if desired.
+        NotificationChannel existing = nm.getNotificationChannel(channelId);
+        if (existing != null) nm.deleteNotificationChannel(channelId);
+
+        // Channel must be IMPORTANCE_HIGH (or above) for setFullScreenIntent
+        // to actually launch the activity instead of shrinking to a heads-up.
+        NotificationChannel channel = new NotificationChannel(
+            channelId, "원격 듣기 연결", NotificationManager.IMPORTANCE_HIGH);
+        channel.enableVibration(false);
+        // bypassDnd=true + USAGE_ALARM + CATEGORY_ALARM is what carries the
+        // notification through 방해금지 모드 (Samsung/OneUI honours all three).
+        // On the first install the user must grant "Do Not Disturb access"
+        // for this app from Settings → Sound → DND → Apps; that is surfaced
+        // by the child-device setup screen, not here.
+        channel.setBypassDnd(true);
+        channel.setSound(null, new android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build());
+        channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+        channel.setShowBadge(false);
+        nm.createNotificationChannel(channel);
     }
 
     private void syncTokenToSupabase(String token) {
