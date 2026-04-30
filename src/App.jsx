@@ -2803,7 +2803,27 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                         {children.map((child, i) => (
                             <div key={child.user_id || i} style={{ background: "#F0FDF4", borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: "1.5px solid #BBF7D0" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                    <div style={{ fontSize: 28 }}>{child.emoji || "🐰"}</div>
+                                    {child.photo_url ? (
+                                        <div
+                                            aria-hidden="true"
+                                            style={{
+                                                width: 44, height: 44, borderRadius: "50%",
+                                                backgroundImage: `url(${child.photo_url})`,
+                                                backgroundSize: "cover", backgroundPosition: "center",
+                                                border: "2px solid #BBF7D0", flexShrink: 0,
+                                            }}
+                                        />
+                                    ) : (
+                                        <div style={{
+                                            width: 44, height: 44, borderRadius: "50%",
+                                            background: "#DCFCE7", border: "2px solid #BBF7D0",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            fontSize: child.emoji ? 24 : 18, fontWeight: 800,
+                                            color: "#065F46", flexShrink: 0,
+                                        }}>
+                                            {child.emoji || (child.name ? child.name.trim()[0] : "👶")}
+                                        </div>
+                                    )}
                                     <div style={{ flex: 1 }}>
                                         {/* Track editing by family_member.id (always present) — using user_id
                                             previously caused unpaired placeholders (user_id=null) to match a
@@ -12159,7 +12179,7 @@ export default function KidsScheduler() {
                                         className={`hyeni-v5-kid-avatar ${index % 2 === 1 ? "blue" : ""}`}
                                         style={child.photo_url ? { backgroundImage: `url(${child.photo_url})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}
                                     >
-                                        {child.photo_url ? "" : (child.emoji || (index % 2 === 1 ? "🦊" : "🐰"))}
+                                        {child.photo_url ? "" : (child.emoji || (child.name ? child.name.trim()[0] : "👶"))}
                                         {getDashboardChildPosition(child, index) && <span className="live" />}
                                     </span>
                                     <span className="hyeni-v5-kid-info">
