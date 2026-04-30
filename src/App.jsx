@@ -6,6 +6,7 @@ import { dispatchBack, useBackHandler } from "./lib/backHandler.js";
 import { BirthdatePicker } from "./components/birthdate/BirthdatePicker.jsx";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
 import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
+import { TodayMultiChildView } from "./components/multichild/HomeDashboard/TodayMultiChildView.jsx";
 import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { saveEventWithChildren } from "./lib/sync.js";
@@ -7431,10 +7432,12 @@ export default function KidsScheduler() {
       }
     }, [isParent, pairedChildren, selectedChildId]);
     // Force-route multi-child parents back to home whenever no child is
-    // selected — every non-home tab needs a per-child context. We also raise
-    // the hint banner so the redirect doesn't feel silent.
+    // selected — every per-child tab needs a context. "오늘" (activeView ===
+    // "calendar") is exempt: it has its own multi-child aggregate view that
+    // groups events under each child and lets the parent dive in by tap.
     useEffect(() => {
-      if (isParent && isMultiChild && !selectedChildId && activeView !== "home") {
+      if (isParent && isMultiChild && !selectedChildId
+          && activeView !== "home" && activeView !== "calendar") {
         setActiveView("home");
         setMultiChildHint("상세 기능은 아이별로 확인할 수 있어요. 위에서 아이를 먼저 선택해주세요.");
       }
@@ -10463,7 +10466,7 @@ export default function KidsScheduler() {
                 <span aria-hidden="true">🏡</span>홈
               </button>
             )}
-            <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentTodayTabClick, "오늘 일정")} style={{ fontFamily: FF }}>
+            <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
                 <span aria-hidden="true">☀️</span>오늘
             </button>
             <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentCalendarTabClick, "일정 보기")} style={{ fontFamily: FF }}>
@@ -12292,7 +12295,20 @@ export default function KidsScheduler() {
             )}
 
             {/* ── CALENDAR VIEW ── */}
-            {activeView === "calendar" && (isParent ? (
+            {/* Multi-child + no selection: show the per-child today aggregate
+                instead of the single-child dashboard. Tapping a child card
+                drops into the regular per-child view via setSelectedChildId. */}
+            {activeView === "calendar" && isParent && isMultiChild && !selectedChildId && (
+                <>
+                    <TodayMultiChildView
+                        children={pairedChildren}
+                        todayEvents={todayEvents}
+                        onSelectChild={(childId) => setSelectedChildId(childId)}
+                    />
+                    {renderParentBottomTabbar("today", "hyeni-v5-tabbar-fixed")}
+                </>
+            )}
+            {activeView === "calendar" && !(isParent && isMultiChild && !selectedChildId) && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
                     <div className="hyeni-v5-section-head">
                         <span>아이 현황</span>
