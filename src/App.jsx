@@ -12971,10 +12971,11 @@ export default function KidsScheduler() {
                     }}
                     onPhotoChange={async (memberId, photoUrl) => {
                         try {
-                            const { error } = await supabase
-                                .from("family_members")
-                                .update({ photo_url: photoUrl })
-                                .eq("id", memberId);
+                            const { error } = await supabase.rpc("set_family_member_photo_url_by_id", {
+                                p_family_id: familyId,
+                                p_member_id: memberId,
+                                p_url: photoUrl,
+                            });
                             if (error) throw error;
                             const fam = await getMyFamily(authUser.id);
                             if (fam) setFamilyInfo(fam);

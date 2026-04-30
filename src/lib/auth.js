@@ -3,6 +3,36 @@ import { getUserDisplayName, getUserPhoneLocal, normalizePhoneForStorage } from 
 
 const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
 const NATIVE_OAUTH_REDIRECT_URL = "hyenicalendar://auth-callback";
+const CHILD_PHOTO_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7d
+
+// child-photos bucket is private, so getPublicUrl returns a URL anon GET cannot
+// load. Extract storage path (works for stored publicUrl, signed URL, or raw
+// path) and reissue a 7-day signed URL each time getMyFamily runs.
+function extractChildPhotoStoragePath(urlOrPath) {
+  if (typeof urlOrPath !== "string" || urlOrPath.length === 0) return null;
+  const m = urlOrPath.match(/\/storage\/v1\/object\/(?:public|sign)\/child-photos\/([^?]+)/);
+  if (m) {
+    try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+  }
+  if (urlOrPath.startsWith("http")) return null;
+  return urlOrPath;
+}
+
+async function enrichMembersWithSignedPhotos(members) {
+  if (!Array.isArray(members) || members.length === 0) return members;
+  const bucket = supabase.storage.from("child-photos");
+  return Promise.all(members.map(async (m) => {
+    if (!m?.photo_url) return m;
+    const path = extractChildPhotoStoragePath(m.photo_url);
+    if (!path) return m;
+    const { data, error } = await bucket.createSignedUrl(path, CHILD_PHOTO_SIGNED_URL_TTL_SECONDS);
+    if (error || !data?.signedUrl) {
+      console.warn("[getMyFamily] signed url failed for member", m.id, error?.message || "");
+      return { ...m, photo_url: null };
+    }
+    return { ...m, photo_url: data.signedUrl };
+  }));
+}
 
 // ── Helper: Safe UUID generator ───────────────────────────────────────────────
 export function generateUUID() {
@@ -252,13 +282,15 @@ export async function getMyFamily(userId) {
       .select("id, user_id, role, name, emoji, child_order, color_hex, birthdate, photo_url")
       .eq("family_id", parentFamily.id);
 
+    const enrichedMembers = await enrichMembersWithSignedPhotos(members || []);
+
     return {
       familyId: parentFamily.id,
       pairCode: finalPairCode,
       parentName: parentFamily.parent_name,
       myRole: "parent",
       myName: parentFamily.parent_name || "부모",
-      members: members || [],
+      members: enrichedMembers,
       phones: { mom: parentFamily.mom_phone || "", dad: parentFamily.dad_phone || "" },
       pairCodeExpiresAt: parentFamily.pair_code_expires_at ? new Date(parentFamily.pair_code_expires_at) : null,
       primaryParentId: parentFamily.parent_id,
@@ -289,13 +321,15 @@ export async function getMyFamily(userId) {
     .select("id, user_id, role, name, emoji, child_order, color_hex, birthdate, photo_url")
     .eq("family_id", membership.family_id);
 
+  const enrichedMembers = await enrichMembersWithSignedPhotos(members || []);
+
   return {
     familyId: membership.family_id,
     pairCode: finalPairCode,
     parentName: family?.parent_name || "",
     myRole: membership.role,
     myName: membership.name,
-    members: members || [],
+    members: enrichedMembers,
     phones: { mom: family?.mom_phone || "", dad: family?.dad_phone || "" },
     pairCodeExpiresAt: family?.pair_code_expires_at ? new Date(family.pair_code_expires_at) : null,
     primaryParentId: family?.parent_id || "",

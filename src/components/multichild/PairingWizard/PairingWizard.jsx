@@ -42,10 +42,11 @@ async function uploadPendingPhotos(familyId, children) {
         continue;
       }
       const { data: { publicUrl } } = bucket.getPublicUrl(path);
-      const { error: updErr } = await supabase
-        .from("family_members")
-        .update({ photo_url: publicUrl })
-        .eq("id", member.id);
+      const { error: updErr } = await supabase.rpc("set_family_member_photo_url_by_id", {
+        p_family_id: familyId,
+        p_member_id: member.id,
+        p_url: publicUrl,
+      });
       if (updErr) console.error("[PairingWizard] photo url persist failed:", updErr);
     } catch (e) {
       console.error("[PairingWizard] photo persist error:", e);
