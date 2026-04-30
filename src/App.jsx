@@ -6594,7 +6594,7 @@ function ChildCallCard({ phones = {} }) {
     );
 }
 
-function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academies = [], childLocationLabels = {}, mapReady, arrivedSet, onClose, locationTrail = [], locationHint = "", refreshRequestedAt = null, onRefreshLocation }) {
+function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren = [], events, academies = [], childLocationLabels = {}, mapReady, arrivedSet, onClose, locationTrail = [], locationHint = "", refreshRequestedAt = null, onRefreshLocation }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const myMarkerRef = useRef();
@@ -6647,20 +6647,33 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
     }, []);
 
     const childLocations = useMemo(() => {
+        const fallbackMember = pairedChildren?.[0];
         const source = allChildPositions.length > 0
             ? allChildPositions
-            : (childPos ? [{ user_id: "default", name: "우리 아이", emoji: "🐰", lat: childPos.lat, lng: childPos.lng, updatedAt: childPos.updatedAt }] : []);
+            : (childPos ? [{
+                user_id: fallbackMember?.user_id || "default",
+                name: fallbackMember?.name || "우리 아이",
+                emoji: fallbackMember?.emoji || "🐰",
+                photo_url: fallbackMember?.photo_url || null,
+                lat: childPos.lat,
+                lng: childPos.lng,
+                updatedAt: childPos.updatedAt,
+            }] : []);
         return source
             .filter(child => Number.isFinite(Number(child?.lat)) && Number.isFinite(Number(child?.lng)))
-            .map((child, i) => ({
-                ...child,
-                lat: Number(child.lat),
-                lng: Number(child.lng),
-                name: child.name || "우리 아이",
-                emoji: child.emoji || "🐰",
-                trackerKey: child.user_id || child.id || `child-${i}`,
-            }));
-    }, [allChildPositions, childPos]);
+            .map((child, i) => {
+                const photoFromMember = pairedChildren?.find(m => m.user_id && m.user_id === child.user_id)?.photo_url;
+                return {
+                    ...child,
+                    lat: Number(child.lat),
+                    lng: Number(child.lng),
+                    name: child.name || "우리 아이",
+                    emoji: child.emoji || "🐰",
+                    photo_url: child.photo_url || photoFromMember || null,
+                    trackerKey: child.user_id || child.id || `child-${i}`,
+                };
+            });
+    }, [allChildPositions, childPos, pairedChildren]);
 
     const selectedChild = childLocations.find(child => child.trackerKey === selectedChildId) || childLocations[0] || null;
     const center = selectedChild || CHILD_TRACKER_DEFAULT_CENTER;
@@ -7096,7 +7109,14 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], events, academi
                                     }}
                                     style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: isActive ? `${color}18` : `${color}10`, borderRadius: 14, border: isActive ? `2px solid ${color}` : "2px solid transparent", cursor: "pointer", textAlign: "left", fontFamily: FF, boxShadow: isActive ? `0 4px 14px ${color}22` : "none" }}
                                 >
-                                    <div style={{ width: 36, height: 36, borderRadius: 12, background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji}</div>
+                                    {child.photo_url ? (
+                                        <div
+                                            aria-hidden="true"
+                                            style={{ width: 36, height: 36, borderRadius: 12, backgroundImage: `url(${child.photo_url})`, backgroundSize: "cover", backgroundPosition: "center", border: `2px solid ${color}`, flexShrink: 0 }}
+                                        />
+                                    ) : (
+                                        <div style={{ width: 36, height: 36, borderRadius: 12, background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji || (child.name ? child.name.trim()[0] : "👶")}</div>
+                                    )}
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{child.name}</div>
                                         <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
@@ -8648,6 +8668,7 @@ export default function KidsScheduler() {
                         user_id: loc.user_id,
                         name: member?.name || "아이",
                         emoji: member?.emoji || "🐰",
+                        photo_url: member?.photo_url || null,
                         lat: loc.lat,
                         lng: loc.lng,
                         updatedAt: loc.updated_at,
@@ -9238,7 +9259,7 @@ export default function KidsScheduler() {
                 }
                 const positions = locs.map(loc => {
                     const member = children.find(c => c.user_id === loc.user_id);
-                    return { user_id: loc.user_id, name: member?.name || "아이", emoji: member?.emoji || "🐰", lat: loc.lat, lng: loc.lng, updatedAt: loc.updated_at };
+                    return { user_id: loc.user_id, name: member?.name || "아이", emoji: member?.emoji || "🐰", photo_url: member?.photo_url || null, lat: loc.lat, lng: loc.lng, updatedAt: loc.updated_at };
                 });
                 setAllChildPositions(positions);
             }).catch(err => console.error("[fetchChildLocations] failed:", err));
@@ -13049,6 +13070,7 @@ export default function KidsScheduler() {
             {/* ── Child Tracker (학부모 전용) ── */}
             {showChildTracker && <ChildTrackerOverlay
                 childPos={displayChildPos} allChildPositions={displayChildPositions}
+                pairedChildren={pairedChildren}
                 events={events} academies={academies} childLocationLabels={childLocationLabels}
                 mapReady={mapReady}
                 arrivedSet={arrivedSet} onClose={() => setShowChildTracker(false)}
