@@ -71,10 +71,31 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
-                    if (hasRecordAudioPermissionGranted()) {
-                        request.grant(request.getResources());
-                    } else {
-                        request.deny();
+                    String[] resources = request.getResources();
+                    java.util.List<String> grantList = new java.util.ArrayList<>();
+                    boolean cameraDenied = false;
+                    boolean micDenied = false;
+                    for (String r : resources) {
+                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) {
+                            if (hasCameraPermissionGranted()) grantList.add(r);
+                            else cameraDenied = true;
+                        } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) {
+                            if (hasRecordAudioPermissionGranted()) grantList.add(r);
+                            else micDenied = true;
+                        }
+                    }
+                    if (!grantList.isEmpty() && !cameraDenied && !micDenied) {
+                        request.grant(grantList.toArray(new String[0]));
+                        return;
+                    }
+                    request.deny();
+                    if (cameraDenied) {
+                        getBridge().getWebView().evaluateJavascript(
+                            "window.dispatchEvent(new CustomEvent('camera-permission-denied'))",
+                            null
+                        );
+                    }
+                    if (micDenied) {
                         getBridge().getWebView().evaluateJavascript(
                             "window.dispatchEvent(new CustomEvent('mic-permission-denied'))",
                             null
@@ -165,6 +186,10 @@ public class MainActivity extends BridgeActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             missingPermissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            missingPermissions.add(Manifest.permission.CAMERA);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -306,6 +331,17 @@ public class MainActivity extends BridgeActivity {
     // elsewhere by requestCorePermissionsIfNeeded() / handleRemoteListen().
     private boolean hasRecordAudioPermissionGranted() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED;
+    }
+
+    // QR pairing scanner gate. WebView's getUserMedia({video}) raises a
+    // RESOURCE_VIDEO_CAPTURE PermissionRequest; we forward it only when the
+    // OS-level CAMERA permission was granted by the user (bundled into
+    // requestCorePermissionsIfNeeded at first launch). On denial the JS side
+    // receives a `camera-permission-denied` DOM event so it can guide the
+    // child to the app settings.
+    private boolean hasCameraPermissionGranted() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED;
     }
 
