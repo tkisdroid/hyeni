@@ -7407,6 +7407,15 @@ export default function KidsScheduler() {
     // within a single selected child's context. For 1-child families, this is
     // auto-set so existing single-child UX is preserved.
     const [selectedChildId, setSelectedChildId] = useState(null);
+    // Multi-child explanatory banner shown when a parent taps a non-home tab
+    // before picking a child. The banner is also raised by the force-redirect
+    // useEffect below so deep-link / other entry paths surface the same hint.
+    const [multiChildHint, setMultiChildHint] = useState(null);
+    useEffect(() => {
+      if (!multiChildHint) return undefined;
+      const t = setTimeout(() => setMultiChildHint(null), 6000);
+      return () => clearTimeout(t);
+    }, [multiChildHint]);
     // Single-child families pin selectedChildId automatically so existing
     // single-child rendering paths see a non-null value with no UX delta.
     // Multi-child families clear it whenever the chosen child disappears.
@@ -7422,10 +7431,12 @@ export default function KidsScheduler() {
       }
     }, [isParent, pairedChildren, selectedChildId]);
     // Force-route multi-child parents back to home whenever no child is
-    // selected — every non-home tab needs a per-child context.
+    // selected — every non-home tab needs a per-child context. We also raise
+    // the hint banner so the redirect doesn't feel silent.
     useEffect(() => {
       if (isParent && isMultiChild && !selectedChildId && activeView !== "home") {
         setActiveView("home");
+        setMultiChildHint("상세 기능은 아이별로 확인할 수 있어요. 위에서 아이를 먼저 선택해주세요.");
       }
     }, [isParent, isMultiChild, selectedChildId, activeView]);
     const selectedChild = selectedChildId
@@ -10401,6 +10412,16 @@ export default function KidsScheduler() {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
     };
+    // Tab guards for multi-child parents: per-child tabs (today / 일정 / 장소 /
+    // 메모) need a chosen child first. Family tab is intentionally exempt so
+    // the parent can manage pairings before any child is selected.
+    const requireSelectedChildOrHint = (action, label) => () => {
+        if (isParent && isMultiChild && !selectedChildId) {
+            setMultiChildHint(`${label}은(는) 아이별로 확인할 수 있어요. 홈에서 아이를 먼저 선택해주세요.`);
+            return;
+        }
+        action?.();
+    };
     const homeChildLocationLabels = useMemo(() => {
         const labels = {};
         displayChildPositions.forEach((pos) => {
@@ -10442,21 +10463,21 @@ export default function KidsScheduler() {
                 <span aria-hidden="true">🏡</span>홈
               </button>
             )}
-            <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
+            <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentTodayTabClick, "오늘 일정")} style={{ fontFamily: FF }}>
                 <span aria-hidden="true">☀️</span>오늘
             </button>
-            <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={handleParentCalendarTabClick} style={{ fontFamily: FF }}>
+            <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentCalendarTabClick, "일정 보기")} style={{ fontFamily: FF }}>
                 <span aria-hidden="true">📅</span>일정
             </button>
             {parentCapabilities.canManagePlaces && (
-                <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={handleParentMapTabClick} style={{ fontFamily: FF }}>
+                <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentMapTabClick, "장소 관리")} style={{ fontFamily: FF }}>
                     <span aria-hidden="true">📍</span>장소관리
                 </button>
             )}
             <button
                 type="button"
                 className={activeTab === "memo" ? "active" : undefined}
-                onClick={handleParentMemoOpen}
+                onClick={requireSelectedChildOrHint(handleParentMemoOpen, "메모")}
                 style={{ fontFamily: FF }}
             >
                 <span aria-hidden="true">💬</span>메모
@@ -12232,6 +12253,28 @@ export default function KidsScheduler() {
             {/* ── HOME VIEW (multi-child only) ── */}
             {activeView === "home" && isMultiChild && (
               <div className="hyeni-v5-parent-main" aria-label="가족 홈">
+                {multiChildHint && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    onClick={() => setMultiChildHint(null)}
+                    style={{
+                      margin: "10px 16px 0",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      background: "linear-gradient(135deg,#FFF7ED,#FFEDD5)",
+                      border: "1.5px solid #FDBA74",
+                      color: "#9A3412",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      lineHeight: 1.45,
+                      cursor: "pointer",
+                      fontFamily: FF,
+                    }}
+                  >
+                    {multiChildHint}
+                  </div>
+                )}
                 <HomeTab
                   children={pairedChildren}
                   positions={displayChildPositions}
