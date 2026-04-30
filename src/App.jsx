@@ -12281,7 +12281,7 @@ export default function KidsScheduler() {
                   events={todayEvents}
                   childLocations={homeChildLocationLabels}
                   childDeviceStatusMap={childDeviceStatusMap}
-                  onMapTap={handleParentMapTabClick}
+                  onMapTap={() => setShowChildTracker(true)}
                   onSelectChild={(childId) => {
                     setSelectedChildId(childId);
                     setActiveView("calendar");
