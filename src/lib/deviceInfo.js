@@ -14,6 +14,7 @@
 const SAMSUNG_GALAXY_MAP = {
   // Galaxy S series (S25 launched 2025-02; S24 2024; S23 2023; S22 2022)
   "SM-S938": "갤럭시 S25 Ultra",
+  "SM-S937": "갤럭시 S25 Edge",
   "SM-S936": "갤럭시 S25+",
   "SM-S931": "갤럭시 S25",
   "SM-S928": "갤럭시 S24 Ultra",
