@@ -2758,12 +2758,38 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onPhotoChange, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState("");
+    const [photoUploadingId, setPhotoUploadingId] = useState(null);
+
+    async function handlePhotoSelected(child, file) {
+        if (!file || !_familyId || !child?.id) return;
+        setPhotoUploadingId(child.id);
+        try {
+            const dotIdx = file.name.lastIndexOf(".");
+            const ext = dotIdx > 0 && dotIdx < file.name.length - 1
+                ? file.name.slice(dotIdx + 1).toLowerCase()
+                : "jpg";
+            const orderKey = child.child_order || child.id;
+            const path = `${_familyId}/child-${orderKey}-${Date.now()}.${ext}`;
+            const bucket = supabase.storage.from("child-photos");
+            const { error: upErr } = await bucket.upload(path, file, { upsert: true });
+            if (upErr) throw upErr;
+            const { data } = bucket.getPublicUrl(path);
+            await onPhotoChange?.(child.id, data.publicUrl);
+        } catch (err) {
+            console.error("[PairingModal photo upload]", err);
+            if (typeof window !== "undefined") {
+                window.alert("사진 업로드 실패: " + (err?.message || err));
+            }
+        } finally {
+            setPhotoUploadingId(null);
+        }
+    }
 
     return (
         <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
@@ -2839,16 +2865,36 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                     style={{ padding: "6px 8px", borderRadius: 10, background: "#F3F4F6", color: "#6B7280", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
                                             </div>
                                         ) : (
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
                                                 <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
                                                 {canManageFamily && child.id && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => { setEditingId(child.id); setEditName(child.name); }}
-                                                        style={{ padding: "4px 10px", borderRadius: 10, background: "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
-                                                    >
-                                                        ✏️ 이름 수정
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setEditingId(child.id); setEditName(child.name); }}
+                                                            style={{ padding: "4px 10px", borderRadius: 10, background: "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
+                                                        >
+                                                            ✏️ 이름 수정
+                                                        </button>
+                                                        <label
+                                                            htmlFor={`pmodal-photo-${child.id}`}
+                                                            style={{ padding: "4px 10px", borderRadius: 10, background: photoUploadingId === child.id ? "#FEF3C7" : "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA", fontSize: 11, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
+                                                        >
+                                                            {photoUploadingId === child.id ? "⏳ 업로드" : "📷 사진 수정"}
+                                                        </label>
+                                                        <input
+                                                            id={`pmodal-photo-${child.id}`}
+                                                            type="file"
+                                                            accept="image/*"
+                                                            disabled={photoUploadingId === child.id}
+                                                            style={{ display: "none" }}
+                                                            onChange={e => {
+                                                                const f = e.target.files?.[0];
+                                                                e.target.value = "";
+                                                                handlePhotoSelected(child, f);
+                                                            }}
+                                                        />
+                                                    </>
                                                 )}
                                             </div>
                                         )}
@@ -12922,6 +12968,21 @@ export default function KidsScheduler() {
                             if (fam) setFamilyInfo(fam);
                             showNotif(`이름이 "${newName}"으로 변경됐어요`);
                         } catch (err) { console.error("[rename]", err); showNotif("이름 변경 실패: " + (err.message || err), "error"); }
+                    }}
+                    onPhotoChange={async (memberId, photoUrl) => {
+                        try {
+                            const { error } = await supabase
+                                .from("family_members")
+                                .update({ photo_url: photoUrl })
+                                .eq("id", memberId);
+                            if (error) throw error;
+                            const fam = await getMyFamily(authUser.id);
+                            if (fam) setFamilyInfo(fam);
+                            showNotif("사진이 변경됐어요");
+                        } catch (err) {
+                            console.error("[photo update]", err);
+                            showNotif("사진 변경 실패: " + (err.message || err), "error");
+                        }
                     }}
                     onConfirm={openConfirmDialog}
                     onClose={() => setShowPairing(false)} />
