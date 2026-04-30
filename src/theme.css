@@ -1,0 +1,44 @@
+/* src/theme.css — v1.1 Theme System base variables.
+ *
+ * Imported in main.jsx alongside index.css. Defines:
+ *   --th-*    theme variables (overwritten by applyTheme() at runtime)
+ *   --safe-*  safety lock colors (NEVER themeable — SOS/긴급/하트/parent)
+ *   --cat-*   category colors    (NEVER themeable — school/academy/family/hospital)
+ *
+ * The split exists so a runtime call to applyTheme() can only touch --th-*.
+ * The safety/category colors stay constant across all 6 themes (memory:
+ * design_color_rules and SPEC §4.2).
+ */
+
+:root {
+  /* ── Theme variables (default = warm-pink). applyTheme() overwrites these. */
+  --th-primary: #F779A8;
+  --th-deep: #E65C92;
+  --th-text: #B0477A;
+  --th-soft: #FFF5FA;
+  --th-line: #FFE4EF;
+  --th-line-strong: #FFD4E7;
+  --th-grad-primary: linear-gradient(135deg, #F779A8 0%, #E65C92 100%);
+  --th-grad-shell:
+    radial-gradient(240px 160px at 10% 0%, rgba(255, 200, 220, 0.80) 0%, transparent 60%),
+    radial-gradient(240px 200px at 100% 100%, rgba(255, 225, 180, 0.60) 0%, transparent 60%),
+    #FFFAF5;
+
+  /* ── Safety lock variables — NEVER overridden by themes. */
+  --safe-sos: #DC2626;
+  --safe-sos-pale: #FEF2F2;
+  --safe-warn: #D97706;
+  --safe-warn-pale: #FFFBEB;
+  --safe-parent: #3B82F6;
+  --safe-parent-deep: #2563EB;
+  --safe-parent-pale: #EFF6FF;
+  --safe-success: #059669;
+  --safe-success-pale: #ECFDF5;
+
+  /* ── Category colors — NEVER overridden by themes.
+        Used for school/academy/family/hospital category dots & badges. */
+  --cat-school: #3B82F6;
+  --cat-academy: #8B5CF6;
+  --cat-family: #F779A8;
+  --cat-hospital: #EF4444;
+}
