@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, selectChildOnHomeIfMulti } from "./_helpers.js";
 
 test.describe("multichild — color change reflects in realtime UI", () => {
   test.skip(
@@ -12,6 +12,8 @@ test.describe("multichild — color change reflects in realtime UI", () => {
     await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
     await page.waitForTimeout(2000);
+    await selectChildOnHomeIfMulti(page, "혜니");
+    await page.waitForTimeout(500);
 
     // Navigate to subscription screen — that's where PerChildToggle renders
     // a wrapper [data-child-id] with an inner avatar div whose border-color
@@ -50,6 +52,8 @@ test.describe("multichild — color change reflects in realtime UI", () => {
     await page.waitForTimeout(3000);
     await page.reload();
     await page.waitForTimeout(2000);
+    await selectChildOnHomeIfMulti(page, "혜니");
+    await page.waitForTimeout(500);
     await page.click("button[aria-label='💎 구독']");
     await page.waitForSelector(`[data-child-id='${child1_id}']`, { timeout: 10000 });
 

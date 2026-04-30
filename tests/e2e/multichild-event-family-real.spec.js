@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent, getDbRowCount } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, getDbRowCount, selectChildOnHomeIfMulti } from "./_helpers.js";
 
 test.describe("multichild — family-all event sets is_family_event=true", () => {
   test.skip(
@@ -11,6 +11,9 @@ test.describe("multichild — family-all event sets is_family_event=true", () =>
     const { parent_email, parent_password } = await seedFamilyWith2Children();
     await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
+    await page.waitForTimeout(2500);
+    await selectChildOnHomeIfMulti(page, "혜니");
+    await page.waitForTimeout(500);
 
     const before = await getDbRowCount("events_children", "");
 

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedLegacyFamily, loginAsExistingParent } from "./_helpers.js";
+import { seedLegacyFamily, loginAsExistingParent, selectChildOnHomeIfMulti } from "./_helpers.js";
 
 test.describe("multichild — add/remove child updates total price", () => {
   test.skip(
@@ -65,6 +65,11 @@ test.describe("multichild — add/remove child updates total price", () => {
     await page.waitForTimeout(2000);
     await page.reload();
     await page.waitForTimeout(2000);
+    // Family is now multi-child after the REST INSERT — Phase 2 lands the
+    // parent on the home tab and gates the calendar/구독 button behind a
+    // child selection. Helper is no-op for single-child flows.
+    await selectChildOnHomeIfMulti(page, "혜니");
+    await page.waitForTimeout(500);
     await page.click("button[aria-label='💎 구독']");
     await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
     await expect(page.locator("text=₩3,000").first()).toBeVisible({ timeout: 8000 });
