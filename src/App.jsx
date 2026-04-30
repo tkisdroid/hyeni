@@ -2758,6 +2758,53 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Remote-listen readiness summary for the parent's child card. Each step is
+// derived from family_members.device_health (published by the child app).
+// Order matches CHILD_SAFETY_SETUP_STEPS so the badge and the child-side setup
+// list use the same priority for "the missing one".
+// ─────────────────────────────────────────────────────────────────────────────
+const REMOTE_LISTEN_HEALTH_STEPS = Object.freeze([
+    { key: "recordAudio", label: "마이크 권한" },
+    { key: "postNotif", label: "알림 권한" },
+    { key: "channelOk", label: "연결 알림 채널" },
+    { key: "fullScreen", label: "전체화면 알림" },
+    { key: "battery", label: "배터리 예외" },
+    { key: "locationOk", label: "위치 항상 허용" },
+]);
+
+function summarizeRemoteListenHealth(health) {
+    if (!health || typeof health !== "object") {
+        return { ready: false, missing: REMOTE_LISTEN_HEALTH_STEPS, hasReport: false };
+    }
+    const missing = REMOTE_LISTEN_HEALTH_STEPS.filter((s) => health[s.key] !== true);
+    return { ready: missing.length === 0, missing, hasReport: true };
+}
+
+function ChildRemoteListenReadiness({ health }) {
+    const summary = summarizeRemoteListenHealth(health);
+    if (!summary.hasReport) {
+        return (
+            <div style={{ marginTop: 4, fontSize: 10, color: "#9CA3AF", fontFamily: FF }}>
+                🎤 원격 청취 준비 — 자녀 앱에서 보고 대기 중
+            </div>
+        );
+    }
+    if (summary.ready) {
+        return (
+            <div style={{ marginTop: 4, fontSize: 10, color: "#15803D", fontWeight: 700, fontFamily: FF }}>
+                ✅ 원격 청취 준비 완료
+            </div>
+        );
+    }
+    const missingLabels = summary.missing.map((s) => s.label).join(" · ");
+    return (
+        <div style={{ marginTop: 4, fontSize: 10, color: "#B45309", fontWeight: 700, fontFamily: FF }}>
+            ⚠️ 원격 청취 준비 부족 — {missingLabels}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
 function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onPhotoChange, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null, childDeviceStatusMap = {} }) {
@@ -2899,6 +2946,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                             </div>
                                         )}
                                         <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 {childDeviceStatusMap?.[child.user_id]?.deviceLabel || child.device_label || `기기 ${i + 1}`}</div>
+                                        <ChildRemoteListenReadiness health={child.device_health} />
                                     </div>
                                     {canManageFamily && (
                                         <button onClick={() => {
@@ -5164,7 +5212,7 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
 // Audio Recorder (ambient sound for safety)
 // ─────────────────────────────────────────────────────────────────────────────
 // Remote Ambient Audio Listener (Parent sends command → Child records → streams back)
-function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, onClose }) {
+function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, onClose, pairedChildren = [], targetChildUserId = null }) {
     const [status, setStatus] = useState("idle"); // idle, pushing, auto_waking_child, waiting_for_child_notification, listening, failed
     const [duration, setDuration] = useState(0);
     const [errorMessage, setErrorMessage] = useState("");
@@ -5213,6 +5261,34 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
             setErrorMessage("가족 연결 정보가 없어 주변음성듣기를 시작할 수 없어요.");
             setStatus("failed");
             return;
+        }
+        // Pre-flight on the published device_health snapshot so we can warn
+        // before sending an FCM that the child can't act on. We do NOT block —
+        // the child's snapshot may be stale, and force-stopping a parent who
+        // accepts the risk is worse UX. Show the missing items, then continue.
+        const preflightChildren = (Array.isArray(pairedChildren) ? pairedChildren : [])
+            .filter((c) => c?.role === "child" && c?.user_id);
+        const targetCandidates = targetChildUserId
+            ? preflightChildren.filter((c) => c.user_id === targetChildUserId)
+            : preflightChildren;
+        if (targetCandidates.length > 0) {
+            const blockedNames = [];
+            for (const c of targetCandidates) {
+                const summary = summarizeRemoteListenHealth(c.device_health);
+                if (!summary.ready) {
+                    const detail = summary.hasReport
+                        ? summary.missing.map((s) => s.label).join(", ")
+                        : "자녀 앱이 아직 보고하지 않음";
+                    blockedNames.push(`${c.name || "아이"} (${detail})`);
+                }
+            }
+            if (blockedNames.length > 0) {
+                const proceed = window.confirm(
+                    "다음 아이의 기기 설정이 부족해요:\n\n" + blockedNames.join("\n") +
+                    "\n\n이 상태에서는 화면이 꺼져 있을 때 연결이 안 될 수 있어요. 그래도 시도할까요?"
+                );
+                if (!proceed) return;
+            }
         }
         startInFlightRef.current = true;
         stopActivePlayback();
@@ -8530,6 +8606,42 @@ export default function KidsScheduler() {
         })();
         return () => { cancelled = true; };
     }, [isParent, familyId, authUser?.id]);
+
+    // ── Child: persist native permission snapshot for parent pre-flight ───────
+    // The parent app can't know whether a child's USE_FULL_SCREEN_INTENT /
+    // battery / DND / mic / channel are all green until the child reports.
+    // Without this snapshot the parent presses 주변소리 듣기, the FCM lands but
+    // a missing 권한 silently blocks the wake — exactly the symptom the user
+    // reported. Publish on every health/bg-location change; values rarely
+    // change so re-emits stay cheap. RLS fm_upd permits self-row write.
+    useEffect(() => {
+        if (!isNativeApp || isParent || !familyId || !authUser?.id) return;
+        if (!nativeNotifHealth) return;
+        const snapshot = {
+            recordAudio: nativeNotifHealth.recordAudioGranted === true,
+            postNotif: nativeNotifHealth.postPermissionGranted === true && nativeNotifHealth.notificationsEnabled === true,
+            fullScreen: nativeNotifHealth.fullScreenIntentAllowed === true,
+            battery: nativeNotifHealth.batteryOptimizationsIgnored === true,
+            channelOk: nativeNotifHealth.remoteListenChannelEnabled !== false,
+            locationOk: bgLocationGranted === true,
+            lastReportedAt: new Date().toISOString(),
+        };
+        let cancelled = false;
+        (async () => {
+            try {
+                const { error } = await supabase
+                    .from("family_members")
+                    .update({ device_health: snapshot })
+                    .eq("user_id", authUser.id);
+                if (cancelled) return;
+                if (error) console.warn("[DeviceHealth] persist failed:", error.message || error);
+            } catch (e) {
+                if (cancelled) return;
+                console.warn("[DeviceHealth] persist error:", e?.message || e);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isNativeApp, isParent, familyId, authUser?.id, nativeNotifHealth, bgLocationGranted]);
 
     // ── Child device safety status broadcast (battery/screen/app-state) ───────
     useEffect(() => {
@@ -13169,6 +13281,8 @@ export default function KidsScheduler() {
                     channel={realtimeChannel.current}
                     familyId={familyId}
                     senderUserId={authUser?.id}
+                    pairedChildren={pairedChildren}
+                    targetChildUserId={selectedChild?.user_id || null}
                     onClose={() => setShowRemoteAudio(false)}
                 />
             )}
