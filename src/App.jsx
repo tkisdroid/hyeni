@@ -7927,6 +7927,19 @@ export default function KidsScheduler() {
         };
     }, [isNativeApp, refreshNativeReadiness]);
 
+    // ── Child: poll background-location grant while the banner is showing ─────
+    // ACCESS_BACKGROUND_LOCATION on Android 11+ can't be requested via a
+    // dialog — the OS forces the user into the app's location-settings page.
+    // When they pick "항상 허용" and return, visibilitychange usually fires,
+    // but some OEM transitions skip it (or fire too early). A short 2s poll
+    // closes the gap so the banner disappears the moment the OS grant lands,
+    // making it feel like the app advanced "right away" after the user's tap.
+    useEffect(() => {
+        if (!isNativeApp || isParent || bgLocationGranted) return;
+        const id = setInterval(() => { void refreshNativeReadiness(); }, 2000);
+        return () => clearInterval(id);
+    }, [isNativeApp, isParent, bgLocationGranted, refreshNativeReadiness]);
+
     // ── Subscribe to server-side Web Push when permission + family are ready ────
     // 네이티브 앱(Android)에서는 FCM을 사용하므로 Web Push 구독 안 함 (이중 알림 방지)
     useEffect(() => {
