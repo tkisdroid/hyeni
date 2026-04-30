@@ -2897,7 +2897,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                 )}
                                             </div>
                                         )}
-                                        <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 {childDeviceStatusMap?.[child.user_id]?.deviceLabel || `기기 ${i + 1}`}</div>
+                                        <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 {childDeviceStatusMap?.[child.user_id]?.deviceLabel || child.device_label || `기기 ${i + 1}`}</div>
                                     </div>
                                     {canManageFamily && (
                                         <button onClick={() => {
@@ -8475,6 +8475,33 @@ export default function KidsScheduler() {
             clearInterval(interval);
             clearTimeout(timer);
         };
+    }, [isParent, familyId, authUser?.id]);
+
+    // ── Child: persist UA-derived device_label to family_members ──────────────
+    // Broadcasts are ephemeral — if a parent isn't actively listening when a
+    // child publishes, the label evaporates and the management card falls back
+    // to "기기 1". A column on family_members survives reloads and is read by
+    // getMyFamily, so once-per-mount self-row UPDATE makes the label sticky.
+    // RLS fm_upd policy already allows user_id = auth.uid() to update its own row.
+    useEffect(() => {
+        if (isParent || !familyId || !authUser?.id) return;
+        const label = getDeviceLabelFromUA();
+        if (!label) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const { error } = await supabase
+                    .from("family_members")
+                    .update({ device_label: label })
+                    .eq("user_id", authUser.id);
+                if (cancelled) return;
+                if (error) console.warn("[DeviceLabel] persist failed:", error.message || error);
+            } catch (e) {
+                if (cancelled) return;
+                console.warn("[DeviceLabel] persist error:", e?.message || e);
+            }
+        })();
+        return () => { cancelled = true; };
     }, [isParent, familyId, authUser?.id]);
 
     // ── Child device safety status broadcast (battery/screen/app-state) ───────
