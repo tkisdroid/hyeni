@@ -259,7 +259,7 @@ export async function getMyFamily(userId) {
   if (!membership) {
     const { data: parentFamily, error: parentFamilyError } = await supabase
       .from("families")
-      .select("id, parent_id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
+      .select("id, parent_id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at, theme")
       .eq("parent_id", userId)
       .limit(1)
       .maybeSingle();
@@ -296,12 +296,13 @@ export async function getMyFamily(userId) {
       primaryParentId: parentFamily.parent_id,
       isPrimaryParent: parentFamily.parent_id === userId,
       isCoParent: false,
+      theme: parentFamily.theme || "warm-pink",
     };
   }
 
   const { data: family, error: familyError } = await supabase
     .from("families")
-    .select("id, parent_id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
+    .select("id, parent_id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at, theme")
     .eq("id", membership.family_id)
     .single();
   if (familyError) console.warn("[getMyFamily] family query failed:", familyError);
@@ -335,6 +336,7 @@ export async function getMyFamily(userId) {
     primaryParentId: family?.parent_id || "",
     isPrimaryParent: family?.parent_id === userId,
     isCoParent: membership.role === "parent" && family?.parent_id !== userId,
+    theme: family?.theme || "warm-pink",
   };
 }
 

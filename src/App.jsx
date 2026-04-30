@@ -33,6 +33,7 @@ import ActivePlaydateBanner from "./components/friendPlaydate/ActivePlaydateBann
 import { upsertPublicPlace } from "./lib/friendPlaydate.js";
 import { ForceRingPanel } from "./components/forceRing/ForceRingPanel.jsx";
 import { getDeviceLabelFromUA } from "./lib/deviceInfo.js";
+import { applyTheme, subscribeFamilyTheme } from "./lib/theme.js";
 import "./App.css";
 
 function normalizeKakaoAppKey(value) {
@@ -791,41 +792,47 @@ const AppBrandLogo = ({ size = 80, radius = 24, shadow = true }) => (
 // ─────────────────────────────────────────────────────────────────────────────
 const FF = "'Pretendard Variable','Pretendard','Noto Sans KR','Apple SD Gothic Neo',sans-serif";
 
+// v1.1: theme tokens (pink*) → var(--th-*), safety tokens (parent*/success*/
+// warning*/danger*) → var(--safe-*). See src/theme.css and src/lib/theme.js.
+// The string values that look like CSS hex are now CSS variable references —
+// React inlines them into style attributes which CSS resolves at paint time.
+// Neutral colors (ink/muted/line/cream/pale) and complex gradients (page/hero/
+// onboard/map/danger/parent) stay hex-locked because they are not theme-bound.
 const DESIGN = Object.freeze({
     colors: {
-        brand: "#E65C92",
-        brandDark: "#C4447A",
-        pink: "#F779A8",
-        pinkDeep: "#E65C92",
-        pinkText: "#B0477A",
-        pinkSoft: "#FFF5FA",
-        pinkLine: "#FFE4EF",
-        pinkLineStrong: "#FFD4E7",
+        brand: "var(--th-deep)",
+        brandDark: "var(--th-text)",
+        pink: "var(--th-primary)",
+        pinkDeep: "var(--th-deep)",
+        pinkText: "var(--th-text)",
+        pinkSoft: "var(--th-soft)",
+        pinkLine: "var(--th-line)",
+        pinkLineStrong: "var(--th-line-strong)",
         pale: "#FFFAF5",
         cream: "#FCF1EB",
-        parent: "#3B82F6",
-        parentDeep: "#2563EB",
-        parentPale: "#EFF6FF",
+        parent: "var(--safe-parent)",
+        parentDeep: "var(--safe-parent-deep)",
+        parentPale: "var(--safe-parent-pale)",
         ink: "#38252D",
         inkSoft: "#75525C",
         muted: "#9B7C85",
         line: "#F3E9EC",
         lineStrong: "#EFE9F1",
-        success: "#059669",
-        successPale: "#ECFDF5",
-        warning: "#D97706",
-        warningPale: "#FFFBEB",
-        danger: "#DC2626",
-        dangerPale: "#FEF2F2",
+        success: "var(--safe-success)",
+        successPale: "var(--safe-success-pale)",
+        warning: "var(--safe-warn)",
+        warningPale: "var(--safe-warn-pale)",
+        danger: "var(--safe-sos)",
+        dangerPale: "var(--safe-sos-pale)",
         surface: "#FFFFFF",
     },
     gradients: {
-        shell: "radial-gradient(240px 160px at 10% 0%, rgba(255,200,220,0.80) 0%, transparent 60%), radial-gradient(240px 200px at 100% 100%, rgba(255,225,180,0.60) 0%, transparent 60%), #FFFAF5",
+        shell: "var(--th-grad-shell)",
         page: "radial-gradient(1400px 800px at 10% -10%, #FFDEEC 0%, transparent 55%), radial-gradient(1400px 800px at 90% 110%, #FFEBBE 0%, transparent 55%), radial-gradient(1200px 700px at 50% 50%, #D0E0FA 0%, transparent 60%), linear-gradient(180deg, #FCF1EB 0%, #F5EBF3 100%)",
-        primary: "linear-gradient(135deg,#F779A8 0%,#E65C92 100%)",
+        primary: "var(--th-grad-primary)",
         hero: "linear-gradient(135deg,#FFC2D9 0%,#FF9EBF 100%)",
         parent: "linear-gradient(135deg,#60A5FA 0%,#3B82F6 100%)",
-        child: "linear-gradient(135deg,#F779A8 0%,#FF6B9D 100%)",
+        child: "var(--th-grad-primary)",
         warm: "linear-gradient(135deg,#FFFFFF 0%,#FFF5FA 100%)",
         onboard: "radial-gradient(500px 400px at 50% 0%, #FFDCEC 0%, transparent 60%), radial-gradient(400px 300px at 100% 100%, #FFEBC2 0%, transparent 60%), radial-gradient(400px 350px at 0% 80%, #D0E4FA 0%, transparent 60%), linear-gradient(180deg, #FFF8F2 0%, #F6E9F0 100%)",
         map: "radial-gradient(200px 200px at 30% 30%, #FFE4EF 0%, transparent 60%), radial-gradient(300px 220px at 70% 60%, #E0F0FE 0%, transparent 60%), radial-gradient(200px 180px at 50% 90%, #FFEBBE 0%, transparent 60%), linear-gradient(180deg, #FDF5F0 0%, #F0E8F3 100%)",
@@ -8226,6 +8233,14 @@ export default function KidsScheduler() {
             console.warn("[subscription] identify failed:", error);
         });
     }, [familyId, authUser?.id, isParent]);
+
+    // ── v1.1 Theme: apply per-family theme to :root --th-* variables ────────────
+    // Re-runs whenever familyInfo.theme changes (initial load + Realtime UPDATE
+    // payloads from subscribeFamilyTheme in Phase D). Falls back to default when
+    // family is not yet loaded so :root keeps the warm-pink baseline.
+    useEffect(() => {
+        applyTheme(familyInfo?.theme || "warm-pink");
+    }, [familyInfo?.theme]);
 
     // ── Fetch data + subscribe when familyId is available ───────────────────────
     useEffect(() => {
