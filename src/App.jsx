@@ -30,6 +30,7 @@ import FriendPlaydateChildPanel from "./components/friendPlaydate/FriendPlaydate
 import ActivePlaydateBanner from "./components/friendPlaydate/ActivePlaydateBanner.jsx";
 import { upsertPublicPlace } from "./lib/friendPlaydate.js";
 import { ForceRingPanel } from "./components/forceRing/ForceRingPanel.jsx";
+import { getDeviceLabelFromUA } from "./lib/deviceInfo.js";
 import "./App.css";
 
 function normalizeKakaoAppKey(value) {
@@ -2758,7 +2759,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onPhotoChange, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onPhotoChange, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null, childDeviceStatusMap = {} }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
@@ -2855,50 +2856,48 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                             previously caused unpaired placeholders (user_id=null) to match a
                                             null editingId and auto-render the input + keyboard with empty value. */}
                                         {editingId && editingId === child.id ? (
-                                            <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0, maxWidth: "100%" }}>
+                                            <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0, flexWrap: "wrap" }}>
                                                 <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
-                                                    style={{ width: 80, minWidth: 0, padding: "6px 8px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
+                                                    style={{ width: 110, minWidth: 0, padding: "6px 8px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
                                                     maxLength={10} />
                                                 <button onClick={() => { if (editName.trim() && onRename && canManageFamily && child.id) { onRename(child.id, editName.trim()); } setEditingId(null); }}
                                                     style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
                                                 <button onClick={() => setEditingId(null)}
                                                     style={{ padding: "6px 8px", borderRadius: 10, background: "#F3F4F6", color: "#6B7280", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
+                                                <label
+                                                    htmlFor={`pmodal-photo-${child.id}`}
+                                                    style={{ padding: "6px 10px", borderRadius: 10, background: photoUploadingId === child.id ? "#FEF3C7" : "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA", fontSize: 12, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
+                                                >
+                                                    {photoUploadingId === child.id ? "⏳ 업로드 중" : "📷 사진 변경"}
+                                                </label>
+                                                <input
+                                                    id={`pmodal-photo-${child.id}`}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    disabled={photoUploadingId === child.id}
+                                                    style={{ display: "none" }}
+                                                    onChange={e => {
+                                                        const f = e.target.files?.[0];
+                                                        e.target.value = "";
+                                                        handlePhotoSelected(child, f);
+                                                    }}
+                                                />
                                             </div>
                                         ) : (
                                             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
                                                 <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
                                                 {canManageFamily && child.id && (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => { setEditingId(child.id); setEditName(child.name); }}
-                                                            style={{ padding: "4px 10px", borderRadius: 10, background: "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
-                                                        >
-                                                            ✏️ 이름 수정
-                                                        </button>
-                                                        <label
-                                                            htmlFor={`pmodal-photo-${child.id}`}
-                                                            style={{ padding: "4px 10px", borderRadius: 10, background: photoUploadingId === child.id ? "#FEF3C7" : "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA", fontSize: 11, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
-                                                        >
-                                                            {photoUploadingId === child.id ? "⏳ 업로드" : "📷 사진 수정"}
-                                                        </label>
-                                                        <input
-                                                            id={`pmodal-photo-${child.id}`}
-                                                            type="file"
-                                                            accept="image/*"
-                                                            disabled={photoUploadingId === child.id}
-                                                            style={{ display: "none" }}
-                                                            onChange={e => {
-                                                                const f = e.target.files?.[0];
-                                                                e.target.value = "";
-                                                                handlePhotoSelected(child, f);
-                                                            }}
-                                                        />
-                                                    </>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setEditingId(child.id); setEditName(child.name); }}
+                                                        style={{ padding: "4px 10px", borderRadius: 10, background: "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
+                                                    >
+                                                        ✏️ 프로필 수정
+                                                    </button>
                                                 )}
                                             </div>
                                         )}
-                                        <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 기기 {i + 1}</div>
+                                        <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 {childDeviceStatusMap?.[child.user_id]?.deviceLabel || `기기 ${i + 1}`}</div>
                                     </div>
                                     {canManageFamily && (
                                         <button onClick={() => {
@@ -8537,6 +8536,7 @@ export default function KidsScheduler() {
                 sessionStartedAt: new Date(screenSessionStartedAtRef.current).toISOString(),
                 recentApp: recentAppPackage || "혜니캘린더 (앱 외 사용기록은 OS 권한 필요)",
                 usagePermission,
+                deviceLabel: getDeviceLabelFromUA(),
                 source: "webview-session",
             };
         };
@@ -12928,6 +12928,7 @@ export default function KidsScheduler() {
             {showPairing && familyId && (
                 <PairingModal myRole={familyInfo?.myRole || myRole} pairCode={pairCode} pairedMembers={familyInfo?.members}
                     familyId={familyId}
+                    childDeviceStatusMap={childDeviceStatusMap}
                     maxChildren={entitlement.canUse(FEATURES.MULTI_CHILD) ? 2 : 1}
                     lockedMessage={!entitlement.canUse(FEATURES.MULTI_CHILD) ? "두 번째 아이를 추가하려면 프리미엄을 시작해 주세요" : ""}
                     pairCodeExpiresAt={familyInfo?.pairCodeExpiresAt || null}
