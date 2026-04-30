@@ -116,7 +116,7 @@ export async function logout() {
 
 // ── Setup family (parent, after login) ──────────────────────────────────────
 export async function setupFamily(userId, parentName, options = {}) {
-  const { familyName = "", plannedChildCount = 1, children = [], parentPhone = "", parentGender = "" } = options;
+  const { familyName = "", plannedChildCount = 1, children = [], parentPhone = "", parentGender = "", theme = "warm-pink" } = options;
   const normalizedParentPhone = (() => {
     try {
       return parentPhone ? normalizePhoneForStorage(parentPhone) : "";
@@ -153,6 +153,9 @@ export async function setupFamily(userId, parentName, options = {}) {
     if (normalizedParentPhone && !existing[phoneColumn]) {
       updates[phoneColumn] = normalizedParentPhone;
     }
+    if (theme && theme !== "warm-pink") {
+      updates.theme = theme;
+    }
     if (Object.keys(updates).length > 0) {
       const { error: updateError } = await supabase.from("families")
         .update(updates)
@@ -166,6 +169,7 @@ export async function setupFamily(userId, parentName, options = {}) {
       planned_child_count: plannedChildCount,
       parent_name: parentName || "부모",
       name: familyName,
+      theme,
     };
     insertRow[phoneColumn] = normalizedParentPhone;
     const { data: created, error: createError } = await supabase

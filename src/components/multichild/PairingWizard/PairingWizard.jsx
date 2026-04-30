@@ -4,6 +4,7 @@ import { setupFamily } from "../../../lib/auth.js";
 import { supabase } from "../../../lib/supabase.js";
 import { useBackHandler } from "../../../lib/backHandler.js";
 import { autoAssignColor } from "../ChildPalette.js";
+import { THEMES, applyTheme } from "../../../lib/theme.js";
 import { ChildCountStep } from "./ChildCountStep.jsx";
 import { ChildDetailsStep } from "./ChildDetailsStep.jsx";
 
@@ -59,16 +60,18 @@ export function PairingWizard({ userId, parentName, parentPhone = "", parentGend
   const [familyName, setFamilyName] = useState("");
   const [childCount, setChildCount] = useState(null);
   const [children, setChildren] = useState([]);
+  const [theme, setTheme] = useState("warm-pink");
   const [family, setFamily] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
   // Hardware back: step back through the wizard. At step 0, fall out via onCancel.
-  // After family is created (steps 3, 4), back finalises via onComplete instead of
-  // re-opening the children form (data has already been committed to the server).
+  // After family is created (steps 4, 5 — pair code + complete), back finalises
+  // via onComplete instead of re-opening earlier forms (the family row has
+  // already been committed to the server).
   useBackHandler(() => {
     if (busy) return true;
-    if (stepIndex >= 3) {
+    if (stepIndex >= 4) {
       onComplete?.(family);
       return true;
     }
@@ -100,7 +103,15 @@ export function PairingWizard({ userId, parentName, parentPhone = "", parentGend
     }
   }
 
-  async function submitChildren() {
+  // Step 2 (자녀 상세) → Step 3 (테마 선택). Children data is staged in
+  // local state; family row is created at step 3 (submitFamily) so that the
+  // chosen theme is persisted in the same INSERT.
+  function advanceFromChildren() {
+    setError(null);
+    setStepIndex(3);
+  }
+
+  async function submitFamily() {
     setBusy(true);
     setError(null);
     try {
@@ -114,14 +125,14 @@ export function PairingWizard({ userId, parentName, parentPhone = "", parentGend
           : (c.photo_url || null),
       }));
       const created = await setupFamily(userId, parentName, {
-        familyName, plannedChildCount: childCount, children: childrenForInsert, parentPhone, parentGender,
+        familyName, plannedChildCount: childCount, children: childrenForInsert, parentPhone, parentGender, theme,
       });
       // Best-effort: upload pending photos now that the family folder exists.
       // Failures are logged but the wizard still advances — user can re-add
       // photos from a future settings UI if any single upload missed.
       await uploadPendingPhotos(created.id, children);
       setFamily(created);
-      setStepIndex(3);
+      setStepIndex(4);
     } catch (err) {
       setError(err.message || "가족 생성 실패");
     } finally {
@@ -131,7 +142,7 @@ export function PairingWizard({ userId, parentName, parentPhone = "", parentGend
 
   return (
     <div style={{ padding: 24, maxWidth: 480, margin: "0 auto" }}>
-      <ProgressBar current={stepIndex} total={5} />
+      <ProgressBar current={stepIndex} total={6} />
 
       {stepIndex === 0 && (
         <Step1FamilyName value={familyName} onChange={setFamilyName} onNext={() => setStepIndex(1)} />
@@ -146,15 +157,23 @@ export function PairingWizard({ userId, parentName, parentPhone = "", parentGend
         <Step3Children
           children={children} onChange={setChildren}
           familyId={family?.id || "pending"}
-          busy={busy} error={error}
-          onSubmit={submitChildren}
+          busy={false} error={null}
+          onSubmit={advanceFromChildren}
         />
       )}
-      {stepIndex === 3 && family && (
-        <Step4PairCode family={family} onNext={() => setStepIndex(4)} />
+      {stepIndex === 3 && (
+        <Step4ThemePicker
+          value={theme}
+          onChange={(id) => { setTheme(id); applyTheme(id); }}
+          busy={busy} error={error}
+          onSubmit={submitFamily}
+        />
       )}
-      {stepIndex === 4 && (
-        <Step5Complete onComplete={() => onComplete?.(family)} />
+      {stepIndex === 4 && family && (
+        <Step5PairCode family={family} onNext={() => setStepIndex(5)} />
+      )}
+      {stepIndex === 5 && (
+        <Step6Complete onComplete={() => onComplete?.(family)} />
       )}
     </div>
   );
@@ -166,7 +185,7 @@ function ProgressBar({ current, total }) {
       {Array.from({ length: total }).map((_, i) => (
         <div key={i} style={{
           flex: 1, height: 4, borderRadius: 2,
-          background: i <= current ? "#F779A8" : "#E5E7EB",
+          background: i <= current ? "var(--th-primary)" : "#E5E7EB",
         }} />
       ))}
     </div>
@@ -194,7 +213,7 @@ function Step1FamilyName({ value, onChange, onNext }) {
         type="button" onClick={onNext} disabled={!value.trim()}
         style={{
           marginTop: 32, width: "100%", padding: "14px 0", borderRadius: 14,
-          background: value.trim() ? "#F779A8" : "#E5E7EB",
+          background: value.trim() ? "var(--th-primary)" : "#E5E7EB",
           color: value.trim() ? "white" : "#9CA3AF",
           fontSize: 16, fontWeight: 800, border: "none",
           cursor: value.trim() ? "pointer" : "not-allowed",
@@ -235,13 +254,13 @@ function Step3Children({ children, onChange, familyId, busy, error, onSubmit }) 
             type="button"
             onClick={() => setActiveIndex(activeIndex + 1)}
             disabled={!children[activeIndex].name.trim() || !children[activeIndex].birthdate}
-            style={{ flex: 1, padding: "14px 0", borderRadius: 14, background: "#F779A8", color: "white", fontWeight: 800, border: "none" }}
+            style={{ flex: 1, padding: "14px 0", borderRadius: 14, background: "var(--th-primary)", color: "white", fontWeight: 800, border: "none" }}
           >다음 자녀</button>
         ) : (
           <button
             type="button" onClick={onSubmit} disabled={!allValid || busy}
             style={{ flex: 1, padding: "14px 0", borderRadius: 14,
-              background: allValid && !busy ? "#F779A8" : "#E5E7EB",
+              background: allValid && !busy ? "var(--th-primary)" : "#E5E7EB",
               color: allValid && !busy ? "white" : "#9CA3AF",
               fontWeight: 800, border: "none" }}
           >{busy ? "저장 중..." : "다음"}</button>
@@ -252,7 +271,66 @@ function Step3Children({ children, onChange, familyId, busy, error, onSubmit }) 
   );
 }
 
-function Step4PairCode({ family, onNext }) {
+function Step4ThemePicker({ value, onChange, busy, error, onSubmit }) {
+  return (
+    <div>
+      <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1F2937", marginBottom: 8 }}>
+        우리 가족 색깔
+      </h2>
+      <p style={{ fontSize: 14, color: "#6B7280", marginBottom: 24, lineHeight: 1.5 }}>
+        가족 단말기에 모두 적용돼요.<br/>나중에 설정에서 바꿀 수 있어요.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+        {Object.entries(THEMES).map(([id, themeDef]) => {
+          const selected = value === id;
+          return (
+            <button
+              key={id} type="button" onClick={() => onChange(id)}
+              style={{
+                padding: 14, borderRadius: 16,
+                background: selected ? themeDef.tokens.soft : "white",
+                border: selected
+                  ? `2.5px solid ${themeDef.tokens.primary}`
+                  : "1.5px solid #E5E7EB",
+                cursor: "pointer", textAlign: "left",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <div style={{
+                height: 10, borderRadius: 5, marginBottom: 12,
+                background: themeDef.tokens["grad-primary"],
+              }} />
+              <div style={{
+                fontWeight: 800, fontSize: 14,
+                color: selected ? themeDef.tokens.text : "#374151",
+              }}>
+                {themeDef.name}
+              </div>
+              {selected && (
+                <div style={{ fontSize: 11, color: themeDef.tokens.text, marginTop: 4, fontWeight: 700 }}>
+                  ✓ 선택됨
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        type="button" onClick={onSubmit} disabled={!value || busy}
+        style={{
+          marginTop: 32, width: "100%", padding: "14px 0", borderRadius: 14,
+          background: value && !busy ? "var(--th-primary)" : "#E5E7EB",
+          color: value && !busy ? "white" : "#9CA3AF",
+          fontSize: 16, fontWeight: 800, border: "none",
+          cursor: value && !busy ? "pointer" : "not-allowed",
+        }}
+      >{busy ? "저장 중..." : "다음"}</button>
+      {error && <div style={{ color: "#EF4444", marginTop: 12, fontSize: 14 }}>{error}</div>}
+    </div>
+  );
+}
+
+function Step5PairCode({ family, onNext }) {
   return (
     <div>
       <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1F2937", marginBottom: 12 }}>
@@ -262,9 +340,9 @@ function Step4PairCode({ family, onNext }) {
         자녀 단말 앱에 이 코드를 입력하면 가족이 연결돼요.
       </p>
       <div style={{
-        background: "#FFF1F7", border: "2px solid #F779A8", borderRadius: 14,
+        background: "var(--th-soft)", border: "2px solid var(--th-primary)", borderRadius: 14,
         padding: 24, textAlign: "center",
-        fontSize: 22, fontWeight: 900, letterSpacing: 2, color: "#BE185D",
+        fontSize: 22, fontWeight: 900, letterSpacing: 2, color: "var(--th-text)",
       }}>
         {family.pair_code}
       </div>
@@ -272,14 +350,14 @@ function Step4PairCode({ family, onNext }) {
         type="button" onClick={onNext}
         style={{
           marginTop: 32, width: "100%", padding: "14px 0", borderRadius: 14,
-          background: "#F779A8", color: "white", fontSize: 16, fontWeight: 800, border: "none",
+          background: "var(--th-primary)", color: "white", fontSize: 16, fontWeight: 800, border: "none",
         }}
       >모든 자녀 페어링 완료</button>
     </div>
   );
 }
 
-function Step5Complete({ onComplete }) {
+function Step6Complete({ onComplete }) {
   return (
     <div style={{ textAlign: "center", paddingTop: 60 }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
@@ -288,7 +366,7 @@ function Step5Complete({ onComplete }) {
         type="button" onClick={onComplete}
         style={{
           marginTop: 32, padding: "14px 32px", borderRadius: 14,
-          background: "#F779A8", color: "white", fontSize: 16, fontWeight: 800, border: "none",
+          background: "var(--th-primary)", color: "white", fontSize: 16, fontWeight: 800, border: "none",
         }}
       >시작하기</button>
     </div>
