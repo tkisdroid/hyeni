@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>혜니캘린더 · Theme Picker · v1 (Junior Pass)</title>
+<!-- Junior Pass · 2026-04-30 · 회원가입 색상 테마 선택 3 variation 비교
+     모든 데이터는 합성. 실제 src/App.jsx는 v1.0 milestone 동안 수정 금지.
+     이 시안은 v1.1+ 구현용 디자인 탐색. -->
+<style>
+  :root {
+    /* 현재 src/App.jsx DESIGN 토큰 그대로 (line 794-851) */
+    --pink: #F779A8;
+    --pink-deep: #E65C92;
+    --pink-text: #B0477A;
+    --pink-soft: #FFF5FA;
+    --pink-line: #FFE4EF;
+    --pink-line-strong: #FFD4E7;
+    --pale: #FFFAF5;
+    --cream: #FCF1EB;
+    --blue: #3B82F6;
+    --blue-deep: #2563EB;
+    --blue-pale: #EFF6FF;
+    --ink: #38252D;
+    --ink-soft: #75525C;
+    --muted: #9B7C85;
+    --line: #F3E9EC;
+    --success: #059669;
+    --warning: #D97706;
+    --danger: #DC2626;
+    --font-sans: 'Pretendard Variable','Pretendard','Noto Sans KR','Apple SD Gothic Neo', sans-serif;
+    --font-serif: 'Source Serif Pro', 'Source Serif 4', 'Noto Serif KR', serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: var(--font-sans);
+    color: var(--ink);
+    background:
+      radial-gradient(1400px 800px at 10% -10%, #FFDEEC 0%, transparent 55%),
+      radial-gradient(1400px 800px at 90% 110%, #FFEBBE 0%, transparent 55%),
+      linear-gradient(180deg, #FCF1EB 0%, #F5EBF3 100%);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+    text-wrap: pretty;
+  }
+
+  /* ---- canvas header ---- */
+  .canvas-header { padding: 56px 32px 24px; max-width: 1400px; margin: 0 auto; }
+  .canvas-eyebrow { font-size: 12px; font-weight: 800; color: var(--pink-text); letter-spacing: 0.3em; text-transform: uppercase; }
+  .canvas-title { font-size: 42px; font-weight: 900; line-height: 1.15; letter-spacing: -0.02em; margin-top: 8px; }
+  .canvas-title em { font-style: normal; background: linear-gradient(135deg, var(--pink), var(--blue)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .canvas-subtitle { font-size: 15px; color: var(--ink-soft); margin-top: 12px; line-height: 1.6; max-width: 640px; }
+
+  /* ---- assumption banner (Junior Pass 핵심) ---- */
+  .assumption-banner {
+    max-width: 1400px;
+    margin: 24px 32px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(12px);
+    border: 2px dashed #FCE7F3;
+    border-radius: 20px;
+    padding: 24px 28px;
+  }
+  .assumption-banner h3 { font-size: 14px; font-weight: 800; color: var(--pink-text); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 14px; }
+  .assumption-banner h3::before { content: '⚙ '; }
+  .assumption-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 28px; font-size: 13px; line-height: 1.6; color: var(--ink); }
+  .assumption-grid b { color: var(--pink-text); font-weight: 800; }
+  .assumption-grid code { font-family: var(--font-mono); font-size: 11px; background: #FFF5FA; padding: 2px 6px; border-radius: 4px; color: var(--pink-text); }
+  .assumption-warn { margin-top: 14px; padding: 10px 14px; background: #FFFBEB; border-left: 3px solid #F59E0B; border-radius: 8px; font-size: 12px; color: #92400E; line-height: 1.6; }
+
+  /* ---- variations row ---- */
+  .variations-row {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 32px 24px 64px;
+  }
+  .variation-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .variation-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--pink-text);
+    background: white; padding: 8px 14px; border-radius: 999px;
+    border: 1.5px solid #FFE4EF;
+    box-shadow: 0 4px 12px rgba(247,121,168,0.08);
+  }
+  .variation-tag .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .variation-name { font-size: 22px; font-weight: 900; color: var(--ink); letter-spacing: -0.02em; }
+  .variation-desc {
+    font-size: 13px; color: var(--ink-soft); line-height: 1.6;
+    max-width: 360px; text-align: center;
+  }
+  .variation-meta {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .meta-pill { padding: 4px 10px; border-radius: 999px; background: #FFF5FA; color: var(--pink-text); }
+  .meta-pill.warn { background: #FFFBEB; color: #92400E; }
+  .meta-pill.ok { background: #ECFDF5; color: #065F46; }
+
+  /* ---- iPhone bezel (v4-C 패턴) ---- */
+  .ios-frame {
+    position: relative;
+    width: 390px; height: 844px;
+    background: #000;
+    border-radius: 60px;
+    padding: 12px;
+    box-shadow: 0 0 0 2px #1f2937, 0 30px 80px rgba(120,80,100,0.30);
+  }
+  .ios-screen { position: relative; width: 100%; height: 100%; background: #fff; border-radius: 48px; overflow: hidden; }
+  .ios-statusbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 48px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 28px; font-size: 13.5px; font-weight: 700;
+    z-index: 20; pointer-events: none;
+    font-family: -apple-system, 'SF Pro Text', sans-serif; color: #38252D;
+  }
+  .ios-island {
+    position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+    width: 124px; height: 36px; background: #000; border-radius: 999px; z-index: 30;
+  }
+  .ios-content {
+    position: absolute; top: 48px; left: 0; right: 0; bottom: 24px;
+    overflow: hidden;
+  }
+  .ios-home {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    width: 134px; height: 5px; background: rgba(0,0,0,0.3); border-radius: 999px; z-index: 10;
+  }
+  .ios-statusbar-icons { display: flex; align-items: center; gap: 6px; }
+  .signal-bars { display: flex; align-items: flex-end; gap: 2px; height: 10px; }
+  .signal-bars i { width: 3px; background: currentColor; border-radius: 1px; }
+  .battery { width: 24px; height: 11px; border: 1.3px solid currentColor; border-radius: 3px; padding: 1px; position: relative; opacity: 0.85; }
+  .battery::after { content: ''; position: absolute; top: 3px; right: -3px; width: 2px; height: 5px; background: currentColor; border-radius: 0 1px 1px 0; }
+  .battery i { display: block; width: 85%; height: 100%; background: currentColor; border-radius: 1px; }
+
+  /* ---- onboarding 공통 (v4-C 패턴) ---- */
+  .ob-page { padding: 16px 22px 0; height: 100%; display: flex; flex-direction: column; background: #fff; }
+  .ob-progress { display: flex; gap: 6px; padding: 14px 0 8px; }
+  .ob-progress i { flex: 1; height: 5px; border-radius: 999px; background: #F3E9EC; }
+  .ob-progress i.active { background: linear-gradient(90deg, var(--pink), var(--pink-deep)); }
+  .ob-step { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: 0.1em; }
+  .ob-title { font-size: 26px; font-weight: 900; line-height: 1.25; letter-spacing: -0.02em; margin-top: 14px; }
+  .ob-title span { background: linear-gradient(135deg, var(--pink), var(--pink-deep)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ob-sub { font-size: 13.5px; color: var(--ink-soft); margin-top: 8px; line-height: 1.55; }
+  .ob-spacer { flex: 1; min-height: 12px; }
+  .ob-btn { width: 100%; padding: 16px; border-radius: 18px; font-weight: 800; font-size: 15px; text-align: center; margin-bottom: 10px; cursor: pointer; border: none; font-family: inherit; }
+  .ob-btn.primary { background: linear-gradient(135deg, var(--pink), var(--pink-deep)); color: white; box-shadow: 0 12px 26px rgba(247,121,168,0.4); }
+  .ob-btn.ghost { background: white; color: var(--ink-soft); border: 1.5px solid var(--line); }
+  .ob-foot { padding-bottom: 18px; }
+
+  /* ============================================
+     Variation A · LIGHT RE-SKIN
+     ============================================ */
+  .a-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 22px; }
+  .a-swatch {
+    position: relative; aspect-ratio: 1; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 20px; font-weight: 800;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+    cursor: pointer;
+  }
+  .a-swatch.selected::after {
+    content: '✓'; position: absolute; bottom: -4px; right: -4px;
+    width: 26px; height: 26px; background: white; color: var(--ink);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 900; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  }
+  .a-name { font-size: 11px; font-weight: 700; color: var(--ink-soft); text-align: center; margin-top: 8px; }
+  .a-preview {
+    margin-top: 22px; padding: 18px; border-radius: 22px;
+    background: var(--pink-soft); border: 1.5px solid var(--pink-line);
+  }
+  .a-preview-head { display: flex; align-items: center; gap: 10px; }
+  .a-preview-logo { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--pink), var(--pink-deep)); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .a-preview-title { font-size: 13px; font-weight: 800; color: var(--ink); }
+  .a-preview-sub { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  .a-preview-chip { display: inline-block; margin-top: 12px; padding: 6px 12px; background: white; border: 1.2px solid var(--pink-line-strong); color: var(--pink-text); border-radius: 999px; font-size: 11px; font-weight: 800; }
+  .a-preview-btn { margin-top: 12px; padding: 10px; background: linear-gradient(135deg, var(--pink), var(--pink-deep)); color: white; border-radius: 12px; text-align: center; font-size: 12px; font-weight: 800; }
+
+  /* ============================================
+     Variation B · PRESET PACK
+     ============================================ */
+  .b-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .b-card { background: white; border-radius: 16px; padding: 12px; border: 2px solid #F3E9EC; cursor: pointer; }
+  .b-card.selected { border-color: var(--pink); box-shadow: 0 8px 18px rgba(247,121,168,0.2); position: relative; }
+  .b-card.selected::after { content: '✓'; position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; background: var(--pink); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; }
+  .b-name { font-size: 12px; font-weight: 800; color: var(--ink); margin-bottom: 6px; letter-spacing: -0.01em; }
+  .b-strip { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
+  .b-strip i { flex: 1; }
+  .b-mini-btn { padding: 4px 8px; border-radius: 8px; color: white; font-size: 9.5px; font-weight: 800; text-align: center; }
+  .b-mini-chip { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 9px; font-weight: 800; margin-right: 4px; }
+
+  /* ============================================
+     Variation C · GUIDED CUSTOM
+     ============================================ */
+  .c-wheel { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 18px; }
+  .c-dot {
+    aspect-ratio: 1; border-radius: 50%; cursor: pointer; position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  .c-dot.selected { transform: scale(1.18); box-shadow: 0 0 0 3px white, 0 0 0 5px var(--ink), 0 8px 20px rgba(0,0,0,0.2); z-index: 2; }
+  .c-derived { margin-top: 18px; padding: 14px; background: var(--pink-soft); border-radius: 16px; border: 1px solid var(--pink-line); }
+  .c-derived-head { font-size: 10.5px; font-weight: 800; color: var(--pink-text); letter-spacing: 0.1em; text-transform: uppercase; }
+  .c-derived-row { display: flex; gap: 8px; margin-top: 8px; }
+  .c-derived-row > div { flex: 1; text-align: center; }
+  .c-derived-swatch { width: 100%; height: 36px; border-radius: 8px; }
+  .c-derived-label { font-size: 9px; font-weight: 700; color: var(--muted); margin-top: 4px; }
+  .c-locks { margin-top: 14px; padding: 10px 12px; background: #FFFBEB; border-radius: 12px; border: 1px solid #FDE68A; font-size: 10.5px; color: #92400E; line-height: 1.5; }
+  .c-locks::before { content: '🔒 '; margin-right: 4px; }
+  .c-mini { margin-top: 14px; padding: 12px; background: white; border-radius: 14px; border: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  .c-mini-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .c-mini-text { flex: 1; }
+  .c-mini-title { font-size: 12px; font-weight: 800; color: var(--ink); }
+  .c-mini-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .c-mini-btn { padding: 6px 10px; border-radius: 10px; color: white; font-size: 10px; font-weight: 800; }
+
+  /* ---- footer note ---- */
+  .canvas-foot { max-width: 1400px; margin: 32px auto 64px; padding: 0 32px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .canvas-foot code { font-family: var(--font-mono); background: rgba(255,255,255,0.6); padding: 2px 6px; border-radius: 4px; color: var(--pink-text); }
+</style>
+</head>
+<body>
+
+<header class="canvas-header">
+  <div class="canvas-eyebrow">Junior Pass · 2026-04-30</div>
+  <h1 class="canvas-title">회원가입에서 <em>색상 테마 선택</em>, 어디까지 갈까</h1>
+  <p class="canvas-subtitle">
+    현재 앱의 핑크 + 다양한 색상 구조를, 사용자가 처음 가입할 때 직접 고르게 하는 방식의 3가지 변형 비교.
+    아래 가정은 모두 수정 가능 — 이 단계는 방향 잡기용 mockup이고, 최종 결정 후에 실제 시안으로 진입합니다.
+  </p>
+</header>
+
+<section class="assumption-banner">
+  <h3>이 시안에 깔아둔 가정</h3>
+  <div class="assumption-grid">
+    <div><b>적용 범위</b> · 부모 + 자녀 모드 모두 같은 테마 (가족 단위 단일 테마, MVP)</div>
+    <div><b>잠금되는 색</b> · SOS 빨강 <code>#DC2626</code>, 경고 amber <code>#D97706</code>, 부모 블루 <code>#3B82F6</code>, 카테고리 6색</div>
+    <div><b>변경 대상</b> · primary pink 계열 8개 토큰 (<code>pink, pinkDeep, pinkSoft, pinkLine</code> 등)</div>
+    <div><b>위치</b> · 회원가입 4 / 6 단계 (가족 정보 → <b>색상</b> → 알림 → 시작)</div>
+    <div><b>변경 가능 시점</b> · 설정 → "우리집 색깔"에서 언제든지</div>
+    <div><b>저장</b> · <code>families.theme</code> (text, default 'warm-pink') → DESIGN.colors 동적 override</div>
+  </div>
+  <div class="assumption-warn">
+    <b>⚠ Milestone 제약 (CLAUDE.md):</b> v1.0은 emergency stabilization · src/App.jsx 수정 금지.
+    이 디자인은 <b>v1.1+ 구현용 탐색</b>이며, 현재는 mockup만 작성합니다.
+    실제 구현 시 CSS 변수 주입 → 컴포넌트 단위 순차 반영 (memory: design_direction 2026-04-24).
+  </div>
+</section>
+
+<section class="variations-row">
+
+  <!-- ============== Variation A · LIGHT RE-SKIN ============== -->
+  <div class="variation-col">
+    <span class="variation-tag"><span class="dot" style="background:#F779A8"></span>VARIATION A</span>
+    <div class="variation-name">Light Re-skin</div>
+    <p class="variation-desc">primary 1색만 6개 추천색 중 선택. 가장 빠른 구현, 가장 친숙한 UX.</p>
+    <div class="variation-meta">
+      <span class="meta-pill ok">구현 1주</span>
+      <span class="meta-pill">8 토큰 변경</span>
+      <span class="meta-pill warn">표현력 ↓</span>
+    </div>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar">
+          <span>9:41</span>
+          <div class="ios-statusbar-icons">
+            <div class="signal-bars"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></div>
+            <div class="battery"><i></i></div>
+          </div>
+        </div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ob-page">
+            <div class="ob-progress"><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i><i></i><i></i></div>
+            <div class="ob-step" style="margin-top:6px">STEP 4 / 6 · 우리집 색깔</div>
+            <h2 class="ob-title">우리 앱<br/>색깔 <span>골라요</span></h2>
+            <p class="ob-sub">버튼이랑 강조 색이 이 색으로 바뀌어요.<br/>나중에 설정에서 언제든 바꿀 수 있어요.</p>
+
+            <div class="a-grid">
+              <div>
+                <div class="a-swatch selected" style="background:linear-gradient(135deg,#F779A8,#E65C92)">🌸</div>
+                <div class="a-name">Warm Pink</div>
+              </div>
+              <div>
+                <div class="a-swatch" style="background:linear-gradient(135deg,#A78BFA,#7C3AED)"></div>
+                <div class="a-name">Soft Lavender</div>
+              </div>
+              <div>
+                <div class="a-swatch" style="background:linear-gradient(135deg,#34D399,#059669)"></div>
+                <div class="a-name">Mint Fresh</div>
+              </div>
+              <div>
+                <div class="a-swatch" style="background:linear-gradient(135deg,#60A5FA,#3B82F6)"></div>
+                <div class="a-name">Sky Blue</div>
+              </div>
+              <div>
+                <div class="a-swatch" style="background:linear-gradient(135deg,#FBBF24,#D97706)"></div>
+                <div class="a-name">Sunny Amber</div>
+              </div>
+              <div>
+                <div class="a-swatch" style="background:linear-gradient(135deg,#9CA3AF,#4B5563)"></div>
+                <div class="a-name">Cool Gray</div>
+              </div>
+            </div>
+
+            <div class="a-preview">
+              <div class="a-preview-head">
+                <div class="a-preview-logo">🍦</div>
+                <div>
+                  <div class="a-preview-title">혜니네 가족</div>
+                  <div class="a-preview-sub">미리보기 · 홈 화면</div>
+                </div>
+              </div>
+              <span class="a-preview-chip">엄마 · 김혜니 · 8세</span>
+              <div class="a-preview-btn">오늘 일정 보기</div>
+            </div>
+
+            <div class="ob-spacer"></div>
+            <div class="ob-foot">
+              <button class="ob-btn primary">이 색으로 시작하기</button>
+              <button class="ob-btn ghost">기본값으로 두기</button>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== Variation B · PRESET PACK ============== -->
+  <div class="variation-col">
+    <span class="variation-tag"><span class="dot" style="background:linear-gradient(90deg,#F779A8,#A78BFA,#34D399)"></span>VARIATION B</span>
+    <div class="variation-name">Preset Pack · 큐레이션</div>
+    <p class="variation-desc">6개 큐레이션 테마. 모든 색상이 함께 바뀜. 일관성·접근성·SOS 규칙 자동 보장.</p>
+    <div class="variation-meta">
+      <span class="meta-pill ok">접근성 보장</span>
+      <span class="meta-pill ok">SOS 규칙 자동</span>
+      <span class="meta-pill">구현 2~3주</span>
+    </div>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar">
+          <span>9:41</span>
+          <div class="ios-statusbar-icons">
+            <div class="signal-bars"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></div>
+            <div class="battery"><i></i></div>
+          </div>
+        </div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ob-page">
+            <div class="ob-progress"><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i><i></i><i></i></div>
+            <div class="ob-step" style="margin-top:6px">STEP 4 / 6 · 우리집 분위기</div>
+            <h2 class="ob-title">우리집<br/><span>분위기</span> 골라요</h2>
+            <p class="ob-sub">선택한 테마로 모든 색상이 함께 바뀝니다.</p>
+
+            <div class="b-cards">
+              <div class="b-card selected">
+                <div class="b-name">Warm Pink</div>
+                <div class="b-strip">
+                  <i style="background:#FFF5FA"></i><i style="background:#FFE4EF"></i>
+                  <i style="background:#F779A8"></i><i style="background:#E65C92"></i><i style="background:#B0477A"></i>
+                </div>
+                <div class="b-mini-btn" style="background:linear-gradient(135deg,#F779A8,#E65C92)">시작</div>
+              </div>
+              <div class="b-card">
+                <div class="b-name">Soft Lavender</div>
+                <div class="b-strip">
+                  <i style="background:#F5F3FF"></i><i style="background:#E9D5FF"></i>
+                  <i style="background:#A78BFA"></i><i style="background:#7C3AED"></i><i style="background:#5B21B6"></i>
+                </div>
+                <div class="b-mini-btn" style="background:linear-gradient(135deg,#A78BFA,#7C3AED)">시작</div>
+              </div>
+              <div class="b-card">
+                <div class="b-name">Mint Fresh</div>
+                <div class="b-strip">
+                  <i style="background:#ECFDF5"></i><i style="background:#D1FAE5"></i>
+                  <i style="background:#34D399"></i><i style="background:#059669"></i><i style="background:#047857"></i>
+                </div>
+                <div class="b-mini-btn" style="background:linear-gradient(135deg,#34D399,#059669)">시작</div>
+              </div>
+              <div class="b-card">
+                <div class="b-name">Sky Blue</div>
+                <div class="b-strip">
+                  <i style="background:#EFF6FF"></i><i style="background:#DBEAFE"></i>
+                  <i style="background:#60A5FA"></i><i style="background:#3B82F6"></i><i style="background:#1E40AF"></i>
+                </div>
+                <div class="b-mini-btn" style="background:linear-gradient(135deg,#60A5FA,#3B82F6)">시작</div>
+              </div>
+              <div class="b-card">
+                <div class="b-name">Sunny Amber</div>
+                <div class="b-strip">
+                  <i style="background:#FFFBEB"></i><i style="background:#FEF3C7"></i>
+                  <i style="background:#FBBF24"></i><i style="background:#D97706"></i><i style="background:#92400E"></i>
+                </div>
+                <div class="b-mini-btn" style="background:linear-gradient(135deg,#FBBF24,#D97706)">시작</div>
+              </div>
+              <div class="b-card">
+                <div class="b-name">Cool Charcoal</div>
+                <div class="b-strip">
+                  <i style="background:#F5F5F4"></i><i style="background:#E7E5E4"></i>
+                  <i style="background:#9CA3AF"></i><i style="background:#4B5563"></i><i style="background:#1F2937"></i>
+                </div>
+                <div class="b-mini-btn" style="background:linear-gradient(135deg,#9CA3AF,#4B5563)">시작</div>
+              </div>
+            </div>
+
+            <div class="ob-spacer"></div>
+            <div class="ob-foot">
+              <button class="ob-btn primary">Warm Pink로 시작하기</button>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== Variation C · GUIDED CUSTOM ============== -->
+  <div class="variation-col">
+    <span class="variation-tag"><span class="dot" style="background:conic-gradient(from 0deg,#F779A8,#A78BFA,#60A5FA,#34D399,#FBBF24,#F779A8)"></span>VARIATION C</span>
+    <div class="variation-name">Guided Custom</div>
+    <p class="variation-desc">primary 1색 → 보조 hues 자동 생성. 자유로움 + 안전 색 자동 잠금.</p>
+    <div class="variation-meta">
+      <span class="meta-pill">12 hue</span>
+      <span class="meta-pill ok">안전 lock</span>
+      <span class="meta-pill warn">구현 3~4주</span>
+    </div>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar">
+          <span>9:41</span>
+          <div class="ios-statusbar-icons">
+            <div class="signal-bars"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></div>
+            <div class="battery"><i></i></div>
+          </div>
+        </div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ob-page">
+            <div class="ob-progress"><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i><i></i><i></i></div>
+            <div class="ob-step" style="margin-top:6px">STEP 4 / 6 · 우리집 색</div>
+            <h2 class="ob-title">우리집만의<br/><span>색</span> 만들기</h2>
+            <p class="ob-sub">primary 1색만 고르세요. 어울리는 톤은 자동으로 만들어드려요.</p>
+
+            <div class="c-wheel">
+              <div class="c-dot" style="background:#F87171"></div>
+              <div class="c-dot selected" style="background:#F779A8"></div>
+              <div class="c-dot" style="background:#EC4899"></div>
+              <div class="c-dot" style="background:#A78BFA"></div>
+              <div class="c-dot" style="background:#7C3AED"></div>
+              <div class="c-dot" style="background:#4F46E5"></div>
+              <div class="c-dot" style="background:#3B82F6"></div>
+              <div class="c-dot" style="background:#06B6D4"></div>
+              <div class="c-dot" style="background:#10B981"></div>
+              <div class="c-dot" style="background:#84CC16"></div>
+              <div class="c-dot" style="background:#FBBF24"></div>
+              <div class="c-dot" style="background:#F97316"></div>
+            </div>
+
+            <div class="c-derived">
+              <div class="c-derived-head">자동으로 만들어진 보조 색</div>
+              <div class="c-derived-row">
+                <div><div class="c-derived-swatch" style="background:#FFF5FA"></div><div class="c-derived-label">soft</div></div>
+                <div><div class="c-derived-swatch" style="background:#FFE4EF"></div><div class="c-derived-label">line</div></div>
+                <div><div class="c-derived-swatch" style="background:#F779A8"></div><div class="c-derived-label">primary</div></div>
+                <div><div class="c-derived-swatch" style="background:#E65C92"></div><div class="c-derived-label">deep</div></div>
+              </div>
+            </div>
+
+            <div class="c-mini">
+              <div class="c-mini-icon" style="background:linear-gradient(135deg,#F779A8,#E65C92)">🍦</div>
+              <div class="c-mini-text">
+                <div class="c-mini-title">혜니네 가족</div>
+                <div class="c-mini-sub">미리보기 · 홈</div>
+              </div>
+              <div class="c-mini-btn" style="background:linear-gradient(135deg,#F779A8,#E65C92)">열기</div>
+            </div>
+
+            <div class="c-locks">
+              SOS 빨강 · 경고 amber · 부모 블루 · 카테고리 6색은 안전을 위해 자동 유지돼요.
+            </div>
+
+            <div class="ob-spacer"></div>
+            <div class="ob-foot">
+              <button class="ob-btn primary">이 색으로 시작하기</button>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<footer class="canvas-foot">
+  <p><b>다음 단계 (Junior Pass 이후 Full Pass에서 다룰 것):</b></p>
+  <p>· 선택된 variation 1개로 좁혀서, 카테고리 페이지 / 자녀 모드 / 설정 화면에서 어떻게 보이는지 sheet shot 추가</p>
+  <p>· DESIGN 토큰 → CSS 변수 주입 매핑표 (어떤 hex가 어떤 token으로 분기되는지)</p>
+  <p>· DB 스키마: <code>families.theme text default 'warm-pink'</code> + 자녀 모드 어떻게 sync할지 (RLS / Realtime)</p>
+  <p>· 회원가입 직후 첫 화면 진입에서 테마 적용 timing (splash 동안? 1프레임 깜빡임?)</p>
+  <p>· 설정에서 변경 시 부드러운 transition (CSS variable transition? full reload?)</p>
+</footer>
+
+</body>
+</html>

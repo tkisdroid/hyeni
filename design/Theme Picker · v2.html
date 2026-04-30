@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>혜니캘린더 · Theme Picker · v2 · Preset Pack 풀 팔레트 + 부모 모드 적용</title>
+<!-- Full Pass · 2026-04-30 · B (Preset Pack) 선택됨
+     6 테마 풀 팔레트 토큰 매핑표 + 부모 모드 홈 화면 3 테마 적용 비교.
+     자녀 모드 / 설정 / 회원가입 v2는 v3에서 다룸. 모든 데이터 합성. -->
+<style>
+  :root {
+    --ink: #38252D; --ink-soft: #75525C; --muted: #9B7C85;
+    --line: #F3E9EC; --pale: #FFFAF5; --cream: #FCF1EB;
+    --font-sans: 'Pretendard Variable','Pretendard','Noto Sans KR','Apple SD Gothic Neo', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+    /* 6 PRESET THEMES — 각 테마별 8 토큰 정의
+       Warm Pink는 현재 src/App.jsx DESIGN 그대로 (default) */
+    --t1-soft: #FFF5FA; --t1-line: #FFE4EF; --t1-line-strong: #FFD4E7;
+    --t1-primary: #F779A8; --t1-deep: #E65C92; --t1-text: #B0477A;
+    --t1-grad: linear-gradient(135deg,#F779A8,#E65C92);
+    --t1-shadow: 0 12px 26px rgba(247,121,168,0.3);
+
+    --t2-soft: #F5F3FF; --t2-line: #E9D5FF; --t2-line-strong: #DDD6FE;
+    --t2-primary: #A78BFA; --t2-deep: #7C3AED; --t2-text: #5B21B6;
+    --t2-grad: linear-gradient(135deg,#A78BFA,#7C3AED);
+    --t2-shadow: 0 12px 26px rgba(124,58,237,0.3);
+
+    --t3-soft: #ECFDF5; --t3-line: #D1FAE5; --t3-line-strong: #A7F3D0;
+    --t3-primary: #34D399; --t3-deep: #059669; --t3-text: #047857;
+    --t3-grad: linear-gradient(135deg,#34D399,#059669);
+    --t3-shadow: 0 12px 26px rgba(5,150,105,0.3);
+
+    --t4-soft: #EFF6FF; --t4-line: #DBEAFE; --t4-line-strong: #BFDBFE;
+    --t4-primary: #60A5FA; --t4-deep: #3B82F6; --t4-text: #1E40AF;
+    --t4-grad: linear-gradient(135deg,#60A5FA,#3B82F6);
+    --t4-shadow: 0 12px 26px rgba(59,130,246,0.3);
+
+    --t5-soft: #FFFBEB; --t5-line: #FEF3C7; --t5-line-strong: #FDE68A;
+    --t5-primary: #FBBF24; --t5-deep: #D97706; --t5-text: #92400E;
+    --t5-grad: linear-gradient(135deg,#FBBF24,#D97706);
+    --t5-shadow: 0 12px 26px rgba(217,119,6,0.3);
+
+    --t6-soft: #F5F5F4; --t6-line: #E7E5E4; --t6-line-strong: #D6D3D1;
+    --t6-primary: #78716C; --t6-deep: #44403C; --t6-text: #292524;
+    --t6-grad: linear-gradient(135deg,#78716C,#44403C);
+    --t6-shadow: 0 12px 26px rgba(68,64,60,0.3);
+
+    /* LOCKED SAFETY COLORS (모든 테마에서 동일) */
+    --safe-sos: #DC2626;
+    --safe-warn: #D97706;
+    --safe-warn-bg: #FFFBEB;
+    --safe-parent: #3B82F6;
+    --safe-parent-deep: #2563EB;
+    --safe-success: #059669;
+    --cat-academy: #A78BFA;
+    --cat-sport: #34D399;
+    --cat-hobby: #F59E0B;
+    --cat-family: #F87171;
+    --cat-friend: #60A5FA;
+    --cat-etc: #EC4899;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: var(--font-sans); color: var(--ink);
+    background:
+      radial-gradient(1400px 800px at 10% -10%, #FFDEEC 0%, transparent 55%),
+      radial-gradient(1400px 800px at 90% 110%, #FFEBBE 0%, transparent 55%),
+      linear-gradient(180deg, #FCF1EB 0%, #F5EBF3 100%);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; text-wrap: pretty;
+  }
+
+  .canvas-header { padding: 56px 32px 24px; max-width: 1500px; margin: 0 auto; }
+  .canvas-eyebrow { font-size: 12px; font-weight: 800; color: #B0477A; letter-spacing: 0.3em; text-transform: uppercase; }
+  .canvas-title { font-size: 42px; font-weight: 900; line-height: 1.15; letter-spacing: -0.02em; margin-top: 8px; }
+  .canvas-title em { font-style: normal; background: linear-gradient(135deg,#F779A8,#3B82F6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .canvas-subtitle { font-size: 15px; color: var(--ink-soft); margin-top: 12px; line-height: 1.6; max-width: 700px; }
+  .canvas-section-title { font-size: 24px; font-weight: 900; letter-spacing: -0.01em; max-width: 1500px; margin: 56px auto 8px; padding: 0 32px; }
+  .canvas-section-sub { font-size: 13px; color: var(--ink-soft); max-width: 1500px; margin: 0 auto 24px; padding: 0 32px; }
+  .canvas-divider { max-width: 1500px; margin: 8px auto 0; padding: 0 32px; height: 1px; background: linear-gradient(90deg, transparent, #FFC2D9, transparent); }
+
+  /* SECTION 1 · 6 THEME PALETTE MAP */
+  .palette-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1500px; margin: 0 auto 24px; padding: 0 32px; }
+  .palette-card { background: white; border-radius: 24px; padding: 22px; border: 1.5px solid var(--line); box-shadow: 0 10px 30px rgba(120,80,100,0.08); }
+  .palette-card.default { border-color: #FFC2D9; box-shadow: 0 10px 30px rgba(247,121,168,0.18); }
+  .palette-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .palette-card-name { font-size: 17px; font-weight: 900; letter-spacing: -0.02em; }
+  .palette-card-flag { font-size: 9.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: linear-gradient(135deg,#F779A8,#E65C92); color: white; letter-spacing: 0.05em; }
+  .palette-strip { display: flex; height: 36px; border-radius: 10px; overflow: hidden; margin-bottom: 14px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); }
+  .palette-strip i { flex: 1; }
+  .palette-tokens { font-family: var(--font-mono); font-size: 10px; line-height: 1.7; color: var(--ink-soft); border-top: 1px dashed var(--line); padding-top: 10px; }
+  .palette-token-row { display: flex; align-items: center; gap: 8px; }
+  .palette-token-row b { color: var(--ink); font-weight: 700; min-width: 96px; }
+  .palette-token-chip { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0; }
+  .palette-button-demo { margin-top: 12px; padding: 10px; border-radius: 12px; color: white; font-size: 12px; font-weight: 800; text-align: center; box-shadow: 0 6px 14px rgba(0,0,0,0.12); }
+
+  .lock-card { background: linear-gradient(135deg,#FFFBEB 0%, #FFF7E0 100%); border: 2px dashed #FDE68A; border-radius: 24px; padding: 22px; max-width: 1500px; margin: 24px auto 0; }
+  .lock-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .lock-card-title { font-size: 14px; font-weight: 900; color: #92400E; letter-spacing: 0.02em; }
+  .lock-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .lock-item { background: white; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #FDE68A; }
+  .lock-swatch { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+  .lock-text-row { flex: 1; min-width: 0; }
+  .lock-text-name { font-size: 11.5px; font-weight: 800; color: var(--ink); }
+  .lock-text-hex { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .lock-text-purpose { font-size: 9.5px; color: var(--ink-soft); margin-top: 1px; line-height: 1.4; }
+
+  /* SECTION 2 · 부모 모드 홈 (3 테마 비교) */
+  .compare-row { display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; padding: 24px; }
+  .compare-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .compare-tag { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink); background: white; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--line); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .compare-tag .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* iPhone bezel */
+  .ios-frame { position: relative; width: 390px; height: 844px; background: #000; border-radius: 60px; padding: 12px; box-shadow: 0 0 0 2px #1f2937, 0 30px 80px rgba(120,80,100,0.30); }
+  .ios-screen { position: relative; width: 100%; height: 100%; border-radius: 48px; overflow: hidden; }
+  .ios-statusbar { position: absolute; top: 0; left: 0; right: 0; height: 48px; display: flex; justify-content: space-between; align-items: center; padding: 0 28px; font-size: 13.5px; font-weight: 700; z-index: 20; pointer-events: none; font-family: -apple-system,'SF Pro Text',sans-serif; color: #38252D; }
+  .ios-island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 124px; height: 36px; background: #000; border-radius: 999px; z-index: 30; }
+  .ios-content { position: absolute; top: 48px; left: 0; right: 0; bottom: 0; overflow: hidden; }
+  .ios-home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; background: rgba(0,0,0,0.3); border-radius: 999px; z-index: 10; }
+  .ios-statusbar-icons { display: flex; align-items: center; gap: 6px; }
+  .signal-bars { display: flex; align-items: flex-end; gap: 2px; height: 10px; }
+  .signal-bars i { width: 3px; background: currentColor; border-radius: 1px; }
+  .battery { width: 24px; height: 11px; border: 1.3px solid currentColor; border-radius: 3px; padding: 1px; position: relative; opacity: 0.85; }
+  .battery::after { content: ''; position: absolute; top: 3px; right: -3px; width: 2px; height: 5px; background: currentColor; border-radius: 0 1px 1px 0; }
+  .battery i { display: block; width: 85%; height: 100%; background: currentColor; border-radius: 1px; }
+
+  /* PARENT HOME · theme-aware (uses --th-* variables) */
+  .ph { height: 100%; overflow: hidden; position: relative; background: var(--th-soft); padding-bottom: 80px; }
+  .ph-header { padding: 60px 22px 22px; background: var(--th-grad); color: white; border-radius: 0 0 28px 28px; box-shadow: 0 10px 24px rgba(0,0,0,0.06); position: relative; overflow: hidden; }
+  .ph-header::before { content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+  .ph-header::after { content: ''; position: absolute; right: 40px; bottom: -50px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.10); }
+  .ph-fam-row { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2; }
+  .ph-fam { display: flex; align-items: center; gap: 10px; }
+  .ph-fam-icon { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; font-size: 20px; backdrop-filter: blur(8px); }
+  .ph-fam-info { line-height: 1.2; }
+  .ph-fam-name { font-size: 15px; font-weight: 900; }
+  .ph-fam-sub { font-size: 11px; opacity: 0.8; }
+  .ph-bell { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 16px; position: relative; backdrop-filter: blur(8px); }
+  .ph-bell-dot { position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--safe-sos); border: 2px solid white; }
+  .ph-greet { margin-top: 18px; position: relative; z-index: 2; }
+  .ph-greet-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; opacity: 0.9; text-transform: uppercase; }
+  .ph-greet-text { font-size: 22px; font-weight: 900; margin-top: 4px; line-height: 1.3; }
+  .ph-children-strip { display: flex; gap: 8px; margin-top: 14px; position: relative; z-index: 2; }
+  .ph-child-chip { background: rgba(255,255,255,0.25); padding: 6px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; backdrop-filter: blur(8px); display: flex; align-items: center; gap: 6px; }
+  .ph-child-emoji { font-size: 14px; }
+
+  .ph-body { padding: 18px 22px 0; display: flex; flex-direction: column; gap: 12px; }
+
+  .ph-sos { background: linear-gradient(135deg,#EF4444,var(--safe-sos)); color: white; border-radius: 18px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 24px rgba(220,38,38,0.3); }
+  .ph-sos-ic { width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .ph-sos-info { flex: 1; }
+  .ph-sos-title { font-size: 13px; font-weight: 900; }
+  .ph-sos-sub { font-size: 10.5px; opacity: 0.92; margin-top: 1px; }
+  .ph-sos-arrow { font-size: 18px; opacity: 0.85; }
+
+  .ph-card { background: white; border-radius: 18px; padding: 14px; box-shadow: 0 6px 16px rgba(120,80,100,0.06); border: 1px solid var(--th-line); }
+  .ph-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .ph-card-eyebrow { font-size: 10px; font-weight: 800; color: var(--th-text); letter-spacing: 0.15em; text-transform: uppercase; }
+  .ph-card-arrow { margin-left: auto; color: var(--muted); font-size: 14px; }
+  .ph-loc-map { background: var(--th-line); border-radius: 12px; height: 90px; position: relative; overflow: hidden; margin-bottom: 10px; }
+  .ph-loc-map::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 40%, var(--th-line-strong) 0%, transparent 60%), radial-gradient(circle at 70% 70%, var(--th-line-strong) 0%, transparent 60%); }
+  .ph-loc-pin { position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .ph-loc-pin.a { top: 30%; left: 40%; background: var(--th-grad); color: white; }
+  .ph-loc-pin.b { top: 60%; left: 65%; background: var(--safe-parent); color: white; }
+  .ph-loc-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; }
+  .ph-loc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ph-loc-name { font-weight: 800; color: var(--ink); }
+  .ph-loc-status { color: var(--muted); margin-left: auto; font-size: 10.5px; font-weight: 700; }
+
+  .ph-today-list { display: flex; flex-direction: column; gap: 8px; }
+  .ph-today-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--th-soft); border-radius: 12px; border: 1px solid var(--th-line); }
+  .ph-today-time { font-family: var(--font-mono); font-size: 11px; font-weight: 800; color: var(--th-text); min-width: 44px; }
+  .ph-today-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ph-today-title { font-size: 12px; font-weight: 700; color: var(--ink); flex: 1; }
+  .ph-today-cat { font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 999px; color: white; }
+
+  .ph-action { background: var(--th-grad); color: white; border-radius: 16px; padding: 14px; text-align: center; font-size: 14px; font-weight: 800; box-shadow: var(--th-shadow); }
+
+  .ph-nav { position: absolute; bottom: 0; left: 0; right: 0; height: 72px; background: rgba(255,255,255,0.92); backdrop-filter: blur(16px); border-top: 1px solid var(--th-line); display: grid; grid-template-columns: repeat(4, 1fr); padding: 8px 0 16px; }
+  .ph-nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9px; font-weight: 700; color: var(--muted); }
+  .ph-nav-item .ic { font-size: 20px; line-height: 1; }
+  .ph-nav-item.active { color: var(--th-text); }
+
+  .canvas-foot { max-width: 1500px; margin: 32px auto 64px; padding: 0 32px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .canvas-foot b { color: var(--ink); font-weight: 800; }
+  .canvas-foot code { font-family: var(--font-mono); background: rgba(255,255,255,0.6); padding: 2px 6px; border-radius: 4px; color: #B0477A; }
+</style>
+</head>
+<body>
+
+<header class="canvas-header">
+  <div class="canvas-eyebrow">Full Pass · 2026-04-30 · B 선택됨</div>
+  <h1 class="canvas-title">Preset Pack · <em>풀 팔레트</em> + 부모 모드 적용</h1>
+  <p class="canvas-subtitle">
+    Junior Pass에서 B(Preset Pack)로 좁힌 후, 6 테마 각각의 8 토큰 매핑을 정의하고 같은 부모 모드 홈 화면에 3 대표 테마를 적용한 비교.
+    SOS 빨강 / 카테고리 6색 / 부모 블루는 모든 테마에서 동일 (안전 lock).
+  </p>
+</header>
+
+<h2 class="canvas-section-title">1. 6 테마 풀 팔레트 정의</h2>
+<p class="canvas-section-sub">각 테마는 핑크 계열 8 토큰을 자기 색조로 override. 디자인 토큰명 <code>--theme-{이름}-{soft / line / lineStrong / primary / deep / text}</code>.</p>
+
+<div class="palette-grid">
+
+  <div class="palette-card default">
+    <div class="palette-card-head">
+      <div class="palette-card-name">Warm Pink</div>
+      <span class="palette-card-flag">DEFAULT · 현재</span>
+    </div>
+    <div class="palette-strip">
+      <i style="background:#FFF5FA"></i><i style="background:#FFE4EF"></i><i style="background:#FFD4E7"></i>
+      <i style="background:#F779A8"></i><i style="background:#E65C92"></i><i style="background:#B0477A"></i>
+    </div>
+    <div class="palette-tokens">
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#FFF5FA"></span><b>soft</b> #FFF5FA</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#FFE4EF"></span><b>line</b> #FFE4EF</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#FFD4E7"></span><b>line-strong</b> #FFD4E7</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#F779A8"></span><b>primary</b> #F779A8</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#E65C92"></span><b>deep</b> #E65C92</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#B0477A"></span><b>text</b> #B0477A</div>
+    </div>
+    <div class="palette-button-demo" style="background:linear-gradient(135deg,#F779A8,#E65C92)">시작하기</div>
+  </div>
+
+  <div class="palette-card">
+    <div class="palette-card-head"><div class="palette-card-name">Soft Lavender</div></div>
+    <div class="palette-strip">
+      <i style="background:#F5F3FF"></i><i style="background:#E9D5FF"></i><i style="background:#DDD6FE"></i>
+      <i style="background:#A78BFA"></i><i style="background:#7C3AED"></i><i style="background:#5B21B6"></i>
+    </div>
+    <div class="palette-tokens">
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#F5F3FF"></span><b>soft</b> #F5F3FF</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#E9D5FF"></span><b>line</b> #E9D5FF</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#DDD6FE"></span><b>line-strong</b> #DDD6FE</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#A78BFA"></span><b>primary</b> #A78BFA</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#7C3AED"></span><b>deep</b> #7C3AED</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#5B21B6"></span><b>text</b> #5B21B6</div>
+    </div>
+    <div class="palette-button-demo" style="background:linear-gradient(135deg,#A78BFA,#7C3AED)">시작하기</div>
+  </div>
+
+  <div class="palette-card">
+    <div class="palette-card-head"><div class="palette-card-name">Mint Fresh</div></div>
+    <div class="palette-strip">
+      <i style="background:#ECFDF5"></i><i style="background:#D1FAE5"></i><i style="background:#A7F3D0"></i>
+      <i style="background:#34D399"></i><i style="background:#059669"></i><i style="background:#047857"></i>
+    </div>
+    <div class="palette-tokens">
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#ECFDF5"></span><b>soft</b> #ECFDF5</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#D1FAE5"></span><b>line</b> #D1FAE5</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#A7F3D0"></span><b>line-strong</b> #A7F3D0</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#34D399"></span><b>primary</b> #34D399</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#059669"></span><b>deep</b> #059669</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#047857"></span><b>text</b> #047857</div>
+    </div>
+    <div class="palette-button-demo" style="background:linear-gradient(135deg,#34D399,#059669)">시작하기</div>
+  </div>
+
+  <div class="palette-card">
+    <div class="palette-card-head"><div class="palette-card-name">Sky Blue</div></div>
+    <div class="palette-strip">
+      <i style="background:#EFF6FF"></i><i style="background:#DBEAFE"></i><i style="background:#BFDBFE"></i>
+      <i style="background:#60A5FA"></i><i style="background:#3B82F6"></i><i style="background:#1E40AF"></i>
+    </div>
+    <div class="palette-tokens">
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#EFF6FF"></span><b>soft</b> #EFF6FF</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#DBEAFE"></span><b>line</b> #DBEAFE</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#BFDBFE"></span><b>line-strong</b> #BFDBFE</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#60A5FA"></span><b>primary</b> #60A5FA</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#3B82F6"></span><b>deep</b> #3B82F6</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#1E40AF"></span><b>text</b> #1E40AF</div>
+    </div>
+    <div class="palette-button-demo" style="background:linear-gradient(135deg,#60A5FA,#3B82F6)">시작하기</div>
+  </div>
+
+  <div class="palette-card">
+    <div class="palette-card-head"><div class="palette-card-name">Sunny Amber</div></div>
+    <div class="palette-strip">
+      <i style="background:#FFFBEB"></i><i style="background:#FEF3C7"></i><i style="background:#FDE68A"></i>
+      <i style="background:#FBBF24"></i><i style="background:#D97706"></i><i style="background:#92400E"></i>
+    </div>
+    <div class="palette-tokens">
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#FFFBEB"></span><b>soft</b> #FFFBEB</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#FEF3C7"></span><b>line</b> #FEF3C7</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#FDE68A"></span><b>line-strong</b> #FDE68A</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#FBBF24"></span><b>primary</b> #FBBF24</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#D97706"></span><b>deep</b> #D97706</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#92400E"></span><b>text</b> #92400E</div>
+    </div>
+    <div class="palette-button-demo" style="background:linear-gradient(135deg,#FBBF24,#D97706)">시작하기</div>
+  </div>
+
+  <div class="palette-card">
+    <div class="palette-card-head"><div class="palette-card-name">Cool Charcoal</div></div>
+    <div class="palette-strip">
+      <i style="background:#F5F5F4"></i><i style="background:#E7E5E4"></i><i style="background:#D6D3D1"></i>
+      <i style="background:#78716C"></i><i style="background:#44403C"></i><i style="background:#292524"></i>
+    </div>
+    <div class="palette-tokens">
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#F5F5F4"></span><b>soft</b> #F5F5F4</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#E7E5E4"></span><b>line</b> #E7E5E4</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#D6D3D1"></span><b>line-strong</b> #D6D3D1</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#78716C"></span><b>primary</b> #78716C</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#44403C"></span><b>deep</b> #44403C</div>
+      <div class="palette-token-row"><span class="palette-token-chip" style="background:#292524"></span><b>text</b> #292524</div>
+    </div>
+    <div class="palette-button-demo" style="background:linear-gradient(135deg,#78716C,#44403C)">시작하기</div>
+  </div>
+
+</div>
+
+<div style="max-width:1500px;margin:0 auto;padding:0 32px">
+  <div class="lock-card">
+    <div class="lock-card-head">
+      <span style="font-size:18px">🔒</span>
+      <div class="lock-card-title">모든 테마에서 동일하게 잠기는 안전 색</div>
+    </div>
+    <div class="lock-grid">
+      <div class="lock-item"><div class="lock-swatch" style="background:#DC2626"></div><div class="lock-text-row"><div class="lock-text-name">SOS Red</div><div class="lock-text-hex">#DC2626</div><div class="lock-text-purpose">SOS · 긴급 · 하트만</div></div></div>
+      <div class="lock-item"><div class="lock-swatch" style="background:#D97706"></div><div class="lock-text-row"><div class="lock-text-name">Warning Amber</div><div class="lock-text-hex">#D97706</div><div class="lock-text-purpose">권한 안내 · 위험 알림</div></div></div>
+      <div class="lock-item"><div class="lock-swatch" style="background:#3B82F6"></div><div class="lock-text-row"><div class="lock-text-name">Parent Blue</div><div class="lock-text-hex">#3B82F6</div><div class="lock-text-purpose">부모 mode chrome</div></div></div>
+      <div class="lock-item"><div class="lock-swatch" style="background:#059669"></div><div class="lock-text-row"><div class="lock-text-name">Success Green</div><div class="lock-text-hex">#059669</div><div class="lock-text-purpose">완료 · OK 상태</div></div></div>
+      <div class="lock-item"><div class="lock-swatch" style="background:#A78BFA"></div><div class="lock-text-row"><div class="lock-text-name">학원</div><div class="lock-text-hex">#A78BFA</div><div class="lock-text-purpose">카테고리 1</div></div></div>
+      <div class="lock-item"><div class="lock-swatch" style="background:#34D399"></div><div class="lock-text-row"><div class="lock-text-name">운동</div><div class="lock-text-hex">#34D399</div><div class="lock-text-purpose">카테고리 2</div></div></div>
+      <div class="lock-item"><div class="lock-swatch" style="background:#F59E0B"></div><div class="lock-text-row"><div class="lock-text-name">취미</div><div class="lock-text-hex">#F59E0B</div><div class="lock-text-purpose">카테고리 3</div></div></div>
+      <div class="lock-item"><div class="lock-swatch" style="background:#F87171"></div><div class="lock-text-row"><div class="lock-text-name">가족</div><div class="lock-text-hex">#F87171</div><div class="lock-text-purpose">카테고리 4 (rose)</div></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="canvas-divider" style="margin-top:48px"></div>
+
+<h2 class="canvas-section-title">2. 부모 모드 홈 — 3 테마 적용 비교</h2>
+<p class="canvas-section-sub">같은 화면, 같은 데이터. 테마만 바뀜. SOS 빨강 / 카테고리 점들 / 알림 dot은 모든 테마에서 동일.</p>
+
+<div class="compare-row">
+
+  <!-- COL 1 · WARM PINK -->
+  <div class="compare-col">
+    <span class="compare-tag"><span class="dot" style="background:#F779A8"></span>WARM PINK · 현재</span>
+    <div class="ios-frame">
+      <div class="ios-screen" style="--th-soft:var(--t1-soft); --th-line:var(--t1-line); --th-line-strong:var(--t1-line-strong); --th-primary:var(--t1-primary); --th-deep:var(--t1-deep); --th-text:var(--t1-text); --th-grad:var(--t1-grad); --th-shadow:var(--t1-shadow);">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ph">
+            <div class="ph-header">
+              <div class="ph-fam-row">
+                <div class="ph-fam"><div class="ph-fam-icon">🍦</div><div class="ph-fam-info"><div class="ph-fam-name">혜니네 가족</div><div class="ph-fam-sub">엄마 · 김혜니</div></div></div>
+                <div class="ph-bell">🔔<div class="ph-bell-dot"></div></div>
+              </div>
+              <div class="ph-greet"><div class="ph-greet-eyebrow">화요일 · 4월 30일</div><div class="ph-greet-text">오늘도 안전한 하루 보내세요</div></div>
+              <div class="ph-children-strip">
+                <div class="ph-child-chip"><span class="ph-child-emoji">🐰</span>혜니 · 8살</div>
+                <div class="ph-child-chip"><span class="ph-child-emoji">🐻</span>준이 · 6살</div>
+              </div>
+            </div>
+            <div class="ph-body">
+              <div class="ph-sos">
+                <div class="ph-sos-ic">💗</div>
+                <div class="ph-sos-info"><div class="ph-sos-title">꾹 SOS</div><div class="ph-sos-sub">길게 누르면 모든 자녀에게 즉시 신호</div></div>
+                <div class="ph-sos-arrow">›</div>
+              </div>
+              <div class="ph-card">
+                <div class="ph-card-head"><div class="ph-card-eyebrow">자녀 위치</div><span class="ph-card-arrow">›</span></div>
+                <div class="ph-loc-map"><div class="ph-loc-pin a">🐰</div><div class="ph-loc-pin b">🐻</div></div>
+                <div class="ph-loc-row"><div class="ph-loc-dot" style="background:var(--th-primary)"></div><div class="ph-loc-name">혜니 · 학원</div><div class="ph-loc-status">5분 전</div></div>
+                <div class="ph-loc-row"><div class="ph-loc-dot" style="background:var(--safe-parent)"></div><div class="ph-loc-name">준이 · 집</div><div class="ph-loc-status">방금</div></div>
+              </div>
+              <div class="ph-card">
+                <div class="ph-card-head"><div class="ph-card-eyebrow">오늘 일정</div><span class="ph-card-arrow">›</span></div>
+                <div class="ph-today-list">
+                  <div class="ph-today-item"><div class="ph-today-time">15:00</div><div class="ph-today-dot" style="background:var(--cat-academy)"></div><div class="ph-today-title">수학학원</div><div class="ph-today-cat" style="background:var(--cat-academy)">학원</div></div>
+                  <div class="ph-today-item"><div class="ph-today-time">17:30</div><div class="ph-today-dot" style="background:var(--cat-sport)"></div><div class="ph-today-title">태권도</div><div class="ph-today-cat" style="background:var(--cat-sport)">운동</div></div>
+                  <div class="ph-today-item"><div class="ph-today-time">19:00</div><div class="ph-today-dot" style="background:var(--cat-family)"></div><div class="ph-today-title">가족 저녁</div><div class="ph-today-cat" style="background:var(--cat-family)">가족</div></div>
+                </div>
+              </div>
+              <div class="ph-action">＋ 일정 추가</div>
+            </div>
+            <div class="ph-nav">
+              <div class="ph-nav-item active"><span class="ic">🏠</span>홈</div>
+              <div class="ph-nav-item"><span class="ic">📅</span>오늘</div>
+              <div class="ph-nav-item"><span class="ic">📍</span>지도</div>
+              <div class="ph-nav-item"><span class="ic">⚙️</span>설정</div>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 2 · SOFT LAVENDER -->
+  <div class="compare-col">
+    <span class="compare-tag"><span class="dot" style="background:#A78BFA"></span>SOFT LAVENDER</span>
+    <div class="ios-frame">
+      <div class="ios-screen" style="--th-soft:var(--t2-soft); --th-line:var(--t2-line); --th-line-strong:var(--t2-line-strong); --th-primary:var(--t2-primary); --th-deep:var(--t2-deep); --th-text:var(--t2-text); --th-grad:var(--t2-grad); --th-shadow:var(--t2-shadow);">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ph">
+            <div class="ph-header">
+              <div class="ph-fam-row">
+                <div class="ph-fam"><div class="ph-fam-icon">🍦</div><div class="ph-fam-info"><div class="ph-fam-name">혜니네 가족</div><div class="ph-fam-sub">엄마 · 김혜니</div></div></div>
+                <div class="ph-bell">🔔<div class="ph-bell-dot"></div></div>
+              </div>
+              <div class="ph-greet"><div class="ph-greet-eyebrow">화요일 · 4월 30일</div><div class="ph-greet-text">오늘도 안전한 하루 보내세요</div></div>
+              <div class="ph-children-strip">
+                <div class="ph-child-chip"><span class="ph-child-emoji">🐰</span>혜니 · 8살</div>
+                <div class="ph-child-chip"><span class="ph-child-emoji">🐻</span>준이 · 6살</div>
+              </div>
+            </div>
+            <div class="ph-body">
+              <div class="ph-sos">
+                <div class="ph-sos-ic">💗</div>
+                <div class="ph-sos-info"><div class="ph-sos-title">꾹 SOS</div><div class="ph-sos-sub">길게 누르면 모든 자녀에게 즉시 신호</div></div>
+                <div class="ph-sos-arrow">›</div>
+              </div>
+              <div class="ph-card">
+                <div class="ph-card-head"><div class="ph-card-eyebrow">자녀 위치</div><span class="ph-card-arrow">›</span></div>
+                <div class="ph-loc-map"><div class="ph-loc-pin a">🐰</div><div class="ph-loc-pin b">🐻</div></div>
+                <div class="ph-loc-row"><div class="ph-loc-dot" style="background:var(--th-primary)"></div><div class="ph-loc-name">혜니 · 학원</div><div class="ph-loc-status">5분 전</div></div>
+                <div class="ph-loc-row"><div class="ph-loc-dot" style="background:var(--safe-parent)"></div><div class="ph-loc-name">준이 · 집</div><div class="ph-loc-status">방금</div></div>
+              </div>
+              <div class="ph-card">
+                <div class="ph-card-head"><div class="ph-card-eyebrow">오늘 일정</div><span class="ph-card-arrow">›</span></div>
+                <div class="ph-today-list">
+                  <div class="ph-today-item"><div class="ph-today-time">15:00</div><div class="ph-today-dot" style="background:var(--cat-academy)"></div><div class="ph-today-title">수학학원</div><div class="ph-today-cat" style="background:var(--cat-academy)">학원</div></div>
+                  <div class="ph-today-item"><div class="ph-today-time">17:30</div><div class="ph-today-dot" style="background:var(--cat-sport)"></div><div class="ph-today-title">태권도</div><div class="ph-today-cat" style="background:var(--cat-sport)">운동</div></div>
+                  <div class="ph-today-item"><div class="ph-today-time">19:00</div><div class="ph-today-dot" style="background:var(--cat-family)"></div><div class="ph-today-title">가족 저녁</div><div class="ph-today-cat" style="background:var(--cat-family)">가족</div></div>
+                </div>
+              </div>
+              <div class="ph-action">＋ 일정 추가</div>
+            </div>
+            <div class="ph-nav">
+              <div class="ph-nav-item active"><span class="ic">🏠</span>홈</div>
+              <div class="ph-nav-item"><span class="ic">📅</span>오늘</div>
+              <div class="ph-nav-item"><span class="ic">📍</span>지도</div>
+              <div class="ph-nav-item"><span class="ic">⚙️</span>설정</div>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 3 · MINT FRESH -->
+  <div class="compare-col">
+    <span class="compare-tag"><span class="dot" style="background:#34D399"></span>MINT FRESH</span>
+    <div class="ios-frame">
+      <div class="ios-screen" style="--th-soft:var(--t3-soft); --th-line:var(--t3-line); --th-line-strong:var(--t3-line-strong); --th-primary:var(--t3-primary); --th-deep:var(--t3-deep); --th-text:var(--t3-text); --th-grad:var(--t3-grad); --th-shadow:var(--t3-shadow);">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ph">
+            <div class="ph-header">
+              <div class="ph-fam-row">
+                <div class="ph-fam"><div class="ph-fam-icon">🍦</div><div class="ph-fam-info"><div class="ph-fam-name">혜니네 가족</div><div class="ph-fam-sub">엄마 · 김혜니</div></div></div>
+                <div class="ph-bell">🔔<div class="ph-bell-dot"></div></div>
+              </div>
+              <div class="ph-greet"><div class="ph-greet-eyebrow">화요일 · 4월 30일</div><div class="ph-greet-text">오늘도 안전한 하루 보내세요</div></div>
+              <div class="ph-children-strip">
+                <div class="ph-child-chip"><span class="ph-child-emoji">🐰</span>혜니 · 8살</div>
+                <div class="ph-child-chip"><span class="ph-child-emoji">🐻</span>준이 · 6살</div>
+              </div>
+            </div>
+            <div class="ph-body">
+              <div class="ph-sos">
+                <div class="ph-sos-ic">💗</div>
+                <div class="ph-sos-info"><div class="ph-sos-title">꾹 SOS</div><div class="ph-sos-sub">길게 누르면 모든 자녀에게 즉시 신호</div></div>
+                <div class="ph-sos-arrow">›</div>
+              </div>
+              <div class="ph-card">
+                <div class="ph-card-head"><div class="ph-card-eyebrow">자녀 위치</div><span class="ph-card-arrow">›</span></div>
+                <div class="ph-loc-map"><div class="ph-loc-pin a">🐰</div><div class="ph-loc-pin b">🐻</div></div>
+                <div class="ph-loc-row"><div class="ph-loc-dot" style="background:var(--th-primary)"></div><div class="ph-loc-name">혜니 · 학원</div><div class="ph-loc-status">5분 전</div></div>
+                <div class="ph-loc-row"><div class="ph-loc-dot" style="background:var(--safe-parent)"></div><div class="ph-loc-name">준이 · 집</div><div class="ph-loc-status">방금</div></div>
+              </div>
+              <div class="ph-card">
+                <div class="ph-card-head"><div class="ph-card-eyebrow">오늘 일정</div><span class="ph-card-arrow">›</span></div>
+                <div class="ph-today-list">
+                  <div class="ph-today-item"><div class="ph-today-time">15:00</div><div class="ph-today-dot" style="background:var(--cat-academy)"></div><div class="ph-today-title">수학학원</div><div class="ph-today-cat" style="background:var(--cat-academy)">학원</div></div>
+                  <div class="ph-today-item"><div class="ph-today-time">17:30</div><div class="ph-today-dot" style="background:var(--cat-sport)"></div><div class="ph-today-title">태권도</div><div class="ph-today-cat" style="background:var(--cat-sport)">운동</div></div>
+                  <div class="ph-today-item"><div class="ph-today-time">19:00</div><div class="ph-today-dot" style="background:var(--cat-family)"></div><div class="ph-today-title">가족 저녁</div><div class="ph-today-cat" style="background:var(--cat-family)">가족</div></div>
+                </div>
+              </div>
+              <div class="ph-action">＋ 일정 추가</div>
+            </div>
+            <div class="ph-nav">
+              <div class="ph-nav-item active"><span class="ic">🏠</span>홈</div>
+              <div class="ph-nav-item"><span class="ic">📅</span>오늘</div>
+              <div class="ph-nav-item"><span class="ic">📍</span>지도</div>
+              <div class="ph-nav-item"><span class="ic">⚙️</span>설정</div>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer class="canvas-foot">
+  <p><b>Section 1 (팔레트):</b> 6 테마 각각 8 토큰 정의 + 모든 테마에서 잠기는 안전 색 8개 명시. 디자이너 reference + 구현시 CSS 변수 mapping table.</p>
+  <p><b>Section 2 (부모 모드 홈):</b> 같은 layout · 같은 데이터에 테마만 바꾼 비교. <b>SOS 빨강 / 알림 dot / 카테고리 점들은 모든 테마 동일</b> — 안전 색 lock 작동 확인.</p>
+  <p style="margin-top:14px;"><b>v3에서 다룰 것:</b></p>
+  <p>· 자녀 모드 홈 · 같은 3 테마 적용 (자녀-친근 layout, parent blue 부분이 어떻게 보일지)</p>
+  <p>· 회원가입 4/6 단계 색상 선택 화면 v2 (Junior Pass의 B에서 더 발전된 디테일)</p>
+  <p>· 설정 → 우리집 색깔 변경 화면 (즉시 적용 transition · 부드러운 fade)</p>
+  <p>· DB 스키마: <code>families.theme text default 'warm-pink' check (theme in ('warm-pink','soft-lavender','mint-fresh','sky-blue','sunny-amber','cool-charcoal'))</code></p>
+</footer>
+
+</body>
+</html>

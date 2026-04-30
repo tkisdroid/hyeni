@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>혜니캘린더 · Theme Picker · v5 · 자녀 모드 + 회원가입 풀 플로우</title>
+<!-- Full Pass v5 · 2026-04-30 · 자녀 모드 4 페이지 + 회원가입 6단계.
+     자녀 모드 폰트는 부모 모드보다 한 단계 큼 (8세 가독성). 모든 데이터 합성. -->
+<style>
+  :root {
+    --pink: #F779A8; --pink-deep: #E65C92; --pink-text: #B0477A;
+    --pink-soft: #FFF5FA; --pink-line: #FFE4EF; --pink-line-strong: #FFD4E7;
+    --grad: linear-gradient(135deg,#F779A8,#E65C92);
+    --shadow: 0 12px 26px rgba(247,121,168,0.3);
+    --ink: #38252D; --ink-soft: #75525C; --muted: #9B7C85;
+    --line: #F3E9EC; --pale: #FFFAF5; --cream: #FCF1EB;
+    --safe-sos: #DC2626; --safe-warn: #D97706; --safe-warn-bg: #FFFBEB; --safe-warn-text: #92400E;
+    --safe-parent: #3B82F6; --safe-success: #059669;
+    --cat-academy: #A78BFA; --cat-sport: #34D399; --cat-hobby: #F59E0B;
+    --cat-family: #F87171; --cat-friend: #60A5FA; --cat-etc: #EC4899;
+    --font-sans: 'Pretendard Variable','Pretendard','Noto Sans KR','Apple SD Gothic Neo', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: var(--font-sans); color: var(--ink); background: radial-gradient(1400px 800px at 10% -10%, #FFDEEC 0%, transparent 55%), radial-gradient(1400px 800px at 90% 110%, #FFEBBE 0%, transparent 55%), linear-gradient(180deg, #FCF1EB 0%, #F5EBF3 100%); min-height: 100vh; -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; text-wrap: pretty; }
+
+  .canvas-header { padding: 56px 32px 24px; max-width: 1700px; margin: 0 auto; }
+  .canvas-eyebrow { font-size: 13px; font-weight: 800; color: #B0477A; letter-spacing: 0.3em; text-transform: uppercase; }
+  .canvas-title { font-size: 44px; font-weight: 900; line-height: 1.15; letter-spacing: -0.02em; margin-top: 8px; }
+  .canvas-title em { font-style: normal; background: linear-gradient(135deg,#F779A8,#3B82F6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .canvas-subtitle { font-size: 16px; color: var(--ink-soft); margin-top: 12px; line-height: 1.6; max-width: 760px; }
+  .canvas-section-title { font-size: 26px; font-weight: 900; letter-spacing: -0.01em; max-width: 1700px; margin: 56px auto 6px; padding: 0 32px; }
+  .canvas-section-sub { font-size: 14px; color: var(--ink-soft); max-width: 1700px; margin: 0 auto 20px; padding: 0 32px; }
+
+  .pages-row { display: flex; gap: 22px; flex-wrap: nowrap; padding: 24px; overflow-x: auto; align-items: flex-start; }
+  .page-col { display: flex; flex-direction: column; align-items: center; gap: 12px; flex-shrink: 0; }
+  .page-tag { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); background: white; padding: 9px 16px; border-radius: 999px; border: 1.5px solid var(--line); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .page-tag .num { width: 24px; height: 24px; border-radius: 50%; background: var(--grad); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; }
+  .page-name { font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
+  .page-purpose { font-size: 13px; color: var(--ink-soft); line-height: 1.55; max-width: 340px; text-align: center; }
+  .flow-arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 380px; flex-shrink: 0; }
+  .flow-arrow-line { width: 28px; height: 2px; background: linear-gradient(90deg, transparent, var(--pink-line-strong) 30%, var(--pink) 70%, var(--pink-deep)); }
+  .flow-arrow-head { color: var(--pink-deep); font-size: 22px; font-weight: 900; margin-left: -2px; }
+  .flow-arrow-label { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: 0.05em; margin-top: 4px; max-width: 56px; text-align: center; line-height: 1.3; }
+
+  .ios-frame { position: relative; width: 390px; height: 844px; background: #000; border-radius: 60px; padding: 12px; box-shadow: 0 0 0 2px #1f2937, 0 30px 80px rgba(120,80,100,0.30); flex-shrink: 0; }
+  .ios-screen { position: relative; width: 100%; height: 100%; border-radius: 48px; overflow: hidden; background: white; }
+  .ios-statusbar { position: absolute; top: 0; left: 0; right: 0; height: 48px; display: flex; justify-content: space-between; align-items: center; padding: 0 28px; font-size: 14px; font-weight: 700; z-index: 20; pointer-events: none; font-family: -apple-system,'SF Pro Text',sans-serif; color: #38252D; }
+  .ios-statusbar.dark { color: white; }
+  .ios-island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 124px; height: 36px; background: #000; border-radius: 999px; z-index: 30; }
+  .ios-content { position: absolute; top: 48px; left: 0; right: 0; bottom: 0; overflow: hidden; }
+  .ios-home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; background: rgba(0,0,0,0.3); border-radius: 999px; z-index: 10; }
+  .ios-statusbar-icons { display: flex; align-items: center; gap: 6px; }
+  .signal-bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .signal-bars i { width: 3px; background: currentColor; border-radius: 1px; }
+  .battery { width: 26px; height: 12px; border: 1.4px solid currentColor; border-radius: 3px; padding: 1px; position: relative; opacity: 0.85; }
+  .battery::after { content: ''; position: absolute; top: 3px; right: -3px; width: 2px; height: 6px; background: currentColor; border-radius: 0 1px 1px 0; }
+  .battery i { display: block; width: 85%; height: 100%; background: currentColor; border-radius: 1px; }
+
+  /* SIGNUP FLOW */
+  .su { height: 100%; overflow: hidden; position: relative; background: white; padding-bottom: 100px; }
+  .su-progress { padding: 56px 22px 8px; display: flex; gap: 6px; }
+  .su-progress i { flex: 1; height: 6px; border-radius: 999px; background: #F3E9EC; }
+  .su-progress i.active { background: var(--grad); }
+  .su-step { padding: 8px 22px 0; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .su-title { padding: 14px 22px 6px; font-size: 28px; font-weight: 900; line-height: 1.25; letter-spacing: -0.02em; }
+  .su-title span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .su-sub { padding: 0 22px; font-size: 14px; color: var(--ink-soft); line-height: 1.55; margin-top: 4px; }
+
+  .su-splash { height: 100%; background: var(--grad); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 22px; position: relative; overflow: hidden; }
+  .su-splash::before { content: ''; position: absolute; top: -100px; right: -100px; width: 320px; height: 320px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+  .su-splash::after { content: ''; position: absolute; bottom: -120px; left: -120px; width: 360px; height: 360px; border-radius: 50%; background: rgba(255,255,255,0.10); }
+  .su-splash-logo { width: 120px; height: 120px; border-radius: 36px; background: white; display: flex; align-items: center; justify-content: center; font-size: 64px; box-shadow: 0 16px 40px rgba(0,0,0,0.18); margin-bottom: 28px; position: relative; z-index: 2; }
+  .su-splash-name { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; position: relative; z-index: 2; }
+  .su-splash-tag { font-size: 15px; opacity: 0.92; margin-top: 8px; position: relative; z-index: 2; }
+  .su-splash-load { width: 60%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 999px; margin-top: 36px; overflow: hidden; position: relative; z-index: 2; }
+  .su-splash-load i { display: block; width: 65%; height: 100%; background: white; border-radius: 999px; }
+
+  .su-roles { padding: 16px 18px 0; display: flex; flex-direction: column; gap: 14px; }
+  .su-role-card { background: white; border-radius: 22px; padding: 22px; border: 2px solid var(--line); display: flex; align-items: center; gap: 16px; min-height: 92px; }
+  .su-role-card.parent { border-color: #FFC2D9; background: linear-gradient(135deg, white 0%, #FFF5FA 100%); }
+  .su-role-card.child { border-color: #BFDBFE; background: linear-gradient(135deg, white 0%, #EFF6FF 100%); }
+  .su-role-emoji { width: 64px; height: 64px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 36px; flex-shrink: 0; }
+  .su-role-card.parent .su-role-emoji { background: linear-gradient(135deg, #FFC2D9, #FFD4E7); }
+  .su-role-card.child .su-role-emoji { background: linear-gradient(135deg, #BFDBFE, #DBEAFE); }
+  .su-role-info { flex: 1; }
+  .su-role-name { font-size: 18px; font-weight: 900; color: var(--ink); }
+  .su-role-desc { font-size: 13px; color: var(--ink-soft); margin-top: 4px; line-height: 1.5; }
+  .su-role-arrow { font-size: 24px; color: var(--muted); }
+
+  .su-input-wrap { padding: 18px 22px 0; }
+  .su-input-label { font-size: 13px; font-weight: 800; color: var(--pink-text); letter-spacing: 0.1em; text-transform: uppercase; }
+  .su-input { width: 100%; padding: 18px; border-radius: 16px; border: 2px solid var(--pink-line-strong); background: var(--pink-soft); font-size: 17px; font-weight: 800; color: var(--ink); margin-top: 8px; min-height: 60px; box-sizing: border-box; font-family: inherit; }
+  .su-input-hint { font-size: 13px; color: var(--ink-soft); margin-top: 8px; line-height: 1.5; }
+  .su-emoji-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .su-emoji-btn { width: 56px; height: 56px; border-radius: 16px; background: white; border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .su-emoji-btn.active { border-color: var(--pink); background: var(--pink-soft); box-shadow: 0 4px 12px rgba(247,121,168,0.2); }
+
+  .su-perm { padding: 14px 18px 0; display: flex; flex-direction: column; gap: 10px; }
+  .su-perm-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: white; border-radius: 16px; border: 1.5px solid var(--line); min-height: 64px; }
+  .su-perm-ic { width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .su-perm-info { flex: 1; }
+  .su-perm-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+  .su-perm-desc { font-size: 12px; color: var(--ink-soft); margin-top: 2px; line-height: 1.45; }
+  .su-perm-toggle { width: 48px; height: 28px; background: var(--grad); border-radius: 999px; position: relative; flex-shrink: 0; }
+  .su-perm-toggle::after { content: ''; position: absolute; top: 2px; right: 2px; width: 24px; height: 24px; border-radius: 50%; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+  .su-perm-toggle.off { background: var(--line); }
+  .su-perm-toggle.off::after { right: auto; left: 2px; }
+
+  .su-cards { padding: 18px 18px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .su-card { background: white; border-radius: 18px; padding: 14px; border: 2px solid var(--line); position: relative; }
+  .su-card.selected { border-color: var(--pink); box-shadow: 0 10px 22px rgba(247,121,168,0.18); }
+  .su-card.selected::after { content: '✓'; position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; background: var(--pink); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; }
+  .su-card-name { font-size: 13px; font-weight: 900; color: var(--ink); margin-bottom: 8px; }
+  .su-card-strip { display: flex; height: 26px; border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+  .su-card-strip i { flex: 1; }
+  .su-card-mini { display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 10px; }
+  .su-card-mini-ic { width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .su-card-mini-text { flex: 1; font-size: 9.5px; font-weight: 800; color: var(--ink); }
+  .su-card-mini-btn { padding: 3px 8px; border-radius: 6px; color: white; font-size: 8.5px; font-weight: 800; }
+
+  .su-success { padding: 60px 22px 0; height: 100%; display: flex; flex-direction: column; align-items: center; }
+  .su-success-emoji { font-size: 80px; line-height: 1; margin-bottom: 18px; filter: drop-shadow(0 8px 16px rgba(247,121,168,0.4)); }
+  .su-success-title { font-size: 26px; font-weight: 900; color: var(--ink); text-align: center; line-height: 1.3; }
+  .su-success-title span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .su-success-sub { font-size: 14px; color: var(--ink-soft); text-align: center; margin-top: 10px; line-height: 1.55; }
+  .su-pair-card { width: 100%; margin-top: 26px; padding: 18px; background: var(--pink-soft); border-radius: 20px; border: 2px dashed var(--pink-line-strong); }
+  .su-pair-label { font-size: 12px; font-weight: 800; color: var(--pink-text); letter-spacing: 0.15em; text-transform: uppercase; text-align: center; }
+  .su-pair-code { font-family: var(--font-mono); font-size: 26px; font-weight: 900; color: var(--ink); letter-spacing: 0.18em; text-align: center; margin-top: 10px; }
+  .su-pair-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .su-pair-btn { flex: 1; padding: 14px; border-radius: 14px; font-size: 13px; font-weight: 800; text-align: center; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .su-pair-btn.qr { background: var(--grad); color: white; box-shadow: var(--shadow); }
+  .su-pair-btn.copy { background: white; color: var(--pink-text); border: 1.5px solid var(--pink-line-strong); }
+
+  .su-foot { position: absolute; bottom: 0; left: 0; right: 0; padding: 14px 18px 28px; background: rgba(255,255,255,0.97); backdrop-filter: blur(16px); border-top: 1px solid var(--line); }
+  .su-cta { width: 100%; padding: 18px; border-radius: 18px; background: var(--grad); color: white; font-size: 16px; font-weight: 900; text-align: center; box-shadow: 0 12px 24px rgba(247,121,168,0.35); min-height: 56px; display: flex; align-items: center; justify-content: center; }
+  .su-skip { display: block; text-align: center; font-size: 13px; color: var(--muted); font-weight: 700; margin-top: 10px; padding: 8px; }
+
+  /* CHILD MODE */
+  .ch { height: 100%; overflow: hidden; position: relative; background: var(--pink-soft); padding-bottom: 80px; }
+  .ch-hero { padding: 56px 22px 28px; background: var(--grad); color: white; border-radius: 0 0 36px 36px; box-shadow: 0 14px 28px rgba(0,0,0,0.08); position: relative; overflow: hidden; }
+  .ch-hero::before { content: ''; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: rgba(255,255,255,0.18); }
+  .ch-hero::after { content: ''; position: absolute; left: -40px; bottom: -60px; width: 160px; height: 160px; border-radius: 50%; background: rgba(255,255,255,0.12); }
+  .ch-hero-row { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2; }
+  .ch-hero-greet { font-size: 22px; font-weight: 900; line-height: 1.25; }
+  .ch-hero-greet b { display: block; font-size: 28px; }
+  .ch-hero-bell { width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; font-size: 22px; backdrop-filter: blur(8px); }
+  .ch-avatar { margin-top: 18px; display: flex; align-items: center; gap: 14px; position: relative; z-index: 2; }
+  .ch-avatar-emoji { font-size: 60px; filter: drop-shadow(0 6px 16px rgba(0,0,0,0.18)); }
+  .ch-avatar-info { flex: 1; }
+  .ch-avatar-name { font-size: 18px; font-weight: 900; }
+  .ch-avatar-status { font-size: 13px; opacity: 0.92; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+  .ch-avatar-status i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #34D399; box-shadow: 0 0 0 3px rgba(52,211,153,0.4); }
+
+  .ch-body { padding: 18px 22px 0; display: flex; flex-direction: column; gap: 14px; }
+  .ch-next { background: white; border-radius: 22px; padding: 18px; box-shadow: 0 10px 22px rgba(120,80,100,0.08); border: 2px solid var(--pink-line); position: relative; overflow: hidden; }
+  .ch-next::before { content: ''; position: absolute; right: -30px; top: -30px; width: 120px; height: 120px; border-radius: 50%; background: var(--pink-line); }
+  .ch-next-eyebrow { font-size: 13px; font-weight: 800; color: var(--pink-text); letter-spacing: 0.18em; text-transform: uppercase; position: relative; z-index: 2; }
+  .ch-next-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; position: relative; z-index: 2; }
+  .ch-next-info { flex: 1; }
+  .ch-next-time { font-size: 30px; font-weight: 900; color: var(--pink-text); letter-spacing: -0.02em; }
+  .ch-next-title { font-size: 17px; font-weight: 800; color: var(--ink); margin-top: 4px; }
+  .ch-next-sub { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+  .ch-next-cat { padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 800; color: white; background: var(--cat-academy); }
+  .ch-next-bar { margin-top: 14px; height: 6px; background: var(--pink-line); border-radius: 999px; overflow: hidden; position: relative; z-index: 2; }
+  .ch-next-bar i { display: block; height: 100%; width: 65%; background: var(--grad); border-radius: 999px; }
+
+  .ch-fam-card { background: white; border-radius: 20px; padding: 16px; border: 1px solid var(--pink-line); box-shadow: 0 8px 16px rgba(120,80,100,0.06); }
+  .ch-fam-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .ch-fam-head-text { font-size: 13px; font-weight: 800; color: var(--pink-text); letter-spacing: 0.12em; text-transform: uppercase; }
+  .ch-fam-head-arrow { color: var(--muted); font-size: 16px; }
+  .ch-fam-people { display: flex; gap: 10px; }
+  .ch-fam-person { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; border-radius: 14px; background: var(--pink-soft); }
+  .ch-fam-person-emoji { font-size: 32px; }
+  .ch-fam-person-name { font-size: 13px; font-weight: 800; color: var(--ink); margin-top: 2px; }
+  .ch-fam-person-conn { font-size: 11px; font-weight: 700; color: var(--safe-success); display: flex; align-items: center; gap: 3px; }
+  .ch-fam-person-conn i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--safe-success); }
+
+  .ch-help { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ch-help-btn { padding: 18px 14px; border-radius: 20px; color: white; text-align: center; box-shadow: 0 8px 18px rgba(0,0,0,0.12); }
+  .ch-help-btn.call { background: var(--grad); }
+  .ch-help-btn.sos { background: linear-gradient(135deg,#EF4444,#DC2626); }
+  .ch-help-btn-emoji { font-size: 36px; line-height: 1; }
+  .ch-help-btn-label { font-size: 15px; font-weight: 900; margin-top: 8px; }
+  .ch-help-btn-sub { font-size: 12px; opacity: 0.92; margin-top: 2px; font-weight: 700; }
+
+  .ch-nav { position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: rgba(255,255,255,0.96); backdrop-filter: blur(16px); border-top: 1px solid var(--pink-line); display: grid; grid-template-columns: repeat(4, 1fr); padding: 10px 0 16px; }
+  .ch-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: var(--muted); }
+  .ch-nav-item .ic { font-size: 24px; line-height: 1; }
+  .ch-nav-item.active { color: var(--pink-text); }
+  .ch-nav-item.active .ic { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .ch-topbar { padding: 56px 22px 16px; background: white; border-bottom: 1px solid var(--line); }
+  .ch-topbar-title { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
+
+  .ch-sched-day { background: white; border-radius: 20px; padding: 16px; border: 1px solid var(--pink-line); margin-bottom: 12px; box-shadow: 0 6px 14px rgba(120,80,100,0.06); }
+  .ch-sched-day-head { font-size: 14px; font-weight: 900; color: var(--pink-text); margin-bottom: 12px; letter-spacing: 0.05em; }
+  .ch-sched-day-head b { font-size: 16px; color: var(--ink); }
+  .ch-sched-event { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--pink-soft); border-radius: 14px; border: 1px solid var(--pink-line); margin-bottom: 8px; min-height: 60px; }
+  .ch-sched-event-time { font-family: var(--font-mono); font-size: 16px; font-weight: 900; color: var(--pink-text); min-width: 56px; }
+  .ch-sched-event-bar { width: 4px; height: 36px; border-radius: 2px; }
+  .ch-sched-event-info { flex: 1; }
+  .ch-sched-event-title { font-size: 16px; font-weight: 800; color: var(--ink); }
+  .ch-sched-event-loc { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+
+  .ch-fam-big-list { padding: 14px 18px 0; }
+  .ch-fam-big-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: white; border-radius: 20px; border: 1px solid var(--pink-line); margin-bottom: 12px; box-shadow: 0 6px 14px rgba(120,80,100,0.06); }
+  .ch-fam-big-emoji { width: 56px; height: 56px; border-radius: 18px; background: var(--pink-soft); display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0; }
+  .ch-fam-big-info { flex: 1; }
+  .ch-fam-big-name { font-size: 17px; font-weight: 900; color: var(--ink); }
+  .ch-fam-big-status { font-size: 13px; color: var(--safe-success); margin-top: 4px; display: flex; align-items: center; gap: 4px; font-weight: 800; }
+  .ch-fam-big-status i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--safe-success); }
+  .ch-fam-big-action { padding: 12px 16px; border-radius: 14px; background: var(--pink-soft); color: var(--pink-text); font-size: 13px; font-weight: 800; min-height: 48px; display: flex; align-items: center; gap: 4px; }
+  .ch-fam-big-action.call { background: var(--grad); color: white; box-shadow: 0 6px 14px rgba(247,121,168,0.3); }
+
+  .ch-help-full { height: 100%; padding: 56px 22px 90px; background: linear-gradient(180deg, var(--pink-soft) 0%, white 60%); display: flex; flex-direction: column; }
+  .ch-help-full-title { font-size: 24px; font-weight: 900; text-align: center; line-height: 1.3; margin-bottom: 6px; }
+  .ch-help-full-title span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ch-help-full-sub { font-size: 14px; color: var(--ink-soft); text-align: center; line-height: 1.55; margin-bottom: 28px; }
+  .ch-help-full-sos { background: linear-gradient(135deg,#EF4444,#DC2626); color: white; border-radius: 28px; padding: 28px; text-align: center; box-shadow: 0 16px 36px rgba(220,38,38,0.4); margin-bottom: 16px; }
+  .ch-help-full-sos-emoji { font-size: 64px; line-height: 1; }
+  .ch-help-full-sos-title { font-size: 22px; font-weight: 900; margin-top: 14px; }
+  .ch-help-full-sos-sub { font-size: 14px; opacity: 0.95; margin-top: 6px; line-height: 1.5; }
+  .ch-help-full-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ch-help-full-btn { background: white; border: 2px solid var(--pink-line); border-radius: 22px; padding: 20px 14px; text-align: center; min-height: 120px; }
+  .ch-help-full-btn-emoji { font-size: 40px; line-height: 1; }
+  .ch-help-full-btn-label { font-size: 15px; font-weight: 900; color: var(--ink); margin-top: 10px; }
+  .ch-help-full-btn-sub { font-size: 12px; color: var(--ink-soft); margin-top: 3px; line-height: 1.4; }
+
+  .canvas-foot { max-width: 1700px; margin: 32px auto 64px; padding: 0 32px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+  .canvas-foot b { color: var(--ink); font-weight: 800; }
+  .canvas-foot code { font-family: var(--font-mono); background: rgba(255,255,255,0.6); padding: 2px 6px; border-radius: 4px; color: #B0477A; }
+</style>
+</head>
+<body>
+
+<header class="canvas-header">
+  <div class="canvas-eyebrow">Full Pass v5 · 2026-04-30 · Warm Pink default</div>
+  <h1 class="canvas-title">자녀 모드 + <em>회원가입 풀 플로우</em></h1>
+  <p class="canvas-subtitle">
+    Section 1 — 회원가입 6단계 (splash → 역할 → 가족 → 권한 → 색상 → 페어링).
+    Section 2 — 자녀 모드 4 페이지 (홈 / 일정 / 가족 / 도움요청).
+    자녀 모드 폰트는 부모 모드보다 한 단계 큼 — 본문 16px / 시간 16-30px / 도움 emoji 36-64px.
+  </p>
+</header>
+
+<h2 class="canvas-section-title">Section 1 · 회원가입 풀 플로우 (6 단계)</h2>
+<p class="canvas-section-sub">처음 가입한 부모가 가족 만들기 → 자녀 페어링까지. 4단계 색상 선택은 v3와 동일.</p>
+
+<section class="pages-row">
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">1</span>SPLASH</span>
+    <div class="page-name">시작 화면</div>
+    <p class="page-purpose">앱 실행 직후 1.5초. 로고 + 가족명 + 로딩 bar.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar dark"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="su-splash">
+            <div class="su-splash-logo">🍦</div>
+            <div class="su-splash-name">혜니캘린더</div>
+            <div class="su-splash-tag">우리 가족 안전, 한곳에</div>
+            <div class="su-splash-load"><i></i></div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><div style="display:flex;align-items:center"><div class="flow-arrow-line"></div><span class="flow-arrow-head">›</span></div><div class="flow-arrow-label">역할 선택</div></div>
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">2</span>역할 선택</span>
+    <div class="page-name">누구세요?</div>
+    <p class="page-purpose">부모 / 자녀 1번에 선택. 큰 카드 + 큰 이모지로 바로 알 수 있게.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="su">
+            <div class="su-progress"><i class="active"></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="su-step">STEP 1 / 6</div>
+            <h2 class="su-title">처음 만나서<br/><span>반가워요</span></h2>
+            <p class="su-sub">먼저 이 기기를 누가 쓰는지 알려주세요.</p>
+            <div class="su-roles">
+              <div class="su-role-card parent">
+                <div class="su-role-emoji">👨‍👩‍👧‍👦</div>
+                <div class="su-role-info"><div class="su-role-name">부모예요</div><div class="su-role-desc">자녀 위치·일정 관리, 가족 만들기</div></div>
+                <div class="su-role-arrow">›</div>
+              </div>
+              <div class="su-role-card child">
+                <div class="su-role-emoji">🧒</div>
+                <div class="su-role-info"><div class="su-role-name">아이예요</div><div class="su-role-desc">부모님 코드로 우리 가족에 합류</div></div>
+                <div class="su-role-arrow">›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><div style="display:flex;align-items:center"><div class="flow-arrow-line"></div><span class="flow-arrow-head">›</span></div><div class="flow-arrow-label">가족 만들기</div></div>
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">3</span>가족 만들기</span>
+    <div class="page-name">가족 이름 + 이모지</div>
+    <p class="page-purpose">우리 가족 표시 이름 + 이모지 1개 선택. 큰 입력 60px.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="su">
+            <div class="su-progress"><i class="active"></i><i class="active"></i><i></i><i></i><i></i><i></i></div>
+            <div class="su-step">STEP 2 / 6 · 가족 정보</div>
+            <h2 class="su-title">우리 가족<br/><span>이름</span> 알려주세요</h2>
+            <p class="su-sub">알림에 표시되는 우리 가족 이름이에요.</p>
+            <div class="su-input-wrap">
+              <div class="su-input-label">가족 이름</div>
+              <input class="su-input" type="text" value="혜니네 가족" />
+              <div class="su-input-hint">예: ○○네 가족 · ○○이네 · 우리 가족</div>
+              <div class="su-input-label" style="margin-top:24px">가족 이모지</div>
+              <div class="su-emoji-row">
+                <div class="su-emoji-btn active">🍦</div>
+                <div class="su-emoji-btn">🌸</div>
+                <div class="su-emoji-btn">⭐</div>
+                <div class="su-emoji-btn">🌈</div>
+                <div class="su-emoji-btn">🐱</div>
+              </div>
+            </div>
+            <div class="su-foot"><div class="su-cta">다음</div></div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><div style="display:flex;align-items:center"><div class="flow-arrow-line"></div><span class="flow-arrow-head">›</span></div><div class="flow-arrow-label">권한</div></div>
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">4</span>권한 안내</span>
+    <div class="page-name">필요한 권한</div>
+    <p class="page-purpose">알림·위치·카메라·마이크 4가지. 64px tap row, 토글 48×28.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="su">
+            <div class="su-progress"><i class="active"></i><i class="active"></i><i class="active"></i><i></i><i></i><i></i></div>
+            <div class="su-step">STEP 3 / 6 · 권한</div>
+            <h2 class="su-title">필요한 <span>권한</span><br/>안내해드려요</h2>
+            <p class="su-sub">안전 알림과 위치 공유에 사용돼요.<br/>거부해도 가입은 진행됩니다.</p>
+            <div class="su-perm">
+              <div class="su-perm-item">
+                <div class="su-perm-ic" style="background:var(--pink-soft)">🔔</div>
+                <div class="su-perm-info"><div class="su-perm-title">알림</div><div class="su-perm-desc">자녀 도착·이탈, 일정 시작 알림</div></div>
+                <div class="su-perm-toggle"></div>
+              </div>
+              <div class="su-perm-item">
+                <div class="su-perm-ic" style="background:#EFF6FF">📍</div>
+                <div class="su-perm-info"><div class="su-perm-title">위치 (항상 허용 권장)</div><div class="su-perm-desc">자녀 안전 zone 도착·이탈 추적</div></div>
+                <div class="su-perm-toggle"></div>
+              </div>
+              <div class="su-perm-item">
+                <div class="su-perm-ic" style="background:#F5F3FF">📷</div>
+                <div class="su-perm-info"><div class="su-perm-title">카메라</div><div class="su-perm-desc">자녀 페어링 QR 스캔</div></div>
+                <div class="su-perm-toggle"></div>
+              </div>
+              <div class="su-perm-item">
+                <div class="su-perm-ic" style="background:#FFFBEB">🎙</div>
+                <div class="su-perm-info"><div class="su-perm-title">마이크 (선택)</div><div class="su-perm-desc">긴급시 주변 소리 확인 · 부모 모드만</div></div>
+                <div class="su-perm-toggle off"></div>
+              </div>
+            </div>
+            <div class="su-foot"><div class="su-cta">권한 허용하고 다음</div><div class="su-skip">건너뛰기</div></div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><div style="display:flex;align-items:center"><div class="flow-arrow-line"></div><span class="flow-arrow-head">›</span></div><div class="flow-arrow-label">색상 선택</div></div>
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">5</span>우리집 분위기</span>
+    <div class="page-name">테마 선택</div>
+    <p class="page-purpose">6 테마 카드 grid + mini preview. 선택된 카드 강조.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="su">
+            <div class="su-progress"><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i><i></i><i></i></div>
+            <div class="su-step">STEP 4 / 6 · 우리집 분위기</div>
+            <h2 class="su-title">우리집<br/><span>분위기</span> 골라요</h2>
+            <p class="su-sub">선택한 테마로 모든 색상이 함께 바뀝니다.</p>
+            <div class="su-cards">
+              <div class="su-card selected">
+                <div class="su-card-name">Warm Pink</div>
+                <div class="su-card-strip"><i style="background:#FFF5FA"></i><i style="background:#FFE4EF"></i><i style="background:#F779A8"></i><i style="background:#E65C92"></i></div>
+                <div class="su-card-mini" style="background:#FFF5FA"><div class="su-card-mini-ic" style="background:linear-gradient(135deg,#F779A8,#E65C92)">🍦</div><div class="su-card-mini-text">혜니네</div><div class="su-card-mini-btn" style="background:linear-gradient(135deg,#F779A8,#E65C92)">홈</div></div>
+              </div>
+              <div class="su-card">
+                <div class="su-card-name">Soft Lavender</div>
+                <div class="su-card-strip"><i style="background:#F5F3FF"></i><i style="background:#E9D5FF"></i><i style="background:#A78BFA"></i><i style="background:#7C3AED"></i></div>
+                <div class="su-card-mini" style="background:#F5F3FF"><div class="su-card-mini-ic" style="background:linear-gradient(135deg,#A78BFA,#7C3AED)">🍦</div><div class="su-card-mini-text">혜니네</div><div class="su-card-mini-btn" style="background:linear-gradient(135deg,#A78BFA,#7C3AED)">홈</div></div>
+              </div>
+              <div class="su-card">
+                <div class="su-card-name">Mint Fresh</div>
+                <div class="su-card-strip"><i style="background:#ECFDF5"></i><i style="background:#D1FAE5"></i><i style="background:#34D399"></i><i style="background:#059669"></i></div>
+                <div class="su-card-mini" style="background:#ECFDF5"><div class="su-card-mini-ic" style="background:linear-gradient(135deg,#34D399,#059669)">🍦</div><div class="su-card-mini-text">혜니네</div><div class="su-card-mini-btn" style="background:linear-gradient(135deg,#34D399,#059669)">홈</div></div>
+              </div>
+              <div class="su-card">
+                <div class="su-card-name">Sky Blue</div>
+                <div class="su-card-strip"><i style="background:#EFF6FF"></i><i style="background:#DBEAFE"></i><i style="background:#60A5FA"></i><i style="background:#3B82F6"></i></div>
+                <div class="su-card-mini" style="background:#EFF6FF"><div class="su-card-mini-ic" style="background:linear-gradient(135deg,#60A5FA,#3B82F6)">🍦</div><div class="su-card-mini-text">혜니네</div><div class="su-card-mini-btn" style="background:linear-gradient(135deg,#60A5FA,#3B82F6)">홈</div></div>
+              </div>
+              <div class="su-card">
+                <div class="su-card-name">Sunny Amber</div>
+                <div class="su-card-strip"><i style="background:#FFFBEB"></i><i style="background:#FEF3C7"></i><i style="background:#FBBF24"></i><i style="background:#D97706"></i></div>
+                <div class="su-card-mini" style="background:#FFFBEB"><div class="su-card-mini-ic" style="background:linear-gradient(135deg,#FBBF24,#D97706)">🍦</div><div class="su-card-mini-text">혜니네</div><div class="su-card-mini-btn" style="background:linear-gradient(135deg,#FBBF24,#D97706)">홈</div></div>
+              </div>
+              <div class="su-card">
+                <div class="su-card-name">Cool Charcoal</div>
+                <div class="su-card-strip"><i style="background:#F5F5F4"></i><i style="background:#E7E5E4"></i><i style="background:#78716C"></i><i style="background:#44403C"></i></div>
+                <div class="su-card-mini" style="background:#F5F5F4"><div class="su-card-mini-ic" style="background:linear-gradient(135deg,#78716C,#44403C)">🍦</div><div class="su-card-mini-text">혜니네</div><div class="su-card-mini-btn" style="background:linear-gradient(135deg,#78716C,#44403C)">홈</div></div>
+              </div>
+            </div>
+            <div class="su-foot"><div class="su-cta">Warm Pink로 시작하기</div><div class="su-skip">건너뛰고 기본값</div></div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><div style="display:flex;align-items:center"><div class="flow-arrow-line"></div><span class="flow-arrow-head">›</span></div><div class="flow-arrow-label">자녀 초대</div></div>
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">6</span>시작!</span>
+    <div class="page-name">자녀 초대 코드</div>
+    <p class="page-purpose">큰 페어링 코드 + QR / 복사. 자녀 기기에서 입력하면 합류 완료.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="su">
+            <div class="su-progress"><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i><i class="active"></i></div>
+            <div class="su-step">STEP 6 / 6 · 마지막!</div>
+            <div class="su-success">
+              <div class="su-success-emoji">🎉</div>
+              <div class="su-success-title">가족 만들기 <span>완료!</span></div>
+              <div class="su-success-sub">이제 자녀 기기에서 아래 코드로 합류해 주세요.<br/>유효기간 48시간.</div>
+              <div class="su-pair-card">
+                <div class="su-pair-label">자녀 초대 코드</div>
+                <div class="su-pair-code">KID-A4F2K9X</div>
+                <div class="su-pair-actions">
+                  <div class="su-pair-btn qr">📷 QR 보기</div>
+                  <div class="su-pair-btn copy">⎘ 복사</div>
+                </div>
+              </div>
+            </div>
+            <div class="su-foot"><div class="su-cta">홈으로</div></div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<h2 class="canvas-section-title" style="margin-top:24px">Section 2 · 자녀 모드 4 페이지</h2>
+<p class="canvas-section-sub">자녀(8세 김혜니) 화면. 부모 모드보다 한 단계 큰 폰트 — 본문 16px / 시간 16-30px / 도움 emoji 36-64px.</p>
+
+<section class="pages-row">
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">1</span>홈</span>
+    <div class="page-name">자녀 홈</div>
+    <p class="page-purpose">큰 emoji + 다음 일정 + 가족 4명 + 듀얼 도움 버튼.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar dark"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ch">
+            <div class="ch-hero">
+              <div class="ch-hero-row">
+                <div class="ch-hero-greet">안녕!<b>혜니야 🌸</b></div>
+                <div class="ch-hero-bell">🔔</div>
+              </div>
+              <div class="ch-avatar">
+                <div class="ch-avatar-emoji">🐰</div>
+                <div class="ch-avatar-info"><div class="ch-avatar-name">김혜니 · 8살</div><div class="ch-avatar-status"><i></i>가족 모두 연결됨</div></div>
+              </div>
+            </div>
+            <div class="ch-body">
+              <div class="ch-next">
+                <div class="ch-next-eyebrow">⏰ 다음 일정</div>
+                <div class="ch-next-row">
+                  <div class="ch-next-info"><div class="ch-next-time">15:00</div><div class="ch-next-title">수학학원</div><div class="ch-next-sub">12분 뒤 시작 · 5층 미래학원</div></div>
+                  <div class="ch-next-cat" style="background:var(--cat-academy)">학원</div>
+                </div>
+                <div class="ch-next-bar"><i></i></div>
+              </div>
+              <div class="ch-fam-card">
+                <div class="ch-fam-head"><div class="ch-fam-head-text">우리 가족</div><span class="ch-fam-head-arrow">›</span></div>
+                <div class="ch-fam-people">
+                  <div class="ch-fam-person"><div class="ch-fam-person-emoji">👩</div><div class="ch-fam-person-name">엄마</div><div class="ch-fam-person-conn"><i></i>온라인</div></div>
+                  <div class="ch-fam-person"><div class="ch-fam-person-emoji">👨</div><div class="ch-fam-person-name">아빠</div><div class="ch-fam-person-conn"><i></i>온라인</div></div>
+                  <div class="ch-fam-person"><div class="ch-fam-person-emoji">🐻</div><div class="ch-fam-person-name">준이</div><div class="ch-fam-person-conn"><i></i>온라인</div></div>
+                </div>
+              </div>
+              <div class="ch-help">
+                <div class="ch-help-btn call">
+                  <div class="ch-help-btn-emoji">📞</div>
+                  <div class="ch-help-btn-label">엄마한테 전화</div>
+                  <div class="ch-help-btn-sub">한 번 누르기</div>
+                </div>
+                <div class="ch-help-btn sos">
+                  <div class="ch-help-btn-emoji">💗</div>
+                  <div class="ch-help-btn-label">도와주세요</div>
+                  <div class="ch-help-btn-sub">길게 누르기</div>
+                </div>
+              </div>
+            </div>
+            <div class="ch-nav">
+              <div class="ch-nav-item active"><span class="ic">🏠</span>홈</div>
+              <div class="ch-nav-item"><span class="ic">📅</span>일정</div>
+              <div class="ch-nav-item"><span class="ic">👨‍👩‍👧</span>가족</div>
+              <div class="ch-nav-item"><span class="ic">💗</span>도움</div>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><div style="display:flex;align-items:center"><div class="flow-arrow-line"></div><span class="flow-arrow-head">›</span></div><div class="flow-arrow-label">일정 보기</div></div>
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">2</span>내 일정</span>
+    <div class="page-name">일정</div>
+    <p class="page-purpose">오늘 + 내일 일정 list. 큰 시간 16px + 큰 일정명 16px.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ch" style="background:white">
+            <div class="ch-topbar"><div class="ch-topbar-title">내 일정 📅</div></div>
+            <div style="padding:14px 18px 0">
+              <div class="ch-sched-day">
+                <div class="ch-sched-day-head">오늘 · <b>4월 30일 화</b> · 3개</div>
+                <div class="ch-sched-event"><div class="ch-sched-event-time">15:00</div><div class="ch-sched-event-bar" style="background:var(--cat-academy)"></div><div class="ch-sched-event-info"><div class="ch-sched-event-title">수학학원</div><div class="ch-sched-event-loc">미래학원 5층</div></div></div>
+                <div class="ch-sched-event"><div class="ch-sched-event-time">17:30</div><div class="ch-sched-event-bar" style="background:var(--cat-sport)"></div><div class="ch-sched-event-info"><div class="ch-sched-event-title">태권도</div><div class="ch-sched-event-loc">행복태권도장</div></div></div>
+                <div class="ch-sched-event"><div class="ch-sched-event-time">19:00</div><div class="ch-sched-event-bar" style="background:var(--cat-family)"></div><div class="ch-sched-event-info"><div class="ch-sched-event-title">가족 저녁</div><div class="ch-sched-event-loc">집 · 엄마 아빠 준이</div></div></div>
+              </div>
+              <div class="ch-sched-day">
+                <div class="ch-sched-day-head">내일 · <b>5월 1일 수</b> · 2개</div>
+                <div class="ch-sched-event"><div class="ch-sched-event-time">14:00</div><div class="ch-sched-event-bar" style="background:var(--cat-academy)"></div><div class="ch-sched-event-info"><div class="ch-sched-event-title">영어학원</div><div class="ch-sched-event-loc">행복영어 3층</div></div></div>
+                <div class="ch-sched-event"><div class="ch-sched-event-time">17:00</div><div class="ch-sched-event-bar" style="background:var(--cat-friend)"></div><div class="ch-sched-event-info"><div class="ch-sched-event-title">민지랑 놀기</div><div class="ch-sched-event-loc">놀이터</div></div></div>
+              </div>
+            </div>
+            <div class="ch-nav">
+              <div class="ch-nav-item"><span class="ic">🏠</span>홈</div>
+              <div class="ch-nav-item active"><span class="ic">📅</span>일정</div>
+              <div class="ch-nav-item"><span class="ic">👨‍👩‍👧</span>가족</div>
+              <div class="ch-nav-item"><span class="ic">💗</span>도움</div>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><div style="display:flex;align-items:center"><div class="flow-arrow-line"></div><span class="flow-arrow-head">›</span></div><div class="flow-arrow-label">가족 보기</div></div>
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">3</span>가족</span>
+    <div class="page-name">우리 가족</div>
+    <p class="page-purpose">가족 3명 + 각자 상태 + 큰 전화걸기 버튼.</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ch" style="background:white">
+            <div class="ch-topbar"><div class="ch-topbar-title">우리 가족 👨‍👩‍👧‍👦</div></div>
+            <div class="ch-fam-big-list">
+              <div class="ch-fam-big-card">
+                <div class="ch-fam-big-emoji">👩</div>
+                <div class="ch-fam-big-info"><div class="ch-fam-big-name">엄마</div><div class="ch-fam-big-status"><i></i>지금 회사에 있어요</div></div>
+                <div class="ch-fam-big-action call">📞 전화</div>
+              </div>
+              <div class="ch-fam-big-card">
+                <div class="ch-fam-big-emoji">👨</div>
+                <div class="ch-fam-big-info"><div class="ch-fam-big-name">아빠</div><div class="ch-fam-big-status"><i></i>지금 집에 있어요</div></div>
+                <div class="ch-fam-big-action call">📞 전화</div>
+              </div>
+              <div class="ch-fam-big-card">
+                <div class="ch-fam-big-emoji">🐻</div>
+                <div class="ch-fam-big-info"><div class="ch-fam-big-name">준이 (동생)</div><div class="ch-fam-big-status"><i></i>지금 유치원에 있어요</div></div>
+                <div class="ch-fam-big-action">💌 메시지</div>
+              </div>
+            </div>
+            <div class="ch-nav">
+              <div class="ch-nav-item"><span class="ic">🏠</span>홈</div>
+              <div class="ch-nav-item"><span class="ic">📅</span>일정</div>
+              <div class="ch-nav-item active"><span class="ic">👨‍👩‍👧</span>가족</div>
+              <div class="ch-nav-item"><span class="ic">💗</span>도움</div>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow"><div style="display:flex;align-items:center"><div class="flow-arrow-line"></div><span class="flow-arrow-head">›</span></div><div class="flow-arrow-label">도움요청</div></div>
+
+  <div class="page-col">
+    <span class="page-tag"><span class="num">4</span>도움</span>
+    <div class="page-name">도움요청</div>
+    <p class="page-purpose">전체 화면 SOS. 큰 SOS 카드 + 4개 서브 액션 (전화/길찾기/사진/문자).</p>
+    <div class="ios-frame">
+      <div class="ios-screen">
+        <div class="ios-statusbar"><span>9:41</span><div class="ios-statusbar-icons"><div class="signal-bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></div><div class="battery"><i></i></div></div></div>
+        <div class="ios-island"></div>
+        <div class="ios-content">
+          <div class="ch" style="background:white;padding-bottom:0">
+            <div class="ch-help-full">
+              <div class="ch-help-full-title">도움이 필요하면 <span>여기</span></div>
+              <div class="ch-help-full-sub">큰 버튼을 누르면 가족한테 바로 알려드려요.</div>
+              <div class="ch-help-full-sos">
+                <div class="ch-help-full-sos-emoji">💗</div>
+                <div class="ch-help-full-sos-title">꾹 SOS</div>
+                <div class="ch-help-full-sos-sub">3초 길게 누르면 가족 모두에게 즉시 신호</div>
+              </div>
+              <div class="ch-help-full-grid">
+                <div class="ch-help-full-btn"><div class="ch-help-full-btn-emoji">📞</div><div class="ch-help-full-btn-label">엄마한테 전화</div><div class="ch-help-full-btn-sub">한 번 누르기</div></div>
+                <div class="ch-help-full-btn"><div class="ch-help-full-btn-emoji">🗺</div><div class="ch-help-full-btn-label">집 길찾기</div><div class="ch-help-full-btn-sub">지도 열기</div></div>
+                <div class="ch-help-full-btn"><div class="ch-help-full-btn-emoji">📷</div><div class="ch-help-full-btn-label">사진 보내기</div><div class="ch-help-full-btn-sub">엄마한테</div></div>
+                <div class="ch-help-full-btn"><div class="ch-help-full-btn-emoji">💌</div><div class="ch-help-full-btn-label">문자 보내기</div><div class="ch-help-full-btn-sub">가족 모두</div></div>
+              </div>
+            </div>
+            <div class="ch-nav">
+              <div class="ch-nav-item"><span class="ic">🏠</span>홈</div>
+              <div class="ch-nav-item"><span class="ic">📅</span>일정</div>
+              <div class="ch-nav-item"><span class="ic">👨‍👩‍👧</span>가족</div>
+              <div class="ch-nav-item active"><span class="ic">💗</span>도움</div>
+            </div>
+          </div>
+        </div>
+        <div class="ios-home"></div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<footer class="canvas-foot">
+  <p><b>가독성 / 사용성 적용:</b></p>
+  <p>· <b>자녀 모드</b>: 본문 16px / 시간 16-30px / 도움 emoji 36-64px / 모든 tap 60px+</p>
+  <p>· <b>회원가입</b>: 입력 필드 60px / 권한 row 64px / CTA 56px / progress bar 6px · 6단계 진행 상태가 늘 보이게</p>
+  <p>· <b>안전 색 lock</b>: SOS 빨강 #DC2626 / success 초록 #059669 / 카테고리 6색 / parent blue / amber 경고 — 모든 페이지 동일</p>
+  <p style="margin-top:14px;"><b>v1~v5 시안 세트 완성:</b></p>
+  <p>· v1 (3 variation 비교 → B 선택) · v2 (6 테마 풀 팔레트 + 부모 홈 3 테마 비교)</p>
+  <p>· v3 (자녀 홈 3 테마 + 설정 + 회원가입 v2) · v4 (부모 모드 6 페이지 풀)</p>
+  <p>· v5 (자녀 모드 4 페이지 + 회원가입 6단계 풀 플로우)</p>
+  <p style="margin-top:14px;"><b>다음 단계 (구현 plan):</b></p>
+  <p>· DB migration: <code>families.theme</code> text default 'warm-pink' + check constraint</p>
+  <p>· src/App.jsx: DESIGN.colors → CSS 변수 주입 + 동적 override 함수</p>
+  <p>· Realtime sync: family_id별 theme 변경 → 모든 device 즉시 반영 (Phoenix 2.0 binary)</p>
+  <p>· 카테고리/안전 색 hard-coded (override 불가)</p>
+</footer>
+
+</body>
+</html>
