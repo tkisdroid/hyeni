@@ -88,5 +88,9 @@ This project uses [Get Shit Done](https://github.com/jakubno/get-shit-done) plan
 - Pair code TTL default = 48h, exceeds Life360 baseline. Do NOT auto-rotate.
 - **Atomic commits per plan.** Never bundle multi-plan work into one commit.
 
+## Parallel work — v1.1 Theme System
+
+별도 브랜치 `feat/v1.1-theme-system` (2026-04-30 분기). 6 테마 색상 픽커 + 가족 단위 Realtime sync. 5 phase atomic commits 완료, v1.0 main 머지 후 rebase 예정. SPEC: `.planning/v1.1-theme-system/SPEC.md`. v1.0 작업 진행에 영향 없음.
+
 ---
-*Generated 2026-04-21 after `/gsd-new-project` completion.*
+*Generated 2026-04-21 after `/gsd-new-project` completion. v1.1 branch added 2026-04-30.*

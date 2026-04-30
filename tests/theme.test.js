@@ -115,6 +115,45 @@ describe('applyTheme', () => {
   });
 });
 
+describe('safety lock — themes never override --safe-* or --cat-*', () => {
+  // Critical invariant from memory: design_color_rules. SOS/긴급/하트는
+  // 항상 채도 높은 빨강이어야 하고 카테고리(학교/학원/가족/병원) 색은
+  // 테마와 무관하게 동일해야 함. theme.css :root에서 --safe-*/--cat-*가
+  // 정의되고 applyTheme()이 그것을 건드리지 않음을 보장.
+  const SAFETY_KEYS = ['--safe-sos', '--safe-warn', '--safe-parent', '--safe-success'];
+  const CAT_KEYS = ['--cat-school', '--cat-academy', '--cat-family', '--cat-hospital'];
+
+  beforeEach(() => {
+    const root = document.documentElement;
+    root.style.cssText = '';
+    delete root.dataset.theme;
+  });
+
+  it('applyTheme() preserves --safe-* sentinel values across all 6 themes', () => {
+    const root = document.documentElement;
+    SAFETY_KEYS.forEach((key) => root.style.setProperty(key, 'SENTINEL'));
+
+    THEME_IDS.forEach((id) => {
+      applyTheme(id);
+      SAFETY_KEYS.forEach((key) => {
+        expect(root.style.getPropertyValue(key), `${id} clobbered ${key}`).toBe('SENTINEL');
+      });
+    });
+  });
+
+  it('applyTheme() preserves --cat-* sentinel values across all 6 themes', () => {
+    const root = document.documentElement;
+    CAT_KEYS.forEach((key) => root.style.setProperty(key, 'SENTINEL'));
+
+    THEME_IDS.forEach((id) => {
+      applyTheme(id);
+      CAT_KEYS.forEach((key) => {
+        expect(root.style.getPropertyValue(key), `${id} clobbered ${key}`).toBe('SENTINEL');
+      });
+    });
+  });
+});
+
 describe('subscribeFamilyTheme', () => {
   it('returns null on missing inputs', () => {
     expect(subscribeFamilyTheme(null, {})).toBeNull();
