@@ -10648,7 +10648,16 @@ export default function KidsScheduler() {
             </button>
         </nav>
     );
-    const dashboardChildren = (pairedChildren.length > 0 ? pairedChildren : [{ user_id: "pending-child", name: "아이", emoji: "👧" }]).slice(0, 2);
+    // Multi-child families: once a child is picked from Home, every per-child
+    // surface (status card, device safety, location, walking trail) operates
+    // ONLY on that child. Without this narrowing the calendar/device sections
+    // kept iterating both children even after selection, so the parent saw
+    // mixed data ("아이1과 아이2가 뒤섞여서 직선만 표시").
+    const dashboardChildren = (() => {
+        if (isParent && isMultiChild && selectedChild) return [selectedChild];
+        if (pairedChildren.length > 0) return pairedChildren.slice(0, 2);
+        return [{ user_id: "pending-child", name: "아이", emoji: "👧" }];
+    })();
     const primaryChildUserId = dashboardChildren[0]?.user_id || null;
     const pairedChildIds = pairedChildren.map(child => child.user_id).filter(Boolean);
     const pairedChildIdsKey = pairedChildIds.join(",");
@@ -12362,52 +12371,114 @@ export default function KidsScheduler() {
             </div>}
 
             {/* Selected-child header (multi-child only, on non-home tabs) */}
+            {/* Two rows when 2+ children: row1 = current child + 홈 버튼,
+                row2 = horizontal chip rail for one-tap switching. */}
             {isParent && isMultiChild && selectedChild && activeView !== "home" && (
               <div
                 role="status"
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: 10,
+                  flexDirection: "column",
+                  gap: 8,
                   padding: "10px 16px",
                   background: "linear-gradient(135deg,#FDF4FF,#F3E8FF)",
                   borderBottom: "1px solid #E9D5FF",
                   fontFamily: FF,
                 }}
               >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: selectedChild.photo_url ? `url(${selectedChild.photo_url}) center/cover` : (selectedChild.color_hex || "#A78BFA"),
-                    border: `2px solid ${selectedChild.color_hex || "#A78BFA"}`,
-                    flexShrink: 0,
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 800, color: "#4C1D95", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {selectedChild.name} 관리 중
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      background: selectedChild.photo_url ? `url(${selectedChild.photo_url}) center/cover` : (selectedChild.color_hex || "#A78BFA"),
+                      border: `2px solid ${selectedChild.color_hex || "#A78BFA"}`,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 800, color: "#4C1D95", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {selectedChild.name} 관리 중
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: "#6D28D9",
+                      background: "white",
+                      border: "1px solid #DDD6FE",
+                      borderRadius: 10,
+                      padding: "5px 10px",
+                      cursor: "pointer",
+                      fontFamily: FF,
+                      flexShrink: 0,
+                    }}
+                    aria-label="가족 홈으로 돌아가기"
+                  >
+                    🏡 홈
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: "#6D28D9",
-                    background: "white",
-                    border: "1px solid #DDD6FE",
-                    borderRadius: 10,
-                    padding: "5px 10px",
-                    cursor: "pointer",
-                    fontFamily: FF,
-                    flexShrink: 0,
-                  }}
-                  aria-label="다른 자녀 선택"
-                >
-                  ← 다른 자녀
-                </button>
+                {pairedChildren.length > 1 && (
+                  <div
+                    role="tablist"
+                    aria-label="자녀 빠른 전환"
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      overflowX: "auto",
+                      paddingBottom: 2,
+                      WebkitOverflowScrolling: "touch",
+                    }}
+                  >
+                    {pairedChildren.map((child) => {
+                      const isActive = child.id === selectedChild.id;
+                      const tint = child.color_hex || "#A78BFA";
+                      return (
+                        <button
+                          key={child.id || child.user_id}
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          onClick={() => setSelectedChildId(child.id)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "4px 10px 4px 4px",
+                            borderRadius: 999,
+                            background: isActive ? `${tint}22` : "white",
+                            border: `1.5px solid ${isActive ? tint : "#E9D5FF"}`,
+                            color: isActive ? "#4C1D95" : "#6B7280",
+                            fontWeight: isActive ? 800 : 700,
+                            fontSize: 12,
+                            cursor: "pointer",
+                            fontFamily: FF,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              background: child.photo_url
+                                ? `url(${child.photo_url}) center/cover`
+                                : tint,
+                              border: `2px solid ${tint}`,
+                              display: "inline-block",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span style={{ whiteSpace: "nowrap" }}>{child.name || "아이"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -12508,7 +12579,7 @@ export default function KidsScheduler() {
                         })}
                     </div>
 
-                    {isParent && pairedChildren.filter(c => c.user_id).length > 1 ? (
+                    {isParent && !selectedChild && pairedChildren.filter(c => c.user_id).length > 1 ? (
                         <section
                             aria-label="아이 기기 사용 지표"
                             style={{
