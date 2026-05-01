@@ -11,26 +11,27 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
       aria-label={interactive ? `${child.name} 보기` : undefined}
       style={{
         display: "flex", alignItems: "center", gap: 14,
-        padding: 14, borderRadius: "var(--radius-card)",
-        background: "white", border: "var(--border-card)",
-        boxShadow: "var(--shadow-card)",
+        padding: 16, borderRadius: "var(--radius-card)",
+        background: "var(--surface-card)", border: "none",
+        boxShadow: "var(--shadow-card-soft)",
         textAlign: "left", width: "100%",
         cursor: interactive ? "pointer" : "default",
         font: "inherit",
+        transition: "transform 0.12s ease, box-shadow 0.16s ease",
       }}
     >
       <div style={{
-        width: 48, height: 48, borderRadius: "var(--radius-pill)",
+        width: 52, height: 52, borderRadius: "var(--radius-pill)",
         background: child.photo_url ? `url(${child.photo_url}) center/cover` : child.color_hex,
         border: `3px solid ${child.color_hex}`,
         flexShrink: 0,
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: "var(--weight-heading)", color: "#1F2937" }}>{child.name}</div>
-        <div style={{ fontSize: 13, color: "#6B7280", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: 16, fontWeight: "var(--weight-body-strong)", color: "var(--hyeni-ink-900)" }}>{child.name}</div>
+        <div style={{ fontSize: 14, color: "var(--hyeni-ink-500)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: "var(--m3-weight-regular)" }}>
           {location || "위치 확인 중..."}
         </div>
-        <div style={{ fontSize: 12, color: "#4B5563", marginTop: 4, fontWeight: "var(--weight-label)" }}>
+        <div style={{ fontSize: 12, color: "var(--hyeni-ink-700)", marginTop: 4, fontWeight: "var(--weight-body)" }}>
           ⏱️ 오늘 화면켜짐 {screenLabel || "0분"}
         </div>
       </div>

@@ -58,4 +58,13 @@
   /* Border */
   --border-card:        1px solid var(--m3-outline-variant);
   --border-card-strong: 1px solid var(--m3-outline);
+
+  /* Surface tonal layers (references --hyeni-surface-* declared in App.css).
+     Filled tonal card pattern: card bg sits one step warmer than page,
+     internal rows sit one step further (creating depth without shadow). */
+  --surface-card:        var(--hyeni-surface-1);    /* #fdfafb subtle warm */
+  --surface-card-strong: var(--hyeni-surface-2);    /* #f6f0f3 recessed inside */
+
+  /* Soft shadow for filled cards (M3 elevation-1, less prominent than card) */
+  --shadow-card-soft: var(--m3-elevation-1);
 }
