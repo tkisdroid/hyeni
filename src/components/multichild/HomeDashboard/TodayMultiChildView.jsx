@@ -40,9 +40,9 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
   return (
     <div className="hyeni-v5-parent-main" aria-label="오늘 가족 일정" style={{ fontFamily: FF }}>
       <div style={{ padding: "16px 16px 8px" }}>
-        <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 700 }}>오늘</div>
-        <div style={{ fontSize: 22, fontWeight: 900, color: "#1F2937" }}>{todayLabel}</div>
-        <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: "var(--weight-label)" }}>오늘</div>
+        <div style={{ fontSize: 22, fontWeight: "var(--weight-heading)", color: "#1F2937" }}>{todayLabel}</div>
+        <div style={{ fontSize: 13, color: "#6B7280", marginTop: 4, fontWeight: "var(--weight-body)" }}>
           아이 카드를 누르면 그 아이의 상세 보기로 들어갈 수 있어요
         </div>
       </div>
@@ -60,11 +60,11 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
               style={{
                 textAlign: "left",
                 background: "white",
-                border: `1.5px solid ${color}33`,
-                borderLeft: `5px solid ${color}`,
-                borderRadius: 16,
+                border: `1px solid ${color}33`,
+                borderLeft: `4px solid ${color}`,
+                borderRadius: "var(--radius-card)",
                 padding: "14px 14px 12px",
-                boxShadow: "0 6px 16px rgba(15,23,42,0.06)",
+                boxShadow: "var(--shadow-card)",
                 cursor: "pointer",
                 fontFamily: FF,
               }}
@@ -75,12 +75,12 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
                   style={{
                     width: 36,
                     height: 36,
-                    borderRadius: "50%",
+                    borderRadius: "var(--radius-pill)",
                     background: child.photo_url ? `url(${child.photo_url}) center/cover` : color,
                     border: `2px solid ${color}`,
                     flexShrink: 0,
                     color: "white",
-                    fontWeight: 900,
+                    fontWeight: "var(--weight-heading)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -90,12 +90,12 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
                   {child.photo_url ? "" : (child.emoji || (child.name?.trim?.()[0] ?? "👶"))}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: "#1F2937", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
-                  <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
+                  <div style={{ fontSize: 15, fontWeight: "var(--weight-heading)", color: "#1F2937", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
+                  <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2, fontWeight: "var(--weight-body)" }}>
                     {list.length === 0 ? "오늘 일정이 없어요" : `오늘 일정 ${list.length}건`}
                   </div>
                 </div>
-                <span aria-hidden="true" style={{ color: "#9CA3AF", fontSize: 18, fontWeight: 800 }}>›</span>
+                <span aria-hidden="true" style={{ color: "#9CA3AF", fontSize: 18, fontWeight: "var(--weight-label)" }}>›</span>
               </div>
 
               {list.length > 0 && (
@@ -109,19 +109,19 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
                         gap: 10,
                         padding: "8px 10px",
                         background: "#FAFAFA",
-                        borderRadius: 10,
+                        borderRadius: "var(--radius-button)",
                         fontSize: 13,
                       }}
                     >
-                      <span style={{ fontWeight: 800, color, minWidth: 60, fontSize: 12 }}>{formatTime(ev.time)}</span>
-                      <span style={{ color: "#1F2937", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ fontWeight: "var(--weight-body-strong)", color, minWidth: 60, fontSize: 12 }}>{formatTime(ev.time)}</span>
+                      <span style={{ color: "#1F2937", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "var(--weight-body)" }}>
                         {ev.is_family_event ? "👨‍👩‍👧 " : ""}
                         {ev.title || ev.name || "일정"}
                       </span>
                     </li>
                   ))}
                   {list.length > 4 && (
-                    <li style={{ fontSize: 11, color: "#9CA3AF", paddingLeft: 4 }}>+{list.length - 4}건 더</li>
+                    <li style={{ fontSize: 11, color: "#9CA3AF", paddingLeft: 4, fontWeight: "var(--weight-body)" }}>+{list.length - 4}건 더</li>
                   )}
                 </ul>
               )}

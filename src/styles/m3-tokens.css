@@ -1,0 +1,61 @@
+/* Material 3 Expressive — shape, weight, elevation tokens.
+   Colors live in App.css (--hyeni-*) and are NOT touched here. */
+
+:root {
+  /* ── M3 primitive: shape (corner radius) ─────────────────────────────── */
+  --m3-shape-none: 0;
+  --m3-shape-xs:   8px;
+  --m3-shape-sm:   12px;
+  --m3-shape-md:   16px;
+  --m3-shape-lg:   20px;
+  --m3-shape-xl:   28px;
+  --m3-shape-full: 9999px;
+
+  /* ── M3 primitive: weight (Pretendard mapping) ────────────────────────── */
+  --m3-weight-regular:   400;
+  --m3-weight-medium:    500;
+  --m3-weight-semibold:  600;
+  --m3-weight-bold:      700;
+  --m3-weight-extrabold: 800;
+
+  /* ── M3 primitive: elevation (warm pink-tinted, matches brand) ────────── */
+  --m3-elevation-1: 0 1px 2px rgba(31, 26, 34, 0.05),  0 1px 3px rgba(196, 68, 122, 0.04);
+  --m3-elevation-2: 0 2px 4px rgba(31, 26, 34, 0.05),  0 4px 8px rgba(196, 68, 122, 0.06);
+  --m3-elevation-3: 0 4px 8px rgba(31, 26, 34, 0.06),  0 8px 16px rgba(196, 68, 122, 0.08);
+  --m3-elevation-4: 0 8px 16px rgba(31, 26, 34, 0.08), 0 12px 24px rgba(196, 68, 122, 0.10);
+  --m3-elevation-5: 0 16px 32px rgba(31, 26, 34, 0.10), 0 20px 40px rgba(196, 68, 122, 0.14);
+
+  /* ── M3 primitive: outline ────────────────────────────────────────────── */
+  --m3-outline:         rgba(31, 26, 34, 0.12);
+  --m3-outline-variant: rgba(31, 26, 34, 0.08);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Semantic aliases — components reference these, not the M3 primitives.
+     Migration path (conservative): 800→600, 900→700.
+     ────────────────────────────────────────────────────────────────────── */
+
+  /* Radius */
+  --radius-chip:    var(--m3-shape-xs);    /*  8 */
+  --radius-button:  var(--m3-shape-sm);    /* 12 */
+  --radius-card:    var(--m3-shape-md);    /* 16  default card */
+  --radius-card-lg: var(--m3-shape-lg);    /* 20  hero card */
+  --radius-modal:   var(--m3-shape-xl);    /* 28 */
+  --radius-pill:    var(--m3-shape-full);
+
+  /* Weight */
+  --weight-body:           var(--m3-weight-medium);     /* 500 */
+  --weight-body-strong:    var(--m3-weight-semibold);   /* 600 */
+  --weight-label:          var(--m3-weight-semibold);   /* 600 */
+  --weight-heading:        var(--m3-weight-bold);       /* 700 */
+  --weight-heading-strong: var(--m3-weight-extrabold);  /* 800 — hero/CTA only */
+
+  /* Shadow */
+  --shadow-card:       var(--m3-elevation-2);
+  --shadow-card-hover: var(--m3-elevation-3);
+  --shadow-floating:   var(--m3-elevation-4);
+  --shadow-modal:      var(--m3-elevation-5);
+
+  /* Border */
+  --border-card:        1px solid var(--m3-outline-variant);
+  --border-card-strong: 1px solid var(--m3-outline);
+}

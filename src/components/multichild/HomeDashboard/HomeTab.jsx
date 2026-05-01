@@ -21,10 +21,18 @@ function deriveScreenLabel(deviceStatus) {
 }
 
 export function HomeTab({ children, positions, events, childLocations, childDeviceStatusMap, onMapTap, onSelectChild }) {
+  const sectionLabelStyle = {
+    fontSize: 12,
+    fontWeight: "var(--weight-label)",
+    color: "#9CA3AF",
+    letterSpacing: 0.2,
+    marginBottom: 12,
+  };
+
   return (
     <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 20 }}>
       <section>
-        <h3 style={{ fontSize: 12, fontWeight: 800, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
+        <h3 style={sectionLabelStyle}>
           자녀 ({children.length}명){onSelectChild ? " — 탭하여 관리" : ""}
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -41,12 +49,12 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
       </section>
 
       <section>
-        <h3 style={{ fontSize: 12, fontWeight: 800, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>위치</h3>
+        <h3 style={sectionLabelStyle}>위치</h3>
         <MiniMap children={children} positions={positions} onTap={onMapTap} />
       </section>
 
       <section>
-        <h3 style={{ fontSize: 12, fontWeight: 800, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>오늘 일정</h3>
+        <h3 style={sectionLabelStyle}>오늘 일정</h3>
         <TodayEventsList events={events} children={children} />
       </section>
     </div>
