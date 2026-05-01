@@ -3803,7 +3803,15 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
             });
         } catch (error) {
             if (signal?.aborted) return;
-            console.warn("[Guidance] Walking route failed:", error);
+            // Surface the failure mode (Kakao 401/quota vs network vs parse)
+            // so a parent who only sees the straight-line fallback can see
+            // *why* in chrome://inspect when filing a bug report.
+            console.warn("[Guidance] Walking route failed; using direct line:", {
+                message: error?.message || String(error),
+                status: error?.status || error?.statusCode || null,
+                start,
+                destination,
+            });
             drawDirectRoute(start, destination, { fit });
             // Settle loading=false + error=true so the "🔍 경로 검색 중..."
             // overlay disappears and the route card switches to the
@@ -6998,6 +7006,20 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
     // Effect 3: 이동경로 + 예상경로 + 일정 마커 (locationTrail/events 변경 시 재드로우)
     useEffect(() => {
         if (!mapObj.current) return;
+
+        // Diagnostic: when we have raw trail points but no gradient
+        // segments, the polyline won't render and the parent perceives
+        // the trail as "직선만 나옴" or empty. Common causes: < 2 unique
+        // points after jitter dedupe, or selectedChild filtered every row
+        // (e.g. user_id mismatch between location_history and family_members).
+        if (selectedTrail.length > 0 && trailGradientSegments.length === 0) {
+            console.warn(
+                "[trail] selectedTrail has",
+                selectedTrail.length,
+                "points but trailGradientSegments is empty — likely too few unique points or filter mismatch",
+                { selectedChildUserId: selectedChild?.user_id }
+            );
+        }
 
         // 기존 폴리라인/마커 제거
         if (trailPolyRef.current) { trailPolyRef.current.setMap(null); trailPolyRef.current = null; }
