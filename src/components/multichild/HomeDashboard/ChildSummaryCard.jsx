@@ -28,7 +28,7 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 16, fontWeight: "var(--weight-body-strong)", color: "var(--hyeni-ink-900)" }}>{child.name}</div>
-        <div style={{ fontSize: 14, color: "var(--hyeni-ink-500)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: "var(--m3-weight-regular)" }}>
+        <div style={{ fontSize: 14, color: "var(--hyeni-ink-500)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: "var(--weight-body)" }}>
           {location || "위치 확인 중..."}
         </div>
         <div style={{ fontSize: 12, color: "var(--hyeni-ink-700)", marginTop: 4, fontWeight: "var(--weight-body)" }}>

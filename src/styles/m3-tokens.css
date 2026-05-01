@@ -42,12 +42,13 @@
   --radius-modal:   var(--m3-shape-xl);    /* 28 */
   --radius-pill:    var(--m3-shape-full);
 
-  /* Weight */
-  --weight-body:           var(--m3-weight-medium);     /* 500 */
-  --weight-body-strong:    var(--m3-weight-semibold);   /* 600 */
-  --weight-label:          var(--m3-weight-semibold);   /* 600 */
-  --weight-heading:        var(--m3-weight-bold);       /* 700 */
-  --weight-heading-strong: var(--m3-weight-extrabold);  /* 800 — hero/CTA only */
+  /* Weight (calibrated for Pretendard + Korean — heavier than vanilla M3
+     because Korean characters need more presence than Latin). */
+  --weight-body:           var(--m3-weight-semibold);   /* 600 */
+  --weight-body-strong:    var(--m3-weight-bold);       /* 700 */
+  --weight-label:          var(--m3-weight-bold);       /* 700 */
+  --weight-heading:        var(--m3-weight-extrabold);  /* 800 */
+  --weight-heading-strong: 900;                         /* hero only */
 
   /* Shadow */
   --shadow-card:       var(--m3-elevation-2);

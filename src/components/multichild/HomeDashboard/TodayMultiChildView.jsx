@@ -42,7 +42,7 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
       <div style={{ padding: "16px 16px 8px" }}>
         <div style={{ fontSize: 11, color: "var(--hyeni-ink-500)", fontWeight: "var(--weight-body)", letterSpacing: 0.3 }}>오늘</div>
         <div style={{ fontSize: 24, fontWeight: "var(--weight-heading)", color: "var(--hyeni-ink-900)", marginTop: 2 }}>{todayLabel}</div>
-        <div style={{ fontSize: 14, color: "var(--hyeni-ink-500)", marginTop: 4, fontWeight: "var(--m3-weight-regular)" }}>
+        <div style={{ fontSize: 14, color: "var(--hyeni-ink-500)", marginTop: 4, fontWeight: "var(--weight-body)" }}>
           아이 카드를 누르면 그 아이의 상세 보기로 들어갈 수 있어요
         </div>
       </div>
@@ -92,7 +92,7 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: "var(--weight-body-strong)", color: "var(--hyeni-ink-900)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
-                  <div style={{ fontSize: 13, color: "var(--hyeni-ink-500)", marginTop: 2, fontWeight: "var(--m3-weight-regular)" }}>
+                  <div style={{ fontSize: 13, color: "var(--hyeni-ink-500)", marginTop: 2, fontWeight: "var(--weight-body)" }}>
                     {list.length === 0 ? "오늘 일정이 없어요" : `오늘 일정 ${list.length}건`}
                   </div>
                 </div>
@@ -115,14 +115,14 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
                       }}
                     >
                       <span style={{ fontWeight: "var(--weight-body-strong)", color, minWidth: 64, fontSize: 12 }}>{formatTime(ev.time)}</span>
-                      <span style={{ color: "var(--hyeni-ink-900)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "var(--m3-weight-regular)", fontSize: 14 }}>
+                      <span style={{ color: "var(--hyeni-ink-900)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "var(--weight-body)", fontSize: 14 }}>
                         {ev.is_family_event ? "👨‍👩‍👧 " : ""}
                         {ev.title || ev.name || "일정"}
                       </span>
                     </li>
                   ))}
                   {list.length > 4 && (
-                    <li style={{ fontSize: 12, color: "var(--hyeni-ink-500)", paddingLeft: 4, fontWeight: "var(--m3-weight-regular)" }}>+{list.length - 4}건 더</li>
+                    <li style={{ fontSize: 12, color: "var(--hyeni-ink-500)", paddingLeft: 4, fontWeight: "var(--weight-body)" }}>+{list.length - 4}건 더</li>
                   )}
                 </ul>
               )}
