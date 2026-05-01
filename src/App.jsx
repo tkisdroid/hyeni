@@ -21,6 +21,7 @@ import { sendBroadcastWhenReady } from "./lib/realtime.js";
 import { getChildMemoQuickReplies, getMemoPreview, getParentMemoQuickReplies } from "./lib/memoDisplay.js";
 import { buildHomeRouteEvent, findHomeSavedPlace } from "./lib/navigationTargets.js";
 import { LOCATION_TRAIL_GRADIENT_STOPS, getStayDisplayParts } from "./lib/locationTrailDisplay.js";
+import { formatDeviceDuration } from "./lib/deviceFormat.js";
 import { PRICING } from "./lib/paywallCopy.js";
 import { TrialInvitePrompt } from "./components/paywall/TrialInvitePrompt.jsx";
 import { FeatureLockOverlay } from "./components/paywall/FeatureLockOverlay.jsx";
@@ -478,14 +479,8 @@ function blobToBase64(blob) {
     });
 }
 
-function formatDeviceDuration(ms) {
-    if (!Number.isFinite(ms) || ms <= 0) return "0분";
-    const totalMinutes = Math.floor(ms / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (hours <= 0) return `${Math.max(1, minutes)}분`;
-    return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
-}
+// Moved to ./lib/deviceFormat.js so HomeDashboard's per-child cards can
+// share the exact same label format. Imported at top of file.
 
 async function waitForRealtimeChannelReady(channel, timeoutMs = 20000) {
     if (!channel) throw new Error("Realtime channel unavailable");

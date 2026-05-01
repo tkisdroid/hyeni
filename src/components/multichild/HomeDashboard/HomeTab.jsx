@@ -2,6 +2,7 @@
 import { ChildSummaryCard } from "./ChildSummaryCard.jsx";
 import { MiniMap } from "./MiniMap.jsx";
 import { TodayEventsList } from "./TodayEventsList.jsx";
+import { formatDeviceDuration } from "../../../lib/deviceFormat.js";
 
 function deriveSafetyDots(deviceStatus) {
   if (!deviceStatus) return [];
@@ -10,6 +11,13 @@ function deriveSafetyDots(deviceStatus) {
     deviceStatus.last_seen_minutes_ago > 30 ? "red" : "green",
     deviceStatus.app_blocked ? "red" : "green",
   ];
+}
+
+function deriveScreenLabel(deviceStatus) {
+  if (!deviceStatus) return null;
+  const ms = Number(deviceStatus.screenOnMs);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return formatDeviceDuration(ms);
 }
 
 export function HomeTab({ children, positions, events, childLocations, childDeviceStatusMap, onMapTap, onSelectChild }) {
@@ -25,6 +33,7 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
               key={c.user_id || c.id} child={c}
               location={childLocations[c.user_id]?.label}
               safetyDots={deriveSafetyDots(childDeviceStatusMap[c.user_id])}
+              screenLabel={deriveScreenLabel(childDeviceStatusMap[c.user_id])}
               onClick={onSelectChild}
             />
           ))}

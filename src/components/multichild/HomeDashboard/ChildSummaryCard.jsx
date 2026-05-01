@@ -1,7 +1,7 @@
 // src/components/multichild/HomeDashboard/ChildSummaryCard.jsx
 const DOT_COLORS = { green: "#10B981", yellow: "#F59E0B", red: "#EF4444" };
 
-export function ChildSummaryCard({ child, location, safetyDots = [], onClick }) {
+export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel, onClick }) {
   const interactive = typeof onClick === "function";
   const Wrapper = interactive ? "button" : "div";
   return (
@@ -27,8 +27,11 @@ export function ChildSummaryCard({ child, location, safetyDots = [], onClick }) 
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: "#1F2937" }}>{child.name}</div>
-        <div style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>
+        <div style={{ fontSize: 13, color: "#6B7280", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {location || "위치 확인 중..."}
+        </div>
+        <div style={{ fontSize: 12, color: "#4B5563", marginTop: 4, fontWeight: 700 }}>
+          ⏱️ 오늘 화면켜짐 {screenLabel || "0분"}
         </div>
       </div>
       <div style={{ display: "flex", gap: 4 }}>
