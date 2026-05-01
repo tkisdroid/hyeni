@@ -7588,10 +7588,30 @@ export default function KidsScheduler() {
     const childPosRef = useRef(null);
     const sosAutoTimersRef = useRef([]);
     const parentBootstrapRefreshKeyRef = useRef("");
-    const displayChildPositions = useMemo(
-        () => effectiveChildPositions(allChildPositions, entitlement),
-        [allChildPositions, entitlement]
-    );
+    const displayChildPositions = useMemo(() => {
+        const positions = effectiveChildPositions(allChildPositions, entitlement);
+        // Stable render order: align positions with pairedChildren
+        // (already sorted by child_order). Without this, marker draw
+        // order — and therefore the perceived color/zIndex pairing —
+        // shifts every time Supabase returns rows in a different sequence.
+        const byUserId = new Map();
+        positions.forEach((p) => {
+            const id = p?.user_id;
+            if (id) byUserId.set(id, p);
+        });
+        const ordered = [];
+        pairedChildren.forEach((child) => {
+            const hit = byUserId.get(child?.user_id);
+            if (hit) ordered.push(hit);
+        });
+        // Defensive: append any positions whose user_id isn't in pairedChildren
+        // (e.g. former child whose membership row was just removed).
+        const seen = new Set(ordered.map((p) => p.user_id));
+        positions.forEach((p) => {
+            if (p?.user_id && !seen.has(p.user_id)) ordered.push(p);
+        });
+        return ordered;
+    }, [allChildPositions, entitlement, pairedChildren]);
     const displayChildLocationKey = useMemo(
         () => displayChildPositions.map(pos => `${pos.user_id || "child"}:${pos.lat}:${pos.lng}:${pos.updatedAt || ""}`).join("|"),
         [displayChildPositions]

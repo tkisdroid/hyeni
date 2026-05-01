@@ -628,11 +628,17 @@ export async function fetchChildLocations(familyId) {
   if (!childUserIds.length) return [];
 
   // Step 2: fetch their locations
+  // .order("user_id") gives a stable, DB-side ordering so the parent
+  // marker layer doesn't shuffle between polls. App.jsx then re-aligns
+  // the array against pairedChildren (child_order) for a fully stable
+  // render order — without it the marker color/zIndex pairing flips
+  // every time Postgres returns rows in a different sequence.
   const { data, error } = await supabase
     .from("child_locations")
     .select("user_id, lat, lng, updated_at")
     .eq("family_id", familyId)
-    .in("user_id", childUserIds);
+    .in("user_id", childUserIds)
+    .order("user_id", { ascending: true });
   if (error) { console.error("[fetchChildLocations]", error); return []; }
   return data || [];
 }
