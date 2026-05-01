@@ -12440,7 +12440,7 @@ export default function KidsScheduler() {
                 </div>
                 {pairedChildren.length > 1 && (
                   <div
-                    role="tablist"
+                    role="group"
                     aria-label="자녀 빠른 전환"
                     style={{
                       display: "flex",
@@ -12457,9 +12457,10 @@ export default function KidsScheduler() {
                         <button
                           key={child.id || child.user_id}
                           type="button"
-                          role="tab"
-                          aria-selected={isActive}
+                          aria-pressed={isActive}
+                          aria-current={isActive ? "true" : undefined}
                           onClick={() => setSelectedChildId(child.id)}
+                          className="hyeni-child-switch-chip"
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -12474,6 +12475,8 @@ export default function KidsScheduler() {
                             cursor: "pointer",
                             fontFamily: FF,
                             flexShrink: 0,
+                            outline: "2px solid transparent",
+                            outlineOffset: 2,
                           }}
                         >
                           <span

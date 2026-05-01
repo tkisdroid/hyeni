@@ -2212,3 +2212,9 @@ a:focus-visible {
   .hyeni-tool-button { min-height: 52px; font-size: 14px; }
   .hyeni-tool-modal { padding: 18px 18px 16px; }
 }
+
+/* Multi-child quick switcher chips — keyboard focus indicator. The chip
+   itself uses inline styles so only the :focus-visible ring lives here. */
+.hyeni-child-switch-chip:focus-visible {
+  outline-color: #6D28D9;
+}
