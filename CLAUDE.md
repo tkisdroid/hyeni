@@ -1,92 +1,72 @@
-# 혜니캘린더 — Claude Agent Instructions
+# CLAUDE.md — Hyeni × Wanted Design System Migration
 
-## Project
-
-**Name:** 혜니캘린더 (Hyeni Calendar)
-**Current milestone:** v1.0 Production Stabilization
-**Status:** Roadmap created 2026-04-21, Phase 1 queued
-
-Parent-child safety app (React 19 + Vite + Capacitor 8 Android + Supabase). Production URL: https://hyenicalendar.com. This milestone is **emergency remediation** of 9 audit-driven defects (→ 28 REQ-IDs after research synthesis). No new features.
-
-## GSD Workflow
-
-This project uses [Get Shit Done](https://github.com/jakubno/get-shit-done) planning. Every non-trivial change flows through:
-
-1. `/gsd-progress` — where are we
-2. `/gsd-discuss-phase N` — context gathering (or `--auto` for YOLO mode as configured)
-3. `/gsd-plan-phase N` — decomposition into atomic plans
-4. `/gsd-execute-phase N` — execution with atomic commits + verification
-5. `/gsd-transition` — phase handoff + PROJECT.md evolution
-
-**Config (YOLO · Standard granularity · Full workflow):** see `.planning/config.json`. Researcher + Plan Checker + Verifier are all ON. Auto-advance enabled.
-
-**5-phase roadmap** (see `.planning/ROADMAP.md` for detail):
-1. **Phase 1: Migration Hygiene & Baseline** (no REQs — infra)
-2. **Phase 2: Unblock Core** — P0-1/P0-2/P0-3 parallel ×3 (9 REQs)
-3. **Phase 3: Client Push & Fetch Hygiene** — P1-4/P1-5 parallel ×2 (5 REQs)
-4. **Phase 4: Memo Model Unification** — P1-6 solo (3 REQs, shadow-running DoD)
-5. **Phase 5: UX & Safety Hardening** — P2-7/P2-8/P2-9 parallel ×3 (10 REQs + SOS-01)
-
-## Non-Negotiable Constraints
-
-- **Live production data** (`family_id=4c781fb7-677a-45d9-8fd2-74d0083fe9b4` active). Every DB change goes through **Supabase branch** → Playwright real-services E2E (`playwright.real.config.js`) → main promotion.
-- **Monolith policy**: `src/App.jsx` (6877 lines) decomposition is **forbidden** this milestone. Phase plans touch pre-computed minimum line ranges (see `.planning/research/ARCHITECTURE.md` §2.4).
-- **Migration hygiene** (Phase 1 prerequisite): `supabase/migrations/down/` + BEGIN/COMMIT wrapping + `pg_policies` snapshots before any RLS change.
-- **Google Play stalkerware policy**: P2-8 (remote listen) MUST include persistent Android notification + `FOREGROUND_SERVICE_MICROPHONE` FGS type + remote feature flag kill switch.
-- **PIPA + OWASP MASTG**: P2-9 (꾹 SOS) MUST include `sos_events` immutable audit log (new REQ SOS-01 from research synthesis).
-
-## Planning Artifacts
-
-| File | Purpose |
-|------|---------|
-| `.planning/PROJECT.md` | Living project context — evolves at phase transitions |
-| `.planning/REQUIREMENTS.md` | 28 v1 REQs with final phase traceability |
-| `.planning/ROADMAP.md` | 5-phase structure + success criteria |
-| `.planning/STATE.md` | Current position + velocity metrics |
-| `.planning/research/SUMMARY.md` | Synthesized research — READ FIRST when planning |
-| `.planning/research/STACK.md` | Per-fix library/config decisions |
-| `.planning/research/ARCHITECTURE.md` | Dependency graph + App.jsx line-range map |
-| `.planning/research/PITFALLS.md` | 10 failure modes with phase mapping |
-| `.planning/research/FEATURES.md` | Competitor bar + regulatory scope additions |
-
-## Stack (Locked)
-
-- React 19.2 · Vite 7 · Capacitor 8.2 (Android only) · Deno 2 (Edge Functions)
-- Supabase (Auth ES256 · RLS · Realtime Phoenix 2.0 binary · Edge Functions)
-- `@supabase/supabase-js@2.99.1` — includes `auth.getClaims()` (ES256-aware, do NOT bump)
-- Qonversion Capacitor 1.4 · Google Play Billing v7
-- Playwright 1.59 — `playwright.real.config.js` talks to real Supabase branch
-- Vitest 4 · testing-library/react 16
-
-## Key Files
-
-| Path | Notes |
-|------|-------|
-| `src/App.jsx` | 6877-line monolith. Decomposition forbidden. |
-| `src/lib/auth.js` | Family creation, pairing, anonymous child signup |
-| `src/lib/sync.js` | REST + Realtime subscribe. `fetchSavedPlaces` 404 retry bug (Phase 3). |
-| `src/lib/pushNotifications.js` | Client-side scheduler + `showNotification` fallback chain |
-| `supabase/functions/push-notify/index.ts` | Edge Function — ES256 401 (Phase 2 Stream A) |
-| `supabase/migrations/20260418000000_family_subscription.sql` | Exists but not in realtime publication (Phase 2 Stream B) |
-| `supabase/migrations/20260418000006_saved_places.sql` | Same — exists but publication missing |
-| `android/app/src/main/java/com/hyeni/calendar/MainActivity.java` | WebView auto-grant removal (Phase 5 Stream B) |
-| `android/app/src/main/java/com/hyeni/calendar/MyFirebaseMessagingService.java` | FCM data-only handling — keep as-is |
-
-## Test Strategy
-
-- **Unit**: `npm run test` (Vitest) — fast, no external deps
-- **E2E (mocked)**: `npm run test:e2e` — Playwright default config
-- **E2E (real)**: `npx playwright test --config=playwright.real.config.js` — real Supabase branch, use for phase verification
-- **Full verify gate**: `npm run verify` runs Vitest + Playwright default
-
-## Instruction Hygiene
-
-- When implementing a phase, read `.planning/research/SUMMARY.md` first, then the phase section in `.planning/ROADMAP.md`, then the specific research file referenced.
-- Do NOT touch `src/App.jsx` outside the pre-computed line ranges for your phase.
-- Do NOT rotate VAPID keys during Phase 2 Stream A — snapshot them in Phase 1 first.
-- Do NOT drop `memos` table in Phase 4 — v1.0 DoD is shadow-running, not cutover. Drop deferred to v1.1 (MEMO-CLEANUP-01 in v2 section of REQUIREMENTS.md).
-- Pair code TTL default = 48h, exceeds Life360 baseline. Do NOT auto-rotate.
-- **Atomic commits per plan.** Never bundle multi-plan work into one commit.
+This file is loaded by Claude Code on every turn. Follow these rules without exception.
 
 ---
-*Generated 2026-04-21 after `/gsd-new-project` completion.*
+
+## Project context
+
+- **App**: 혜니캘린더 (com.hyeni.calendar) — family schedule sync
+- **Stack**: Capacitor + React + TypeScript + Tailwind CSS + Supabase
+- **Migration goal**: apply Wanted Design System tokens; preserve existing brand colors and bespoke component layouts
+- **Source of truth**: `WANTED_DS_SPEC.md` (this directory)
+- **Current phase**: see `MIGRATION_PLAN.md`
+
+---
+
+## Hard rules — never violate
+
+1. **Token-only colors.** Never write hex/rgb/hsl values directly in component code. Always use CSS variables defined in `src/styles/tokens.css`. If you need a color that isn't in the tokens, **STOP and ask**.
+
+2. **Token-only spacing & radius.** Use `--space-*` and `--radius-*` variables. No magic px values like `padding: 13px` or `borderRadius: 18`.
+
+3. **Pretendard JP.** Body text uses `var(--font-sans)` which has Pretendard JP first. Do not change the font stack. Do not load other fonts.
+
+4. **Body weight 500.** Body text is `font-weight: 500` (`--weight-medium`). Never use 400 for body. Bold is 700, button text is 600.
+
+5. **Cards: stroke + no shadow.** Default cards use `border: 1px solid var(--line-soft)` and `box-shadow: none`. Use `.card-elevated` only for floating UI (modals, dropdowns, toasts).
+
+6. **Single source per component.** When migrating, replace inline styles AND duplicate classNames with the canonical class (`.card`, `.input`, `.btn-primary` etc). Do not leave both.
+
+7. **Preserve existing logic.** Never modify event handlers, prop interfaces, hooks, or Supabase calls during a design migration. Design tokens only.
+
+8. **Dark-mode-aware always.** Even if working in light mode, never hardcode `#fff` or `#000` — always use `var(--bg-base)`, `var(--fg-primary)`. All values must work in both themes.
+
+---
+
+## Workflow rules
+
+9. **Phase scope.** Work only on the phase the user invoked. Do not "while you're at it" fix other phases.
+
+10. **Candidate-list-first.** For migrations affecting multiple files (cards, buttons, inputs), first list all candidate files with the proposed change in a table, wait for explicit user approval, **then** apply.
+
+11. **Stop and ask, never invent.** If you encounter:
+    - A color that doesn't map to any token
+    - A button whose variant (primary/secondary/destructive) is ambiguous
+    - A component that doesn't fit the standard patterns
+    - A status color (positive/negative/cautionary) — values are TODO in spec
+    
+    → STOP. List the items. Ask the user.
+
+12. **Verify after each phase.** Run `npm run build` and `npx tsc --noEmit`. Report any errors before declaring the phase complete.
+
+13. **One phase = one commit.** Commit message format:
+    ```
+    wanted-ds: phase N — [short summary]
+    ```
+
+14. **Destructive variant guard.** Never auto-classify a button as `btn-destructive`. Explicitly ask the user. Mis-classification can cause accidental data loss.
+
+15. **Bespoke components.** These have brand value and must NOT be replaced with generic tokens — only have the `.card` baseline applied while preserving internal layout:
+    - 일정 카드 (calendar event card)
+    - 혜니 포인트 표시
+    - 가족 멤버 카드 / avatar group
+    - 캘린더 그리드
+
+---
+
+## What "done" looks like for each phase
+See `MIGRATION_PLAN.md` for explicit acceptance criteria per phase.
+
+## When in doubt
+Quote the relevant section of `WANTED_DS_SPEC.md`. If the spec doesn't cover the case, ask the user — never make a stylistic decision unilaterally.
