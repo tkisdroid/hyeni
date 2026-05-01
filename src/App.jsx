@@ -12388,47 +12388,53 @@ export default function KidsScheduler() {
             </div>}
 
             {/* Selected-child header (multi-child only, on non-home tabs) */}
-            {/* Two rows when 2+ children: row1 = current child + 홈 버튼,
-                row2 = horizontal chip rail for one-tap switching. */}
-            {isParent && isMultiChild && selectedChild && activeView !== "home" && (
+            {/* Row 1: avatar + "{name} 관리 중" + 홈. Row 2 (when 2+ kids):
+                horizontal chip rail. Banner uses warm-tinted card surface
+                so it sits coherently with the M3 cards below; the active
+                child's color carries identity via 4px left accent. */}
+            {isParent && isMultiChild && selectedChild && activeView !== "home" && (() => {
+              const activeTint = selectedChild.color_hex || "#A78BFA";
+              return (
               <div
                 role="status"
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: 8,
-                  padding: "10px 16px",
-                  background: "linear-gradient(135deg,#FDF4FF,#F3E8FF)",
-                  borderBottom: "1px solid #E9D5FF",
+                  gap: 10,
+                  padding: "12px 16px",
+                  background: "var(--surface-card)",
+                  borderBottom: "var(--border-card)",
+                  borderLeft: `4px solid ${activeTint}`,
                   fontFamily: FF,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <span
                     aria-hidden="true"
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: "50%",
-                      background: selectedChild.photo_url ? `url(${selectedChild.photo_url}) center/cover` : (selectedChild.color_hex || "#A78BFA"),
-                      border: `2px solid ${selectedChild.color_hex || "#A78BFA"}`,
+                      width: 32,
+                      height: 32,
+                      borderRadius: "var(--radius-pill)",
+                      background: selectedChild.photo_url ? `url(${selectedChild.photo_url}) center/cover` : activeTint,
+                      border: `2px solid ${activeTint}`,
                       flexShrink: 0,
                     }}
                   />
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 800, color: "#4C1D95", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {selectedChild.name} 관리 중
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ color: activeTint, fontWeight: "var(--weight-heading)" }}>{selectedChild.name}</span>
+                    <span style={{ color: "var(--hyeni-ink-500)", fontWeight: "var(--weight-body)" }}> 관리 중</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
                     style={{
-                      fontSize: 11,
-                      fontWeight: 800,
-                      color: "#6D28D9",
+                      fontSize: 12,
+                      fontWeight: "var(--weight-body-strong)",
+                      color: "var(--hyeni-ink-700)",
                       background: "white",
-                      border: "1px solid #DDD6FE",
-                      borderRadius: 10,
-                      padding: "5px 10px",
+                      border: "var(--border-card-strong)",
+                      borderRadius: "var(--radius-button)",
+                      padding: "6px 12px",
                       cursor: "pointer",
                       fontFamily: FF,
                       flexShrink: 0,
@@ -12464,27 +12470,28 @@ export default function KidsScheduler() {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
-                            padding: "4px 10px 4px 4px",
-                            borderRadius: 999,
-                            background: isActive ? `${tint}22` : "white",
-                            border: `1.5px solid ${isActive ? tint : "#E9D5FF"}`,
-                            color: isActive ? "#4C1D95" : "#6B7280",
-                            fontWeight: isActive ? 800 : 700,
+                            gap: 7,
+                            padding: "5px 12px 5px 5px",
+                            borderRadius: "var(--radius-pill)",
+                            background: isActive ? `${tint}26` : "white",
+                            border: `1.5px solid ${isActive ? tint : "var(--m3-outline-variant)"}`,
+                            color: isActive ? "var(--hyeni-ink-900)" : "var(--hyeni-ink-500)",
+                            fontWeight: isActive ? "var(--weight-body-strong)" : "var(--weight-body)",
                             fontSize: 12,
                             cursor: "pointer",
                             fontFamily: FF,
                             flexShrink: 0,
                             outline: "2px solid transparent",
                             outlineOffset: 2,
+                            transition: "background 0.16s ease, border-color 0.16s ease",
                           }}
                         >
                           <span
                             aria-hidden="true"
                             style={{
-                              width: 22,
-                              height: 22,
-                              borderRadius: "50%",
+                              width: 24,
+                              height: 24,
+                              borderRadius: "var(--radius-pill)",
                               background: child.photo_url
                                 ? `url(${child.photo_url}) center/cover`
                                 : tint,
@@ -12500,7 +12507,8 @@ export default function KidsScheduler() {
                   </div>
                 )}
               </div>
-            )}
+              );
+            })()}
 
             {/* ── HOME VIEW (multi-child only) ── */}
             {activeView === "home" && isMultiChild && (
