@@ -1,0 +1,359 @@
+/* ==========================================================================
+   Wanted Design System — Hyeni App Tokens
+   Source: Figma (Wanted DS) — verified 2026-05-02
+   See: WANTED_DS_SPEC.md
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Light mode (default)
+   -------------------------------------------------------------------------- */
+:root {
+  /* Surfaces */
+  --bg-base:     #FFFFFF;     /* Card surface, primary canvas */
+  --bg-subtle:   #F7F7F8;     /* App background, hover state */
+  --bg-muted:    #EFEFF1;     /* Disabled surface, input bg variant */
+  --bg-inverse:  #18181B;
+
+  /* Foreground (text) */
+  --fg-primary:    #0F0F12;
+  --fg-secondary:  #46464A;
+  --fg-tertiary:   #71717A;
+  --fg-disabled:   rgba(15, 15, 18, 0.28);
+  --fg-strong:     #000000;
+  --fg-on-primary: #FFFFFF;
+
+  /* Lines — cool gray alpha (NOT solid gray) */
+  --line-subtle:   rgba(112, 115, 124, 0.08);
+  --line-soft:     rgba(112, 115, 124, 0.16);   /* card border default */
+  --line-default:  rgba(112, 115, 124, 0.22);   /* hover / strong divider */
+  --line-strong:   rgba(112, 115, 124, 0.40);
+  --line-disabled: rgba(15, 15, 18, 0.10);
+
+  /* Brand — Wanted Blue */
+  --primary:       #0066FF;
+  --primary-hover: #005EEB;
+  --primary-press: #0054D1;
+
+  /* Status — TODO: verify exact hex with Figma */
+  --status-positive:          #16A34A;
+  --status-positive-subtle:   rgba(22, 163, 74, 0.10);
+  --status-negative:          #DC2626;
+  --status-negative-subtle:   rgba(220, 38, 38, 0.10);
+  --status-cautionary:        #D97706;
+  --status-cautionary-subtle: rgba(217, 119, 6, 0.10);
+
+  /* Secondary button press state */
+  --secondary-press-bg: #E9EAEC;
+
+  /* Radius scale */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  20px;
+  --radius-full: 9999px;
+  /* Aliases */
+  --radius-card:    var(--radius-xl);   /* 16px */
+  --radius-control: var(--radius-lg);   /* 12px */
+  --radius-input:   var(--radius-md);   /*  8px */
+
+  /* Spacing — 4px grid */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Typography */
+  --font-sans:
+    "Pretendard JP", "Pretendard", -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Helvetica Neue", "Segoe UI", Roboto,
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+
+  --weight-regular:  400;
+  --weight-medium:   500;   /* body default */
+  --weight-semibold: 600;   /* button labels */
+  --weight-bold:     700;   /* strong / category labels */
+
+  --leading-tight:  1.3;
+  --leading-normal: 1.5;
+  --leading-loose:  1.7;
+
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0;
+
+  /* Shadows — used sparingly. Stroke-first DS. */
+  --shadow-none: none;
+  --shadow-sm:
+    0 1px 2px rgba(15, 15, 18, 0.04);
+  --shadow-md:
+    0 1px 2px rgba(15, 15, 18, 0.04),
+    0 8px 24px rgba(15, 15, 18, 0.08);
+  --shadow-lg:
+    0 2px 4px rgba(15, 15, 18, 0.06),
+    0 16px 48px rgba(15, 15, 18, 0.12);
+
+  /* Controls */
+  --control-height:    48px;
+  --control-height-sm: 36px;
+
+  /* Focus ring */
+  --focus-ring-color:  #0066FF;
+  --focus-ring-width:  2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-halo:   rgba(0, 102, 255, 0.18);
+
+  /* Motion */
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --easing-standard: cubic-bezier(0.2, 0.0, 0.2, 1);
+}
+
+/* --------------------------------------------------------------------------
+   Dark mode (explicit toggle)
+   -------------------------------------------------------------------------- */
+:root[data-theme="dark"] {
+  --bg-base:     #18181B;
+  --bg-subtle:   #0F0F12;
+  --bg-muted:    #26262C;
+  --bg-inverse:  #FAFAFA;
+
+  --fg-primary:    #F4F4F5;   /* 90% white — never pure */
+  --fg-secondary:  #A1A1AA;
+  --fg-tertiary:   #71717A;
+  --fg-disabled:   rgba(244, 244, 245, 0.32);
+  --fg-strong:     #FFFFFF;
+  --fg-on-primary: #FFFFFF;
+
+  --line-subtle:   rgba(255, 255, 255, 0.06);
+  --line-soft:     rgba(255, 255, 255, 0.10);
+  --line-default:  rgba(255, 255, 255, 0.16);
+  --line-strong:   rgba(255, 255, 255, 0.28);
+  --line-disabled: rgba(244, 244, 245, 0.08);
+
+  --primary:       #3B82FF;
+  --primary-hover: #1F6BFF;
+  --primary-press: #1556D9;
+
+  --status-positive:          #2DD478;
+  --status-positive-subtle:   rgba(45, 212, 120, 0.14);
+  --status-negative:          #FF6B6B;
+  --status-negative-subtle:   rgba(255, 107, 107, 0.14);
+  --status-cautionary:        #FFB020;
+  --status-cautionary-subtle: rgba(255, 176, 32, 0.14);
+
+  --secondary-press-bg: #2E2E36;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow-md:
+    0 1px 2px rgba(0, 0, 0, 0.32),
+    0 8px 24px rgba(0, 0, 0, 0.48);
+  --shadow-lg:
+    0 2px 4px rgba(0, 0, 0, 0.40),
+    0 16px 48px rgba(0, 0, 0, 0.60);
+
+  --focus-ring-color: #5B9DFF;
+  --focus-ring-halo:  rgba(91, 157, 255, 0.24);
+}
+
+/* System preference fallback (when no explicit data-theme set).
+   The flash-prevention script in index.html sets data-theme on <html>
+   before paint, so this @media is a safety net only. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Base styles
+   -------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  background: var(--bg-subtle);
+  color: var(--fg-primary);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: var(--weight-medium);    /* 500 — Wanted DS signature */
+  font-size: 15px;
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-tight);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Focus management — keyboard only */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: inherit;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Component baselines
+   -------------------------------------------------------------------------- */
+
+/* Card */
+.card {
+  background: var(--bg-base);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-none);
+}
+
+.card-elevated {
+  background: var(--bg-base);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+}
+
+.card-interactive {
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
+}
+.card-interactive:hover {
+  background: var(--bg-subtle);
+  border-color: var(--line-default);
+}
+.card-interactive:active {
+  border-color: var(--line-strong);
+}
+
+/* Divider */
+.divider {
+  border: none;
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+/* Input */
+.input {
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 var(--space-4);
+  background: var(--bg-base);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-input);
+  color: var(--fg-primary);
+  font-family: var(--font-sans);
+  font-weight: var(--weight-medium);
+  font-size: 15px;
+  line-height: var(--leading-normal);
+  transition:
+    border-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+}
+.input::placeholder { color: var(--fg-tertiary); }
+.input:hover { border-color: var(--line-default); }
+.input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring-halo);
+}
+.input:disabled {
+  background: var(--bg-muted);
+  color: var(--fg-disabled);
+  border-color: var(--line-disabled);
+  cursor: not-allowed;
+}
+
+/* Buttons — base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 var(--space-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-family: var(--font-sans);
+  font-weight: var(--weight-semibold);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  background: var(--bg-muted);
+  color: var(--fg-disabled);
+  border-color: var(--line-disabled);
+}
+
+/* Primary */
+.btn-primary {
+  background: var(--primary);
+  color: var(--fg-on-primary);
+}
+.btn-primary:not(:disabled):hover  { background: var(--primary-hover); }
+.btn-primary:not(:disabled):active { background: var(--primary-press); }
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg-base),
+    0 0 0 4px var(--focus-ring-color);
+}
+
+/* Secondary — outlined */
+.btn-secondary {
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  border-color: var(--line-default);
+}
+.btn-secondary:not(:disabled):hover  { background: var(--bg-muted); }
+.btn-secondary:not(:disabled):active {
+  background: var(--secondary-press-bg);
+  border-color: var(--line-strong);
+}
+
+/* Destructive */
+.btn-destructive {
+  background: var(--status-negative);
+  color: var(--fg-on-primary);
+}
+.btn-destructive:not(:disabled):hover  { filter: brightness(0.92); }
+.btn-destructive:not(:disabled):active { filter: brightness(0.84); }
+.btn-destructive:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg-base),
+    0 0 0 4px var(--status-negative);
+}
+
+/* Small variant — for compact UI */
+.btn-sm {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-4);
+  font-size: 14px;
+  border-radius: var(--radius-md);
+}
