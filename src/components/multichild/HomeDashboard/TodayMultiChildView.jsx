@@ -57,17 +57,13 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
               type="button"
               onClick={() => onSelectChild?.(child.id)}
               aria-label={`${child.name} 오늘 일정 ${list.length}건. 누르면 상세 보기`}
+              className="card card-interactive"
               style={{
                 textAlign: "left",
-                background: "var(--bg-base)",
-                border: "none",
                 borderLeft: `4px solid ${color}`,
-                borderRadius: "var(--radius-card)",
                 padding: "16px 16px 14px",
-                boxShadow: "var(--shadow-sm)",
-                cursor: "pointer",
                 fontFamily: FF,
-                transition: "transform 0.12s ease, box-shadow 0.16s ease",
+                transition: "transform 0.12s ease",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: list.length > 0 ? 12 : 0 }}>

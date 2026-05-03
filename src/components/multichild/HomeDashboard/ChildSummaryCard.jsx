@@ -9,15 +9,13 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
       type={interactive ? "button" : undefined}
       onClick={interactive ? () => onClick(child.id) : undefined}
       aria-label={interactive ? `${child.name} 보기` : undefined}
+      className={interactive ? "card card-interactive" : "card"}
       style={{
         display: "flex", alignItems: "center", gap: 14,
-        padding: 16, borderRadius: "var(--radius-card)",
-        background: "var(--bg-base)", border: "none",
-        boxShadow: "var(--shadow-sm)",
+        padding: 16,
         textAlign: "left", width: "100%",
-        cursor: interactive ? "pointer" : "default",
         font: "inherit",
-        transition: "transform 0.12s ease, box-shadow 0.16s ease",
+        transition: "transform 0.12s ease",
       }}
     >
       <div style={{

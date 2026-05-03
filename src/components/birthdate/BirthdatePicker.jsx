@@ -133,11 +133,9 @@ export function BirthdatePicker({
             display: "flex", flexDirection: "column", justifyContent: "flex-end",
           }}
         >
-          <div style={{
-            background: "white",
-            borderTopLeftRadius: 22, borderTopRightRadius: 22,
+          <div className="card-elevated" style={{
+            borderRadius: "16px 16px 0 0",
             padding: "14px 18px 22px",
-            boxShadow: "0 -8px 32px rgba(15,23,42,0.18)",
           }}>
             <div style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",

@@ -22,14 +22,12 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
       }}
     >
       <div
+        className="card-elevated"
         style={{
           width: "100%",
           maxWidth: 460,
-          background: "white",
-          borderRadius: "24px 24px 0 0",
+          borderRadius: "16px 16px 0 0",
           padding: "24px 20px 32px",
-          boxShadow: "0 -18px 48px rgba(31,41,55,0.16)",
-          border: "1px solid #FFE4EF",
         }}
       >
         <div

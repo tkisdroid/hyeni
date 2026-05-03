@@ -25,12 +25,12 @@ export function ChildSelector({ children, value, onChange }) {
           return (
             <label
               key={c.id}
+              className="card card-interactive"
               style={{
                 display: "flex", alignItems: "center", gap: 12,
-                padding: "10px 14px", borderRadius: 12,
-                border: checked ? `2px solid ${c.color_hex}` : "1.5px solid #E5E7EB",
-                background: checked ? `${c.color_hex}15` : "white",
-                cursor: "pointer",
+                padding: "10px 14px",
+                border: checked ? `2px solid ${c.color_hex}` : undefined,
+                background: checked ? `${c.color_hex}15` : undefined,
               }}
             >
               <input

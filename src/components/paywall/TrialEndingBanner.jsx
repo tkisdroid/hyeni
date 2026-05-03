@@ -18,15 +18,14 @@ export function TrialEndingBanner({ trialDaysLeft, isTrial, onContinue, isChild 
   return (
     <div
       role="status"
+      className="card"
       style={{
         width: "100%",
         maxWidth: 420,
         marginBottom: 10,
         padding: "12px 14px",
-        borderRadius: 18,
-        background: danger ? "#FFF1F2" : "#FEFCE8",
-        border: `1.5px solid ${danger ? "#FB7185" : "#FACC15"}`,
-        boxShadow: "0 10px 24px rgba(180,120,150,0.08)",
+        background: danger ? "var(--status-negative-subtle)" : "var(--status-cautionary-subtle)",
+        border: `1px solid ${danger ? "var(--status-negative)" : "var(--status-cautionary)"}`,
         display: "flex",
         alignItems: "center",
         gap: 12,

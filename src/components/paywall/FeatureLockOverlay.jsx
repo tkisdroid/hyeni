@@ -35,14 +35,11 @@ export function FeatureLockOverlay({
       }}
     >
       <div
+        className="card-elevated"
         style={{
           width: "100%",
           maxWidth: 360,
-          background: "white",
-          borderRadius: 22,
           padding: "24px 20px",
-          boxShadow: "0 14px 34px rgba(180,120,150,0.12)",
-          border: "1.5px solid #FFE4EF",
           textAlign: "center",
         }}
       >
