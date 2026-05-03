@@ -166,7 +166,7 @@ function ProgressBar({ current, total }) {
       {Array.from({ length: total }).map((_, i) => (
         <div key={i} style={{
           flex: 1, height: 4, borderRadius: 2,
-          background: i <= current ? "#F779A8" : "#E5E7EB",
+          background: i <= current ? "var(--hyeni-pink)" : "var(--line-soft)",
         }} />
       ))}
     </div>
@@ -176,7 +176,7 @@ function ProgressBar({ current, total }) {
 function Step1FamilyName({ value, onChange, onNext }) {
   return (
     <div>
-      <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1F2937", marginBottom: 24 }}>
+      <h2 style={{ fontSize: 22, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 24 }}>
         가족 이름을 알려주세요
       </h2>
       <label style={{ display: "block" }}>
@@ -190,13 +190,8 @@ function Step1FamilyName({ value, onChange, onNext }) {
       </label>
       <button
         type="button" onClick={onNext} disabled={!value.trim()}
-        style={{
-          marginTop: 32, width: "100%", padding: "14px 0", borderRadius: 14,
-          background: value.trim() ? "#F779A8" : "#E5E7EB",
-          color: value.trim() ? "white" : "#9CA3AF",
-          fontSize: 16, fontWeight: 800, border: "none",
-          cursor: value.trim() ? "pointer" : "not-allowed",
-        }}
+        className="btn btn-primary"
+        style={{ marginTop: 32, width: "100%" }}
       >다음</button>
     </div>
   );
@@ -224,7 +219,8 @@ function Step3Children({ children, onChange, familyId, busy, error, onSubmit }) 
       <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
         {activeIndex > 0 && (
           <button type="button" onClick={() => setActiveIndex(activeIndex - 1)}
-            style={{ flex: 1, padding: "14px 0", borderRadius: 14, background: "white", border: "1.5px solid #E5E7EB", fontWeight: 800 }}>
+            className="btn btn-secondary"
+            style={{ flex: 1 }}>
             이전 자녀
           </button>
         )}
@@ -233,19 +229,18 @@ function Step3Children({ children, onChange, familyId, busy, error, onSubmit }) 
             type="button"
             onClick={() => setActiveIndex(activeIndex + 1)}
             disabled={!children[activeIndex].name.trim() || !children[activeIndex].birthdate}
-            style={{ flex: 1, padding: "14px 0", borderRadius: 14, background: "#F779A8", color: "white", fontWeight: 800, border: "none" }}
+            className="btn btn-primary"
+            style={{ flex: 1 }}
           >다음 자녀</button>
         ) : (
           <button
             type="button" onClick={onSubmit} disabled={!allValid || busy}
-            style={{ flex: 1, padding: "14px 0", borderRadius: 14,
-              background: allValid && !busy ? "#F779A8" : "#E5E7EB",
-              color: allValid && !busy ? "white" : "#9CA3AF",
-              fontWeight: 800, border: "none" }}
+            className="btn btn-primary"
+            style={{ flex: 1 }}
           >{busy ? "저장 중..." : "다음"}</button>
         )}
       </div>
-      {error && <div style={{ color: "#EF4444", marginTop: 12, fontSize: 14 }}>{error}</div>}
+      {error && <div style={{ color: "var(--status-negative)", marginTop: 12, fontSize: 14 }}>{error}</div>}
     </div>
   );
 }
@@ -253,25 +248,23 @@ function Step3Children({ children, onChange, familyId, busy, error, onSubmit }) 
 function Step4PairCode({ family, onNext }) {
   return (
     <div>
-      <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1F2937", marginBottom: 12 }}>
+      <h2 style={{ fontSize: 22, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 12 }}>
         페어링 코드
       </h2>
-      <p style={{ fontSize: 14, color: "#6B7280", marginBottom: 20 }}>
+      <p style={{ fontSize: 14, color: "var(--fg-secondary)", marginBottom: 20 }}>
         자녀 단말 앱에 이 코드를 입력하면 가족이 연결돼요.
       </p>
       <div style={{
-        background: "#FFF1F7", border: "2px solid #F779A8", borderRadius: 14,
+        background: "var(--hyeni-pink-soft)", border: "2px solid var(--hyeni-pink)", borderRadius: 16,
         padding: 24, textAlign: "center",
-        fontSize: 22, fontWeight: 900, letterSpacing: 2, color: "#BE185D",
+        fontSize: 22, fontWeight: 900, letterSpacing: 2, color: "var(--hyeni-pink-deep)",
       }}>
         {family.pair_code}
       </div>
       <button
         type="button" onClick={onNext}
-        style={{
-          marginTop: 32, width: "100%", padding: "14px 0", borderRadius: 14,
-          background: "#F779A8", color: "white", fontSize: 16, fontWeight: 800, border: "none",
-        }}
+        className="btn btn-primary"
+        style={{ marginTop: 32, width: "100%" }}
       >모든 자녀 페어링 완료</button>
     </div>
   );
@@ -284,10 +277,8 @@ function Step5Complete({ onComplete }) {
       <h2 style={{ fontSize: 22, fontWeight: 900, marginBottom: 12 }}>설정 완료!</h2>
       <button
         type="button" onClick={onComplete}
-        style={{
-          marginTop: 32, padding: "14px 32px", borderRadius: 14,
-          background: "#F779A8", color: "white", fontSize: 16, fontWeight: 800, border: "none",
-        }}
+        className="btn btn-primary"
+        style={{ marginTop: 32, paddingLeft: 32, paddingRight: 32 }}
       >시작하기</button>
     </div>
   );

@@ -3514,7 +3514,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openEdit(i)} style={{ background: "rgba(255,255,255,0.8)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
-                                <button onClick={() => removeItem(i)} style={{ background: "rgba(255,255,255,0.8)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "#EF4444", fontFamily: FF }}>✕</button>
+                                <button onClick={() => removeItem(i)} style={{ background: "rgba(255,255,255,0.8)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "var(--status-negative)", fontFamily: FF }}>✕</button>
                             </div>
                         </div>
                     </div>
@@ -3564,7 +3564,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openSavedPlaceEdit(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
-                                <button onClick={() => removeSavedPlace(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "#EF4444", fontFamily: FF }}>✕</button>
+                                <button onClick={() => removeSavedPlace(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "var(--status-negative)", fontFamily: FF }}>✕</button>
                             </div>
                         </div>
                     </div>
@@ -6382,7 +6382,7 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
                             <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>반경 {z.radius_m}m</div>
                         </div>
                         <button onClick={() => { if (window.confirm(`"${z.name}" 위험지역을 삭제할까요?`)) onDelete(z.id); }}
-                            style={{ padding: "6px 10px", borderRadius: 10, background: "#FEE2E2", color: "#DC2626", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>삭제</button>
+                            style={{ padding: "6px 10px", borderRadius: 10, background: "var(--status-negative-subtle)", color: "var(--status-negative)", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>삭제</button>
                     </div>
                 ))}
 
@@ -6584,7 +6584,7 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openEdit(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
-                                <button onClick={() => removeItem(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "#EF4444", fontFamily: FF }}>✕</button>
+                                <button onClick={() => removeItem(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "var(--status-negative)", fontFamily: FF }}>✕</button>
                             </div>
                         </div>
                     </div>

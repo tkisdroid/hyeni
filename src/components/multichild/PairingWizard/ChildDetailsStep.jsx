@@ -9,10 +9,10 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 900, color: "#1F2937", marginBottom: 4 }}>
+      <h2 style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 4 }}>
         {order}번째 자녀
       </h2>
-      <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 20 }}>
+      <p style={{ fontSize: 13, color: "var(--fg-secondary)", marginBottom: 20 }}>
         이름과 생년월일을 입력해 주세요. 생년월일은 자녀별 구독 식별에 사용돼요.
       </p>
 
@@ -24,7 +24,7 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
         />
       </div>
 
-      <label style={{ display: "block", fontSize: 14, fontWeight: 700, marginBottom: 6, color: "#1F2937" }}>
+      <label style={{ display: "block", fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--fg-primary)" }}>
         이름
         <input
           type="text" value={child.name} maxLength={20} placeholder="자녀 이름"
@@ -35,7 +35,7 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
       </label>
 
       <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "#1F2937" }}>생년월일</div>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--fg-primary)" }}>생년월일</div>
         <BirthdatePicker
           value={child.birthdate}
           onChange={(yyyymmdd) => update({ birthdate: yyyymmdd })}
@@ -47,7 +47,7 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
       </div>
 
       <div style={{ marginTop: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1F2937" }}>색</div>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "var(--fg-primary)" }}>색</div>
         <ColorPicker
           selected={child.color_hex}
           usedColors={usedColors.filter((c) => c !== child.color_hex)}
