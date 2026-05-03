@@ -35,14 +35,14 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
       }}
     >
       <header style={{ padding: "calc(env(safe-area-inset-top, 0px) + 24px) 20px 12px" }}>
-        <div style={{ fontSize: 12, color: "#BE185D", fontWeight: 800, letterSpacing: 1 }}>처음 사용 안내</div>
+        <div style={{ fontSize: 12, color: "var(--hyeni-pink-deep)", fontWeight: 800, letterSpacing: 1 }}>처음 사용 안내</div>
         <h2
           id="child-permission-wizard-title"
-          style={{ margin: "6px 0 8px", fontSize: 22, fontWeight: 900, color: "#1F2937", whiteSpace: "pre-line" }}
+          style={{ margin: "6px 0 8px", fontSize: 22, fontWeight: 900, color: "var(--fg-primary)", whiteSpace: "pre-line" }}
         >
           {allReady ? "준비가 모두 끝났어요!" : "안전 사용을 위해\n권한을 모두 허용해주세요"}
         </h2>
-        <p style={{ margin: 0, fontSize: 13, color: "#6B7280", lineHeight: 1.55 }}>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--fg-secondary)", lineHeight: 1.55 }}>
           {allReady
             ? "이제 부모님이 안전 상태를 정확히 받아볼 수 있어요."
             : "각 항목에서 \"허용하기\"를 눌러 설정 화면으로 이동해 주세요. 돌아오면 자동으로 다음 단계가 안내돼요."}
@@ -52,7 +52,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
           aria-label={`설정 진행률 ${readyCount} / ${totalCount}`}
           style={{
             marginTop: 16,
-            background: "#FCE7F3",
+            background: "var(--hyeni-pink-line)",
             borderRadius: 999,
             height: 8,
             overflow: "hidden",
@@ -62,12 +62,12 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
             style={{
               width: `${progressPct}%`,
               height: "100%",
-              background: allReady ? "#10B981" : "#F779A8",
+              background: allReady ? "var(--status-positive)" : "var(--hyeni-pink)",
               transition: "width 240ms ease-out, background 240ms ease-out",
             }}
           />
         </div>
-        <div style={{ marginTop: 6, fontSize: 11, color: "#9CA3AF", fontWeight: 700 }}>
+        <div style={{ marginTop: 6, fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 700 }}>
           {readyCount} / {totalCount} 완료
         </div>
       </header>
@@ -92,10 +92,10 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
                 alignItems: "center",
                 gap: 12,
                 padding: "14px 14px",
-                background: ready ? "#ECFDF5" : "white",
-                border: ready ? "1.5px solid #A7F3D0" : "1.5px solid #FBCFE8",
+                background: ready ? "var(--status-positive-subtle)" : "var(--bg-base)",
+                border: ready ? "1.5px solid var(--status-positive-subtle)" : "1.5px solid var(--hyeni-pink-line-strong)",
                 borderRadius: 16,
-                boxShadow: ready ? "none" : "0 6px 16px rgba(232,121,160,0.08)",
+                boxShadow: "none",
               }}
             >
               <span
@@ -104,8 +104,8 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
                   width: 32,
                   height: 32,
                   borderRadius: "50%",
-                  background: ready ? "#10B981" : "#F779A8",
-                  color: "white",
+                  background: ready ? "var(--status-positive)" : "var(--hyeni-pink)",
+                  color: "var(--bg-base)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -117,10 +117,10 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
                 {ready ? "✓" : "!"}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: ready ? "#065F46" : "#1F2937" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: ready ? "var(--status-positive)" : "var(--fg-primary)" }}>
                   {step.title}
                 </div>
-                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2, lineHeight: 1.45 }}>
+                <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2, lineHeight: 1.45 }}>
                   {step.description}
                 </div>
               </div>
@@ -133,8 +133,8 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
                     flexShrink: 0,
                     padding: "10px 14px",
                     borderRadius: 12,
-                    background: "#F779A8",
-                    color: "white",
+                    background: "var(--hyeni-pink)",
+                    color: "var(--bg-base)",
                     border: "none",
                     cursor: "pointer",
                     fontWeight: 800,
@@ -156,7 +156,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
           marginTop: "auto",
           padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 24px)",
           background: "rgba(255,255,255,0.85)",
-          borderTop: "1px solid #FCE7F3",
+          borderTop: "1px solid var(--hyeni-pink-line)",
         }}
       >
         <button
@@ -166,9 +166,9 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
             width: "100%",
             padding: "14px 0",
             borderRadius: 14,
-            background: allReady ? "#10B981" : "white",
-            color: allReady ? "white" : "#6B7280",
-            border: allReady ? "none" : "1.5px solid #E5E7EB",
+            background: allReady ? "var(--status-positive)" : "var(--bg-base)",
+            color: allReady ? "var(--bg-base)" : "var(--fg-secondary)",
+            border: allReady ? "none" : "1.5px solid var(--line-soft)",
             fontSize: 15,
             fontWeight: 800,
             cursor: "pointer",
@@ -179,7 +179,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
           {allReady ? "시작하기" : "나중에 설정하기"}
         </button>
         {!allReady && (
-          <div style={{ marginTop: 8, fontSize: 11, color: "#9CA3AF", textAlign: "center", lineHeight: 1.5 }}>
+          <div style={{ marginTop: 8, fontSize: 11, color: "var(--fg-tertiary)", textAlign: "center", lineHeight: 1.5 }}>
             나중에 설정해도 홈 상단에서 다시 안내해드려요
           </div>
         )}

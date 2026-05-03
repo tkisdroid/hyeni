@@ -9,9 +9,9 @@ import { PriceSummary } from "../multichild/SubscriptionScreen/PriceSummary.jsx"
 export function SubscriptionManagement({ role, familyId, childList = [] }) {
   if (role === "child") {
     return (
-      <section style={{ background: "#FFF9FC", borderRadius: 18, padding: "18px 16px", border: "1.5px solid #FFE4EF" }}>
-        <div style={{ fontSize: 16, fontWeight: 900, color: "#1F2937" }}>구독 상태</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: "#64748B", lineHeight: 1.6 }}>{CHILD_DEVICE_NOTE}</div>
+      <section style={{ background: "var(--hyeni-pink-soft)", borderRadius: 16, padding: "18px 16px", border: "1.5px solid var(--hyeni-pink-line)" }}>
+        <div style={{ fontSize: 16, fontWeight: 900, color: "var(--fg-primary)" }}>구독 상태</div>
+        <div style={{ marginTop: 8, fontSize: 13, color: "var(--fg-secondary)", lineHeight: 1.6 }}>{CHILD_DEVICE_NOTE}</div>
       </section>
     );
   }
@@ -39,9 +39,9 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
   }
 
   return (
-    <section style={{ background: "white", borderRadius: 22, padding: "20px 18px", boxShadow: "0 14px 34px rgba(180,120,150,0.12)", border: "1.5px solid #FFE4EF" }}>
-      <div style={{ fontSize: 18, fontWeight: 900, color: "#1F2937", marginBottom: 4 }}>혜니 프리미엄</div>
-      <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 18 }}>
+    <section style={{ background: "var(--bg-base)", borderRadius: 16, padding: "20px 18px", boxShadow: "none", border: "1.5px solid var(--hyeni-pink-line)" }}>
+      <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 4 }}>혜니 프리미엄</div>
+      <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginBottom: 18 }}>
         자녀별로 구독 ON/OFF 가능 · 자녀 1인당 ₩1,500/월
       </div>
 
