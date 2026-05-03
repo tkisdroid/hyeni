@@ -194,7 +194,7 @@ a:focus-visible {
   border: 1px solid rgba(231, 219, 228, 0.6);
   border-radius: 20px;
   background: var(--bg-base);
-  box-shadow: var(--hyeni-shadow-sm);
+  box-shadow: none;
 }
 
 .hyeni-v5-kid-card::after {
@@ -352,7 +352,7 @@ a:focus-visible {
   border: 1px solid transparent;
   border-radius: 18px;
   background: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   text-align: left;
   cursor: pointer;
 }
@@ -375,7 +375,7 @@ a:focus-visible {
   border: 1px solid rgba(255, 228, 239, 0.82);
   border-left: 3px solid var(--event-color);
   border-radius: 16px;
-  box-shadow: 0 2px 10px rgba(31, 26, 34, 0.04);
+  box-shadow: none;
 }
 
 .hyeni-v5-timeline-list .hyeni-v5-event-card::before {
@@ -688,7 +688,7 @@ a:focus-visible {
   border: 2px solid #fecdd3;
   border-radius: 22px;
   background: linear-gradient(135deg, #fff7ed 0%, #fff1f2 52%, #ecfeff 100%);
-  box-shadow: 0 12px 28px rgba(232, 121, 160, 0.16);
+  box-shadow: none;
   color: var(--hyeni-ink);
   text-align: left;
   cursor: pointer;
@@ -1046,7 +1046,7 @@ a:focus-visible {
   border-radius: 18px;
   background: linear-gradient(135deg, #fff4ad, #ffe27a);
   color: #92400e;
-  box-shadow: 0 7px 16px rgba(245, 158, 11, 0.12);
+  box-shadow: none;
   width: 100%;
   box-sizing: border-box;
 }
@@ -1194,7 +1194,7 @@ a:focus-visible {
   border: 1px solid rgba(255, 228, 239, 0.92);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 26px rgba(180, 120, 150, 0.10);
+  box-shadow: none;
 }
 
 .hyeni-v5-calendar-card-head {
@@ -1483,7 +1483,7 @@ a:focus-visible {
   --hyeni-tool-radius-sm: 14px;
   --hyeni-tool-radius:    18px;
   --hyeni-tool-radius-lg: 22px;
-  --hyeni-tool-shadow:    0 6px 18px rgba(31, 26, 34, 0.06);
+  --hyeni-tool-shadow:    none;
   --hyeni-tool-shadow-up: 0 10px 26px rgba(31, 26, 34, 0.08);
   --hyeni-tool-hairline:  rgba(31, 26, 34, 0.08);
   --hyeni-tool-divider:   rgba(31, 26, 34, 0.06);
