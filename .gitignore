@@ -87,3 +87,11 @@ Thumbs.db
 .ralph/docs/generated/*
 !.ralph/docs/generated/.gitkeep
 .ralph_backup_*
+
+# Playwright browser MCP review screenshots
+review-*.png
+final-*.png
+
+# Imported design specs zip + extraction (local only)
+files/
+files.zip

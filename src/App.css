@@ -100,6 +100,45 @@ a:focus-visible {
   font-weight: 900;
 }
 
+.hyeni-v1-hero-count-zero {
+  color: var(--fg-tertiary);
+  font-weight: 700;
+}
+
+@keyframes hyeni-card-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hyeni-v5-action-rail .hyeni-v5-action-chip,
+.hyeni-v5-event-list > *,
+.hyeni-v5-kid-card {
+  animation: hyeni-card-fade-in 0.24s cubic-bezier(0.2, 0.0, 0.2, 1) backwards;
+}
+
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(1) { animation-delay: 0ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(2) { animation-delay: 24ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(3) { animation-delay: 48ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(4) { animation-delay: 72ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(5) { animation-delay: 96ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(6) { animation-delay: 120ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(7) { animation-delay: 144ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(8) { animation-delay: 168ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(9) { animation-delay: 192ms; }
+.hyeni-v5-action-rail .hyeni-v5-action-chip:nth-child(10) { animation-delay: 216ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hyeni-v5-action-rail .hyeni-v5-action-chip,
+  .hyeni-v5-event-list > *,
+  .hyeni-v5-kid-card {
+    animation: none;
+  }
+}
+
+.hyeni-v5-action-chip:active {
+  transform: scale(0.97);
+}
+
 .hyeni-v1-hero-action {
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }

@@ -40,10 +40,10 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
   return (
     <div className="hyeni-v5-parent-main" aria-label="오늘 가족 일정" style={{ fontFamily: FF }}>
       <div style={{ padding: "16px 16px 8px" }}>
-        <div style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: "var(--weight-medium)", letterSpacing: 0.3 }}>오늘</div>
+        <div style={{ fontSize: 11, color: "var(--hyeni-pink-deep)", fontWeight: "var(--weight-bold)", letterSpacing: 0.5 }}>오늘</div>
         <div style={{ fontSize: 24, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", marginTop: 2 }}>{todayLabel}</div>
-        <div style={{ fontSize: 14, color: "var(--fg-tertiary)", marginTop: 4, fontWeight: "var(--weight-medium)" }}>
-          아이 카드를 누르면 그 아이의 상세 보기로 들어갈 수 있어요
+        <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, fontWeight: "var(--weight-medium)" }}>
+          카드를 탭하면 그 아이의 상세 일정이 열려요
         </div>
       </div>
 
@@ -88,7 +88,7 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
-                  <div style={{ fontSize: 13, color: "var(--fg-tertiary)", marginTop: 2, fontWeight: "var(--weight-medium)" }}>
+                  <div style={{ fontSize: 13, color: list.length > 0 ? "var(--hyeni-pink-deep)" : "var(--fg-secondary)", marginTop: 3, fontWeight: list.length > 0 ? "var(--weight-bold)" : "var(--weight-medium)" }}>
                     {list.length === 0 ? "오늘 일정이 없어요" : `오늘 일정 ${list.length}건`}
                   </div>
                 </div>

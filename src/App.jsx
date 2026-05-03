@@ -2259,16 +2259,16 @@ function RoleSetupModal({ onSelect, loading }) {
                         <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 16, background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>👨‍👩‍👧</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>학부모</span>
-                            <span style={{ display: "block", fontSize: 13, color: "#64748B", marginTop: 4, lineHeight: 1.45, fontWeight: 600 }}>ID/PW 또는 카카오로 로그인해요</span>
+                            <span style={{ display: "block", fontSize: 13, color: "#64748B", marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>ID/PW 또는 카카오로 로그인해요</span>
                         </span>
-                        <span aria-hidden="true" style={{ color: "#2563EB", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
+                        <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
                     </button>
                     <button onClick={handleChild}
                         style={{ padding: "18px", background: DESIGN.gradients.primary, color: "white", border: "none", borderRadius: DESIGN.radius.lg, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 16px 34px rgba(190,24,93,0.22)", display: "flex", alignItems: "center", gap: 14 }}>
                         <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 16, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>🐰</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>아이</span>
-                            <span style={{ display: "block", fontSize: 13, opacity: 0.86, marginTop: 4, lineHeight: 1.45, fontWeight: 600 }}>부모님 코드로 연결하고 내 일정을 확인해요</span>
+                            <span style={{ display: "block", fontSize: 13, opacity: 0.86, marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>부모님 코드로 연결하고 내 일정을 확인해요</span>
                         </span>
                         <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
                     </button>
@@ -2293,19 +2293,19 @@ function ParentAuthScreen({ onBack }) {
         width: "100%",
         minHeight: 48,
         padding: "12px 14px",
-        border: `1.5px solid ${hasError ? "#FCA5A5" : "#E5E7EB"}`,
-        borderRadius: 14,
+        border: `1.5px solid ${hasError ? "var(--status-negative)" : "var(--line-default)"}`,
+        borderRadius: 12,
         fontSize: 15,
-        fontWeight: 700,
+        fontWeight: 600,
         fontFamily: FF,
         outline: "none",
         boxSizing: "border-box",
-        background: "white",
-        color: "#111827",
+        background: "var(--bg-base)",
+        color: "var(--fg-primary)",
     });
 
     const fieldWrapStyle = { display: "flex", flexDirection: "column", gap: 7, textAlign: "left" };
-    const labelStyle = { fontSize: 12, fontWeight: 900, color: "#475569" };
+    const labelStyle = { fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", letterSpacing: -0.005 };
 
     const handleKakao = async () => {
         setBusy("kakao");
@@ -2435,17 +2435,17 @@ function ParentAuthScreen({ onBack }) {
                 </div>
 
                 <div style={{ textAlign: "center", marginBottom: 18 }}>
-                    <div style={{ fontSize: 21, fontWeight: 900, color: "#BE185D", marginBottom: 6 }}>학부모 로그인</div>
-                    <div style={{ fontSize: 13, color: "#64748B", fontWeight: 700 }}>아이 일정 관리를 시작해요</div>
+                    <div style={{ fontSize: 21, fontWeight: 900, color: "var(--hyeni-pink-deep)", marginBottom: 6 }}>학부모 로그인</div>
+                    <div style={{ fontSize: 13, color: "var(--fg-secondary)", fontWeight: 700 }}>아이 일정 관리를 시작해 주세요</div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
                     <button type="button" onClick={() => switchMode("login")}
-                        style={{ padding: "11px 10px", borderRadius: 14, border: "none", background: mode === "login" ? "#BE185D" : "#F3F4F6", color: mode === "login" ? "white" : "#64748B", fontWeight: 900, cursor: "pointer", fontFamily: FF }}>
+                        style={{ padding: "12px 10px", borderRadius: 12, border: "none", background: mode === "login" ? "var(--hyeni-pink-deep)" : "var(--bg-subtle)", color: mode === "login" ? "var(--fg-on-primary)" : "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF, transition: "background 0.16s ease, color 0.16s ease" }}>
                         로그인
                     </button>
                     <button type="button" onClick={() => switchMode("signup")}
-                        style={{ padding: "11px 10px", borderRadius: 14, border: "none", background: mode === "signup" ? "#BE185D" : "#F3F4F6", color: mode === "signup" ? "white" : "#64748B", fontWeight: 900, cursor: "pointer", fontFamily: FF }}>
+                        style={{ padding: "12px 10px", borderRadius: 12, border: "none", background: mode === "signup" ? "var(--hyeni-pink-deep)" : "var(--bg-subtle)", color: mode === "signup" ? "var(--fg-on-primary)" : "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF, transition: "background 0.16s ease, color 0.16s ease" }}>
                         회원가입
                     </button>
                 </div>
@@ -9569,13 +9569,13 @@ export default function KidsScheduler() {
                 // 진입 → 알림
                 setFiredDangerAlerts(prev => new Set([...prev, zone.id]));
                 const childName = familyInfo?.members?.find(m => m.role === "child")?.name || "아이";
-                addAlert(`⚠️ ${childName}이(가) 위험지역 '${zone.name}' 근처에 있어요! (${Math.round(dist)}m)`, "parent");
+                addAlert(`⚠️ ${childName}님이 위험지역 '${zone.name}' 근처에 있어요! (${Math.round(dist)}m)`, "parent");
                 sendInstantPush({
                     action: "parent_alert", familyId, senderUserId: authUser?.id,
                     severity: "emergency",
                     alertType: "danger_zone",
                     title: `⚠️ 위험지역 접근 알림`,
-                    message: `${childName}이(가) '${zone.name}' 근처(${Math.round(dist)}m)에 있어요!`,
+                    message: `${childName}님이 '${zone.name}' 근처(${Math.round(dist)}m)에 있어요!`,
                 });
             } else if (!isInside && wasFired && dist > zone.radius_m * 1.5) {
                 // 충분히 벗어남 → 알림 플래그 초기화 (재진입 시 다시 알림)
@@ -10595,7 +10595,7 @@ export default function KidsScheduler() {
     // the parent can manage pairings before any child is selected.
     const requireSelectedChildOrHint = (action, label) => () => {
         if (isParent && isMultiChild && !selectedChildId) {
-            setMultiChildHint(`${label}은(는) 아이별로 확인할 수 있어요. 홈에서 아이를 먼저 선택해주세요.`);
+            setMultiChildHint(`${label}은 아이별로 확인할 수 있어요. 홈에서 아이를 먼저 선택해 주세요.`);
             return;
         }
         action?.();
@@ -11958,11 +11958,11 @@ export default function KidsScheduler() {
                 </div>
             )}
             {!isNativeApp && pushPermission !== "granted" && pushPermission !== "unsupported" && pushPermission !== "denied" && (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "10px 14px", borderRadius: 14, background: "linear-gradient(135deg, #DBEAFE, #EFF6FF)", display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 22 }}>🔔</span>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "10px 14px", borderRadius: 16, background: "var(--bg-base)", border: "1px solid var(--line-soft)", display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>🔔</span>
                     <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1E40AF" }}>푸시 알림을 켜주세요!</div>
-                        <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>일정 시작 전 알림을 받을 수 있어요</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-primary)" }}>푸시 알림을 켜주세요</div>
+                        <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>일정 시작 전 알림을 받을 수 있어요</div>
                     </div>
                     <button onClick={async () => {
                         const result = await requestPermission();
@@ -11973,7 +11973,7 @@ export default function KidsScheduler() {
                             showNotif("알림이 차단되었어요. 브라우저 설정에서 허용해주세요.", "error");
                         }
                     }}
-                        style={{ padding: "8px 14px", borderRadius: 10, background: "#3B82F6", color: "white", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap" }}>
+                        style={{ padding: "8px 14px", borderRadius: 12, background: "var(--hyeni-pink)", color: "var(--fg-on-primary)", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap" }}>
                         허용하기
                     </button>
                 </div>
@@ -12003,7 +12003,7 @@ export default function KidsScheduler() {
                         {isParent && (
                             <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 2 }}>
                                 <span onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
-                                    style={{ fontSize: 9, padding: "2px 6px", borderRadius: 5, fontWeight: 700, cursor: "pointer", background: "#DBEAFE", color: "#1D4ED8", whiteSpace: "nowrap", flexShrink: 0 }}>
+                                    style={{ fontSize: 10, padding: "3px 7px", borderRadius: 6, fontWeight: 700, cursor: "pointer", background: "var(--bg-subtle)", color: "var(--fg-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}>
                                     학부모 모드
                                 </span>
                                 <button onClick={() => setShowPairing(true)}
@@ -12041,8 +12041,8 @@ export default function KidsScheduler() {
                         style={{
                             fontSize: isParent ? 13 : 15, padding: isParent ? "8px 14px" : "10px 18px", borderRadius: 16, border: "none", cursor: kkukCooldown ? "default" : "pointer",
                             fontWeight: 900, fontFamily: FF, whiteSpace: "nowrap",
-                            background: kkukCooldown ? "#E5E7EB" : "linear-gradient(135deg, #FF6B9D, #FF4081)",
-                            color: "white", boxShadow: kkukCooldown ? "none" : "0 3px 12px rgba(255,64,129,0.4)",
+                            background: kkukCooldown ? "var(--bg-muted)" : "linear-gradient(135deg, var(--hyeni-pink), var(--hyeni-pink-deep))",
+                            color: "var(--fg-on-primary)", boxShadow: kkukCooldown ? "none" : "0 2px 8px rgba(232,121,160,0.32)",
                             transition: "all 0.2s", transform: kkukCooldown ? "scale(0.95)" : "scale(1)",
                             userSelect: "none",
                             WebkitTouchCallout: "none",
@@ -12080,7 +12080,7 @@ export default function KidsScheduler() {
                                 },
                             });
                         }}
-                            style={{ fontSize: 10, padding: "6px 8px", borderRadius: 8, background: "#F3F4F6", color: "#9CA3AF", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: FF, whiteSpace: "nowrap" }}>
+                            style={{ fontSize: 11, padding: "6px 10px", borderRadius: 10, background: "var(--bg-subtle)", color: "var(--fg-secondary)", border: "1px solid var(--line-soft)", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap" }}>
                             로그아웃
                         </button>
                     )}
@@ -12145,7 +12145,7 @@ export default function KidsScheduler() {
                         {isParent ? (
                             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: "#1F1A22", textShadow: "none" }}>
                                 {parentHeroChildrenText},<br />
-                                오늘 일정 <span className="hyeni-v1-hero-count">{todayEvents.length}개</span>
+                                오늘 일정 <span className={todayEvents.length > 0 ? "hyeni-v1-hero-count" : "hyeni-v1-hero-count-zero"}>{todayEvents.length}개</span>
                             </h1>
                         ) : (
                             <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, lineHeight: 1.15, maxWidth: 250, textShadow: "none" }}>

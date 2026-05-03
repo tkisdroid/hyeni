@@ -254,6 +254,10 @@ body {
   border-color: var(--line-disabled);
 }
 
+.btn:not(:disabled):active {
+  transform: scale(0.98);
+}
+
 /* Primary */
 .btn-primary {
   background: var(--primary);
