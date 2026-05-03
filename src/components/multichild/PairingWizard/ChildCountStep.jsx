@@ -2,10 +2,10 @@
 export function ChildCountStep({ value, onChange, onNext }) {
   return (
     <div>
-      <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1F2937", marginBottom: 8 }}>
+      <h2 style={{ fontSize: 22, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 8 }}>
         자녀가 몇 명인가요?
       </h2>
-      <p style={{ fontSize: 14, color: "#6B7280", marginBottom: 24 }}>
+      <p style={{ fontSize: 14, color: "var(--fg-secondary)", marginBottom: 24 }}>
         나중에 추가/삭제할 수 있어요.
       </p>
       <div style={{ display: "flex", gap: 12, marginBottom: 32 }}>
@@ -19,7 +19,7 @@ export function ChildCountStep({ value, onChange, onNext }) {
               border: value === n ? "2px solid #F779A8" : "1.5px solid #E5E7EB",
               background: value === n ? "#FFF1F7" : "white",
               fontSize: 16, fontWeight: 800,
-              color: value === n ? "#BE185D" : "#1F2937",
+              color: value === n ? "#BE185D" : "var(--fg-primary)",
               cursor: "pointer",
             }}
           >

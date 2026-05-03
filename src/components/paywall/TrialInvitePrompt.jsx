@@ -46,10 +46,10 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
           <span>✨</span>
           <span>{EARLY_ADOPTER_BADGE}</span>
         </div>
-        <h2 id="trial-invite-title" style={{ fontSize: 22, margin: "12px 0 8px", color: "#1F2937" }}>
+        <h2 id="trial-invite-title" style={{ fontSize: 22, margin: "12px 0 8px", color: "var(--fg-primary)" }}>
           {TRIAL_INVITE.title}
         </h2>
-        <p style={{ margin: 0, fontSize: 14, color: "#6B7280", lineHeight: 1.6 }}>{TRIAL_INVITE.body}</p>
+        <p style={{ margin: 0, fontSize: 14, color: "var(--fg-secondary)", lineHeight: 1.6 }}>{TRIAL_INVITE.body}</p>
         <div
           style={{
             marginTop: 16,
@@ -59,11 +59,11 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
             border: "1px solid #FBCFE8",
           }}
         >
-          <div style={{ fontSize: 15, fontWeight: 900, color: "#BE185D" }}>{PRICING.monthlyLabel}</div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: "var(--hyeni-pink-deep)" }}>{PRICING.monthlyLabel}</div>
           <div style={{ fontSize: 12, color: "#9D174D", marginTop: 4 }}>
             {PRICING.dailyLabel} · {PRICING.yearlyLabel}
           </div>
-          <div style={{ fontSize: 12, color: "#6B7280", marginTop: 8, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 8, lineHeight: 1.5 }}>
             {TRIAL_INVITE.highlight}
           </div>
         </div>
@@ -93,7 +93,7 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
               borderRadius: 18,
               border: "1px solid #E5E7EB",
               background: "#F9FAFB",
-              color: "#6B7280",
+              color: "var(--fg-secondary)",
               fontWeight: 700,
               fontSize: 14,
               cursor: "pointer",

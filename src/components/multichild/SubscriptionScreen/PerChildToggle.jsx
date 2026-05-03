@@ -21,11 +21,11 @@ export function PerChildToggle({ child, subscribed, onToggle, busy = false }) {
         flexShrink: 0,
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: "#1F2937" }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: "var(--fg-primary)" }}>
           {child.name}
-          {year && <span style={{ fontSize: 12, color: "#6B7280", marginLeft: 8, fontWeight: 600 }}>({year}년생)</span>}
+          {year && <span style={{ fontSize: 12, color: "var(--fg-secondary)", marginLeft: 8, fontWeight: 600 }}>({year}년생)</span>}
         </div>
-        <div style={{ fontSize: 12, color: subscribed ? "#BE185D" : "#6B7280", marginTop: 2, fontWeight: 700 }}>
+        <div style={{ fontSize: 12, color: subscribed ? "#BE185D" : "var(--fg-secondary)", marginTop: 2, fontWeight: 700 }}>
           {subscribed ? "₩1,500/월" : "무료"}
         </div>
       </div>

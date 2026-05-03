@@ -117,7 +117,7 @@ export function MiniMap({ children, positions, onTap }) {
       ))}
       <div style={{
         position: "absolute", bottom: 8, right: 12,
-        fontSize: 11, color: "#6B7280", fontWeight: 700,
+        fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700,
         background: "rgba(255,255,255,0.9)", padding: "2px 8px", borderRadius: 8,
       }}>탭하여 전체 지도 보기</div>
     </button>

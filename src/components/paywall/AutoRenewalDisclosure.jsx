@@ -30,7 +30,7 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
           padding: "24px 20px 32px",
         }}
       >
-        <div style={{ fontSize: 20, fontWeight: 900, color: "#1F2937" }}>{AUTO_RENEWAL_DISCLOSURE.title}</div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)" }}>{AUTO_RENEWAL_DISCLOSURE.title}</div>
         <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
           {AUTO_RENEWAL_DISCLOSURE.items.map((item) => (
             <div
@@ -42,7 +42,7 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
                 padding: "12px 14px",
                 borderRadius: 16,
                 background: "#F8FAFC",
-                color: "#475569",
+                color: "var(--fg-secondary)",
                 fontSize: 13,
                 lineHeight: 1.6,
               }}
@@ -77,7 +77,7 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
               borderRadius: 18,
               border: "1px solid #E5E7EB",
               background: "#F9FAFB",
-              color: "#6B7280",
+              color: "var(--fg-secondary)",
               fontWeight: 700,
               cursor: "pointer",
             }}

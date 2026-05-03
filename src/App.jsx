@@ -209,8 +209,8 @@ function ChildSafetySetupGate({ steps, health, onOpenStep, onRefresh }) {
                                 {step.ready ? "✓" : index + 1}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 950, color: "#1F2937" }}>{step.title}</div>
-                                <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700, lineHeight: 1.4, marginTop: 2 }}>{step.description}</div>
+                                <div style={{ fontSize: 13, fontWeight: 950, color: "var(--fg-primary)" }}>{step.title}</div>
+                                <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700, lineHeight: 1.4, marginTop: 2 }}>{step.description}</div>
                             </div>
                             {!step.ready && (
                                 <button
@@ -242,7 +242,7 @@ function ChildSafetySetupGate({ steps, health, onOpenStep, onRefresh }) {
                     <button
                         type="button"
                         onClick={onRefresh}
-                        style={{ flex: firstPending ? "0 0 auto" : 1, padding: "13px 14px", borderRadius: 16, border: "none", background: "white", color: "#6B7280", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF, boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}
+                        style={{ flex: firstPending ? "0 0 auto" : 1, padding: "13px 14px", borderRadius: 16, border: "none", background: "white", color: "var(--fg-secondary)", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF, boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}
                     >
                         다시 확인
                     </button>
@@ -986,7 +986,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                     <AppBrandLogo size={76} radius={22} />
                 </div>
                 <div style={{ fontSize: 21, fontWeight: 900, color: "#BE185D", marginBottom: 6, letterSpacing: -0.4 }}>가족 연결을 시작해요</div>
-                <div style={{ fontSize: 13, color: "#64748B", marginBottom: 26, lineHeight: 1.55, fontWeight: 600 }}>
+                <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginBottom: 26, lineHeight: 1.55, fontWeight: 600 }}>
                     새 가족을 만들거나<br/>이미 받은 연동코드로 합류하세요
                 </div>
 
@@ -1007,7 +1007,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
 
                 {mode === "create" && (
                     <div>
-                        <div style={{ fontSize: 14, color: "#374151", marginBottom: 16, fontWeight: 600 }}>
+                        <div style={{ fontSize: 14, color: "var(--fg-primary)", marginBottom: 16, fontWeight: 600 }}>
                             새 가족을 만들면 연동코드가 생성됩니다.<br/>이 코드로 배우자와 아이가 합류할 수 있어요.
                         </div>
                         <button disabled={busy} onClick={handleCreateClick}
@@ -1015,20 +1015,20 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                             {busy ? "생성 중..." : "가족 만들기"}
                         </button>
                         <div style={{ marginTop: 12 }}>
-                            <button onClick={() => setMode(null)} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 13, cursor: "pointer", fontFamily: FF }}>← 뒤로</button>
+                            <button onClick={() => setMode(null)} style={{ background: "none", border: "none", color: "var(--fg-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: FF }}>← 뒤로</button>
                         </div>
                     </div>
                 )}
 
                 {mode === "join" && (
                     <div>
-                        <div style={{ fontSize: 14, color: "#374151", marginBottom: 12, fontWeight: 600 }}>
+                        <div style={{ fontSize: 14, color: "var(--fg-primary)", marginBottom: 12, fontWeight: 600 }}>
                             배우자에게 받은 연동코드를 입력하세요
                         </div>
                         <div style={{ marginBottom: joinError ? 8 : 12 }}>
                             <input value={joinCode} onChange={handleJoinCodeChange}
                                 placeholder="KID-804DF582 또는 804DF582"
-                                style={{ width: "100%", padding: "11px 14px", border: `2px solid ${joinError ? "#FCA5A5" : "#E5E7EB"}`, borderRadius: 12, fontSize: 16, fontWeight: 800, fontFamily: "monospace", textAlign: "center", letterSpacing: 1, boxSizing: "border-box", outline: "none", color: "#111827", background: "white" }} />
+                                style={{ width: "100%", padding: "11px 14px", border: `2px solid ${joinError ? "#FCA5A5" : "#E5E7EB"}`, borderRadius: 12, fontSize: 16, fontWeight: 800, fontFamily: "monospace", textAlign: "center", letterSpacing: 1, boxSizing: "border-box", outline: "none", color: "var(--fg-primary)", background: "white" }} />
                         </div>
                         {joinError && <div style={{ fontSize: 13, color: "#B45309", fontWeight: 700, marginBottom: 12 }}>{joinError}</div>}
                         <button disabled={!canJoin} onClick={handleJoinClick}
@@ -1036,7 +1036,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                             {busy ? "합류 중..." : "합류하기"}
                         </button>
                         <div style={{ marginTop: 12 }}>
-                            <button onClick={() => setMode(null)} style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 13, cursor: "pointer", fontFamily: FF }}>← 뒤로</button>
+                            <button onClick={() => setMode(null)} style={{ background: "none", border: "none", color: "var(--fg-tertiary)", fontSize: 13, cursor: "pointer", fontFamily: FF }}>← 뒤로</button>
                         </div>
                     </div>
                 )}
@@ -1713,7 +1713,7 @@ function MapZoomControls({ mapObj, style, onManualZoom }) {
     return (
         <div style={{ position: "absolute", bottom: 16, left: 12, display: "flex", flexDirection: "column", gap: 8, zIndex: 10, ...style }}>
             <button onClick={() => zoom(-1)} style={{ ...btnSt, background: "white", color: "#E879A0" }}>+</button>
-            <button onClick={() => zoom(1)} style={{ ...btnSt, background: "white", color: "#9CA3AF" }}>−</button>
+            <button onClick={() => zoom(1)} style={{ ...btnSt, background: "white", color: "var(--fg-tertiary)" }}>−</button>
         </div>
     );
 }
@@ -2050,7 +2050,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
         <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column", background: "white", fontFamily: FF }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 12 }}>
                 <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 닫기</button>
-                <div style={{ fontWeight: 800, fontSize: 16, color: "#374151" }}>{title}</div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)" }}>{title}</div>
             </div>
             <div style={{ padding: "12px 16px", background: "#FAFAFA", position: "relative", zIndex: 40 }}>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -2067,8 +2067,8 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
                                 style={{ padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid #F3F4F6", fontSize: 13, lineHeight: 1.5 }}
                                 onMouseEnter={e => e.currentTarget.style.background = "#FFF0F7"}
                                 onMouseLeave={e => e.currentTarget.style.background = "white"}>
-                                <div style={{ fontWeight: 700, color: "#374151" }}>{r.place_name}</div>
-                                <div style={{ color: "#9CA3AF", fontSize: 12 }}>{r.road_address_name || r.address_name}</div>
+                                <div style={{ fontWeight: 700, color: "var(--fg-primary)" }}>{r.place_name}</div>
+                                <div style={{ color: "var(--fg-tertiary)", fontSize: 12 }}>{r.road_address_name || r.address_name}</div>
                             </div>
                         ))}
                     </div>
@@ -2094,8 +2094,8 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
                 {!err && <MapZoomControls mapObj={mapObj} />}
             </div>
             <div style={{ padding: "16px 20px", borderTop: "1px solid #F3F4F6", fontFamily: FF }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 4 }}>선택된 장소</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 14, minHeight: 20 }}>{address || "지도를 클릭하거나 검색하세요"}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 4 }}>선택된 장소</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg-primary)", marginBottom: 14, minHeight: 20 }}>{address || "지도를 클릭하거나 검색하세요"}</div>
                 <button onClick={() => { if (pos) onConfirm({ lat: pos.lat, lng: pos.lng, address, kakao_place_id: kakaoPlaceId }); }}
                     style={{ width: "100%", padding: "15px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 18, fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
                     📍 이 장소로 설정하기
@@ -2142,12 +2142,12 @@ function EmergencyBanner({ emergencies, onDismiss }) {
                 <div style={{ textAlign: "center", marginBottom: 16 }}>
                     <div style={{ fontSize: 56, marginBottom: 8, animation: "shake 0.5s ease infinite" }}>🚨</div>
                     <div style={{ fontSize: 22, fontWeight: 900, color: "#DC2626" }}>긴급 알림</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7280", marginTop: 4 }}>학부모님, 확인이 필요해요!</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-secondary)", marginTop: 4 }}>학부모님, 확인이 필요해요!</div>
                 </div>
                 <div style={{ background: "#FEF2F2", border: "2px solid #FECACA", borderRadius: 18, padding: "16px 18px", marginBottom: 20 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                         <div style={{ fontSize: 28 }}>{em.emoji}</div>
-                        <div><div style={{ fontWeight: 800, fontSize: 16, color: "#1F2937" }}>{em.title}</div><div style={{ fontSize: 13, color: "#6B7280" }}>예정: ⏰ {em.time}</div></div>
+                        <div><div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)" }}>{em.title}</div><div style={{ fontSize: 13, color: "var(--fg-secondary)" }}>예정: ⏰ {em.time}</div></div>
                     </div>
                     <div style={{ background: "#DC2626", borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>
                         <div style={{ color: "white", fontWeight: 800, fontSize: 14 }}>⚠️ 5분 후 시작인데 아직 미도착!</div>
@@ -2156,7 +2156,7 @@ function EmergencyBanner({ emergencies, onDismiss }) {
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                     <button onClick={() => onDismiss(em.id, "contact")} style={{ flex: 1, padding: "14px", background: "linear-gradient(135deg,#DC2626,#B91C1C)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: FF }}>📞 아이에게 전화</button>
-                    <button onClick={() => onDismiss(em.id, "ok")} style={{ flex: 1, padding: "14px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>확인했어요</button>
+                    <button onClick={() => onDismiss(em.id, "ok")} style={{ flex: 1, padding: "14px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>확인했어요</button>
                 </div>
             </div>
         </div>
@@ -2193,14 +2193,14 @@ function AppConfirmDialog({ dialog, onCancel, onConfirm }) {
                         {dialog.title || "확인"}
                     </h2>
                 </div>
-                <p id={descId} style={{ margin: "0 0 18px", color: "#64748B", fontSize: 14, lineHeight: 1.55, fontWeight: 700 }}>
+                <p id={descId} style={{ margin: "0 0 18px", color: "var(--fg-secondary)", fontSize: 14, lineHeight: 1.55, fontWeight: 700 }}>
                     {dialog.message || "계속 진행할까요?"}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <button
                         type="button"
                         onClick={onCancel}
-                        style={{ ...makeSecondaryButtonStyle({ padding: "12px 14px", background: "#F8FAFC", color: "#475569" }), minHeight: 46 }}
+                        style={{ ...makeSecondaryButtonStyle({ padding: "12px 14px", background: "#F8FAFC", color: "var(--fg-secondary)" }), minHeight: 46 }}
                     >
                         {dialog.cancelLabel || "취소"}
                     </button>
@@ -2246,11 +2246,11 @@ function RoleSetupModal({ onSelect, loading }) {
                 <div style={{ fontSize: 31, fontWeight: 900, color: "#BE185D", marginTop: 20, marginBottom: 4, letterSpacing: -0.8, textAlign: "center" }}>
                     혜니캘린더
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748B", marginBottom: 20, letterSpacing: 1.8 }}>HYENI CALENDAR</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", marginBottom: 20, letterSpacing: 1.8 }}>HYENI CALENDAR</div>
                 <div style={{ borderRadius: 999, padding: "7px 12px", background: "rgba(255,255,255,0.86)", border: "1px solid rgba(244,114,182,0.20)", color: "#BE185D", fontSize: 12, fontWeight: 800, marginBottom: 22 }}>
                     {loading ? "로딩 중..." : isReturning ? "다시 오셨군요" : "처음 사용하시나요?"}
                 </div>
-                <div style={{ fontSize: 15, color: "#475569", marginBottom: 30, textAlign: "center", lineHeight: 1.55, fontWeight: 600 }}>
+                <div style={{ fontSize: 15, color: "var(--fg-secondary)", marginBottom: 30, textAlign: "center", lineHeight: 1.55, fontWeight: 600 }}>
                     사용할 역할을 선택해 주세요
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
@@ -2259,7 +2259,7 @@ function RoleSetupModal({ onSelect, loading }) {
                         <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 16, background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>👨‍👩‍👧</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>학부모</span>
-                            <span style={{ display: "block", fontSize: 13, color: "#64748B", marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>ID/PW 또는 카카오로 로그인해요</span>
+                            <span style={{ display: "block", fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>ID/PW 또는 카카오로 로그인해요</span>
                         </span>
                         <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
                     </button>
@@ -2425,7 +2425,7 @@ function ParentAuthScreen({ onBack }) {
             <div style={makeCardStyle({ padding: "26px 22px", maxWidth: 400, width: "100%" })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
                     <button type="button" onClick={onBack} aria-label="뒤로"
-                        style={{ width: 36, height: 36, borderRadius: 12, border: "1.5px solid #E5E7EB", background: "white", cursor: "pointer", fontSize: 18, fontWeight: 900, color: "#64748B", fontFamily: FF }}>
+                        style={{ width: 36, height: 36, borderRadius: 12, border: "1.5px solid #E5E7EB", background: "white", cursor: "pointer", fontSize: 18, fontWeight: 900, color: "var(--fg-secondary)", fontFamily: FF }}>
                         ←
                     </button>
                     <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
@@ -2478,7 +2478,7 @@ function ParentAuthScreen({ onBack }) {
                             {busy === "login" ? "로그인 중..." : "로그인"}
                         </button>
                         <button type="button" onClick={handleKakao} disabled={!!busy}
-                            style={makeSecondaryButtonStyle({ background: "#FEE500", color: "#111827", border: "1.5px solid #FACC15", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
+                            style={makeSecondaryButtonStyle({ background: "#FEE500", color: "var(--fg-primary)", border: "1.5px solid #FACC15", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
                             {busy === "kakao" ? "카카오 로그인 중..." : "카카오로 로그인"}
                         </button>
                     </form>
@@ -2708,7 +2708,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
                 </div>
                 {ttlLine}
                 {regenerateBtn}
-                <div style={{ fontSize: 11, color: "#6B7280", marginTop: 8 }}>아이 기기에서 이 코드를 입력하면 자동 연결돼요</div>
+                <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 8 }}>아이 기기에서 이 코드를 입력하면 자동 연결돼요</div>
             </div>
         );
     }
@@ -2718,8 +2718,8 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
             <button onClick={() => setShowCode(v => !v)}
                 style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: 0, fontFamily: FF }}>
                 <span style={{ fontSize: 14 }}>{showCode ? "🔓" : "🔑"}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#374151", flex: 1, textAlign: "left" }}>연동 코드 확인</span>
-                <span style={{ fontSize: 11, color: "#9CA3AF" }}>{showCode ? "접기" : "펼치기"}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-primary)", flex: 1, textAlign: "left" }}>연동 코드 확인</span>
+                <span style={{ fontSize: 11, color: "var(--fg-tertiary)" }}>{showCode ? "접기" : "펼치기"}</span>
             </button>
             {showCode && (
                 <div style={{ marginTop: 12 }}>
@@ -2742,7 +2742,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
                     </div>
                     {ttlLine}
                     {regenerateBtn}
-                    <div style={{ fontSize: 11, color: "#6B7280", marginTop: 8 }}>
+                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 8 }}>
                         {canAddMore
                             ? "추가 아이 기기에서 이 코드를 입력하면 연결돼요"
                             : (lockedMessage || "최대 연동 수에 도달했어요. 기존 연동을 해제하면 새로 추가할 수 있어요")}
@@ -2780,7 +2780,7 @@ function ChildRemoteListenReadiness({ health }) {
     const summary = summarizeRemoteListenHealth(health);
     if (!summary.hasReport) {
         return (
-            <div style={{ marginTop: 4, fontSize: 10, color: "#9CA3AF", fontFamily: FF }}>
+            <div style={{ marginTop: 4, fontSize: 10, color: "var(--fg-tertiary)", fontFamily: FF }}>
                 🎤 원격 청취 준비 — 자녀 앱에서 보고 대기 중
             </div>
         );
@@ -2842,7 +2842,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
             <div style={makeSheetStyle({ padding: "28px 24px 40px", width: "100%", maxWidth: 460, maxHeight: "80vh", overflowY: "auto" })}>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "#374151" }}>🔗 {isParent ? "아이 연동 관리" : "부모님 연동"}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "var(--fg-primary)" }}>🔗 {isParent ? "아이 연동 관리" : "부모님 연동"}</div>
                     <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
                 </div>
 
@@ -2870,7 +2870,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                 {/* Connected children (parent view) */}
                 {isParent && children.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7280", marginBottom: 10 }}>연동된 아이 ({children.length}/{maxChildren})</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 10 }}>연동된 아이 ({children.length}/{maxChildren})</div>
                         {children.map((child, i) => (
                             <div key={child.user_id || i} style={{ background: "#F0FDF4", borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: "1.5px solid #BBF7D0" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -2907,7 +2907,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                 <button onClick={() => { if (editName.trim() && onRename && canManageFamily && child.id) { onRename(child.id, editName.trim()); } setEditingId(null); }}
                                                     style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
                                                 <button onClick={() => setEditingId(null)}
-                                                    style={{ padding: "6px 8px", borderRadius: 10, background: "#F3F4F6", color: "#6B7280", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
+                                                    style={{ padding: "6px 8px", borderRadius: 10, background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
                                                 <label
                                                     htmlFor={`pmodal-photo-${child.id}`}
                                                     style={{ padding: "6px 10px", borderRadius: 10, background: photoUploadingId === child.id ? "#FEF3C7" : "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA", fontSize: 12, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
@@ -2941,7 +2941,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                 )}
                                             </div>
                                         )}
-                                        <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>📱 {childDeviceStatusMap?.[child.user_id]?.deviceLabel || child.device_label || `기기 ${i + 1}`}</div>
+                                        <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>📱 {childDeviceStatusMap?.[child.user_id]?.deviceLabel || child.device_label || `기기 ${i + 1}`}</div>
                                         <ChildRemoteListenReadiness health={child.device_health} />
                                     </div>
                                     {canManageFamily && (
@@ -2980,12 +2980,12 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
 
                 {/* Empty state */}
                 {isParent && children.length === 0 && (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "#9CA3AF", fontSize: 14 }}>
+                    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--fg-tertiary)", fontSize: 14 }}>
                         아직 연결된 아이가 없어요
                     </div>
                 )}
                 {!isParent && !parent && (
-                    <div style={{ textAlign: "center", padding: "20px 0", color: "#9CA3AF", fontSize: 14 }}>
+                    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--fg-tertiary)", fontSize: 14 }}>
                         부모님과 아직 연동되지 않았어요
                     </div>
                 )}
@@ -3162,7 +3162,7 @@ function ChildPairInput({ userId, onPaired }) {
             <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF, textAlign: "center" }}>
                 <div style={{ fontSize: 64, marginBottom: 18 }}>🎉</div>
                 <div style={{ fontSize: 22, fontWeight: 900, color: "#BE185D", marginBottom: 10 }}>연결됐어요!</div>
-                <div style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.55 }}>
+                <div style={{ fontSize: 14, color: "var(--fg-secondary)", lineHeight: 1.55 }}>
                     가족 정보를 불러오는 중이에요...<br />위치 권한을 묻는 창이 뜨면 허용해 주세요.
                 </div>
             </div>
@@ -3173,12 +3173,12 @@ function ChildPairInput({ userId, onPaired }) {
         <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
             <AppBrandLogo size={78} radius={24} />
             <div style={{ fontSize: 24, fontWeight: 900, color: "#E879A0", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
-            <div style={{ fontSize: 14, color: "#6B7280", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
+            <div style={{ fontSize: 14, color: "var(--fg-secondary)", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
             <div style={{ position: "relative", width: "100%", maxWidth: 320, marginBottom: 8 }}>
                 <div style={{ position: "absolute", left: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 20, fontFamily: "monospace", fontWeight: 700, color: "#E879A0", pointerEvents: "none", zIndex: 1 }}>KID-</div>
                 <input value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
                     placeholder="XXXXXXXX" maxLength={8}
-                    style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid #F3E8F0", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "#374151", background: "white", boxShadow: "0 2px 8px rgba(232,121,160,0.1)" }} />
+                    style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid #F3E8F0", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "var(--fg-primary)", background: "white", boxShadow: "0 2px 8px rgba(232,121,160,0.1)" }} />
             </div>
             {error && <div style={{ fontSize: 13, color: "#B45309", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
             <button onClick={() => { void handleJoin(); }} disabled={busy}
@@ -3343,18 +3343,18 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                 >
                     ← 저장
                 </button>
-                <div style={{ fontWeight: 800, fontSize: 17, color: "#374151" }}>🏫 학원/장소 관리</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "var(--fg-primary)" }}>🏫 학원/장소 관리</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
 
                 {/* Quick presets */}
                 {!showForm && (
                     <>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 10 }}>빠른 추가</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>빠른 추가</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
                             {ACADEMY_PRESETS.filter(p => !list.some(a => a.name === p.label)).map(p => (
                                 <button key={p.label} onClick={() => openNew(p)}
-                                    style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #E5E7EB", background: "#FAFAFA", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#6B7280" }}>
+                                    style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #E5E7EB", background: "#FAFAFA", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "var(--fg-secondary)" }}>
                                     {p.emoji} {p.label}
                                 </button>
                             ))}
@@ -3377,14 +3377,14 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                 {/* Form */}
                 {showForm && (
                     <div style={{ background: "#FAFAFA", borderRadius: 20, padding: "18px", marginBottom: 16 }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", marginBottom: 14 }}>{editIdx !== null ? "✏️ 학원 수정" : "➕ 학원 추가"}</div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 14 }}>{editIdx !== null ? "✏️ 학원 수정" : "➕ 학원 추가"}</div>
                         <div style={{ marginBottom: 12 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>학원 이름</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>학원 이름</label>
                             <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="예) 영어학원, 수학왕..."
                                 style={{ width: "100%", padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }} />
                         </div>
                         <div style={{ marginBottom: 12 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>카테고리</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>카테고리</label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                                 {CATEGORIES.map(cat => (
                                     <button key={cat.id} onClick={() => setForm(p => ({ ...p, category: cat.id, emoji: cat.emoji }))}
@@ -3395,10 +3395,10 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             </div>
                         </div>
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>📍 위치 (GPS)</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>📍 위치 (GPS)</label>
                             {form.location ? (
                                 <div style={{ background: "#FFF0F7", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                                    <div style={{ fontSize: 13, color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {form.location.address}</div>
+                                    <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {form.location.address}</div>
                                     <button onClick={() => setShowMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #E879A0", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                 </div>
                             ) : (
@@ -3410,7 +3410,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                         </div>
                         {/* Schedule (days + time) */}
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>📅 요일 & 시간</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>📅 요일 & 시간</label>
                             <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
                                 {DAYS_LABEL.map((d, i) => {
                                     const active = form.schedule?.days?.includes(i);
@@ -3430,40 +3430,40 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                     <input type="time" value={form.schedule?.startTime || "15:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, startTime: e.target.value } }))}
                                         style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
-                                    <span style={{ fontSize: 14, fontWeight: 700, color: "#9CA3AF" }}>~</span>
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--fg-tertiary)" }}>~</span>
                                     <input type="time" value={form.schedule?.endTime || "16:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, endTime: e.target.value } }))}
                                         style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
                                 </div>
                             )}
                             {form.schedule?.days?.length > 0 && (
                                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ fontSize: 12, fontWeight: 700, color: "#6B7280" }}>반복 기간</span>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)" }}>반복 기간</span>
                                     <select
                                         value={Math.max(1, Number(form.schedule?.repeatWeeks || 4))}
                                         onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, repeatWeeks: Number(e.target.value) } }))}
-                                        style={{ padding: "8px 10px", borderRadius: 10, border: "2px solid #F3F4F6", fontSize: 13, fontWeight: 700, color: "#374151", fontFamily: FF, background: "white" }}
+                                        style={{ padding: "8px 10px", borderRadius: 10, border: "2px solid #F3F4F6", fontSize: 13, fontWeight: 700, color: "var(--fg-primary)", fontFamily: FF, background: "white" }}
                                     >
                                         <option value={2}>2주</option>
                                         <option value={4}>4주</option>
                                         <option value={8}>8주</option>
                                         <option value={12}>12주</option>
                                     </select>
-                                    <span style={{ fontSize: 11, color: "#9CA3AF" }}>저장 즉시 캘린더 반영</span>
+                                    <span style={{ fontSize: 11, color: "var(--fg-tertiary)" }}>저장 즉시 캘린더 반영</span>
                                 </div>
                             )}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={saveForm} style={{ flex: 1, padding: "13px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
-                            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "13px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
+                            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "13px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
                         </div>
                     </div>
                 )}
 
                 {showSavedForm && (
                     <div style={{ background: "#FFF7FB", borderRadius: 20, padding: "18px", marginBottom: 16, border: "1px solid #FCE7F3" }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", marginBottom: 14 }}>{savedEditIdx !== null ? "✏️ 장소 수정" : savedForm.is_playdate_safe ? "➕ 안전장소 추가" : "➕ 자주 가는 장소 추가"}</div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 14 }}>{savedEditIdx !== null ? "✏️ 장소 수정" : savedForm.is_playdate_safe ? "➕ 안전장소 추가" : "➕ 자주 가는 장소 추가"}</div>
                         <div style={{ marginBottom: 12 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>장소 이름</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>장소 이름</label>
                             <input
                                 value={savedForm.name}
                                 onChange={e => setSavedForm(prev => ({ ...prev, name: e.target.value }))}
@@ -3472,10 +3472,10 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             />
                         </div>
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>📍 위치</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>📍 위치</label>
                             {savedForm.location ? (
                                 <div style={{ background: "white", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                                    <div style={{ fontSize: 13, color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {savedForm.location.address}</div>
+                                    <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {savedForm.location.address}</div>
                                     <button onClick={() => setShowSavedMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #E879A0", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                 </div>
                             ) : (
@@ -3487,13 +3487,13 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={saveSavedPlaceForm} style={{ flex: 1, padding: "13px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
-                            <button onClick={() => setShowSavedForm(false)} style={{ flex: 1, padding: "13px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
+                            <button onClick={() => setShowSavedForm(false)} style={{ flex: 1, padding: "13px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
                         </div>
                     </div>
                 )}
 
                 {/* Registered academies list */}
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 10 }}>등록된 학원 ({list.length})</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>등록된 학원 ({list.length})</div>
                 {list.length === 0 && (
                     <div style={{ textAlign: "center", padding: "32px 0", color: "#D1D5DB" }}>
                         <div style={{ fontSize: 36, marginBottom: 8 }}>🏫</div>
@@ -3506,9 +3506,9 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <div style={{ fontSize: 26 }}>{a.emoji}</div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 800, fontSize: 15, color: "#1F2937" }}>{a.name}</div>
-                                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{CATEGORIES.find(c => c.id === a.category)?.label}</div>
-                                {a.location && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>📍 {a.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
+                                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)" }}>{a.name}</div>
+                                <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>{CATEGORIES.find(c => c.id === a.category)?.label}</div>
+                                {a.location && <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>📍 {a.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
                                 {!a.location && <div style={{ fontSize: 11, color: "#F59E0B", marginTop: 2 }}>📍 위치 미등록</div>}
                                 {a.schedule?.days?.length > 0 && <div style={{ fontSize: 11, color: "#E879A0", fontWeight: 700, marginTop: 3 }}>📅 {a.schedule.days.map(d => DAYS_LABEL[d]).join(", ")} {a.schedule.startTime}~{a.schedule.endTime} · {Math.max(1, Number(a.schedule.repeatWeeks || 4))}주 반복</div>}
                             </div>
@@ -3524,8 +3524,8 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                     <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF" }}>자주 가는 장소 ({savedList.length})</div>
-                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>집, 도서관처럼 일정과 길찾기에 자주 쓰는 장소</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)" }}>자주 가는 장소 ({savedList.length})</div>
+                        <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>집, 도서관처럼 일정과 길찾기에 자주 쓰는 장소</div>
                     </div>
                     <button
                         type="button"
@@ -3553,14 +3553,14 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             <div style={{ fontSize: 24 }}>{place.is_playdate_safe ? "🛡️" : "📍"}</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                    <div style={{ fontWeight: 800, fontSize: 15, color: "#1F2937" }}>{place.name}</div>
+                                    <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)" }}>{place.name}</div>
                                     {place.is_playdate_safe && (
                                         <span style={{ borderRadius: 999, background: "#DCFCE7", color: "#047857", padding: "2px 7px", fontSize: 10, fontWeight: 900 }}>
                                             안전장소
                                         </span>
                                     )}
                                 </div>
-                                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.location?.address || "위치 미등록"}</div>
+                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.location?.address || "위치 미등록"}</div>
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openSavedPlaceEdit(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
@@ -4021,10 +4021,10 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: DESIGN.gradients.map, display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Navigation Header */}
             <div style={{ padding: "12px 16px", paddingTop: "max(12px, env(safe-area-inset-top))", background: "white", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, zIndex: 2 }}>
-                <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, width: 40, height: 40, cursor: "pointer", fontWeight: 800, fontSize: 18, fontFamily: FF, display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7280", flexShrink: 0 }}>←</button>
+                <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, width: 40, height: 40, cursor: "pointer", fontWeight: 800, fontSize: 18, fontFamily: FF, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-secondary)", flexShrink: 0 }}>←</button>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: "#1F2937", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.emoji} {ev.title}</div>
-                    <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: "var(--fg-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.emoji} {ev.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 1 }}>
                         ⏰ {ev.time} {ev.location?.address ? `· 📍 ${ev.location.address.split(" ").slice(0, 3).join(" ")}` : ""}
                     </div>
                 </div>
@@ -4050,12 +4050,12 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                         {arrived ? (
                             <>
                                 <div style={{ fontWeight: 900, fontSize: 18, color: "#059669" }}>{isChildMode ? "도착이야! 잘했어! 🐰" : "도착했어요!"}</div>
-                                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{isChildMode ? "목적지에 잘 도착했어! 💕" : "목적지 근처에 있어요"}</div>
+                                <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>{isChildMode ? "목적지에 잘 도착했어! 💕" : "목적지 근처에 있어요"}</div>
                             </>
                         ) : (
                             <>
                                 <div style={{ fontWeight: 900, fontSize: 20, color: ev.color }}>{distLabel}</div>
-                                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                                <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>
                                     {routeInfo?.error ? `예상 직선거리 · 도보 약 ${timeLabel}` : `도보 약 ${timeLabel}`}
                                 </div>
                                 {bunnyEncouragement && (
@@ -4068,8 +4068,8 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                     </div>
                     {!arrived && displayMin != null && !routeInfo?.error && (
                         <div style={{ textAlign: "center", flexShrink: 0 }}>
-                            <div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600 }}>도착 예정</div>
-                            <div style={{ fontSize: 16, fontWeight: 900, color: "#374151", marginTop: 2 }}>
+                            <div style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 600 }}>도착 예정</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--fg-primary)", marginTop: 2 }}>
                                 {(() => {
                                     const now = new Date();
                                     const eta = new Date(now.getTime() + displayMin * 60000);
@@ -4082,7 +4082,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
             )}
             {routeInfo?.loading && (
                 <div style={{ margin: "0 16px", marginTop: 10, background: "white", borderRadius: 20, padding: "14px 20px", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", textAlign: "center", zIndex: 2 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7280" }}>🔍 경로 검색 중...</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-secondary)" }}>🔍 경로 검색 중...</div>
                 </div>
             )}
 
@@ -4115,7 +4115,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                                 <div style={{ fontSize: 15, fontWeight: 800, color: "#B45309", fontFamily: FF }}>
                                     위치를 찾을 수 없어요
                                 </div>
-                                <div style={{ fontSize: 12, color: "#6B7280", fontFamily: FF, textAlign: "center", lineHeight: 1.5 }}>
+                                <div style={{ fontSize: 12, color: "var(--fg-secondary)", fontFamily: FF, textAlign: "center", lineHeight: 1.5 }}>
                                     GPS가 꺼져 있거나<br />위치 권한이 필요해요
                                 </div>
                                 <button onClick={() => {
@@ -4140,7 +4140,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                                 <div style={{ fontSize: 15, fontWeight: 800, color: "#4285F4", fontFamily: FF }}>
                                     내 위치를 찾고 있어요...
                                 </div>
-                                <div style={{ fontSize: 12, color: "#9CA3AF", fontFamily: FF }}>
+                                <div style={{ fontSize: 12, color: "var(--fg-tertiary)", fontFamily: FF }}>
                                     GPS 신호를 기다리는 중
                                 </div>
                             </>
@@ -4162,7 +4162,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                                 <polygon points="16,28 12,20 16,17 20,20" fill="#D1D5DB" stroke="#9CA3AF" strokeWidth="0.5" />
                             </svg>
                         </div>
-                        <div style={{ fontSize: 8, fontWeight: 700, color: "#6B7280", marginTop: 2, fontFamily: FF }}>
+                        <div style={{ fontSize: 8, fontWeight: 700, color: "var(--fg-secondary)", marginTop: 2, fontFamily: FF }}>
                             {Math.round(heading)}°
                         </div>
                     </div>
@@ -4171,7 +4171,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                 {/* Map overlay buttons */}
                 {mapReady && <div style={{ position: "absolute", right: 12, bottom: 12, display: "flex", flexDirection: "column", gap: 8, zIndex: 5 }}>
                     <button onClick={toggleMapType} title="지도 타입"
-                        style={{ width: 44, height: 44, borderRadius: 14, background: "white", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#6B7280", fontFamily: FF }}>
+                        style={{ width: 44, height: 44, borderRadius: 14, background: "white", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "var(--fg-secondary)", fontFamily: FF }}>
                         {mapType === "hybrid" ? "🛣️" : "🛰️"}
                     </button>
                     <button onClick={recenterMap} title="내 위치"
@@ -4187,7 +4187,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                         🐰 내 위치
                     </button>
                     <button onClick={fitFullRoute} title="전체 경로"
-                        style={{ width: 44, height: 44, borderRadius: 14, background: "white", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#6B7280" }}>
+                        style={{ width: 44, height: 44, borderRadius: 14, background: "white", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "var(--fg-secondary)" }}>
                         🗺️
                     </button>
                 </div>}
@@ -4198,8 +4198,8 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                 <div style={sheetCardStyle}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
                         <div>
-                            <div style={{ fontSize: 11, fontWeight: 800, color: "#9CA3AF", letterSpacing: 0.2 }}>{isChildMode ? "🐰 길찾기" : "ROUTE"}</div>
-                            <div style={{ fontSize: 16, fontWeight: 900, color: "#111827", marginTop: 2 }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-tertiary)", letterSpacing: 0.2 }}>{isChildMode ? "🐰 길찾기" : "ROUTE"}</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--fg-primary)", marginTop: 2 }}>
                                 {arrived
                                     ? (isChildMode ? "도착! 잘했어! 💕" : "도착 완료")
                                     : (guidanceStarted ? "길안내를 시작했어요" : "안전하게 가자")}
@@ -4232,7 +4232,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                         </button>
                         <button
                             onClick={onClose}
-                            style={{ padding: "15px 16px", borderRadius: 18, border: "1px solid #E5E7EB", cursor: "pointer", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "#4B5563", background: "#FFFFFF" }}
+                            style={{ padding: "15px 16px", borderRadius: 18, border: "1px solid #E5E7EB", cursor: "pointer", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "var(--fg-secondary)", background: "#FFFFFF" }}
                         >
                             닫기
                         </button>
@@ -4501,7 +4501,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     <div style={{ textAlign: "center", padding: "28px 16px", color: "#D1D5DB" }}>
                         <div style={{ fontSize: 36, marginBottom: 10 }}>💗</div>
                         <div style={{ fontSize: 16, fontWeight: 800, color: "#BE185D", marginBottom: 4 }}>아직 주고받은 메시지가 없어요</div>
-                        <div style={{ fontSize: 14, color: "#6B7280", fontWeight: 600 }}>
+                        <div style={{ fontSize: 14, color: "var(--fg-secondary)", fontWeight: 600 }}>
                             {isParentMode ? "아이에게 첫 메시지를 남겨보세요 💗" : "부모님께 오늘 하루를 전해봐~ 🐰"}
                         </div>
                     </div>
@@ -4517,7 +4517,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                                     style={{ display: "flex", alignItems: "center", margin: "8px 0" }}
                                 >
                                     <hr style={{ flex: 1, border: "none", borderTop: "1px solid #E5E7EB", margin: 0 }} />
-                                    <span style={{ padding: "3px 12px", borderRadius: 99, background: "#F3F4F6", fontSize: 10, color: "#9CA3AF", fontWeight: 700, margin: "0 8px", whiteSpace: "nowrap" }}>
+                                    <span style={{ padding: "3px 12px", borderRadius: 99, background: "#F3F4F6", fontSize: 10, color: "var(--fg-tertiary)", fontWeight: 700, margin: "0 8px", whiteSpace: "nowrap" }}>
                                         {item.label}
                                     </span>
                                     <hr style={{ flex: 1, border: "none", borderTop: "1px solid #E5E7EB", margin: 0 }} />
@@ -4602,7 +4602,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
 
                                     {/* UI-SPEC §4e — timestamp on last bubble of group only */}
                                     {isLastInGroup && (
-                                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 5, textAlign: isMe ? "right" : "left", fontWeight: 600 }}>
+                                        <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 5, textAlign: isMe ? "right" : "left", fontWeight: 600 }}>
                                             {relTime}
                                         </div>
                                     )}
@@ -4652,7 +4652,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                         outline: "none",
                         background: "white",
                         boxSizing: "border-box",
-                        color: "#374151"
+                        color: "var(--fg-primary)"
                     }}
                 />
                 {/* UI-SPEC §5 — send button: 44x44 touch target */}
@@ -4950,12 +4950,12 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
         <div style={{ fontFamily: FF }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
                 <div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: "#374151" }}>{dateLabel}</div>
-                    <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>{events.length}개 일정</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)" }}>{dateLabel}</div>
+                    <div style={{ fontSize: 12, color: "var(--fg-tertiary)", marginTop: 2 }}>{events.length}개 일정</div>
                 </div>
                 {childPos
                     ? <div style={{ fontSize: 11, fontWeight: 700, color: "#34D399", background: "#D1FAE5", padding: "5px 12px", borderRadius: 12 }}>💕 엄마가 항상 함께하고 있어요</div>
-                    : <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", background: "#F3F4F6", padding: "5px 12px", borderRadius: 12 }}>위치 없음</div>}
+                    : <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-tertiary)", background: "#F3F4F6", padding: "5px 12px", borderRadius: 12 }}>위치 없음</div>}
             </div>
 
             {/* Timeline */}
@@ -5031,14 +5031,14 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                                     <div style={{ width: isParentMode ? 44 : 50, height: isParentMode ? 44 : 50, borderRadius: isParentMode ? 14 : 16, background: ev.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isParentMode ? 24 : 28, flexShrink: 0 }}>{ev.emoji}</div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: "#1F2937" }}>{ev.title}</div>
+                                        <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: "var(--fg-primary)" }}>{ev.title}</div>
                                         {ev.location && (
-                                            <div style={{ fontSize: isParentMode ? 12 : 13, color: "#6B7280", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
+                                            <div style={{ fontSize: isParentMode ? 12 : 13, color: "var(--fg-secondary)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
                                                 <span>📍</span>
                                                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.location.address}</span>
                                             </div>
                                         )}
-                                        {ev.memo && <div style={{ fontSize: isParentMode ? 11 : 12, color: "#9CA3AF", marginTop: 2 }}>📝 {ev.memo}</div>}
+                                        {ev.memo && <div style={{ fontSize: isParentMode ? 11 : 12, color: "var(--fg-tertiary)", marginTop: 2 }}>📝 {ev.memo}</div>}
                                     </div>
                                 </div>
 
@@ -5086,7 +5086,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                                 border: "1.5px solid #FCD34D", boxShadow: "0 2px 4px rgba(252,211,77,0.2)",
                             }}>
                                 <span style={{ fontSize: 16 }}>{s.emoji}</span>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: "#374151" }}>{s.title}</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-primary)" }}>{s.title}</span>
                             </div>
                         ))}
                     </div>
@@ -5133,8 +5133,8 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <span style={{ fontSize: 28 }}>🏆</span>
                             <div>
-                                <div style={{ fontSize: 17, fontWeight: 900, color: "#374151" }}>칭찬 스티커북</div>
-                                <div style={{ fontSize: 11, color: "#9CA3AF" }}>{dateLabel}</div>
+                                <div style={{ fontSize: 17, fontWeight: 900, color: "var(--fg-primary)" }}>칭찬 스티커북</div>
+                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)" }}>{dateLabel}</div>
                             </div>
                         </div>
                         <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF, fontSize: 13 }}>닫기</button>
@@ -5145,7 +5145,7 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                         {[
                             { emoji: "🌟", count: earlyCount, label: "일찍", bg: "#FEF3C7", color: "#F59E0B" },
                             { emoji: "⭐", count: onTimeCount, label: "정시", bg: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep },
-                            { emoji: "😢", count: lateCount, label: "아쉬워", bg: "#F3F4F6", color: "#9CA3AF" },
+                            { emoji: "😢", count: lateCount, label: "아쉬워", bg: "#F3F4F6", color: "var(--fg-tertiary)" },
                             { emoji: "💕", count: stickers.filter(s => s.sticker_type === "praise").length, label: "칭찬", bg: "#FFF0F5", color: "#EC4899" },
                         ].map((item, i) => (
                             <div key={i} style={{ flex: 1, background: item.bg, borderRadius: 12, padding: "8px 4px", textAlign: "center" }}>
@@ -5173,7 +5173,7 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                                     opacity: s.sticker_type === "late" ? 0.6 : 1,
                                 }}>
                                     <div style={{ fontSize: 22 }}>{s.emoji}</div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: "#374151", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
+                                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-primary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
                                 </div>
                             ))}
                         </div>
@@ -5523,10 +5523,10 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
             onClick={e => { if (e.target === e.currentTarget && status === "idle") onClose(); }}>
             <div style={makeCardStyle({ padding: "24px 20px", width: "90%", maxWidth: 360, textAlign: "center" })}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>{statusCopy.icon}</div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#374151", marginBottom: 8 }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 8 }}>
                     {statusCopy.title}
                 </div>
-                <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
+                <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginBottom: 16 }}>
                     {statusCopy.description}
                 </div>
                 {status === "listening" && (
@@ -5558,11 +5558,11 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                         </button>
                     )}
                     <button onClick={() => { stopListening(); onClose(); }}
-                        style={{ padding: "14px 20px", background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
+                        style={{ padding: "14px 20px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
                         닫기
                     </button>
                 </div>
-                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 12 }}>최대 1분 · 프리미엄 전용 · 아이의 안전을 위해 사용해주세요</div>
+                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 12 }}>최대 1분 · 프리미엄 전용 · 아이의 안전을 위해 사용해주세요</div>
             </div>
         </div>
     );
@@ -5896,19 +5896,19 @@ function LocationMapView({
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                         <div style={{ fontSize: 28 }}>{selectedEventPlace.nextEvent?.emoji || "📍"}</div>
                         <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 800, fontSize: 16, color: "#1F2937", fontFamily: FF }}>{selectedEventPlace.title}</div>
-                            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2, fontFamily: FF }}>
+                            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)", fontFamily: FF }}>{selectedEventPlace.title}</div>
+                            <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2, fontFamily: FF }}>
                                 일정 {selectedEventPlace.eventCount}개
                                 {selectedEventPlace.nextEvent ? ` · 다음 ${selectedEventPlace.nextEvent.time}` : ""}
                             </div>
                             <div style={{ fontSize: 12, color: selectedEventPlace.nextEvent?.color || "#BE185D", marginTop: 3, fontWeight: 600, fontFamily: FF }}>📍 {selectedEventPlace.location.address}</div>
                             {selectedEventPlace.events.slice(0, 2).map((event) => (
-                                <div key={event.id} style={{ fontSize: 11, color: "#6B7280", marginTop: 4, fontFamily: FF }}>
+                                <div key={event.id} style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 4, fontFamily: FF }}>
                                     • {event.time}{event.endTime ? ` ~ ${event.endTime}` : ""} {event.title}
                                 </div>
                             ))}
                             {selectedEventPlace.eventCount > 2 && (
-                                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4, fontFamily: FF }}>
+                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 4, fontFamily: FF }}>
                                     외 {selectedEventPlace.eventCount - 2}개 일정
                                 </div>
                             )}
@@ -5924,9 +5924,9 @@ function LocationMapView({
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                         <div style={{ fontSize: 28 }}>📍</div>
                         <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 800, fontSize: 16, color: "#1F2937", fontFamily: FF }}>{selectedPlace.name}</div>
+                            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)", fontFamily: FF }}>{selectedPlace.name}</div>
                             <div style={{ fontSize: 12, color: "#BE185D", marginTop: 3, fontWeight: 600, fontFamily: FF }}>{selectedPlace.location.address}</div>
-                            {childPos && <div style={{ fontSize: 12, color: "#6B7280", marginTop: 4, fontFamily: FF }}>현재 위치에서 {distLabel(haversineM(childPos.lat, childPos.lng, selectedPlace.location.lat, selectedPlace.location.lng))}</div>}
+                            {childPos && <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 4, fontFamily: FF }}>현재 위치에서 {distLabel(haversineM(childPos.lat, childPos.lng, selectedPlace.location.lat, selectedPlace.location.lng))}</div>}
                         </div>
                         <span style={{ fontSize: 12, padding: "6px 12px", borderRadius: 12, background: "#FCE7F3", color: "#9D174D", fontWeight: 700, fontFamily: FF }}>저장됨</span>
                     </div>
@@ -5936,7 +5936,7 @@ function LocationMapView({
             {/* Card list */}
             <div style={{ background: "white", borderRadius: 24, boxShadow: "0 8px 32px rgba(232,121,160,0.12)", padding: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", fontFamily: FF }}>📍 등록된 장소</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)", fontFamily: FF }}>📍 등록된 장소</div>
                     {isParentMode && (
                         <button
                             type="button"
@@ -6001,8 +6001,8 @@ function LocationMapView({
                             >
                                 <div style={{ fontSize: 22 }}>📍</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1F2937" }}>{place.name}</div>
-                                    <div style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.location.address}</div>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: "var(--fg-primary)" }}>{place.name}</div>
+                                    <div style={{ fontSize: 11, color: "var(--fg-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.location.address}</div>
                                 </div>
                                 {childPos && <div style={{ fontSize: 11, color: "#BE185D", fontWeight: 700, flexShrink: 0 }}>{distLabel(haversineM(childPos.lat, childPos.lng, place.location.lat, place.location.lng))}</div>}
                             </div>
@@ -6010,7 +6010,7 @@ function LocationMapView({
                     </div>
                 )}
                 {eventPlaceItems.length > 0 && (
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#6B7280", marginBottom: 8, fontFamily: FF }}>일정 장소</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", marginBottom: 8, fontFamily: FF }}>일정 장소</div>
                 )}
                 {eventPlaceItems.length === 0 && savedPlaceItems.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "24px 0", color: "#D1D5DB", fontFamily: FF }}>
@@ -6029,10 +6029,10 @@ function LocationMapView({
                         }}>
                         <div style={{ fontSize: 22 }}>{place.nextEvent?.emoji || "📍"}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: 13, color: "#1F2937" }}>{place.title}</div>
-                            <div style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.location.address}</div>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: "var(--fg-primary)" }}>{place.title}</div>
+                            <div style={{ fontSize: 11, color: "var(--fg-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.location.address}</div>
                         </div>
-                        <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, flexShrink: 0 }}>
+                        <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 600, flexShrink: 0 }}>
                             {place.eventCount}개 일정
                             {place.nextEvent ? ` · ${place.nextEvent.time}` : ""}
                         </div>
@@ -6193,7 +6193,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={makeSheetStyle({ padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto" })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: "#374151" }}>🤖 AI로 일정입력</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)" }}>🤖 AI로 일정입력</div>
                     <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
                 </div>
 
@@ -6245,7 +6245,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                 {results && results.action === "add_events" && results.events?.length > 0 && (
                     <div style={{ marginTop: 20 }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: "#374151" }}>📋 추출된 일정 ({results.events.length}건)</div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)" }}>📋 추출된 일정 ({results.events.length}건)</div>
                             <button onClick={saveAll} style={{ padding: "6px 14px", borderRadius: 12, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>모두 등록</button>
                         </div>
                         {results.events.map((ev, i) => {
@@ -6258,8 +6258,8 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                         <div style={{ fontSize: 24 }}>{cat.emoji}</div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontWeight: 800, fontSize: 14, color: "#1F2937" }}>{ev.title}</div>
-                                            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                                            <div style={{ fontWeight: 800, fontSize: 14, color: "var(--fg-primary)" }}>{ev.title}</div>
+                                            <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>
                                                 {m}월 {d}일 {(ev.time && ev.time !== "null") ? ev.time : "시간 미정"}
                                                 {ev.memo && ev.memo !== "null" && ` · ${ev.memo}`}
                                             </div>
@@ -6307,7 +6307,7 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
         { id: "construction", label: "🚧 공사장", color: "#F59E0B" },
         { id: "entertainment", label: "🎰 유흥가", color: "#EF4444" },
         { id: "water", label: "🌊 수변지역", color: "#3B82F6" },
-        { id: "custom", label: "📍 직접 설정", color: "#6B7280" },
+        { id: "custom", label: "📍 직접 설정", color: "var(--fg-secondary)" },
     ];
 
     const zoneColor = (type) => ZONE_TYPES.find(z => z.id === type)?.color || "#6B7280";
@@ -6360,11 +6360,11 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={makeSheetStyle({ padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto" })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: "#374151" }}>⚠️ 위험지역 관리</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)" }}>⚠️ 위험지역 관리</div>
                     <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
                 </div>
 
-                <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 16 }}>아이가 설정한 지역에 접근하면 알림을 받습니다.</div>
+                <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginBottom: 16 }}>아이가 설정한 지역에 접근하면 알림을 받습니다.</div>
 
                 {/* Zone list */}
                 {zones.length === 0 ? (
@@ -6378,8 +6378,8 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
                             {z.zone_type === "construction" ? "🚧" : z.zone_type === "entertainment" ? "🎰" : z.zone_type === "water" ? "🌊" : "⚠️"}
                         </div>
                         <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 800, fontSize: 14, color: "#1F2937" }}>{z.name}</div>
-                            <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>반경 {z.radius_m}m</div>
+                            <div style={{ fontWeight: 800, fontSize: 14, color: "var(--fg-primary)" }}>{z.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>반경 {z.radius_m}m</div>
                         </div>
                         <button onClick={() => { if (window.confirm(`"${z.name}" 위험지역을 삭제할까요?`)) onDelete(z.id); }}
                             style={{ padding: "6px 10px", borderRadius: 10, background: "var(--status-negative-subtle)", color: "var(--status-negative)", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>삭제</button>
@@ -6389,12 +6389,12 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
                 {/* Add new zone */}
                 {!showAdd ? (
                     <button onClick={() => setShowAdd(true)}
-                        style={{ width: "100%", marginTop: 12, padding: "14px", borderRadius: 16, border: "2px dashed #D1D5DB", background: "transparent", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#6B7280", fontFamily: FF }}>
+                        style={{ width: "100%", marginTop: 12, padding: "14px", borderRadius: 16, border: "2px dashed #D1D5DB", background: "transparent", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "var(--fg-secondary)", fontFamily: FF }}>
                         + 위험지역 추가
                     </button>
                 ) : (
                     <div style={{ marginTop: 12, background: "#F9FAFB", borderRadius: 20, padding: 16, border: "1.5px solid #E5E7EB" }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", marginBottom: 12 }}>새 위험지역 추가</div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 12 }}>새 위험지역 추가</div>
 
                         <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="지역 이름 (예: 공사장 앞)"
                             style={{ width: "100%", padding: "10px 14px", borderRadius: 12, border: "2px solid #E5E7EB", fontSize: 14, fontWeight: 700, fontFamily: FF, boxSizing: "border-box", marginBottom: 10 }} />
@@ -6408,11 +6408,11 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
                             ))}
                         </div>
 
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6 }}>반경: {newRadius}m</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6 }}>반경: {newRadius}m</div>
                         <input type="range" min={50} max={500} step={50} value={newRadius} onChange={e => setNewRadius(Number(e.target.value))}
                             style={{ width: "100%", marginBottom: 12 }} />
 
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6 }}>지도를 클릭해서 위치를 선택하세요</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6 }}>지도를 클릭해서 위치를 선택하세요</div>
                         <div ref={mapRef} style={{ width: "100%", height: 200, borderRadius: 16, overflow: "hidden", border: "2px solid #E5E7EB", marginBottom: 12 }} />
 
                         {selectedLoc && <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, marginBottom: 8 }}>✓ 위치 선택됨 ({selectedLoc.lat.toFixed(4)}, {selectedLoc.lng.toFixed(4)})</div>}
@@ -6423,7 +6423,7 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
                                 ⚠️ 위험지역 등록
                             </button>
                             <button onClick={() => { setShowAdd(false); mapInst.current = null; }}
-                                style={{ padding: "12px 16px", borderRadius: 14, border: "1px solid #E5E7EB", background: "white", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#6B7280" }}>취소</button>
+                                style={{ padding: "12px 16px", borderRadius: 14, border: "1px solid #E5E7EB", background: "white", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "var(--fg-secondary)" }}>취소</button>
                         </div>
                     </div>
                 )}
@@ -6443,8 +6443,8 @@ function PhoneSettingsModal({ phones, onSave, onClose }) {
     return (
         <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
             <div style={makeCardStyle({ padding: "28px 24px", width: "100%", maxWidth: 360 })} onClick={e => e.stopPropagation()}>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#374151", textAlign: "center", marginBottom: 20 }}>📞 비상 연락처 설정</div>
-                <div style={{ fontSize: 13, color: "#6B7280", textAlign: "center", marginBottom: 20 }}>아이 화면에서 바로 전화할 수 있어요</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)", textAlign: "center", marginBottom: 20 }}>📞 비상 연락처 설정</div>
+                <div style={{ fontSize: 13, color: "var(--fg-secondary)", textAlign: "center", marginBottom: 20 }}>아이 화면에서 바로 전화할 수 있어요</div>
 
                 <div style={{ marginBottom: 16 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#E879A0", marginBottom: 6 }}>👩 엄마 전화번호</div>
@@ -6459,7 +6459,7 @@ function PhoneSettingsModal({ phones, onSave, onClose }) {
                 </div>
 
                 <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "#6B7280", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>취소</button>
+                    <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "var(--fg-secondary)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>취소</button>
                     <button onClick={() => onSave({ mom: mom.trim(), dad: dad.trim() })} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>저장</button>
                 </div>
             </div>
@@ -6519,12 +6519,12 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
         <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "white", display: "flex", flexDirection: "column", fontFamily: FF }}>
             <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 12 }}>
                 <button onClick={() => { onSave(list); onClose(); }} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 저장</button>
-                <div style={{ fontWeight: 800, fontSize: 17, color: "#374151" }}>📍 자주 가는 장소</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "var(--fg-primary)" }}>📍 자주 가는 장소</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: 16, paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
                 {!showForm && (
                     <div style={{ marginBottom: 20 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 10 }}>빠른 추가</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>빠른 추가</div>
                         <button
                             onClick={openNew}
                             style={{ padding: "10px 14px", borderRadius: 16, border: "2px dashed #F9A8D4", background: "#FFF0F7", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#E879A0" }}
@@ -6536,9 +6536,9 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
 
                 {showForm && (
                     <div style={{ background: "#FAFAFA", borderRadius: 20, padding: 18, marginBottom: 16 }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: "#374151", marginBottom: 14 }}>{editIdx !== null ? "✏️ 장소 수정" : "➕ 장소 추가"}</div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 14 }}>{editIdx !== null ? "✏️ 장소 수정" : "➕ 장소 추가"}</div>
                         <div style={{ marginBottom: 12 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>장소 이름</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>장소 이름</label>
                             <input
                                 value={form.name}
                                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -6547,10 +6547,10 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                             />
                         </div>
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ fontSize: 12, fontWeight: 700, color: "#6B7280", marginBottom: 6, display: "block" }}>📍 위치</label>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>📍 위치</label>
                             {form.location ? (
                                 <div style={{ background: "#FFF0F7", borderRadius: 14, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                                    <div style={{ fontSize: 13, color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {form.location.address}</div>
+                                    <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {form.location.address}</div>
                                     <button onClick={() => setShowMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #E879A0", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                 </div>
                             ) : (
@@ -6561,12 +6561,12 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={saveForm} style={{ flex: 1, padding: 13, background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
-                            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: 13, background: "#F3F4F6", color: "#6B7280", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
+                            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: 13, background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
                         </div>
                     </div>
                 )}
 
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", marginBottom: 10 }}>등록된 장소 ({list.length})</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>등록된 장소 ({list.length})</div>
                 {list.length === 0 && (
                     <div style={{ textAlign: "center", padding: "32px 0", color: "#D1D5DB" }}>
                         <div style={{ fontSize: 36, marginBottom: 8 }}>📍</div>
@@ -6579,8 +6579,8 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <div style={{ fontSize: 24 }}>📍</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 800, fontSize: 15, color: "#1F2937" }}>{place.name}</div>
-                                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.location?.address || "위치 미등록"}</div>
+                                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)" }}>{place.name}</div>
+                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.location?.address || "위치 미등록"}</div>
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openEdit(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
@@ -6602,19 +6602,19 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
             <div style={makeSheetStyle({ padding: "28px 22px 34px", width: "100%", maxWidth: 420 })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
                     <div>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: "#1F2937" }}>💌 피드백 보내기</div>
-                        <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6, lineHeight: 1.6 }}>필요한 기능이 있으면 제안해 주세요</div>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)" }}>💌 피드백 보내기</div>
+                        <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 6, lineHeight: 1.6 }}>필요한 기능이 있으면 제안해 주세요</div>
                     </div>
-                    <button onClick={onClose} style={{ padding: "8px 12px", borderRadius: 12, border: "none", background: "#F3F4F6", color: "#6B7280", fontWeight: 700, cursor: "pointer", fontFamily: FF }}>닫기</button>
+                    <button onClick={onClose} style={{ padding: "8px 12px", borderRadius: 12, border: "none", background: "#F3F4F6", color: "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF }}>닫기</button>
                 </div>
 
                 <textarea
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                     placeholder="예) 형제자매별 위치 알림 시간을 따로 설정하고 싶어요"
-                    style={{ width: "100%", minHeight: 170, resize: "vertical", padding: "16px 18px", borderRadius: 20, border: "2px solid #F3E8F0", outline: "none", fontSize: 15, lineHeight: 1.6, fontFamily: FF, color: "#374151", background: "#FFF9FC", boxSizing: "border-box" }}
+                    style={{ width: "100%", minHeight: 170, resize: "vertical", padding: "16px 18px", borderRadius: 20, border: "2px solid #F3E8F0", outline: "none", fontSize: 15, lineHeight: 1.6, fontFamily: FF, color: "var(--fg-primary)", background: "#FFF9FC", boxSizing: "border-box" }}
                 />
-                <div style={{ marginTop: 12, fontSize: 11, color: "#9CA3AF", lineHeight: 1.6 }}>
+                <div style={{ marginTop: 12, fontSize: 11, color: "var(--fg-tertiary)", lineHeight: 1.6 }}>
                     제안은 {FEEDBACK_RECIPIENT}으로 전달됩니다.
                 </div>
 
@@ -6627,7 +6627,7 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
                     >
                         {busy ? "보내는 중..." : "제안 보내기"}
                     </button>
-                    <button type="button" onClick={onClose} style={{ padding: "15px 16px", borderRadius: 16, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "#6B7280", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>
+                    <button type="button" onClick={onClose} style={{ padding: "15px 16px", borderRadius: 16, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "var(--fg-secondary)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>
                         취소
                     </button>
                 </div>
@@ -6712,7 +6712,7 @@ function ChildCallCard({ phones = {} }) {
                     ))}
                 </div>
             ) : (
-                <div style={{ minHeight: 58, borderRadius: 18, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "#9CA3AF", fontSize: 13, fontWeight: 900 }}>
+                <div style={{ minHeight: 58, borderRadius: 18, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-tertiary)", fontSize: 13, fontWeight: 900 }}>
                     연락처 없음
                 </div>
             )}
@@ -7132,11 +7132,11 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <div style={{ width: 20, height: 3, background: "#3B82F6", borderRadius: 2 }} />
-                        <span style={{ fontSize: 10, color: "#6B7280" }}>이동</span>
+                        <span style={{ fontSize: 10, color: "var(--fg-secondary)" }}>이동</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <div style={{ width: 20, height: 3, background: "#9CA3AF", borderRadius: 2, borderTop: "2px dashed #9CA3AF" }} />
-                        <span style={{ fontSize: 10, color: "#6B7280" }}>예상</span>
+                        <span style={{ fontSize: 10, color: "var(--fg-secondary)" }}>예상</span>
                     </div>
                 </div>
             </div>
@@ -7185,8 +7185,8 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.85)", zIndex: 5 }}>
                         <div style={{ textAlign: "center", padding: 24 }}>
                             <div style={{ fontSize: 48, marginBottom: 12 }}>📡</div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: "#374151", marginBottom: 6 }}>아이 위치를 불러오는 중...</div>
-                            <div style={{ fontSize: 12, color: "#9CA3AF", lineHeight: 1.6 }}>아이 기기에서 위치 권한이<br />허용되어 있는지 확인해 주세요</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 6 }}>아이 위치를 불러오는 중...</div>
+                            <div style={{ fontSize: 12, color: "var(--fg-tertiary)", lineHeight: 1.6 }}>아이 기기에서 위치 권한이<br />허용되어 있는지 확인해 주세요</div>
                         </div>
                     </div>
                 )}
@@ -7223,12 +7223,12 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                     <div style={{ background: "white", borderRadius: 16, padding: "12px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
                         <div style={{ width: 40, height: 40, borderRadius: 12, background: selectedEvent.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{selectedEvent.emoji}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>{selectedEvent.title}</div>
-                            <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>⏰ {selectedEvent.time} · 📍 {selectedEvent.location.address?.split(" ").slice(0, 3).join(" ")}</div>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "var(--fg-primary)" }}>{selectedEvent.title}</div>
+                            <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>⏰ {selectedEvent.time} · 📍 {selectedEvent.location.address?.split(" ").slice(0, 3).join(" ")}</div>
                             {arrivedSet.has(selectedEvent.id) && <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, marginTop: 2 }}>✅ 도착 완료</div>}
                             {activeChildLocation && <div style={{ fontSize: 11, color: selectedEvent.color, fontWeight: 700, marginTop: 2 }}>현재위치에서 {distLabel(haversineM(activeChildLocation.lat, activeChildLocation.lng, selectedEvent.location.lat, selectedEvent.location.lng))}</div>}
                         </div>
-                        <button onClick={() => setSelectedEvent(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#9CA3AF", padding: "0 4px" }}>×</button>
+                        <button onClick={() => setSelectedEvent(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--fg-tertiary)", padding: "0 4px" }}>×</button>
                     </div>
                 )}
 
@@ -7258,11 +7258,11 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                                         <div style={{ width: 36, height: 36, borderRadius: 12, background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji || (child.name ? child.name.trim()[0] : "👶")}</div>
                                     )}
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{child.name}</div>
-                                        <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 800, color: "var(--fg-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{child.name}</div>
+                                        <div style={{ fontSize: 10, color: "var(--fg-tertiary)", marginTop: 1 }}>
                                             {updatedAt ? `${new Date(updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} ${selectedChild?.trackerKey === child.trackerKey && refreshPending ? "확인 중" : "업데이트"}` : "위치 수신 중..."}
                                         </div>
-                                        <div style={{ fontSize: 10, color: "#64748B", marginTop: 1 }}>
+                                        <div style={{ fontSize: 10, color: "var(--fg-secondary)", marginTop: 1 }}>
                                             {child.lat.toFixed(5)}, {child.lng.toFixed(5)}
                                         </div>
                                     </div>
@@ -7321,7 +7321,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                                                 >
                                                     <span style={{ width: 24, height: 24, borderRadius: 9, background: "#F59E0B", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, flexShrink: 0 }}>{index + 1}</span>
                                                     <span style={{ flex: 1, minWidth: 0 }}>
-                                                        <span style={{ display: "block", fontSize: 12, color: "#1F2937", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.displayTitle}</span>
+                                                        <span style={{ display: "block", fontSize: 12, color: "var(--fg-primary)", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.displayTitle}</span>
                                                         {place.addressLabel && (
                                                             <span style={{ display: "block", fontSize: 10, color: "#78350F", fontWeight: 800, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.addressLabel}</span>
                                                         )}
@@ -7338,8 +7338,8 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                             <div style={{ background: nextEvent.bg, borderRadius: 14, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
                                 <div style={{ fontSize: 22 }}>{nextEvent.emoji}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>다음 일정: {nextEvent.title}</div>
-                                    <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>⏰ {nextEvent.time} · 📍 {nextEvent.location.address?.split(" ").slice(0, 2).join(" ")}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 800, color: "var(--fg-primary)" }}>다음 일정: {nextEvent.title}</div>
+                                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>⏰ {nextEvent.time} · 📍 {nextEvent.location.address?.split(" ").slice(0, 2).join(" ")}</div>
                                 </div>
                                 {distToNext !== null && (
                                     <div style={{ fontSize: 12, fontWeight: 800, color: nextEvent.color, flexShrink: 0 }}>
@@ -7351,7 +7351,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                     </div>
                 ) : (
                     <div style={{ background: "white", borderRadius: 20, padding: "20px", textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#9CA3AF" }}>{locationHint || "아이 기기에서 위치 권한을 허용해 주세요"}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-tertiary)" }}>{locationHint || "아이 기기에서 위치 권한을 허용해 주세요"}</div>
                     </div>
                 )}
             </div>
@@ -7385,17 +7385,17 @@ function ChildDeviceCard({ child, status }) {
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
                 <div style={{ fontSize: 14, fontWeight: 800 }}>{child?.name || "아이"}</div>
             </div>
-            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 8 }}>
                 배터리: {battery == null ? "—" : `${battery}%`} · 마지막 접속: {minutesAgo == null ? "—" : `${minutesAgo}분 전`}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
                 <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "6px 8px" }}>
-                    <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 700 }}>화면 켜짐 시간</div>
-                    <div style={{ fontSize: 13, color: "#111827", fontWeight: 900, marginTop: 2 }}>⏱️ {screenLabel}</div>
+                    <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 켜짐 시간</div>
+                    <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>⏱️ {screenLabel}</div>
                 </div>
                 <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "6px 8px", minWidth: 0 }}>
-                    <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 700 }}>가장 많이 실행한 앱</div>
-                    <div style={{ fontSize: 12.5, color: "#1F2937", fontWeight: 800, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📱 {recentApp}</div>
+                    <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 700 }}>가장 많이 실행한 앱</div>
+                    <div style={{ fontSize: 12.5, color: "var(--fg-primary)", fontWeight: 800, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📱 {recentApp}</div>
                 </div>
             </div>
         </div>
@@ -11284,7 +11284,7 @@ export default function KidsScheduler() {
             <div style={{ textAlign: "center" }}>
                 <AppBrandLogo size={84} radius={26} />
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#E879A0", marginTop: 16 }}>혜니캘린더</div>
-                <div style={{ fontSize: 13, color: "#9CA3AF", marginTop: 8 }}>로딩 중...</div>
+                <div style={{ fontSize: 13, color: "var(--fg-tertiary)", marginTop: 8 }}>로딩 중...</div>
             </div>
         </div>
     );
@@ -11810,8 +11810,8 @@ export default function KidsScheduler() {
                     <div style={makeCardStyle({ width: "92%", maxWidth: 420, maxHeight: "75vh", overflow: "hidden" })}>
                         <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
-                                <div style={{ fontSize: 17, fontWeight: 900, color: "#1F2937" }}>🤖 AI 알림</div>
-                                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>아이 활동 분석 리포트</div>
+                                <div style={{ fontSize: 17, fontWeight: 900, color: "var(--fg-primary)" }}>🤖 AI 알림</div>
+                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>아이 활동 분석 리포트</div>
                             </div>
                             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                 <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, color: aiEnabled ? "#10B981" : "#9CA3AF" }}>
@@ -11820,19 +11820,19 @@ export default function KidsScheduler() {
                                     AI {aiEnabled ? "ON" : "OFF"}
                                 </label>
                                 <button onClick={() => setShowAlertPanel(false)}
-                                    style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#9CA3AF" }}>×</button>
+                                    style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--fg-tertiary)" }}>×</button>
                             </div>
                         </div>
                         <div style={{ overflowY: "auto", maxHeight: "calc(75vh - 80px)", padding: "12px 16px" }}>
                             {!aiEnabled && (
-                                <div style={{ textAlign: "center", padding: "30px 20px", color: "#9CA3AF" }}>
+                                <div style={{ textAlign: "center", padding: "30px 20px", color: "var(--fg-tertiary)" }}>
                                     <div style={{ fontSize: 36, marginBottom: 8 }}>🤖</div>
                                     <div style={{ fontSize: 14, fontWeight: 700 }}>AI 기능이 꺼져 있어요</div>
                                     <div style={{ fontSize: 12, marginTop: 4 }}>위 토글을 켜면 아이 활동을 AI가 분석합니다</div>
                                 </div>
                             )}
                             {aiEnabled && parentAlerts.length === 0 && (
-                                <div style={{ textAlign: "center", padding: "30px 20px", color: "#9CA3AF" }}>
+                                <div style={{ textAlign: "center", padding: "30px 20px", color: "var(--fg-tertiary)" }}>
                                     <div style={{ fontSize: 36, marginBottom: 8 }}>✨</div>
                                     <div style={{ fontSize: 14, fontWeight: 700 }}>아직 알림이 없어요</div>
                                     <div style={{ fontSize: 12, marginTop: 4 }}>아이가 일정 장소에 도착/출발하면 AI가 알려드려요</div>
@@ -11859,12 +11859,12 @@ export default function KidsScheduler() {
                                         onClick={async () => { if (!alert.read) { await markAlertRead(alert.id); setParentAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, read: true } : a)); } }}
                                         style={{ background: alert.read ? "#F9FAFB" : sc.bg, borderLeft: `4px solid ${sc.border}`, borderRadius: 14, padding: "12px 14px", marginBottom: 10, cursor: "pointer", opacity: alert.read ? 0.7 : 1 }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                                            <div style={{ fontSize: 13, fontWeight: 800, color: "#1F2937" }}>
+                                            <div style={{ fontSize: 13, fontWeight: 800, color: "var(--fg-primary)" }}>
                                                 {alert.title.startsWith("🤖") ? "" : sc.icon + " "}{alert.title}
                                             </div>
-                                            <div style={{ fontSize: 10, color: "#9CA3AF" }}>{timeAgo}</div>
+                                            <div style={{ fontSize: 10, color: "var(--fg-tertiary)" }}>{timeAgo}</div>
                                         </div>
-                                        <div style={{ fontSize: 12, color: "#4B5563", lineHeight: 1.5 }}>{alert.message}</div>
+                                        <div style={{ fontSize: 12, color: "var(--fg-secondary)", lineHeight: 1.5 }}>{alert.message}</div>
                                         {!alert.read && <div style={{ fontSize: 9, color: sc.border, fontWeight: 700, marginTop: 4 }}>탭하여 읽음 표시</div>}
                                     </div>
                                 );
@@ -11883,25 +11883,25 @@ export default function KidsScheduler() {
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                                 <div style={{ fontSize: 11, fontWeight: 800, color: "#10B981", background: "#D1FAE5", padding: "4px 10px", borderRadius: 8 }}>{voicePreview.aiParsed ? "🤖 AI 저장 완료" : "🎤 음성 저장 완료"}</div>
                                 {voicePreview.academyMatched && <div style={{ fontSize: 11, fontWeight: 700, color: DESIGN.colors.parentDeep, background: DESIGN.colors.parentPale, padding: "4px 10px", borderRadius: 8 }}>🏫 학원 자동 매칭</div>}
-                                <div style={{ fontSize: 11, color: "#9CA3AF", flex: 1, textAlign: "right" }}>8초 후 닫힘</div>
+                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", flex: 1, textAlign: "right" }}>8초 후 닫힘</div>
                             </div>
                             <div style={{ background: voicePreview.ev.bg, borderRadius: 16, padding: "12px 14px", borderLeft: `4px solid ${voicePreview.ev.color}`, marginBottom: 12 }}>
                                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                                     <div style={{ fontSize: 26 }}>{voicePreview.ev.emoji}</div>
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 800, fontSize: 15, color: "#1F2937" }}>{voicePreview.ev.title}</div>
-                                        <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>📅 {voicePreview.dateLabel} &nbsp;⏰ {voicePreview.ev.time}</div>
-                                        {voicePreview.ev.location && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>📍 {voicePreview.ev.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
+                                        <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)" }}>{voicePreview.ev.title}</div>
+                                        <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>📅 {voicePreview.dateLabel} &nbsp;⏰ {voicePreview.ev.time}</div>
+                                        {voicePreview.ev.location && <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>📍 {voicePreview.ev.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 12, padding: "6px 10px", background: "#F9FAFB", borderRadius: 8 }}>🎙 인식: "{voicePreview.rawText}"</div>
+                            <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginBottom: 12, padding: "6px 10px", background: "#F9FAFB", borderRadius: 8 }}>🎙 인식: "{voicePreview.rawText}"</div>
                             <div style={{ display: "flex", gap: 8 }}>
                                 <button onClick={() => { setVoicePreview(null); setCurrentYear(parseInt(voicePreview.dateKey.split("-")[0])); setCurrentMonth(parseInt(voicePreview.dateKey.split("-")[1])); setSelectedDate(parseInt(voicePreview.dateKey.split("-")[2])); setActiveView("calendar"); }}
                                     style={{ flex: 1, padding: "11px", background: "linear-gradient(135deg,#10B981,#059669)", color: "white", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✅ 달력에서 보기</button>
                                 <button onClick={() => { setVoicePreview(null); setNewTitle(voicePreview.ev.title); setNewTime(voicePreview.ev.time); setNewEndTime(voicePreview.ev.endTime || ""); setNewCategory(voicePreview.ev.category); setNewLocation(voicePreview.ev.location); setEvents(prev => ({ ...prev, [voicePreview.dateKey]: (prev[voicePreview.dateKey] || []).filter(e => e.id !== voicePreview.ev.id) })); setShowAddModal(true); }}
                                     style={{ flex: 1, padding: "11px", background: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep, border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✏️ 수정</button>
-                                <button onClick={undoVoiceEvent} style={{ padding: "11px 14px", background: "#F3F4F6", color: "#475569", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>↩</button>
+                                <button onClick={undoVoiceEvent} style={{ padding: "11px 14px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>↩</button>
                             </div>
                         </div>
                     </div>
@@ -12143,7 +12143,7 @@ export default function KidsScheduler() {
                             {todayDateLabel}
                         </div>
                         {isParent ? (
-                            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: "#1F1A22", textShadow: "none" }}>
+                            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: "var(--fg-primary)", textShadow: "none" }}>
                                 {parentHeroChildrenText},<br />
                                 오늘 일정 <span className={todayEvents.length > 0 ? "hyeni-v1-hero-count" : "hyeni-v1-hero-count-zero"}>{todayEvents.length}개</span>
                             </h1>
@@ -12325,7 +12325,7 @@ export default function KidsScheduler() {
                             <div style={{ fontSize: 11, fontWeight: 900, color: quickPanelTone.color }}>
                                 빠른 실행
                             </div>
-                            <div style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>
+                            <div style={{ fontSize: 10, color: "var(--fg-secondary)", marginTop: 2 }}>
                                 스크롤 없이 주요 기능을 바로 열 수 있어요
                             </div>
                         </div>
@@ -12649,24 +12649,24 @@ export default function KidsScheduler() {
                             <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>배터리</div>
-                                    <div style={{ fontSize: 16, color: "#111827", fontWeight: 900, marginTop: 2 }}>🔋 {primaryDeviceBatteryLabel}</div>
+                                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>배터리</div>
+                                    <div style={{ fontSize: 16, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>🔋 {primaryDeviceBatteryLabel}</div>
                                 </div>
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>충전 상태</div>
-                                    <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⚡ {primaryDeviceChargingLabel}</div>
+                                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>충전 상태</div>
+                                    <div style={{ fontSize: 15, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>⚡ {primaryDeviceChargingLabel}</div>
                                 </div>
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>화면 켜짐(앱 기준)</div>
-                                    <div style={{ fontSize: 15, color: "#111827", fontWeight: 900, marginTop: 2 }}>⏱️ {primaryDeviceScreenLabel}</div>
+                                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 켜짐(앱 기준)</div>
+                                    <div style={{ fontSize: 15, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>⏱️ {primaryDeviceScreenLabel}</div>
                                 </div>
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
-                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>네트워크</div>
-                                    <div style={{ fontSize: 14, color: "#111827", fontWeight: 900, marginTop: 2 }}>📶 {primaryDeviceConnectionLabel}</div>
+                                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>네트워크</div>
+                                    <div style={{ fontSize: 14, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>📶 {primaryDeviceConnectionLabel}</div>
                                 </div>
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px", gridColumn: "1 / -1" }}>
-                                    <div style={{ fontSize: 11, color: "#6B7280", fontWeight: 700 }}>최근 실행 앱</div>
-                                    <div style={{ fontSize: 13, color: "#1F2937", fontWeight: 800, marginTop: 2 }}>
+                                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>최근 실행 앱</div>
+                                    <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: 800, marginTop: 2 }}>
                                         {primaryChildDeviceStatus?.recentApp || "운영체제 사용기록 권한이 필요해요"}
                                     </div>
                                     {primaryChildDeviceStatus?.usagePermission === "requires_permission" && (
@@ -12677,7 +12677,7 @@ export default function KidsScheduler() {
                                 </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
-                                <div style={{ fontSize: 10.5, color: "#6B7280", fontWeight: 600 }}>
+                                <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 600 }}>
                                     마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "#B45309", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
                                 </div>
                                 <button
@@ -12846,7 +12846,7 @@ export default function KidsScheduler() {
                 {/* Academy quick pick */}
                 {academies.length > 0 && (
                     <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 14 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", marginBottom: 8, paddingLeft: 4 }}>🏫 학원 빠른 추가</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 8, paddingLeft: 4 }}>🏫 학원 빠른 추가</div>
                         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
                             {academies.map((ac, i) => (
                                 <button key={i} onClick={() => {
@@ -13044,7 +13044,7 @@ export default function KidsScheduler() {
             {showAddModal && (
                 <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAddModal(false); setEditingEventId(null); } }}>
                     <div style={makeSheetStyle({ padding: "24px 20px 36px", width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" })}>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: "#374151", marginBottom: 4 }}>{editingEventId ? "✏️ 일정 수정" : "✨ 새 일정 추가"}</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 4 }}>{editingEventId ? "✏️ 일정 수정" : "✨ 새 일정 추가"}</div>
                         {isParent && pairedChildren.length > 0 && (() => {
                             // ChildSelector stores family_members.id values in childIds (events_children FK target).
                             const selectedNames = pairedChildren
@@ -13082,18 +13082,18 @@ export default function KidsScheduler() {
                             </div>
                         </div>
                         <div style={{ marginBottom: 14 }}>
-                            <label style={labelSt}>📌 일정 이름 {selectedPreset && <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>(비워두면 "{selectedPreset.label}")</span>}</label>
+                            <label style={labelSt}>📌 일정 이름 {selectedPreset && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(비워두면 "{selectedPreset.label}")</span>}</label>
                             <input style={inputSt} placeholder={selectedPreset ? `${selectedPreset.emoji} ${selectedPreset.label}` : "예) 영어 학원, 태권도..."} value={newTitle} onChange={e => setNewTitle(e.target.value)} />
                         </div>
                         <div style={{ marginBottom: 14 }}>
-                            <label style={labelSt}>⏰ 시간 {selectedPreset && findLastEventByTitle(selectedPreset.label) && <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>(지난번 시간)</span>}</label>
+                            <label style={labelSt}>⏰ 시간 {selectedPreset && findLastEventByTitle(selectedPreset.label) && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(지난번 시간)</span>}</label>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                                 <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} style={{ padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
                                 <div style={{ display: "flex", gap: 4 }}>
                                     <button onClick={() => { const [h, m] = newTime.split(":").map(Number); const nh = m > 0 ? h : Math.max(0, h - 1); const nm = m > 0 ? 0 : 30; setNewTime(`${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`); }}
-                                        style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid #F3F4F6", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "#6B7280", display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
+                                        style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid #F3F4F6", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "var(--fg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
                                     <button onClick={() => { const [h, m] = newTime.split(":").map(Number); const nm = m >= 30 ? 0 : 30; const nh = m >= 30 ? Math.min(23, h + 1) : h; setNewTime(`${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`); }}
-                                        style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid #F3F4F6", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "#6B7280", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                                        style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid #F3F4F6", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "var(--fg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                                 </div>
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -13106,13 +13106,13 @@ export default function KidsScheduler() {
                             </div>
                         </div>
                         <div style={{ marginBottom: 14 }}>
-                            <label style={labelSt}>🏁 종료시간 <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>(선택)</span></label>
+                            <label style={labelSt}>🏁 종료시간 <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(선택)</span></label>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <input type="time" value={newEndTime} onChange={e => setNewEndTime(e.target.value)}
                                     style={{ padding: "12px 14px", border: `2px solid ${newEndTime ? "#E879A0" : "#F3F4F6"}`, borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
                                 {newEndTime && (
                                     <button onClick={() => setNewEndTime("")}
-                                        style={{ padding: "6px 12px", borderRadius: 12, border: "none", background: "#F3F4F6", color: "#9CA3AF", cursor: "pointer", fontSize: 13, fontFamily: FF }}>삭제</button>
+                                        style={{ padding: "6px 12px", borderRadius: 12, border: "none", background: "#F3F4F6", color: "var(--fg-tertiary)", cursor: "pointer", fontSize: 13, fontFamily: FF }}>삭제</button>
                                 )}
                             </div>
                             {newEndTime && (
@@ -13120,7 +13120,7 @@ export default function KidsScheduler() {
                             )}
                         </div>
                         <div style={{ marginBottom: 14 }}>
-                            <label style={labelSt}>🏷️ 종류 {selectedPreset && <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>(자동 매칭됨)</span>}</label>
+                            <label style={labelSt}>🏷️ 종류 {selectedPreset && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(자동 매칭됨)</span>}</label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                                 {CATEGORIES.map(cat => <button key={cat.id} onClick={() => setNewCategory(cat.id)} style={{ padding: "8px 14px", borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, background: newCategory === cat.id ? cat.color : cat.bg, color: newCategory === cat.id ? "white" : cat.color, border: `2px solid ${cat.color}` }}>{cat.emoji} {cat.label}</button>)}
                             </div>
@@ -13187,11 +13187,11 @@ export default function KidsScheduler() {
                                 )}
                                 {newLocation ? (
                                     <div style={{ background: "#FFF0F7", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                                        <div style={{ fontSize: 13, color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {newLocation.address}</div>
+                                        <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {newLocation.address}</div>
                                         {isParent ? (
                                             <button onClick={() => { setEditingLocForEvent(null); setShowMapPicker(true); }} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #E879A0", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                         ) : (
-                                            <button onClick={() => setNewLocation(null)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #D1D5DB", color: "#6B7280", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>지우기</button>
+                                            <button onClick={() => setNewLocation(null)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #D1D5DB", color: "var(--fg-secondary)", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>지우기</button>
                                         )}
                                     </div>
                                 ) : isParent ? (
@@ -13221,7 +13221,7 @@ export default function KidsScheduler() {
                                             </button>
                                         ))}
                                     </div>
-                                    <div style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600, textAlign: "center" }}>
+                                    <div style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 600, textAlign: "center" }}>
                                         {(() => { const [y, m, d] = dateKey.split("-").map(Number); const end = new Date(y, m, d + (repeatWeeks - 1) * 7); return `${m + 1}/${d} ~ ${end.getMonth() + 1}/${end.getDate()} 매주 ${["일","월","화","수","목","금","토"][new Date(y, m, d).getDay()]}요일`; })()}
                                     </div>
                                 </>
@@ -13387,7 +13387,7 @@ export default function KidsScheduler() {
                                 borderRadius: 16,
                                 border: "none",
                                 background: "white",
-                                color: "#6B7280",
+                                color: "var(--fg-secondary)",
                                 fontWeight: 700,
                                 cursor: "pointer",
                                 boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
@@ -13451,7 +13451,7 @@ export default function KidsScheduler() {
                                 <div style={{ fontSize: 12, fontWeight: 700, color: "#B45309", marginTop: 2 }}>주위 소리 듣기 연결이 중단됐어요</div>
                             </div>
                         </div>
-                        <div style={{ fontSize: 13, lineHeight: 1.6, color: "#4B5563", fontWeight: 600, marginBottom: 14 }}>
+                        <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--fg-secondary)", fontWeight: 600, marginBottom: 14 }}>
                             아이 기기에서 마이크 권한을 허용해야 부모님과 주위 소리 듣기 세션을 안전하게 연결할 수 있어요.
                         </div>
                         <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 16, padding: "12px 14px", color: "#92400E", fontSize: 12, lineHeight: 1.55, fontWeight: 800, marginBottom: 16 }}>
@@ -13470,7 +13470,7 @@ export default function KidsScheduler() {
                             <button
                                 type="button"
                                 onClick={() => setShowMicPermissionHelp(false)}
-                                style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "#4B5563", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
+                                style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "var(--fg-secondary)", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
                             >
                                 확인
                             </button>
@@ -13669,7 +13669,7 @@ export default function KidsScheduler() {
                         {showKkukReceived.from}가 꾹을 보냈어요
                     </div>
                     <div style={{
-                        fontSize: 14, color: "#9CA3AF", padding: "12px 24px",
+                        fontSize: 14, color: "var(--fg-tertiary)", padding: "12px 24px",
                         background: "rgba(255,255,255,0.6)", borderRadius: 20, fontWeight: 600,
                     }}>
                         화면을 터치하면 닫혀요

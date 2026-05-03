@@ -15,7 +15,7 @@ export function ChildSelector({ children, value, onChange }) {
 
   return (
     <div>
-      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1F2937" }}>대상</div>
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "var(--fg-primary)" }}>대상</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {children.map((c) => {
           // Use family_members.id (matches events_children.child_id FK target).
@@ -41,7 +41,7 @@ export function ChildSelector({ children, value, onChange }) {
                 style={{ width: 20, height: 20, accentColor: c.color_hex }}
               />
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: c.color_hex }} />
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#1F2937" }}>{c.name}</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "var(--fg-primary)" }}>{c.name}</span>
             </label>
           );
         })}
@@ -50,9 +50,9 @@ export function ChildSelector({ children, value, onChange }) {
         type="button" onClick={pickFamily}
         style={{
           marginTop: 12, width: "100%", padding: "12px 14px",
-          borderRadius: 12, border: `2px dashed ${familyAll ? "#1F2937" : "#9CA3AF"}`,
+          borderRadius: 12, border: `2px dashed ${familyAll ? "#1F2937" : "var(--fg-tertiary)"}`,
           background: familyAll ? "#F3F4F6" : "white",
-          fontSize: 14, fontWeight: 700, color: "#1F2937",
+          fontSize: 14, fontWeight: 700, color: "var(--fg-primary)",
           cursor: "pointer",
         }}
       >가족 전체</button>

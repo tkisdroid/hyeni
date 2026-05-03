@@ -44,8 +44,8 @@ export function FeatureLockOverlay({
         }}
       >
         <div style={{ fontSize: 44 }}>{copy?.emoji || "💎"}</div>
-        <div style={{ marginTop: 10, fontSize: 19, fontWeight: 900, color: "#1F2937" }}>{title}</div>
-        <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "#6B7280" }}>{body}</div>
+        <div style={{ marginTop: 10, fontSize: 19, fontWeight: 900, color: "var(--fg-primary)" }}>{title}</div>
+        <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--fg-secondary)" }}>{body}</div>
         <div
           style={{
             marginTop: 16,
@@ -53,7 +53,7 @@ export function FeatureLockOverlay({
             background: "#F8FAFC",
             padding: "12px 14px",
             fontSize: 13,
-            color: "#475569",
+            color: "var(--fg-secondary)",
           }}
         >
           7일 무료 체험 후 {PRICING.monthlyLabel}부터 시작할 수 있어요.
@@ -83,7 +83,7 @@ export function FeatureLockOverlay({
               borderRadius: 16,
               border: "1px solid #E5E7EB",
               background: "#F9FAFB",
-              color: "#6B7280",
+              color: "var(--fg-secondary)",
               fontWeight: 700,
               cursor: "pointer",
             }}

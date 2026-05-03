@@ -34,7 +34,7 @@ export function TrialEndingBanner({ trialDaysLeft, isTrial, onContinue, isChild 
       <div style={{ fontSize: 22 }}>{danger ? "⏰" : "✨"}</div>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: danger ? "#BE123C" : "#92400E" }}>{copy}</div>
-        <div style={{ fontSize: 11, color: "#6B7280", marginTop: 3 }}>체험이 끝나도 데이터는 남고, 프리미엄 기능만 잠깁니다.</div>
+        <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 3 }}>체험이 끝나도 데이터는 남고, 프리미엄 기능만 잠깁니다.</div>
       </div>
       <button
         type="button"

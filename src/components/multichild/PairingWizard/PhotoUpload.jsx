@@ -59,9 +59,9 @@ export function PhotoUpload({ value, onChange, familyId, childOrder }) {
         style={{
           display: "flex", alignItems: "center", justifyContent: "center",
           width: 96, height: 96, borderRadius: "50%",
-          background: value ? `url(${value}) center/cover` : "#F3F4F6",
+          background: value ? `url(${value}) center/cover` : "var(--bg-subtle)",
           border: "2px dashed #D1D5DB", cursor: busy ? "wait" : "pointer",
-          color: "#6B7280", fontSize: 12,
+          color: "var(--fg-secondary)", fontSize: 12,
         }}
       >
         {!value && (busy ? "업로드 중..." : "사진 추가")}
@@ -72,7 +72,7 @@ export function PhotoUpload({ value, onChange, familyId, childOrder }) {
         onChange={handleFile} disabled={busy}
         style={{ display: "none" }}
       />
-      {error && <div style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{error}</div>}
+      {error && <div style={{ color: "var(--status-negative)", fontSize: 12, marginTop: 4 }}>{error}</div>}
       {value && <img src={value} alt="자녀 사진" style={{ position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0 }} />}
     </div>
   );

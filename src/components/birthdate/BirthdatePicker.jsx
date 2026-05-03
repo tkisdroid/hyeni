@@ -108,7 +108,7 @@ export function BirthdatePicker({
           fontSize: 15,
           fontWeight: 700,
           background: "white",
-          color: display ? "#111827" : "#9CA3AF",
+          color: display ? "#111827" : "var(--fg-tertiary)",
           textAlign: "left",
           cursor: disabled ? "not-allowed" : "pointer",
           opacity: disabled ? 0.6 : 1,
@@ -144,13 +144,13 @@ export function BirthdatePicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                style={{ background: "none", border: "none", color: "#6B7280", fontSize: 15, fontWeight: 700, padding: "8px 4px", cursor: "pointer" }}
+                style={{ background: "none", border: "none", color: "var(--fg-secondary)", fontSize: 15, fontWeight: 700, padding: "8px 4px", cursor: "pointer" }}
               >취소</button>
-              <div style={{ fontSize: 16, fontWeight: 900, color: "#111827" }}>생년월일 선택</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: "var(--fg-primary)" }}>생년월일 선택</div>
               <button
                 type="button"
                 onClick={handleConfirm}
-                style={{ background: "none", border: "none", color: "#BE185D", fontSize: 15, fontWeight: 900, padding: "8px 4px", cursor: "pointer" }}
+                style={{ background: "none", border: "none", color: "var(--hyeni-pink-deep)", fontSize: 15, fontWeight: 900, padding: "8px 4px", cursor: "pointer" }}
               >확인</button>
             </div>
             <Picker value={draft} onChange={setDraft} height={216} itemHeight={36}>

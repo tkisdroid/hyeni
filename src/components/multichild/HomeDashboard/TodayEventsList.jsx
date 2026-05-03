@@ -2,7 +2,7 @@
 export function TodayEventsList({ events, children }) {
   if (!events || events.length === 0) {
     return (
-      <div style={{ padding: 20, textAlign: "center", color: "#9CA3AF", fontSize: 14 }}>
+      <div style={{ padding: 20, textAlign: "center", color: "var(--fg-tertiary)", fontSize: 14 }}>
         오늘 일정이 없어요
       </div>
     );
@@ -28,10 +28,10 @@ export function TodayEventsList({ events, children }) {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#1F2937" }}>{event.title}</div>
-              <div style={{ fontSize: 13, color: "#6B7280" }}>{event.time}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--fg-primary)" }}>{event.title}</div>
+              <div style={{ fontSize: 13, color: "var(--fg-secondary)" }}>{event.time}</div>
             </div>
-            <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>
               {isFamily ? "가족 전체" : eventChildren.map((c) => c.name).join(", ")}
             </div>
           </div>
