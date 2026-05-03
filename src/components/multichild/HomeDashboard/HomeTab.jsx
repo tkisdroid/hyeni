@@ -23,7 +23,7 @@ function deriveScreenLabel(deviceStatus) {
 export function HomeTab({ children, positions, events, childLocations, childDeviceStatusMap, onMapTap, onSelectChild }) {
   const sectionLabelStyle = {
     fontSize: 12,
-    fontWeight: "var(--weight-label)",
+    fontWeight: "var(--weight-bold)",
     color: "#9CA3AF",
     letterSpacing: 0.2,
     marginBottom: 12,

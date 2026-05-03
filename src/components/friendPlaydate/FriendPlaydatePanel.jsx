@@ -77,7 +77,7 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
             <div className="hyeni-tool-tile__title">친구놀이</div>
             <div
               className="hyeni-tool-tile__sub"
-              style={{ color: enabled ? 'var(--hyeni-friend-ink)' : 'var(--hyeni-ink-300)' }}
+              style={{ color: enabled ? 'var(--hyeni-friend-ink)' : 'var(--fg-tertiary)' }}
             >
               {enabled ? '안전장소 매칭 대기' : '매칭 꺼짐'}
             </div>
@@ -128,7 +128,7 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
       <div>
         <div style={{
           margin: '4px 2px 8px',
-          color: 'var(--hyeni-ink-700)',
+          color: 'var(--fg-secondary)',
           fontSize: 12,
           fontWeight: 900,
           letterSpacing: '0.02em',
@@ -150,7 +150,7 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
           <div>
             <div style={{
               margin: '4px 2px 8px',
-              color: 'var(--hyeni-ink-700)',
+              color: 'var(--fg-secondary)',
               fontSize: 12,
               fontWeight: 900,
               letterSpacing: '0.02em',

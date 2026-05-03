@@ -36,7 +36,7 @@ export function ForceRingConfirmModal({ isOpen, onCancel, onConfirm, quotaInfo }
         </div>
 
         {remaining !== null && (
-          <div style={{ color: 'var(--hyeni-ink-500)', fontSize: 12, fontWeight: 700 }}>
+          <div style={{ color: 'var(--fg-tertiary)', fontSize: 12, fontWeight: 700 }}>
             <span style={{ color: 'var(--hyeni-emergency-ink)', fontWeight: 900 }}>
               {`${remaining} / ${quotaInfo.quota}`}
             </span>

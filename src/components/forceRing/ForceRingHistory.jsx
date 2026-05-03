@@ -48,7 +48,7 @@ export function ForceRingHistory({ familyId, limit = 10 }) {
           listStyle: 'none',
           cursor: 'pointer',
           padding: '6px 0',
-          color: 'var(--tool-accent-ink, var(--hyeni-ink-500))',
+          color: 'var(--tool-accent-ink, var(--fg-tertiary))',
           fontSize: 11,
           fontWeight: 900,
           display: 'inline-flex',
@@ -73,7 +73,7 @@ export function ForceRingHistory({ familyId, limit = 10 }) {
               ? { '--badge-bg': 'var(--hyeni-success-tint)', '--badge-ink': 'var(--hyeni-success-ink)' }
               : tone === 'error'
               ? { '--badge-bg': 'var(--hyeni-emergency-tint)', '--badge-ink': 'var(--hyeni-emergency-ink)' }
-              : { '--badge-bg': 'var(--hyeni-ink-100)', '--badge-ink': 'var(--hyeni-ink-700)' };
+              : { '--badge-bg': 'var(--bg-muted)', '--badge-ink': 'var(--fg-secondary)' };
           return (
             <li key={item.id} className="hyeni-tool-list__row">
               <div>

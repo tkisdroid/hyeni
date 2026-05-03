@@ -18,17 +18,8 @@
   --hyeni-cream: #fff8f2;
   --hyeni-parent: #3b82f6;
   --hyeni-parent-deep: #2563eb;
-  --hyeni-ink-900: #1f1a22;
-  --hyeni-ink-700: #3e3647;
-  --hyeni-ink-500: #6b5f73;
-  --hyeni-ink-300: #b5adba;
-  --hyeni-ink-100: #efe9f1;
-  --hyeni-surface-0: #ffffff;
-  --hyeni-surface-1: #fdfafb;
-  --hyeni-surface-2: #f6f0f3;
   --hyeni-success: #059669;
   --hyeni-ink: #38252d;
-  --hyeni-ink-soft: #75525c;
   --hyeni-muted: #9b7c85;
   --hyeni-line: #f3e9ec;
   --hyeni-cat-school: #a78bfa;
@@ -130,7 +121,7 @@ a:focus-visible {
 
 .hyeni-v5-parent-main .hyeni-v5-section-head {
   margin: 18px 2px 10px;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 13px;
   font-weight: 700;
 }
@@ -143,7 +134,7 @@ a:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 10px;
   font-weight: 800;
   white-space: nowrap;
@@ -202,7 +193,7 @@ a:focus-visible {
   padding: 12px 14px;
   border: 1px solid rgba(231, 219, 228, 0.6);
   border-radius: 20px;
-  background: var(--hyeni-surface-0);
+  background: var(--bg-base);
   box-shadow: var(--hyeni-shadow-sm);
 }
 
@@ -282,7 +273,7 @@ a:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-top: 3px;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 10px;
   font-weight: 600;
 }
@@ -344,7 +335,7 @@ a:focus-visible {
   bottom: 14px;
   width: 2px;
   border-radius: 2px;
-  background: var(--hyeni-ink-100);
+  background: var(--bg-muted);
 }
 
 .hyeni-v5-event-card {
@@ -418,7 +409,7 @@ a:focus-visible {
   border: 1px solid rgba(231, 219, 228, 0.6);
   border-left: 3px solid var(--event-color);
   border-radius: 20px;
-  background: var(--hyeni-surface-0);
+  background: var(--bg-base);
   box-shadow: var(--hyeni-shadow-sm);
 }
 
@@ -511,7 +502,7 @@ a:focus-visible {
 .hyeni-v5-event-meta {
   display: block;
   margin-top: 2px;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 11px;
   font-weight: 700;
   overflow: hidden;
@@ -525,7 +516,7 @@ a:focus-visible {
 }
 
 .hyeni-v5-event-location {
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-weight: 700;
 }
 
@@ -668,7 +659,7 @@ a:focus-visible {
 
 .hyeni-v5-memo-meta {
   margin-top: 2px;
-  color: var(--hyeni-ink-soft);
+  color: var(--fg-secondary);
   font-size: 9px;
   font-weight: 800;
 }
@@ -1253,7 +1244,7 @@ a:focus-visible {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   padding: 0 2px 6px;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 10px;
   font-weight: 800;
   text-align: center;
@@ -1295,7 +1286,7 @@ a:focus-visible {
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: var(--hyeni-ink-900);
+  color: var(--fg-primary);
   cursor: pointer;
 }
 
@@ -1559,13 +1550,13 @@ a:focus-visible {
   padding: 16px 16px 14px;
   border: 1px solid var(--hyeni-tool-hairline);
   border-radius: var(--hyeni-tool-radius);
-  background: var(--hyeni-surface-0);
+  background: var(--bg-base);
   box-shadow: var(--hyeni-tool-shadow);
 }
 
 .hyeni-tool-card--accent {
   border-color: var(--tool-accent-line);
-  background: linear-gradient(180deg, var(--hyeni-surface-0) 0%, var(--tool-accent-tint) 140%);
+  background: linear-gradient(180deg, var(--bg-base) 0%, var(--tool-accent-tint) 140%);
 }
 
 .hyeni-tool-card__rule {
@@ -1607,7 +1598,7 @@ a:focus-visible {
 
 .hyeni-tool-card__sub {
   margin: 6px 0 0;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.45;
@@ -1654,7 +1645,7 @@ a:focus-visible {
 }
 
 .hyeni-tool-meter__caption {
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 10px;
   font-weight: 700;
 }
@@ -1684,22 +1675,22 @@ a:focus-visible {
 }
 
 .hyeni-tool-button:disabled {
-  background: var(--hyeni-ink-100);
-  color: var(--hyeni-ink-300);
+  background: var(--bg-muted);
+  color: var(--fg-tertiary);
   box-shadow: none;
   cursor: not-allowed;
 }
 
 .hyeni-tool-button--ghost {
-  background: var(--hyeni-surface-0);
-  color: var(--hyeni-ink-700);
+  background: var(--bg-base);
+  color: var(--fg-secondary);
   border: 1px solid var(--hyeni-tool-hairline);
   box-shadow: none;
 }
 
 .hyeni-tool-button--ghost:disabled {
-  background: var(--hyeni-surface-2);
-  color: var(--hyeni-ink-300);
+  background: var(--bg-subtle);
+  color: var(--fg-tertiary);
   border-color: var(--hyeni-tool-hairline);
 }
 
@@ -1754,7 +1745,7 @@ a:focus-visible {
   padding: 14px 16px;
   border-radius: var(--hyeni-tool-radius);
   border: 1px solid var(--status-line, var(--hyeni-tool-hairline));
-  background: var(--status-bg, var(--hyeni-surface-1));
+  background: var(--status-bg, var(--bg-base));
   color: var(--status-ink, var(--hyeni-ink));
   display: grid;
   gap: 8px;
@@ -1836,7 +1827,7 @@ a:focus-visible {
   padding: 8px 14px;
   border: 1px solid var(--hyeni-tool-hairline);
   border-radius: 12px;
-  background: var(--hyeni-surface-0);
+  background: var(--bg-base);
   color: var(--hyeni-ink);
   text-decoration: none;
   font-size: 13px;
@@ -1865,7 +1856,7 @@ a:focus-visible {
   gap: 0;
   border: 1px solid var(--hyeni-tool-hairline);
   border-radius: var(--hyeni-tool-radius);
-  background: var(--hyeni-surface-0);
+  background: var(--bg-base);
   overflow: hidden;
 }
 
@@ -1894,7 +1885,7 @@ a:focus-visible {
 
 .hyeni-tool-list__secondary {
   margin-top: 2px;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.4;
@@ -1902,7 +1893,7 @@ a:focus-visible {
 
 .hyeni-tool-list__meta {
   flex: none;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
@@ -1953,7 +1944,7 @@ a:focus-visible {
   padding: 18px 14px;
   border: 1px dashed var(--hyeni-tool-hairline);
   border-radius: var(--hyeni-tool-radius);
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 12px;
   font-weight: 700;
   text-align: center;
@@ -1969,7 +1960,7 @@ a:focus-visible {
   padding: 12px 14px;
   border: 1px solid var(--tool-accent-line);
   border-radius: var(--hyeni-tool-radius);
-  background: var(--hyeni-surface-0);
+  background: var(--bg-base);
   box-shadow: var(--hyeni-tool-shadow);
   position: relative;
   overflow: hidden;
@@ -2014,7 +2005,7 @@ a:focus-visible {
 
 .hyeni-tool-tile__sub {
   margin-top: 3px;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.4;
@@ -2049,7 +2040,7 @@ a:focus-visible {
 }
 
 .hyeni-tool-toggle__label[data-state="off"] {
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
 }
 
 .hyeni-tool-toggle__switch {
@@ -2058,7 +2049,7 @@ a:focus-visible {
   height: 24px;
   border: 0;
   border-radius: 999px;
-  background: var(--hyeni-ink-100);
+  background: var(--bg-muted);
   cursor: pointer;
   transition: background 0.18s ease;
   flex-shrink: 0;
@@ -2108,7 +2099,7 @@ a:focus-visible {
   max-width: 440px;
   max-height: 90vh;
   overflow-y: auto;
-  background: var(--hyeni-surface-0);
+  background: var(--bg-base);
   border-radius: var(--hyeni-tool-radius-lg);
   padding: 22px 22px 20px;
   box-shadow: 0 24px 60px rgba(31, 26, 34, 0.28);
@@ -2127,7 +2118,7 @@ a:focus-visible {
 
 .hyeni-tool-modal__head p {
   margin: 4px 0 0;
-  color: var(--hyeni-ink-500);
+  color: var(--fg-tertiary);
   font-size: 12px;
   font-weight: 700;
 }
@@ -2167,7 +2158,7 @@ a:focus-visible {
 }
 
 .hyeni-tool-modal__field label {
-  color: var(--hyeni-ink-700);
+  color: var(--fg-secondary);
   font-size: 12px;
   font-weight: 800;
   display: flex;
@@ -2177,7 +2168,7 @@ a:focus-visible {
 }
 
 .hyeni-tool-modal__field span {
-  color: var(--hyeni-ink-300);
+  color: var(--fg-tertiary);
   font-size: 11px;
   font-weight: 700;
 }
@@ -2188,7 +2179,7 @@ a:focus-visible {
   padding: 10px 12px;
   border: 1px solid var(--hyeni-tool-hairline);
   border-radius: 12px;
-  background: var(--hyeni-surface-1);
+  background: var(--bg-base);
   font: inherit;
   color: var(--hyeni-ink);
   resize: vertical;
@@ -2197,7 +2188,7 @@ a:focus-visible {
 .hyeni-tool-modal__field textarea:focus {
   outline: none;
   border-color: var(--tool-accent);
-  background: var(--hyeni-surface-0);
+  background: var(--bg-base);
 }
 
 .hyeni-tool-modal__actions {

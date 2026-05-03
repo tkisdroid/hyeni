@@ -40,7 +40,7 @@ export default function ActivePlaydateCard({ session, onEnd }) {
       {phones.length > 0 ? (
         <div style={{ display: 'grid', gap: 6 }}>
           <div style={{
-            color: 'var(--hyeni-ink-500)',
+            color: 'var(--fg-tertiary)',
             fontSize: 11,
             fontWeight: 800,
             letterSpacing: '0.02em',

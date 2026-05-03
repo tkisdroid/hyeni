@@ -12402,8 +12402,8 @@ export default function KidsScheduler() {
                   flexDirection: "column",
                   gap: 10,
                   padding: "12px 16px",
-                  background: "var(--surface-card)",
-                  borderBottom: "var(--border-card)",
+                  background: "var(--bg-base)",
+                  borderBottom: "1px solid var(--line-soft)",
                   borderLeft: `4px solid ${activeTint}`,
                   fontFamily: FF,
                 }}
@@ -12414,26 +12414,26 @@ export default function KidsScheduler() {
                     style={{
                       width: 32,
                       height: 32,
-                      borderRadius: "var(--radius-pill)",
+                      borderRadius: "var(--radius-full)",
                       background: selectedChild.photo_url ? `url(${selectedChild.photo_url}) center/cover` : activeTint,
                       border: `2px solid ${activeTint}`,
                       flexShrink: 0,
                     }}
                   />
                   <div style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    <span style={{ color: activeTint, fontWeight: "var(--weight-heading)" }}>{selectedChild.name}</span>
-                    <span style={{ color: "var(--hyeni-ink-500)", fontWeight: "var(--weight-body)" }}> 관리 중</span>
+                    <span style={{ color: activeTint, fontWeight: "var(--weight-bold)" }}>{selectedChild.name}</span>
+                    <span style={{ color: "var(--fg-tertiary)", fontWeight: "var(--weight-medium)" }}> 관리 중</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
                     style={{
                       fontSize: 12,
-                      fontWeight: "var(--weight-body-strong)",
-                      color: "var(--hyeni-ink-700)",
+                      fontWeight: "var(--weight-bold)",
+                      color: "var(--fg-secondary)",
                       background: "white",
-                      border: "var(--border-card-strong)",
-                      borderRadius: "var(--radius-button)",
+                      border: "1px solid var(--line-default)",
+                      borderRadius: "var(--radius-control)",
                       padding: "6px 12px",
                       cursor: "pointer",
                       fontFamily: FF,
@@ -12472,11 +12472,11 @@ export default function KidsScheduler() {
                             alignItems: "center",
                             gap: 7,
                             padding: "5px 12px 5px 5px",
-                            borderRadius: "var(--radius-pill)",
+                            borderRadius: "var(--radius-full)",
                             background: isActive ? `${tint}26` : "white",
-                            border: `1.5px solid ${isActive ? tint : "var(--m3-outline-variant)"}`,
-                            color: isActive ? "var(--hyeni-ink-900)" : "var(--hyeni-ink-500)",
-                            fontWeight: isActive ? "var(--weight-body-strong)" : "var(--weight-body)",
+                            border: `1.5px solid ${isActive ? tint : "var(--line-subtle)"}`,
+                            color: isActive ? "var(--fg-primary)" : "var(--fg-tertiary)",
+                            fontWeight: isActive ? "var(--weight-bold)" : "var(--weight-medium)",
                             fontSize: 12,
                             cursor: "pointer",
                             fontFamily: FF,
@@ -12491,7 +12491,7 @@ export default function KidsScheduler() {
                             style={{
                               width: 24,
                               height: 24,
-                              borderRadius: "var(--radius-pill)",
+                              borderRadius: "var(--radius-full)",
                               background: child.photo_url
                                 ? `url(${child.photo_url}) center/cover`
                                 : tint,

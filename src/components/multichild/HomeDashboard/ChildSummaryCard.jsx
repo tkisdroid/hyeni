@@ -12,8 +12,8 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
       style={{
         display: "flex", alignItems: "center", gap: 14,
         padding: 16, borderRadius: "var(--radius-card)",
-        background: "var(--surface-card)", border: "none",
-        boxShadow: "var(--shadow-card-soft)",
+        background: "var(--bg-base)", border: "none",
+        boxShadow: "var(--shadow-sm)",
         textAlign: "left", width: "100%",
         cursor: interactive ? "pointer" : "default",
         font: "inherit",
@@ -21,24 +21,24 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
       }}
     >
       <div style={{
-        width: 52, height: 52, borderRadius: "var(--radius-pill)",
+        width: 52, height: 52, borderRadius: "var(--radius-full)",
         background: child.photo_url ? `url(${child.photo_url}) center/cover` : child.color_hex,
         border: `3px solid ${child.color_hex}`,
         flexShrink: 0,
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 16, fontWeight: "var(--weight-body-strong)", color: "var(--hyeni-ink-900)" }}>{child.name}</div>
-        <div style={{ fontSize: 14, color: "var(--hyeni-ink-500)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: "var(--weight-body)" }}>
+        <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>{child.name}</div>
+        <div style={{ fontSize: 14, color: "var(--fg-tertiary)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: "var(--weight-medium)" }}>
           {location || "위치 확인 중..."}
         </div>
-        <div style={{ fontSize: 12, color: "var(--hyeni-ink-700)", marginTop: 4, fontWeight: "var(--weight-body)" }}>
+        <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 4, fontWeight: "var(--weight-medium)" }}>
           ⏱️ 오늘 화면켜짐 {screenLabel || "0분"}
         </div>
       </div>
       <div style={{ display: "flex", gap: 4 }}>
         {safetyDots.map((color, i) => (
           <div key={i} data-safety-dot style={{
-            width: 8, height: 8, borderRadius: "var(--radius-pill)",
+            width: 8, height: 8, borderRadius: "var(--radius-full)",
             background: DOT_COLORS[color] || "#D1D5DB",
           }} />
         ))}
