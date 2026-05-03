@@ -39,39 +39,6 @@
   --hyeni-shadow-card: 0 4px 12px rgba(180, 120, 150, 0.10);
 }
 
-:root[data-theme="dark"] {
-  --hyeni-brand: #ff8cba;
-  --hyeni-brand-dark: #f779a8;
-  --hyeni-pink: #ff8cba;
-  --hyeni-pink-deep: #ff6ba6;
-  --hyeni-pink-text: #ffb3d0;
-  --hyeni-pink-soft: rgba(247, 121, 168, 0.10);
-  --hyeni-pink-line: rgba(247, 121, 168, 0.22);
-  --hyeni-pink-line-strong: rgba(247, 121, 168, 0.40);
-  --hyeni-cream: rgba(255, 200, 150, 0.06);
-  --hyeni-parent: #5b9dff;
-  --hyeni-parent-deep: #3b82f6;
-  --hyeni-success: #2dd478;
-  --hyeni-ink: #f4f4f5;
-  --hyeni-muted: #a1a1aa;
-  --hyeni-line: rgba(255, 255, 255, 0.10);
-  --hyeni-cat-school: #c4b5fd;
-  --hyeni-cat-school-bg: rgba(167, 139, 250, 0.18);
-  --hyeni-cat-sports: #6ee7b7;
-  --hyeni-cat-sports-bg: rgba(52, 211, 153, 0.18);
-  --hyeni-cat-hobby: #fbbf24;
-  --hyeni-cat-hobby-bg: rgba(245, 158, 11, 0.18);
-  --hyeni-cat-family: #fca5a5;
-  --hyeni-cat-family-bg: rgba(248, 113, 113, 0.18);
-  --hyeni-cat-friend: #93c5fd;
-  --hyeni-cat-friend-bg: rgba(96, 165, 250, 0.18);
-  --hyeni-cat-other: #f9a8d4;
-  --hyeni-cat-other-bg: rgba(236, 72, 153, 0.18);
-  --hyeni-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.32);
-  --hyeni-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.40);
-  --hyeni-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.48);
-}
-
 .hyeni-app-shell {
   color: var(--hyeni-ink);
   isolation: isolate;
