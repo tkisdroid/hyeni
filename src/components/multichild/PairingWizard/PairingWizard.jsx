@@ -184,10 +184,8 @@ function Step1FamilyName({ value, onChange, onNext }) {
         <input
           type="text" value={value} onChange={(e) => onChange(e.target.value)}
           placeholder="예) 혜니네" maxLength={20}
-          style={{
-            display: "block", width: "100%", padding: "12px 14px", marginTop: 6,
-            borderRadius: 12, border: "1.5px solid #E5E7EB", fontSize: 16,
-          }}
+          className="input"
+          style={{ marginTop: 6 }}
         />
       </label>
       <button

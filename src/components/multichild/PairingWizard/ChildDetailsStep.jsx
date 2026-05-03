@@ -29,10 +29,8 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
         <input
           type="text" value={child.name} maxLength={20} placeholder="자녀 이름"
           onChange={(e) => update({ name: e.target.value })}
-          style={{
-            display: "block", width: "100%", padding: "12px 14px", marginTop: 6,
-            borderRadius: 12, border: "1.5px solid #E5E7EB", fontSize: 16,
-          }}
+          className="input"
+          style={{ marginTop: 6 }}
         />
       </label>
 
