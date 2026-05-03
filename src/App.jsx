@@ -12420,25 +12420,16 @@ export default function KidsScheduler() {
                       flexShrink: 0,
                     }}
                   />
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    <span style={{ color: activeTint, fontWeight: "var(--weight-bold)" }}>{selectedChild.name}</span>
-                    <span style={{ color: "var(--fg-tertiary)", fontWeight: "var(--weight-medium)" }}> 관리 중</span>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", fontSize: 15, overflow: "hidden", textOverflow: "ellipsis" }}>{selectedChild.name}</span>
+                    <span aria-hidden="true" style={{ display: "inline-block", width: 4, height: 4, borderRadius: "var(--radius-full)", background: activeTint, flexShrink: 0 }} />
+                    <span style={{ color: "var(--fg-secondary)", fontWeight: "var(--weight-medium)", fontSize: 12 }}>관리 중</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "var(--weight-bold)",
-                      color: "var(--fg-secondary)",
-                      background: "white",
-                      border: "1px solid var(--line-default)",
-                      borderRadius: "var(--radius-control)",
-                      padding: "6px 12px",
-                      cursor: "pointer",
-                      fontFamily: FF,
-                      flexShrink: 0,
-                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontFamily: FF, flexShrink: 0 }}
                     aria-label="가족 홈으로 돌아가기"
                   >
                     🏡 홈
