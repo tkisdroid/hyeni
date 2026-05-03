@@ -28,6 +28,7 @@ import { FeatureLockOverlay } from "./components/paywall/FeatureLockOverlay.jsx"
 import { TrialEndingBanner } from "./components/paywall/TrialEndingBanner.jsx";
 import { AutoRenewalDisclosure } from "./components/paywall/AutoRenewalDisclosure.jsx";
 import { SubscriptionManagement } from "./components/settings/SubscriptionManagement.jsx";
+import { ThemeSettings } from "./components/settings/ThemeSettings.jsx";
 import FriendPlaydatePanel from "./components/friendPlaydate/FriendPlaydatePanel.jsx";
 import FriendPlaydateChildPanel from "./components/friendPlaydate/FriendPlaydateChildPanel.jsx";
 import ActivePlaydateBanner from "./components/friendPlaydate/ActivePlaydateBanner.jsx";
@@ -7423,6 +7424,7 @@ export default function KidsScheduler() {
     const [pendingProduct, setPendingProduct] = useState(null);
     const [showRemoteAudio, setShowRemoteAudio] = useState(false);
     const [showSubscriptionSettings, setShowSubscriptionSettings] = useState(false);
+    const [showThemeSettings, setShowThemeSettings] = useState(false);
     const [showMicPermissionHelp, setShowMicPermissionHelp] = useState(false);
     // Child onboarding wizard: shown by default when native setup is incomplete
     // and the user hasn't dismissed it; collapses automatically when every step
@@ -11112,6 +11114,14 @@ export default function KidsScheduler() {
             palette: { bg: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: DESIGN.colors.brand, shadow: "rgba(190,24,93,0.14)" },
             onClick: () => setShowSubscriptionSettings(true),
         } : null,
+        {
+            key: "theme",
+            icon: "🌗",
+            label: "테마",
+            ariaLabel: "🌗 테마 설정",
+            palette: { bg: "linear-gradient(135deg,#F4F4F5,#E4E4E7)", color: "var(--fg-primary)", shadow: "rgba(0,0,0,0.08)" },
+            onClick: () => setShowThemeSettings(true),
+        },
         isParent && parentCapabilities.canEditParentPhones ? {
             key: "contacts",
             icon: "📞",
@@ -13352,6 +13362,11 @@ export default function KidsScheduler() {
                     setShowDisclosure(false);
                     setPendingProduct(null);
                 }}
+            />
+
+            <ThemeSettings
+                open={showThemeSettings}
+                onClose={() => setShowThemeSettings(false)}
             />
 
             {showSubscriptionSettings && (
