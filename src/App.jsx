@@ -2175,13 +2175,13 @@ function RoleSetupModal({ onSelect, loading }) {
                         <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>›</span>
                     </button>
                     <button onClick={handleChild}
-                        style={{ padding: "16px", background: DESIGN.gradients.primary, color: "white", border: "1px solid color-mix(in srgb, var(--theme-accent) 60%, transparent)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", gap: 14 }}>
-                        <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🐰</span>
+                        style={{ padding: "16px", background: "var(--hyeni-product-surface-solid)", color: "var(--theme-accent-text)", border: "1px solid var(--hyeni-product-border)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "none", display: "flex", alignItems: "center", gap: 14 }}>
+                        <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, background: "var(--theme-accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🐰</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>아이</span>
-                            <span style={{ display: "block", fontSize: 13, opacity: 0.86, marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>부모님 코드로 연결하고 내 일정을 확인해요</span>
+                            <span style={{ display: "block", fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>부모님 코드로 연결하고 내 일정을 확인해요</span>
                         </span>
-                        <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 900, flexShrink: 0 }}>›</span>
+                        <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>›</span>
                     </button>
                 </div>
             </div>
@@ -4778,7 +4778,7 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
         <main className="hyeni-memo-page" aria-label="오늘의 메모 페이지">
             <div className="hyeni-memo-phone">
                 <header className="hyeni-memo-header">
-                    <button type="button" className="hyeni-memo-back" onClick={onClose} aria-label="메모 닫기">‹</button>
+                    <button type="button" className="hyeni-memo-back" onClick={onClose} aria-label="메모 닫기">×</button>
                     <div className="hyeni-memo-title-block">
                         <h1>{title}</h1>
                         <p><span aria-hidden="true" />{subtitle}</p>
@@ -12801,10 +12801,6 @@ export default function KidsScheduler() {
                     </div>
 
                     <section ref={parentCalendarRef} id="parent-calendar-section" aria-label="캘린더">
-                        <div className="hyeni-v5-section-head">
-                            <span>캘린더</span>
-                            <span className="hyeni-v5-section-meta">{currentYear}년 {currentMonth + 1}월</span>
-                        </div>
                         {renderParentCalendarGrid("parent-main")}
                     </section>
 
