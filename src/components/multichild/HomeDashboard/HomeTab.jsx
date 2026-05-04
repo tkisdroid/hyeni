@@ -33,7 +33,7 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
     <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 20 }}>
       <section>
         <h3 style={sectionLabelStyle}>
-          자녀 ({children.length}명){onSelectChild ? " — 탭하여 관리" : ""}
+          등록된 아이가 {children.length}명 있어요{onSelectChild ? " · 카드를 누르면 자세히 봐요" : ""}
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {children.map((c) => (
