@@ -885,7 +885,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
 
     return (
         <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF, padding: 20 }}>
-            <div style={makeCardStyle({ padding: "32px 24px", maxWidth: 380, width: "100%", textAlign: "center" })}>
+            <div style={makeCardStyle({ padding: "32px 24px", maxWidth: 460, width: "100%", textAlign: "center" })}>
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                     <AppBrandLogo size={76} radius={22} />
                 </div>
@@ -12642,6 +12642,10 @@ export default function KidsScheduler() {
                     <div className="hyeni-v5-kids-grid">
                         {dashboardChildren.map((child, index) => {
                             const childLocationLabel = getDashboardChildLocationLabel(child, index);
+                            const childIsLive = !!getDashboardChildPosition(child, index);
+                            const nextLabel = nextTodayEvent
+                                ? `다음 일정 · ${nextTodayEvent.time || ""}${nextTodayEvent.time && nextTodayEvent.title ? " " : ""}${nextTodayEvent.title || ""}`.trim()
+                                : "오늘 일정 없음";
                             return (
                                 <button
                                     key={child.user_id || child.id || index}
@@ -12649,24 +12653,26 @@ export default function KidsScheduler() {
                                     onClick={() => setShowChildTracker(true)}
                                     className="hyeni-v5-kid-card"
                                     style={{ cursor: "pointer", fontFamily: FF }}
+                                    aria-label={`${child.name || "아이"} 현황 · ${childLocationLabel} · ${nextLabel}`}
                                 >
                                     <span
                                         className={`hyeni-v5-kid-avatar ${index % 2 === 1 ? "blue" : ""}`}
                                         style={child.photo_url ? { backgroundImage: `url(${child.photo_url})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}
                                     >
                                         {child.photo_url ? "" : (child.emoji || (child.name ? child.name.trim()[0] : "👶"))}
-                                        {getDashboardChildPosition(child, index) && <span className="live" />}
+                                        {childIsLive && <span className="live" />}
                                     </span>
                                     <span className="hyeni-v5-kid-info">
                                         <span className="hyeni-v5-kid-name">{child.name || "아이"}</span>
-                                        <span className="hyeni-v5-kid-loc">
-                                            <span aria-hidden="true">{getDashboardChildPosition(child, index) ? "📍" : "🕘"}</span>
+                                        <span className={`hyeni-v5-kid-loc${childIsLive ? " is-live" : ""}`}>
+                                            <span aria-hidden="true">{childIsLive ? "📍" : "🕘"}</span>
                                             <span>{childLocationLabel}</span>
                                         </span>
-                                        <span className="hyeni-v5-kid-next">
-                                            {nextTodayEvent ? `다음 일정 · ${nextTodayEvent.time}` : "오늘 일정 없음"}
+                                        <span className={`hyeni-v5-kid-next${nextTodayEvent ? " has-event" : ""}`}>
+                                            {nextLabel}
                                         </span>
                                     </span>
+                                    <span className="hyeni-v5-kid-chev" aria-hidden="true">›</span>
                                 </button>
                             );
                         })}

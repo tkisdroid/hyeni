@@ -7,21 +7,21 @@
 }
 
 :root {
-  --hyeni-brand: #e65c92;
-  --hyeni-brand-dark: #c4447a;
-  --hyeni-pink: #f779a8;
-  --hyeni-pink-deep: #e65c92;
-  --hyeni-pink-text: #b0477a;
-  --hyeni-pink-soft: #fff5fa;
-  --hyeni-pink-line: #ffe4ef;
-  --hyeni-pink-line-strong: #ffd4e7;
+  --hyeni-brand: var(--theme-accent);
+  --hyeni-brand-dark: var(--theme-accent-text);
+  --hyeni-pink: var(--theme-accent);
+  --hyeni-pink-deep: var(--theme-accent-deep);
+  --hyeni-pink-text: var(--theme-accent-text);
+  --hyeni-pink-soft: var(--theme-accent-soft);
+  --hyeni-pink-line: var(--theme-accent-line);
+  --hyeni-pink-line-strong: var(--theme-accent-line);
   --hyeni-cream: #fff8f2;
   --hyeni-parent: #3b82f6;
   --hyeni-parent-deep: #2563eb;
   --hyeni-success: #059669;
   --hyeni-ink: #38252d;
   --hyeni-muted: #9b7c85;
-  --hyeni-line: #f3e9ec;
+  --hyeni-line: var(--theme-accent-line);
   --hyeni-cat-school: #a78bfa;
   --hyeni-cat-school-bg: #ede9fe;
   --hyeni-cat-sports: #34d399;
@@ -34,9 +34,22 @@
   --hyeni-cat-friend-bg: #dbeafe;
   --hyeni-cat-other: #ec4899;
   --hyeni-cat-other-bg: #fce7f3;
-  --hyeni-shadow-xs: 0 1px 2px rgba(232, 121, 160, 0.06);
-  --hyeni-shadow-sm: 0 2px 8px rgba(232, 121, 160, 0.10);
-  --hyeni-shadow-card: 0 4px 12px rgba(180, 120, 150, 0.10);
+  --hyeni-shadow-xs: 0 1px 2px color-mix(in srgb, var(--theme-accent) 6%, transparent);
+  --hyeni-shadow-sm: 0 2px 8px color-mix(in srgb, var(--theme-accent) 10%, transparent);
+  --hyeni-shadow-card: 0 4px 12px color-mix(in srgb, var(--theme-accent) 10%, transparent);
+  --hyeni-theme-gradient: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-deep) 100%);
+  --hyeni-theme-shadow: 0 10px 24px color-mix(in srgb, var(--theme-accent) 20%, transparent);
+  --hyeni-theme-shadow-soft: 0 6px 18px color-mix(in srgb, var(--theme-accent) 12%, transparent);
+  --hyeni-surface-warm: #fffbf8;
+  --hyeni-surface-cream: #fff8f2;
+
+  /* Theme accent — overridden at runtime by lib/theme.js applyThemeColor()
+     based on the active child's color_hex. Defaults to pink (혜니 brand). */
+  --theme-accent:      #F779A8;
+  --theme-accent-deep: #E65C92;
+  --theme-accent-soft: #FFF5FA;
+  --theme-accent-line: #FFE4EF;
+  --theme-accent-text: #B0477A;
 }
 
 .hyeni-app-shell {
@@ -59,12 +72,37 @@
   touch-action: manipulation;
 }
 
+.hyeni-app-shell button,
+.hyeni-app-shell a,
+.hyeni-app-shell [role="button"],
+.hyeni-app-shell [role="tab"],
+.hyeni-app-shell [role="radio"],
+.hyeni-app-shell [aria-pressed],
+.hyeni-app-shell [style*="cursor: pointer"],
+.hyeni-app-shell [style*="cursor:pointer"],
+.hyeni-app-shell [style*="cursor: grab"],
+.hyeni-app-shell [style*="cursor: ns-resize"],
+.hyeni-app-shell .btn,
+.hyeni-app-shell .hyeni-v5-action-chip,
+.hyeni-app-shell .hyeni-v5-event-card,
+.hyeni-app-shell .hyeni-v5-calendar-day,
+.hyeni-app-shell .hyeni-v5-tabbar button,
+.hyeni-app-shell .hyeni-tool-button,
+.hyeni-app-shell .hyeni-memo-quick-row button,
+.hyeni-app-shell .hyeni-memo-input-shell button {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  touch-action: manipulation;
+}
+
 .hyeni-app-shell button:focus-visible,
 .hyeni-app-shell input:focus-visible,
 .hyeni-app-shell textarea:focus-visible,
 .hyeni-app-shell select:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(232, 121, 160, 0.28);
+  outline: 3px solid color-mix(in srgb, var(--theme-accent) 28%, transparent);
   outline-offset: 2px;
 }
 
@@ -163,7 +201,7 @@ a:focus-visible {
   color: var(--fg-secondary);
   font-size: 13px;
   font-weight: var(--weight-bold);
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
 }
 
 .hyeni-v5-parent-main .hyeni-v5-section-head > span:first-child {
@@ -219,7 +257,7 @@ a:focus-visible {
 
 .hyeni-v5-kids-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
@@ -252,12 +290,12 @@ a:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff5fa;
+  background: var(--theme-accent-soft);
   font-size: 20px;
 }
 
 .hyeni-v5-kid-avatar.blue {
-  background: #dbeafe;
+  background: var(--theme-accent-soft);
 }
 
 .hyeni-v5-kid-avatar .live {
@@ -277,12 +315,18 @@ a:focus-visible {
   z-index: 1;
   min-width: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
 }
 
 .hyeni-v5-kid-name {
   color: var(--hyeni-ink);
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -291,32 +335,62 @@ a:focus-visible {
 .hyeni-v5-kid-loc {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 2px;
-  color: var(--hyeni-success);
-  font-size: 10px;
-  font-weight: 700;
+  gap: 5px;
+  margin-top: 0;
+  color: var(--fg-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
   min-width: 0;
 }
 
-.hyeni-v5-kid-loc span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-height: 1.25;
+.hyeni-v5-kid-loc.is-live {
+  color: var(--hyeni-success);
+  font-weight: 700;
 }
 
-.hyeni-v5-kid-next {
+.hyeni-v5-kid-loc > span:first-child {
+  flex: none;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.hyeni-v5-kid-loc > span:last-child {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-top: 3px;
+  line-height: 1.3;
+}
+
+.hyeni-v5-kid-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 0;
   color: var(--fg-tertiary);
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hyeni-v5-kid-next.has-event {
+  color: var(--theme-accent-text);
+  font-weight: 700;
+}
+
+.hyeni-v5-kid-chev {
+  flex: none;
+  align-self: center;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--fg-tertiary);
+  margin-left: 2px;
 }
 
 .hyeni-v5-action-rail {
@@ -433,7 +507,7 @@ a:focus-visible {
   overflow: visible;
   min-height: 68px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 228, 239, 0.82);
+  border: 1px solid var(--theme-accent-line);
   border-left: 3px solid var(--event-color);
   border-radius: 16px;
   box-shadow: none;
@@ -509,8 +583,8 @@ a:focus-visible {
 }
 
 .hyeni-v5-event-card.is-current {
-  border-color: #ffe4ef;
-  box-shadow: 0 8px 22px rgba(247, 121, 168, 0.18), 0 2px 6px rgba(247, 121, 168, 0.10);
+  border-color: var(--theme-accent-line);
+  box-shadow: var(--hyeni-theme-shadow-soft);
 }
 
 .hyeni-v5-event-card.is-past {
@@ -605,8 +679,8 @@ a:focus-visible {
 }
 
 .hyeni-v5-chip.memo {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
 }
 
 .hyeni-v5-event-tag {
@@ -636,7 +710,7 @@ a:focus-visible {
 
 .hyeni-v5-empty {
   padding: 22px 16px;
-  border: 1px dashed #ffd4e7;
+  border: 1px dashed var(--theme-accent-line);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
   color: var(--hyeni-muted);
@@ -654,24 +728,17 @@ a:focus-visible {
   margin-top: 10px;
   min-height: 58px;
   padding: 10px 13px;
-  border: 0;
+  border: 1px solid var(--theme-accent-line);
   border-radius: 18px;
-  background: linear-gradient(135deg, #fff7e5, #fef3c7);
-  box-shadow: 0 3px 10px rgba(245, 158, 11, 0.12);
+  background: linear-gradient(135deg, var(--theme-accent-soft), var(--hyeni-surface-warm));
+  box-shadow: var(--hyeni-theme-shadow-soft);
   color: var(--hyeni-ink);
   text-align: left;
   cursor: pointer;
 }
 
 .hyeni-v5-memo-mini::after {
-  content: "";
-  position: absolute;
-  top: -15px;
-  right: -15px;
-  width: 60px;
-  height: 60px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.16), transparent 70%);
+  display: none;
 }
 
 .hyeni-v5-memo-icon {
@@ -685,7 +752,9 @@ a:focus-visible {
   align-items: center;
   justify-content: center;
   background: white;
-  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.18);
+  border: 1px solid var(--theme-accent-line);
+  box-shadow: none;
+  color: var(--theme-accent-text);
   font-size: 18px;
 }
 
@@ -701,7 +770,7 @@ a:focus-visible {
 
 .hyeni-v5-memo-label {
   margin-bottom: 1px;
-  color: #92400e;
+  color: var(--theme-accent-text);
   font-size: 9px;
   font-weight: 900;
 }
@@ -732,8 +801,9 @@ a:focus-visible {
   padding: 2px 8px;
   border-radius: 999px;
   background: white;
-  color: #92400e;
-  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.18);
+  color: var(--theme-accent-text);
+  border: 1px solid var(--theme-accent-line);
+  box-shadow: none;
   font-size: 11px;
   font-weight: 900;
 }
@@ -767,7 +837,7 @@ a:focus-visible {
   justify-content: center;
   border-radius: 16px;
   background: #fff;
-  box-shadow: 0 6px 14px rgba(251, 113, 133, 0.18);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   font-size: 22px;
 }
 
@@ -779,7 +849,7 @@ a:focus-visible {
 }
 
 .hyeni-child-memo-card-kicker {
-  color: #be185d;
+  color: var(--theme-accent-text);
   font-size: 10px;
   font-weight: 900;
 }
@@ -818,8 +888,8 @@ a:focus-visible {
   justify-content: center;
   border-radius: 999px;
   background: #fff;
-  color: #be185d;
-  box-shadow: 0 4px 10px rgba(251, 113, 133, 0.18);
+  color: var(--theme-accent-text);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   font-size: 12px;
   font-weight: 900;
 }
@@ -843,10 +913,10 @@ a:focus-visible {
   flex-direction: column;
   border-radius: 30px;
   background:
-    radial-gradient(circle at 12px 12px, rgba(247, 121, 168, 0.08) 1.3px, transparent 1.4px) 0 0 / 18px 18px,
-    linear-gradient(180deg, #fff8fb 0%, #fffdf9 100%);
-  box-shadow: 0 18px 44px rgba(196, 68, 122, 0.14);
-  border: 1px solid rgba(255, 212, 231, 0.92);
+    radial-gradient(circle at 12px 12px, color-mix(in srgb, var(--theme-accent) 8%, transparent) 1.3px, transparent 1.4px) 0 0 / 18px 18px,
+    linear-gradient(180deg, var(--theme-accent-soft) 0%, #fffdf9 100%);
+  box-shadow: var(--hyeni-theme-shadow);
+  border: 1px solid var(--theme-accent-line);
 }
 
 .hyeni-parent-memo-shell .hyeni-memo-page {
@@ -870,9 +940,9 @@ a:focus-visible {
 }
 
 .hyeni-child-memo-shell .hyeni-memo-phone {
-  background: linear-gradient(180deg, #fff7ed 0%, #fff1f2 48%, #ecfeff 100%);
-  border-color: rgba(251, 207, 232, 0.96);
-  box-shadow: 0 18px 44px rgba(251, 113, 133, 0.16);
+  background: linear-gradient(180deg, var(--hyeni-surface-warm) 0%, var(--theme-accent-soft) 58%, #ecfeff 100%);
+  border-color: var(--theme-accent-line);
+  box-shadow: var(--hyeni-theme-shadow);
 }
 
 .hyeni-child-memo-shell .hyeni-memo-header,
@@ -890,17 +960,17 @@ a:focus-visible {
 }
 
 .hyeni-child-memo-shell .hyeni-memo-back {
-  color: #be185d;
+  color: var(--theme-accent-text);
 }
 
 .hyeni-child-memo-shell .hyeni-memo-message.mine .hyeni-memo-bubble,
 .hyeni-child-memo-shell .hyeni-memo-input-shell button {
-  background: linear-gradient(135deg, #fb7185, #ec4899);
+  background: var(--hyeni-theme-gradient);
 }
 
 .hyeni-child-memo-shell .hyeni-memo-sticker-card {
-  background: linear-gradient(135deg, #fef3c7, #ccfbf1);
-  color: #0f766e;
+  background: linear-gradient(135deg, var(--theme-accent-soft), var(--hyeni-surface-warm));
+  color: var(--theme-accent-text);
 }
 
 .hyeni-memo-header {
@@ -909,7 +979,7 @@ a:focus-visible {
   align-items: center;
   gap: 12px;
   padding: 0 18px;
-  border-bottom: 1px solid rgba(255, 212, 231, 0.8);
+  border-bottom: 1px solid var(--theme-accent-line);
   background: rgba(255, 250, 253, 0.84);
 }
 
@@ -921,7 +991,7 @@ a:focus-visible {
   border-radius: 999px;
   background: #fff;
   color: var(--hyeni-pink-deep);
-  box-shadow: 0 4px 14px rgba(196, 68, 122, 0.12);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   cursor: pointer;
   font-size: 23px;
   font-weight: 900;
@@ -974,7 +1044,7 @@ a:focus-visible {
 
 .hyeni-memo-date-row span {
   height: 1px;
-  background: rgba(255, 178, 210, 0.65);
+  background: var(--theme-accent-line);
 }
 
 .hyeni-memo-date-row strong {
@@ -982,7 +1052,7 @@ a:focus-visible {
   border-radius: 999px;
   background: #fff;
   color: var(--hyeni-pink-deep);
-  box-shadow: 0 4px 12px rgba(196, 68, 122, 0.10);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   font-size: 11px;
   font-weight: 900;
 }
@@ -990,7 +1060,7 @@ a:focus-visible {
 .hyeni-memo-empty {
   margin: 24px 10px;
   padding: 24px 18px;
-  border: 1px dashed rgba(247, 121, 168, 0.44);
+  border: 1px dashed var(--theme-accent-line);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.72);
   text-align: center;
@@ -1042,7 +1112,7 @@ a:focus-visible {
 .hyeni-memo-avatar.small {
   width: 34px;
   height: 34px;
-  background: #fce7f3;
+  background: var(--theme-accent-soft);
   font-size: 17px;
 }
 
@@ -1076,7 +1146,7 @@ a:focus-visible {
   border-radius: 4px 18px 18px;
   background: #fff;
   color: var(--hyeni-ink);
-  box-shadow: 0 8px 18px rgba(196, 68, 122, 0.08);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   font-size: 14px;
   font-weight: 800;
   line-height: 1.55;
@@ -1085,9 +1155,9 @@ a:focus-visible {
 
 .hyeni-memo-message.mine .hyeni-memo-bubble {
   border-radius: 18px 4px 18px 18px;
-  background: linear-gradient(135deg, #ff8fbe, #f35f9b);
+  background: var(--hyeni-theme-gradient);
   color: #fff;
-  box-shadow: 0 10px 18px rgba(247, 121, 168, 0.22);
+  box-shadow: var(--hyeni-theme-shadow-soft);
 }
 
 .hyeni-memo-read {
@@ -1105,8 +1175,8 @@ a:focus-visible {
   margin: 14px 0 12px;
   padding: 15px 18px;
   border-radius: 18px;
-  background: linear-gradient(135deg, #fff4ad, #ffe27a);
-  color: #92400e;
+  background: linear-gradient(135deg, var(--theme-accent-soft), var(--hyeni-surface-warm));
+  color: var(--theme-accent-text);
   box-shadow: none;
   width: 100%;
   box-sizing: border-box;
@@ -1140,10 +1210,10 @@ a:focus-visible {
   min-height: 36px;
   padding: 8px 13px;
   border-radius: 999px;
-  border: 1.5px solid #ffd4e7;
+  border: 1.5px solid var(--theme-accent-line);
   background: #fff;
   color: var(--hyeni-pink-deep);
-  box-shadow: 0 4px 10px rgba(196, 68, 122, 0.08);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   font-size: 12px;
   font-weight: 900;
   cursor: pointer;
@@ -1151,7 +1221,7 @@ a:focus-visible {
 
 .hyeni-memo-composer {
   padding: 12px 18px max(16px, env(safe-area-inset-bottom));
-  border-top: 1px solid rgba(255, 212, 231, 0.86);
+  border-top: 1px solid var(--theme-accent-line);
   background: rgba(255, 255, 255, 0.92);
 }
 
@@ -1161,10 +1231,10 @@ a:focus-visible {
   align-items: center;
   gap: 8px;
   padding: 6px 6px 6px 16px;
-  border: 2px solid #ffd4e7;
+  border: 2px solid var(--theme-accent-line);
   border-radius: 999px;
   background: #fff;
-  box-shadow: 0 5px 16px rgba(196, 68, 122, 0.10);
+  box-shadow: var(--hyeni-theme-shadow-soft);
 }
 
 .hyeni-memo-input-shell input {
@@ -1188,7 +1258,7 @@ a:focus-visible {
   height: 40px;
   border: 0;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ff8fbe, #ec4899);
+  background: var(--hyeni-theme-gradient);
   color: #fff;
   font-size: 20px;
   font-weight: 900;
@@ -1241,9 +1311,9 @@ a:focus-visible {
   height: 44px;
   border: 0;
   border-radius: 16px;
-  background: linear-gradient(135deg, #f9a8d4, #e879a0);
+  background: var(--hyeni-theme-gradient);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(232, 121, 160, 0.22);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   font-size: 24px;
   font-weight: 900;
   cursor: pointer;
@@ -1252,7 +1322,7 @@ a:focus-visible {
 .hyeni-v5-calendar-card {
   width: 100%;
   padding: 18px 14px 16px;
-  border: 1px solid rgba(255, 228, 239, 0.92);
+  border: 1px solid var(--theme-accent-line);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: none;
@@ -1295,7 +1365,7 @@ a:focus-visible {
   border-radius: 999px;
   background: #fff;
   color: var(--hyeni-pink-deep);
-  box-shadow: 0 4px 10px rgba(247, 121, 168, 0.15);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   font-size: 18px;
   font-weight: 900;
   cursor: pointer;
@@ -1326,10 +1396,10 @@ a:focus-visible {
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
   padding: 12px 8px;
-  border: 2px solid rgba(255, 228, 239, 0.8);
+  border: 2px solid var(--theme-accent-line);
   border-radius: 22px;
   background: #fff;
-  box-shadow: 0 6px 20px rgba(180, 120, 150, 0.10);
+  box-shadow: var(--hyeni-theme-shadow-soft);
 }
 
 .hyeni-v5-calendar-empty-cell {
@@ -1352,9 +1422,9 @@ a:focus-visible {
 }
 
 .hyeni-v5-calendar-day.today {
-  background: linear-gradient(135deg, #f779a8, #e65c92);
+  background: var(--hyeni-theme-gradient);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(247, 121, 168, 0.35);
+  box-shadow: var(--hyeni-theme-shadow-soft);
 }
 
 .hyeni-v5-calendar-day.selected {
@@ -1437,9 +1507,9 @@ a:focus-visible {
 }
 
 .hyeni-v5-plus-button {
-  background: linear-gradient(135deg, #f9a8d4, #e879a0);
+  background: var(--hyeni-theme-gradient);
   color: white;
-  box-shadow: 0 8px 18px rgba(232, 121, 160, 0.22);
+  box-shadow: var(--hyeni-theme-shadow-soft);
   font-size: 24px;
 }
 
@@ -1452,10 +1522,10 @@ a:focus-visible {
   gap: 2px;
   margin-top: 14px;
   padding: 7px 8px;
-  border: 1px solid rgba(255, 228, 239, 0.92);
+  border: 1px solid var(--theme-accent-line);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 14px 34px rgba(196, 68, 122, 0.14);
+  box-shadow: var(--hyeni-theme-shadow);
   backdrop-filter: blur(14px);
 }
 
@@ -1478,9 +1548,9 @@ a:focus-visible {
 }
 
 .hyeni-v5-tabbar button.active {
-  background: linear-gradient(135deg, #f779a8, #e65c92);
+  background: var(--hyeni-theme-gradient);
   color: white;
-  box-shadow: 0 8px 16px rgba(247, 121, 168, 0.22);
+  box-shadow: var(--hyeni-theme-shadow-soft);
 }
 
 .hyeni-v5-maplist-with-tabbar {
@@ -2265,8 +2335,541 @@ a:focus-visible {
   .hyeni-tool-modal { padding: 18px 18px 16px; }
 }
 
+/* ===========================================================================
+   Soft Brand theme pass
+   ---------------------------------------------------------------------------
+   Keeps app behavior unchanged while reducing unrelated color usage. Semantic
+   emergency/success/warning colors remain owned by their local components.
+   =========================================================================== */
+.hyeni-app-shell {
+  background-color: var(--hyeni-surface-warm);
+}
+
+.hyeni-app-shell {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.hyeni-app-shell .btn-primary {
+  background: var(--hyeni-theme-gradient);
+  color: var(--fg-on-primary);
+  box-shadow: var(--hyeni-theme-shadow-soft);
+}
+
+.hyeni-app-shell .btn-primary:not(:disabled):hover,
+.hyeni-app-shell .btn-primary:not(:disabled):active {
+  background: linear-gradient(135deg, var(--theme-accent-deep) 0%, var(--theme-accent) 100%);
+}
+
+.hyeni-app-shell .btn-primary:focus-visible {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 18%, transparent);
+}
+
+.hyeni-app-shell .input:focus,
+.hyeni-app-shell .input:focus-visible {
+  border-color: var(--theme-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 18%, transparent) !important;
+}
+
+.hyeni-v1-hero-count,
+.hyeni-v1-live-meta,
+.hyeni-v5-count-accent,
+.hyeni-v5-page-kicker,
+.hyeni-v5-calendar-year,
+.hyeni-v5-calendar-list-head .hyeni-v5-count-accent {
+  color: var(--theme-accent-text);
+}
+
+.hyeni-v5-kid-card,
+.hyeni-v5-action-chip,
+.hyeni-v5-event-card,
+.hyeni-v5-calendar-card {
+  border-color: color-mix(in srgb, var(--theme-accent-line) 62%, var(--line-soft));
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.hyeni-v5-kid-avatar {
+  background: var(--theme-accent-soft);
+}
+
+.hyeni-v5-action-chip {
+  border-radius: 16px;
+}
+
+.hyeni-v5-action-chip:active,
+.hyeni-v5-action-chip:hover {
+  background: var(--theme-accent-soft);
+  border-color: var(--theme-accent-line);
+}
+
+.hyeni-v5-chip.distance {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+}
+
+.hyeni-v5-event-card.is-current {
+  border-color: var(--theme-accent-line);
+  box-shadow: var(--hyeni-theme-shadow-soft);
+}
+
+.hyeni-v5-empty {
+  border-color: color-mix(in srgb, var(--theme-accent-line) 70%, var(--line-soft));
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--fg-tertiary);
+}
+
+.hyeni-v5-page-add,
+.hyeni-v5-plus-button,
+.hyeni-v5-tabbar button.active,
+.hyeni-memo-message.mine .hyeni-memo-bubble,
+.hyeni-memo-input-shell button {
+  background: var(--hyeni-theme-gradient);
+  box-shadow: var(--hyeni-theme-shadow-soft);
+}
+
+.hyeni-v5-calendar-card {
+  border-radius: 18px;
+}
+
+.hyeni-v5-calendar-nav button {
+  color: var(--theme-accent-text);
+  box-shadow: var(--hyeni-theme-shadow-soft);
+}
+
+.hyeni-v5-calendar-grid {
+  border: 1px solid color-mix(in srgb, var(--theme-accent-line) 68%, var(--line-soft));
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.hyeni-v5-calendar-day {
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+}
+
+.hyeni-v5-calendar-day:active {
+  transform: scale(0.96);
+}
+
+.hyeni-v5-calendar-day.today {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+  box-shadow: inset 0 0 0 1px var(--theme-accent-line);
+}
+
+.hyeni-v5-calendar-day.selected {
+  background: var(--hyeni-theme-gradient);
+  color: #fff;
+  box-shadow: var(--hyeni-theme-shadow-soft);
+}
+
+.hyeni-v5-ai-button {
+  background: var(--bg-base);
+  color: var(--theme-accent-text);
+  border: 1px solid var(--theme-accent-line);
+  box-shadow: none;
+}
+
+.hyeni-v5-tabbar {
+  border-color: color-mix(in srgb, var(--theme-accent-line) 68%, var(--line-soft));
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(31, 26, 34, 0.10);
+}
+
+.hyeni-v5-tabbar button.active {
+  color: #fff;
+}
+
+.hyeni-memo-phone {
+  border-radius: 24px;
+  background: linear-gradient(180deg, #fffaf8 0%, #fffdfb 100%);
+  border-color: color-mix(in srgb, var(--theme-accent-line) 72%, var(--line-soft));
+  box-shadow: 0 16px 38px rgba(31, 26, 34, 0.10);
+}
+
+.hyeni-child-memo-shell .hyeni-memo-phone {
+  background: linear-gradient(180deg, var(--hyeni-surface-warm) 0%, var(--theme-accent-soft) 120%);
+  border-color: color-mix(in srgb, var(--theme-accent-line) 78%, var(--line-soft));
+  box-shadow: 0 16px 38px rgba(31, 26, 34, 0.10);
+}
+
+.hyeni-memo-header,
+.hyeni-memo-composer,
+.hyeni-child-memo-shell .hyeni-memo-header,
+.hyeni-child-memo-shell .hyeni-memo-composer {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: color-mix(in srgb, var(--theme-accent-line) 70%, var(--line-soft));
+}
+
+.hyeni-memo-date-row span {
+  background: var(--theme-accent-line);
+}
+
+.hyeni-memo-date-row strong,
+.hyeni-memo-quick-row button {
+  color: var(--theme-accent-text);
+  border-color: var(--theme-accent-line);
+  background: var(--theme-accent-soft);
+  box-shadow: none;
+}
+
+.hyeni-memo-input-shell {
+  border-color: var(--theme-accent-line);
+  box-shadow: none;
+}
+
+.hyeni-memo-sticker-card {
+  background: linear-gradient(135deg, var(--theme-accent-soft), var(--hyeni-surface-warm));
+  box-shadow: none;
+}
+
+.hyeni-child-memo-card {
+  border-color: var(--theme-accent-line);
+  background: linear-gradient(135deg, #fffaf8 0%, var(--theme-accent-soft) 100%);
+}
+
+.hyeni-child-memo-card-icon,
+.hyeni-child-memo-card-count {
+  box-shadow: var(--hyeni-theme-shadow-soft);
+}
+
+.hyeni-tool:not(.hyeni-tool--emergency) .hyeni-tool-card,
+.hyeni-tool:not(.hyeni-tool--emergency) .hyeni-tool-list {
+  border-color: color-mix(in srgb, var(--theme-accent-line) 55%, var(--hyeni-tool-hairline));
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.hyeni-tool:not(.hyeni-tool--emergency):not(.hyeni-tool--friend) {
+  --tool-accent: var(--theme-accent);
+  --tool-accent-strong: var(--theme-accent-deep);
+  --tool-accent-tint: var(--theme-accent-soft);
+  --tool-accent-line: var(--theme-accent-line);
+  --tool-accent-ink: var(--theme-accent-text);
+}
+
 /* Multi-child quick switcher chips — keyboard focus indicator. The chip
    itself uses inline styles so only the :focus-visible ring lives here. */
 .hyeni-child-switch-chip:focus-visible {
   outline-color: #6D28D9;
+}
+
+/* ===========================================================================
+   Product Calm redesign pass
+   ---------------------------------------------------------------------------
+   A restrained product UI layer for the production app. It keeps semantic
+   safety colors intact while pushing routine chrome back to the selected theme.
+   =========================================================================== */
+:root {
+  --hyeni-product-canvas:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--theme-accent-soft) 54%, #fff 46%) 0%,
+      #fffdfb 42%,
+      #fffaf6 100%
+    );
+  --hyeni-product-surface: rgba(255, 255, 255, 0.92);
+  --hyeni-product-surface-solid: #ffffff;
+  --hyeni-product-border: color-mix(in srgb, var(--theme-accent-line) 46%, var(--line-soft));
+  --hyeni-product-border-strong: color-mix(in srgb, var(--theme-accent-line) 70%, var(--line-default));
+  --hyeni-product-shadow: 0 10px 28px rgba(20, 18, 23, 0.07);
+}
+
+.hyeni-app-shell {
+  background: var(--hyeni-product-canvas);
+}
+
+.hyeni-v5-parent-main {
+  width: min(100%, 680px);
+  max-width: 680px;
+  margin: 0 auto 14px;
+  padding-inline: 14px;
+}
+
+.hyeni-v5-parent-main .hyeni-v5-section-head {
+  margin: 18px 0 8px;
+  padding: 0 2px;
+  color: var(--fg-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hyeni-v5-parent-main .hyeni-v5-section-head > span:first-child {
+  color: var(--fg-primary);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.hyeni-v5-section-meta {
+  color: var(--fg-tertiary);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.hyeni-v1-live-meta {
+  color: var(--theme-accent-text);
+}
+
+.hyeni-v5-kids-grid {
+  gap: 8px;
+}
+
+.hyeni-v5-kid-card,
+.hyeni-v5-memo-mini,
+.hyeni-v5-calendar-card,
+.hyeni-v5-event-card,
+.hyeni-v5-empty {
+  border: 1px solid var(--hyeni-product-border);
+  border-radius: 14px;
+  background: var(--hyeni-product-surface);
+  box-shadow: none;
+}
+
+.hyeni-v5-kid-card {
+  min-height: 76px;
+  padding: 12px;
+}
+
+.hyeni-v5-kid-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+}
+
+.hyeni-v5-kid-name,
+.hyeni-v5-event-title,
+.hyeni-v5-calendar-list-head span:first-child {
+  color: var(--fg-primary);
+  font-weight: 850;
+}
+
+.hyeni-v5-kid-loc,
+.hyeni-v5-event-time {
+  color: var(--fg-secondary);
+}
+
+.hyeni-v5-action-rail {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+
+.hyeni-v5-action-chip {
+  min-height: 58px;
+  gap: 5px;
+  padding: 9px 5px;
+  border: 1px solid var(--hyeni-product-border);
+  border-radius: 14px;
+  background: var(--hyeni-product-surface-solid);
+  color: var(--fg-primary) !important;
+  box-shadow: none;
+}
+
+.hyeni-v5-action-chip:hover,
+.hyeni-v5-action-chip:active {
+  border-color: var(--hyeni-product-border-strong);
+  background: var(--theme-accent-soft);
+}
+
+.hyeni-v5-action-chip > span:first-child {
+  color: var(--theme-accent-text);
+  font-size: 17px;
+  font-weight: 850;
+}
+
+.hyeni-v5-action-chip span:last-child {
+  color: var(--fg-secondary);
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.hyeni-v5-memo-mini {
+  min-height: 56px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--hyeni-product-surface-solid);
+}
+
+.hyeni-v5-memo-icon,
+.hyeni-v5-memo-count {
+  border-color: var(--hyeni-product-border);
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+}
+
+.hyeni-v5-event-list {
+  gap: 7px;
+}
+
+.hyeni-v5-event-card {
+  min-height: 66px;
+  padding: 11px 12px;
+}
+
+.hyeni-v1-home-event-list .hyeni-v5-event-card,
+.hyeni-v5-timeline-list .hyeni-v5-event-card {
+  border: 1px solid var(--hyeni-product-border);
+  border-left: 3px solid var(--event-color);
+  border-radius: 14px;
+  background: var(--hyeni-product-surface-solid);
+  box-shadow: none;
+}
+
+.hyeni-v5-event-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+  font-size: 20px;
+}
+
+.hyeni-v5-event-who,
+.hyeni-v5-event-tag,
+.hyeni-v5-chip.distance,
+.hyeni-v5-chip.memo {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+  box-shadow: none;
+}
+
+.hyeni-v5-event-meta,
+.hyeni-v5-event-location {
+  color: var(--fg-tertiary);
+  font-weight: 650;
+}
+
+.hyeni-v5-calendar-card {
+  padding: 15px 12px 14px;
+  background: var(--hyeni-product-surface-solid);
+}
+
+.hyeni-v5-calendar-card-head {
+  margin-bottom: 12px;
+  padding-inline: 3px;
+}
+
+.hyeni-v5-calendar-month {
+  color: var(--fg-primary);
+  font-size: 26px;
+  font-weight: 850;
+}
+
+.hyeni-v5-calendar-year,
+.hyeni-v5-page-kicker,
+.hyeni-v5-count-accent {
+  color: var(--theme-accent-text);
+}
+
+.hyeni-v5-calendar-nav button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--hyeni-product-border);
+  border-radius: 12px;
+  background: var(--hyeni-product-surface-solid);
+  color: var(--theme-accent-text);
+  box-shadow: none;
+}
+
+.hyeni-v5-calendar-grid {
+  gap: 3px;
+  padding: 10px 7px;
+  border: 1px solid var(--hyeni-product-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-subtle) 64%, white);
+  box-shadow: none;
+}
+
+.hyeni-v5-calendar-day {
+  min-height: 38px;
+  border-radius: 10px;
+}
+
+.hyeni-v5-calendar-day.today {
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+  box-shadow: inset 0 0 0 1px var(--theme-accent-line);
+}
+
+.hyeni-v5-calendar-day.selected,
+.hyeni-v5-tabbar button.active,
+.hyeni-v5-page-add,
+.hyeni-v5-plus-button,
+.hyeni-app-shell .btn-primary {
+  background: var(--hyeni-theme-gradient);
+  color: #fff;
+  box-shadow: var(--hyeni-product-shadow);
+}
+
+.hyeni-v5-ai-button {
+  border: 1px solid var(--hyeni-product-border);
+  border-radius: 14px;
+  background: var(--hyeni-product-surface-solid);
+  color: var(--theme-accent-text);
+  box-shadow: none;
+}
+
+.hyeni-v5-add-row {
+  grid-template-columns: minmax(0, 1fr) 46px;
+  gap: 8px;
+}
+
+.hyeni-v5-add-row button {
+  min-height: 44px;
+  border-radius: 14px;
+}
+
+.hyeni-v5-tabbar {
+  width: min(calc(100% - 28px), 680px);
+  padding: 6px;
+  border: 1px solid var(--hyeni-product-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 34px rgba(20, 18, 23, 0.11);
+}
+
+.hyeni-v5-tabbar button {
+  min-height: 46px;
+  border-radius: 12px;
+  color: var(--fg-tertiary);
+  font-weight: 750;
+}
+
+.hyeni-v5-tabbar button span {
+  color: inherit;
+  font-size: 17px;
+}
+
+section[aria-label="아이 기기 사용 지표"] {
+  background: var(--hyeni-product-surface-solid) !important;
+  border: 1px solid var(--hyeni-product-border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+section[aria-label="아이 기기 사용 지표"] > div[style*="grid"] > div,
+section[aria-label="아이 기기 사용 지표"] > div[style*="flex"] > div {
+  border: 1px solid var(--hyeni-product-border) !important;
+  background: color-mix(in srgb, var(--bg-subtle) 72%, white) !important;
+  border-radius: 12px !important;
+}
+
+@media (max-width: 420px) {
+  .hyeni-v5-parent-main {
+    padding-inline: 12px;
+  }
+
+  .hyeni-v5-action-rail {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .hyeni-v5-action-chip {
+    min-height: 56px;
+    padding-inline: 3px;
+  }
 }
