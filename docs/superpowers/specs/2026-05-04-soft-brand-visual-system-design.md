@@ -12,6 +12,8 @@ The app keeps the current 혜니 brand warmth, but the visual system is reduced 
 
 Image model usage is allowed when it produces a clearly better, production-ready visual result, but generated assets must stay aligned with the existing child emoticon/logo direction and must not introduce an AI-generated look. Typography stays on Pretendard, using the existing `public/fonts/PretendardVariable.woff2` and current font-family stack.
 
+The app should use fewer unrelated colors. The theme color selected during first family/child setup must be reflected throughout the app through the existing theme CSS variables, so the product feels intentionally themed rather than decorated with many separate palettes.
+
 ## Non-Goals
 
 - Do not change routing, authentication, pairing, calendar, memo, location, push, subscription, or safety behavior.
@@ -51,6 +53,7 @@ The redesign should not introduce new workflows or change the result of existing
 - Keep Hyeni pink as the brand accent and primary action color.
 - Use cream/off-white page backgrounds rather than saturated pink/orange/blue gradient fields.
 - Use white for most cards, sheets, inputs, and list rows.
+- Use the selected setup theme color through `--theme-accent`, `--theme-accent-deep`, `--theme-accent-soft`, `--theme-accent-line`, and `--theme-accent-text` wherever the UI is not semantically tied to safety, warning, parent, or emergency state.
 - Keep semantic colors stable:
   - parent blue remains parent-related state/action color
   - success green remains safe/live/ready color
@@ -98,6 +101,14 @@ The redesign should not introduce new workflows or change the result of existing
 - Use `user-select: none`, `-webkit-user-select: none`, `touch-action: manipulation`, and stable touch target sizing for controls.
 - Do not disable selection globally for text content that users may reasonably copy, such as pair codes.
 
+### Theme Propagation
+
+- The color chosen in the first setup flow remains the primary visual theme for the app.
+- Existing `ColorPicker` live preview and `applyThemeColor()` behavior should be preserved.
+- App-wide decorative and selection surfaces should prefer theme variables instead of hard-coded pink when the color is not conveying a fixed semantic meaning.
+- Emergency, destructive, success, caution, and parent-role colors keep their semantic values and should not be overridden by the user theme.
+- Multi-child identity colors remain per-child where the UI is comparing children, but the active/selected child theme should drive surrounding chrome where possible.
+
 ## Implementation Architecture
 
 The implementation should be CSS-first.
@@ -108,6 +119,8 @@ Primary files:
 - `src/App.css`: normalize Hyeni app-specific surfaces, cards, calendar, tabbar, memo, and tool styling.
 - `src/App.jsx`: only adjust static inline visual constants if CSS cannot reach them. Do not change handlers, state, effects, data fetching, conditionals, or component structure.
 - Existing component CSS/inline styles under `src/components/**`: only small visual value updates when a component is not covered by global app CSS.
+- `src/lib/theme.js`: preserve existing palette API; extend only if new derived variables are needed for app-wide consistency.
+- `src/components/multichild/PairingWizard/ColorPicker.jsx`: keep live theme preview and make the chosen color feel like an app theme choice, not only a child label.
 - `public/` or `src/assets/`: add generated image assets only if they pass visual review and are referenced by UI code without replacing behavior.
 
 The current `src/App.jsx` monolith policy remains intact. No extraction or behavioral refactor is allowed.
@@ -121,12 +134,14 @@ The current `src/App.jsx` monolith policy remains intact. No extraction or behav
 - Tone down shell gradient and role button shadows.
 - Keep the child role as the stronger branded action when the current structure already emphasizes it.
 - Copy may be shortened or clarified as long as the selected role and login/pairing meaning remain unchanged.
+- First setup copy should communicate that the selected color becomes the family/app theme.
 
 ### Parent Home
 
 - Normalize child cards, action chips, memo preview, event cards, and section headings.
 - Keep existing information density and event order.
 - Keep live/safety dots and status colors.
+- Use theme variables for action chips, selected states, section accents, and non-semantic highlights.
 
 ### Calendar
 
@@ -134,6 +149,7 @@ The current `src/App.jsx` monolith policy remains intact. No extraction or behav
 - Improve calendar visual density, selected/today affordances, and perceived responsiveness without changing date math or event filtering.
 - Reduce saturated button gradients where possible.
 - Keep primary add action visually clear.
+- Use theme variables for selected/today emphasis unless the state has a fixed semantic color.
 
 ### Bottom Tabbar
 
@@ -141,6 +157,7 @@ The current `src/App.jsx` monolith policy remains intact. No extraction or behav
 - Reduce active-state gradient/shadow intensity.
 - Maintain touch target size.
 - Prevent text selection on all tab buttons.
+- Active tab should use the current theme color.
 
 ### Memo
 
@@ -148,6 +165,7 @@ The current `src/App.jsx` monolith policy remains intact. No extraction or behav
 - Reduce patterned/gradient phone backgrounds.
 - Keep child memo variation, but make it consistent with Soft Brand surfaces.
 - Preserve message text selection where it is content, but prevent selection on quick reply buttons and send controls.
+- Sent bubbles, quick replies, and composer accents should use theme variables unless the message belongs to a fixed child identity state.
 
 ### Tool And Safety Screens
 
@@ -155,6 +173,7 @@ The current `src/App.jsx` monolith policy remains intact. No extraction or behav
 - Do not weaken emergency affordance.
 - Use the shared card radius, border, and shallow-shadow rules.
 - Button labels and guidance copy may be clarified where it reduces user error.
+- Do not let theme color override emergency affordance.
 
 ## Error Handling
 
@@ -175,6 +194,7 @@ Required checks after implementation:
 - `npm run build`
 - Mobile browser screenshot at 390x844 for the entry screen
 - Mobile browser check that button taps do not select button text.
+- Browser check that choosing a setup color updates app chrome via CSS variables.
 - Browser check that the app renders without console runtime errors
 - Manual visual scan of:
   - entry/auth screen
@@ -190,15 +210,17 @@ If authenticated production-like flows are not locally reachable without credent
 - App-wide visual tone follows Soft Brand: warm, simple, refined, not AI-generated.
 - Existing child emoticon/logo direction remains the image baseline; any generated asset must look product-ready and non-generic.
 - Pretendard remains the only app font family.
+- The first setup theme color is reflected across the app through existing theme variables.
 - No new dependencies are added.
 - No business logic, API calls, database calls, subscriptions, native calls, or route behavior changes.
 - Build passes after the changes.
 - Text remains readable and controls remain tappable on mobile.
 - Buttons and button-like controls do not accidentally select text during taps/clicks.
+- The app uses fewer unrelated hard-coded colors; theme variables drive non-semantic accents.
 
 ## Spec Self-Review
 
 - Placeholder scan: no placeholders or TODOs remain.
-- Internal consistency: image guidance, typography guidance, selection behavior, and implementation scope all match the selected Soft Brand direction.
+- Internal consistency: image guidance, typography guidance, selected-theme behavior, selection behavior, and implementation scope all match the selected Soft Brand direction.
 - Scope check: the work is a visual-system pass only and does not include feature work.
 - Ambiguity check: image generation is allowed only for product-ready visual polish; behavior changes remain out of scope.
