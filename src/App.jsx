@@ -12102,8 +12102,8 @@ export default function KidsScheduler() {
                 parent header so the chip rail is always reachable from
                 any tab. Only renders for parents with 2+ paired children.
                 Active chip is filled with the child's theme color; the
-                home button only appears when a child is currently
-                selected (so it disappears on the home tab). */}
+                top-bar 🏡 home tab in the bottom tabbar handles the
+                "back to family overview" action. */}
             {isParent && pairedChildren.length >= 2 && (
               <div
                 role="group"
@@ -12178,17 +12178,6 @@ export default function KidsScheduler() {
                     );
                   })}
                 </div>
-                {selectedChild && (
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontFamily: FF, flexShrink: 0 }}
-                    aria-label="가족 홈으로 돌아가기"
-                  >
-                    🏡 홈
-                  </button>
-                )}
               </div>
             )}
 
@@ -12549,40 +12538,165 @@ export default function KidsScheduler() {
             )}
             {activeView === "calendar" && !(isParent && isMultiChild && !selectedChildId) && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
-                    <div className="hyeni-v5-section-head">
-                        <span>아이 현황</span>
-                        <span className="hyeni-v5-section-meta hyeni-v1-live-meta">
-                            {displayChildPos ? "실시간" : "위치 대기"}
-                            {displayChildPos && <span aria-hidden="true">●</span>}
-                        </span>
-                    </div>
-                    <div className="hyeni-v5-kids-grid">
+                    {/* 아이 현황 — full-width hero card per child. The previous
+                        2-col grid wasted half the row because dashboardChildren
+                        is always 1 child here (multi-child + no selection is
+                        excluded by the outer conditional). The hero layout
+                        gives location/next-event labels room to breathe and
+                        carries the active child's theme color via left stripe. */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {dashboardChildren.map((child, index) => {
+                            const pos = getDashboardChildPosition(child, index);
+                            const isLive = Boolean(pos);
                             const childLocationLabel = getDashboardChildLocationLabel(child, index);
+                            const tint = child.color_hex || "#A78BFA";
                             return (
                                 <button
                                     key={child.user_id || child.id || index}
                                     type="button"
                                     onClick={() => setShowChildTracker(true)}
-                                    className="hyeni-v5-kid-card"
-                                    style={{ cursor: "pointer", fontFamily: FF }}
+                                    aria-label={`${child.name || "아이"} 현황 자세히 보기`}
+                                    style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "auto 1fr auto",
+                                        alignItems: "center",
+                                        gap: 14,
+                                        width: "100%",
+                                        padding: "16px 18px",
+                                        border: `1px solid var(--line-soft)`,
+                                        borderLeft: `4px solid ${tint}`,
+                                        borderRadius: "var(--radius-lg)",
+                                        background: "var(--bg-base)",
+                                        boxShadow: "none",
+                                        cursor: "pointer",
+                                        fontFamily: FF,
+                                        textAlign: "left",
+                                        transition: "transform 0.12s ease, border-color 0.12s ease",
+                                    }}
                                 >
                                     <span
-                                        className={`hyeni-v5-kid-avatar ${index % 2 === 1 ? "blue" : ""}`}
-                                        style={child.photo_url ? { backgroundImage: `url(${child.photo_url})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}
+                                        aria-hidden="true"
+                                        style={{
+                                            position: "relative",
+                                            width: 52,
+                                            height: 52,
+                                            borderRadius: "var(--radius-full)",
+                                            background: child.photo_url
+                                                ? `url(${child.photo_url}) center/cover`
+                                                : tint,
+                                            color: "white",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            fontSize: 22,
+                                            fontWeight: "var(--weight-bold)",
+                                            flexShrink: 0,
+                                        }}
                                     >
-                                        {child.photo_url ? "" : (child.emoji || (child.name ? child.name.trim()[0] : "👶"))}
-                                        {getDashboardChildPosition(child, index) && <span className="live" />}
+                                        {child.photo_url ? "" : (child.emoji || (child.name?.trim?.()[0] ?? "👶"))}
+                                        {isLive && (
+                                            <span
+                                                aria-hidden="true"
+                                                style={{
+                                                    position: "absolute",
+                                                    right: -2,
+                                                    bottom: -2,
+                                                    width: 14,
+                                                    height: 14,
+                                                    borderRadius: "var(--radius-full)",
+                                                    background: "var(--status-positive)",
+                                                    border: "2px solid var(--bg-base)",
+                                                    boxShadow: "0 0 0 2px rgba(5,150,105,0.16)",
+                                                }}
+                                            />
+                                        )}
                                     </span>
-                                    <span className="hyeni-v5-kid-info">
-                                        <span className="hyeni-v5-kid-name">{child.name || "아이"}</span>
-                                        <span className="hyeni-v5-kid-loc">
-                                            <span aria-hidden="true">{getDashboardChildPosition(child, index) ? "📍" : "🕘"}</span>
-                                            <span>{childLocationLabel}</span>
+                                    <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                                        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                            <span
+                                                style={{
+                                                    fontSize: 17,
+                                                    fontWeight: "var(--weight-bold)",
+                                                    color: "var(--fg-primary)",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap",
+                                                    minWidth: 0,
+                                                }}
+                                            >
+                                                {child.name || "아이"}
+                                            </span>
+                                            <span
+                                                aria-hidden="true"
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 4,
+                                                    padding: "2px 8px",
+                                                    borderRadius: "var(--radius-full)",
+                                                    background: isLive ? "var(--status-positive-subtle)" : "var(--bg-subtle)",
+                                                    color: isLive ? "var(--status-positive-strong)" : "var(--fg-tertiary)",
+                                                    fontSize: 11,
+                                                    fontWeight: "var(--weight-bold)",
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        width: 6,
+                                                        height: 6,
+                                                        borderRadius: "var(--radius-full)",
+                                                        background: isLive ? "var(--status-positive)" : "var(--fg-tertiary)",
+                                                    }}
+                                                />
+                                                {isLive ? "실시간" : "위치 대기"}
+                                            </span>
                                         </span>
-                                        <span className="hyeni-v5-kid-next">
-                                            {nextTodayEvent ? `다음 일정 · ${nextTodayEvent.time}` : "오늘 일정 없음"}
+                                        <span
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "flex-start",
+                                                gap: 6,
+                                                fontSize: 13,
+                                                color: "var(--fg-secondary)",
+                                                fontWeight: "var(--weight-medium)",
+                                                lineHeight: 1.35,
+                                            }}
+                                        >
+                                            <span aria-hidden="true" style={{ flexShrink: 0 }}>📍</span>
+                                            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                                {childLocationLabel}
+                                            </span>
                                         </span>
+                                        <span
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 6,
+                                                fontSize: 12,
+                                                color: "var(--fg-tertiary)",
+                                                fontWeight: "var(--weight-medium)",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            <span aria-hidden="true" style={{ flexShrink: 0 }}>📅</span>
+                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                {nextTodayEvent ? `다음 일정 · ${nextTodayEvent.time}` : "오늘 일정 없음"}
+                                            </span>
+                                        </span>
+                                    </span>
+                                    <span
+                                        aria-hidden="true"
+                                        style={{
+                                            color: "var(--fg-tertiary)",
+                                            fontSize: 22,
+                                            fontWeight: "var(--weight-medium)",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        ›
                                     </span>
                                 </button>
                             );
