@@ -5,6 +5,7 @@ import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
 import { dispatchBack, useBackHandler } from "./lib/backHandler.js";
 import { BirthdatePicker } from "./components/birthdate/BirthdatePicker.jsx";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
+import { ColorPicker } from "./components/multichild/PairingWizard/ColorPicker.jsx";
 import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { TodayMultiChildView } from "./components/multichild/HomeDashboard/TodayMultiChildView.jsx";
 import { ChildPermissionWizard } from "./components/onboarding/ChildPermissionWizard.jsx";
@@ -12,8 +13,9 @@ import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { saveEventWithChildren } from "./lib/sync.js";
 import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
-import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
+import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, requestNativePermission, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
+import { applyThemeColor, initThemeFromCache } from "./lib/theme.js";
 import { FEATURES } from "./lib/features.js";
 import { useEntitlement } from "./lib/entitlement.js";
 import { identify as identifySubscriptionUser, purchase as purchaseSubscription } from "./lib/qonversion.js";
@@ -164,94 +166,6 @@ function getChildSafetySetupSteps(health, bgLocationGranted) {
     }));
 }
 
-function getDeviceSetupNote(health) {
-    const maker = String(health?.manufacturer || "").toLowerCase();
-    if (maker.includes("motorola") || maker.includes("lenovo")) {
-        return "Motorola 기기는 배터리 최적화와 전체화면 알림이 꺼지면 접힌 상태에서 자동 연결이 제한될 수 있어요.";
-    }
-    if (maker.includes("samsung")) {
-        return "Samsung 기기는 배터리 > 백그라운드 사용 제한에서 혜니캘린더를 제한하지 않음으로 두면 더 안정적이에요.";
-    }
-    return "기기 설정에서 배터리 제한과 알림 제한을 풀어두면 아이가 매번 조작하지 않아도 연결 성공률이 높아져요.";
-}
-
-function ChildSafetySetupGate({ steps, health, onOpenStep, onRefresh }) {
-    const readyCount = steps.filter(step => step.ready).length;
-    const firstPending = steps.find(step => !step.ready);
-    const deviceName = [health?.manufacturer, health?.model].filter(Boolean).join(" ");
-
-    return (
-        <div className="hyeni-app-shell hyeni-child-safety-setup" style={{ minHeight: "100dvh", width: "100%", boxSizing: "border-box", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "calc(env(safe-area-inset-top, 0px) + 18px) 16px calc(env(safe-area-inset-bottom, 0px) + 18px)", overflowY: "auto" }}>
-            <div style={{ width: "100%", maxWidth: 430, display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ background: "linear-gradient(135deg,#FFF7ED,#FFE4EC)", border: `1px solid ${DESIGN.colors.pinkLine}`, borderRadius: 24, padding: "22px 20px", boxShadow: DESIGN.shadow.soft }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 18, background: "rgba(255,255,255,0.78)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>🛡️</div>
-                        <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 20, fontWeight: 950, color: "#3B2230" }}>안전 연결 준비</div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: "#BE185D", marginTop: 3 }}>안전 기능을 먼저 준비해요</div>
-                        </div>
-                    </div>
-                    <div style={{ fontSize: 13, lineHeight: 1.55, color: "#5B4753", fontWeight: 700 }}>
-                        처음 한 번만 설정해두면 부모님 요청이 왔을 때 아이가 매번 누르지 않아도 자동 연결을 먼저 시도할 수 있어요.
-                    </div>
-                    <div style={{ marginTop: 12, height: 8, borderRadius: 999, background: "rgba(255,255,255,0.72)", overflow: "hidden" }}>
-                        <div style={{ width: `${Math.round((readyCount / Math.max(1, steps.length)) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#F472B6,#FB7185)", borderRadius: 999, transition: "width 0.2s ease" }} />
-                    </div>
-                    <div style={{ marginTop: 8, fontSize: 11, color: "#9A3412", fontWeight: 800 }}>
-                        {readyCount}/{steps.length} 완료{deviceName ? ` · ${deviceName}` : ""}
-                    </div>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {steps.map((step, index) => (
-                        <div key={step.id} style={{ background: "rgba(255,255,255,0.92)", border: `1px solid ${step.ready ? "#BBF7D0" : "#FDE68A"}`, borderRadius: 18, padding: "13px 14px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 6px 18px rgba(15,23,42,0.05)" }}>
-                            <div style={{ width: 30, height: 30, borderRadius: 12, background: step.ready ? "#DCFCE7" : "#FEF3C7", color: step.ready ? "#15803D" : "#B45309", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 950, flexShrink: 0 }}>
-                                {step.ready ? "✓" : index + 1}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 950, color: "var(--fg-primary)" }}>{step.title}</div>
-                                <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700, lineHeight: 1.4, marginTop: 2 }}>{step.description}</div>
-                            </div>
-                            {!step.ready && (
-                                <button
-                                    type="button"
-                                    onClick={() => onOpenStep(step)}
-                                    style={{ padding: "8px 10px", borderRadius: 12, border: "none", background: "#E879A0", color: "white", fontSize: 11, fontWeight: 900, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap" }}
-                                >
-                                    {step.actionLabel}
-                                </button>
-                            )}
-                        </div>
-                    ))}
-                </div>
-
-                <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 18, padding: "13px 14px", fontSize: 12, lineHeight: 1.55, color: "#1E40AF", fontWeight: 800 }}>
-                    {getDeviceSetupNote(health)}
-                </div>
-
-                <div style={{ display: "flex", gap: 10 }}>
-                    {firstPending && (
-                        <button
-                            type="button"
-                            onClick={() => onOpenStep(firstPending)}
-                            style={{ flex: 1, padding: "13px 14px", borderRadius: 16, border: "none", background: "linear-gradient(135deg,#E879A0,#FB7185)", color: "white", fontSize: 14, fontWeight: 950, cursor: "pointer", fontFamily: FF }}
-                        >
-                            다음 설정 열기
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        onClick={onRefresh}
-                        style={{ flex: firstPending ? "0 0 auto" : 1, padding: "13px 14px", borderRadius: 16, border: "none", background: "white", color: "var(--fg-secondary)", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF, boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}
-                    >
-                        다시 확인
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // Send instant push notification via Edge Function (Phase 3 P1-4, D-A01/A02).
 //
 // Single-call Idempotency-Key pattern replaces the previous XHR→Fetch→Beacon
@@ -331,6 +245,14 @@ const CHILD_TRACKER_ZOOM_LEVEL = 2;
 const CHILD_TRACKER_WALK_RADIUS_M = 30;
 const CHILD_TRACKER_DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
 const APP_BRAND_LOGO_SRC = "/icon-192.png";
+const PROFILE_THEME_RPC_MISSING_MESSAGE = "테마 색상 저장 서버 함수가 아직 반영되지 않았어요. 서버 migration 적용 후 다시 저장해 주세요.";
+
+function isMissingProfileThemeRpcError(error) {
+    const message = String(error?.message || error?.details || error?.hint || "");
+    return error?.code === "PGRST202"
+        || message.includes("set_family_member_profile_by_id")
+        || message.includes("Could not find the function");
+}
 
 function getRemoteAudioMimeType() {
     if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return "";
@@ -744,28 +666,6 @@ function clearParentPairingIntent() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mascot
-// ─────────────────────────────────────────────────────────────────────────────
-const BunnyMascot = ({ size = 80 }) => (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-        <ellipse cx="33" cy="22" rx="9" ry="18" fill="#FFD6E8" />
-        <ellipse cx="67" cy="22" rx="9" ry="18" fill="#FFD6E8" />
-        <ellipse cx="33" cy="22" rx="5" ry="13" fill="#FFB3D1" />
-        <ellipse cx="67" cy="22" rx="5" ry="13" fill="#FFB3D1" />
-        <ellipse cx="50" cy="65" rx="26" ry="22" fill="#FFF0F7" />
-        <circle cx="50" cy="48" r="24" fill="#FFF0F7" />
-        <path d="M38 44 Q40 41 42 44" stroke="#FF7BAC" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        <path d="M58 44 Q60 41 62 44" stroke="#FF7BAC" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        <ellipse cx="50" cy="51" rx="3" ry="2" fill="#FFB3D1" />
-        <path d="M45 54 Q50 58 55 54" stroke="#FF7BAC" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <circle cx="37" cy="52" r="5" fill="#FFB3D1" opacity="0.5" />
-        <circle cx="63" cy="52" r="5" fill="#FFB3D1" opacity="0.5" />
-        <ellipse cx="28" cy="68" rx="7" ry="10" fill="#FFF0F7" transform="rotate(-20 28 68)" />
-        <ellipse cx="72" cy="68" rx="7" ry="10" fill="#FFF0F7" transform="rotate(20 72 68)" />
-    </svg>
-);
-
 const AppBrandLogo = ({ size = 80, radius = 24, shadow = true }) => (
     <img
         src={APP_BRAND_LOGO_SRC}
@@ -776,7 +676,7 @@ const AppBrandLogo = ({ size = 80, radius = 24, shadow = true }) => (
             borderRadius: radius,
             objectFit: "cover",
             display: "block",
-            boxShadow: shadow ? "0 10px 28px rgba(232,121,160,0.20)" : "none",
+            boxShadow: shadow ? "var(--hyeni-theme-shadow-soft)" : "none",
         }}
     />
 );
@@ -784,7 +684,7 @@ const AppBrandLogo = ({ size = 80, radius = 24, shadow = true }) => (
 // ─────────────────────────────────────────────────────────────────────────────
 // Parent Setup Screen (extracted component – hooks must be at top level)
 // ─────────────────────────────────────────────────────────────────────────────
-const FF = "'Pretendard Variable','Pretendard','Noto Sans KR','Apple SD Gothic Neo',sans-serif";
+const FF = "'Pretendard Variable','Pretendard',system-ui,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif";
 
 const DESIGN = Object.freeze({
     colors: {
@@ -800,7 +700,7 @@ const DESIGN = Object.freeze({
         cream: "#FCF1EB",
         parent: "#3B82F6",
         parentDeep: "#2563EB",
-        parentPale: "#EFF6FF",
+        parentPale: "var(--bg-subtle)",
         ink: "var(--fg-primary)",
         inkSoft: "var(--fg-secondary)",
         muted: "var(--fg-tertiary)",
@@ -815,18 +715,18 @@ const DESIGN = Object.freeze({
         surface: "var(--bg-base)",
     },
     gradients: {
-        shell: "radial-gradient(240px 160px at 10% 0%, rgba(255,200,220,0.80) 0%, transparent 60%), radial-gradient(240px 200px at 100% 100%, rgba(255,225,180,0.60) 0%, transparent 60%), #FFFAF5",
-        page: "radial-gradient(1400px 800px at 10% -10%, #FFDEEC 0%, transparent 55%), radial-gradient(1400px 800px at 90% 110%, #FFEBBE 0%, transparent 55%), radial-gradient(1200px 700px at 50% 50%, #D0E0FA 0%, transparent 60%), linear-gradient(180deg, #FCF1EB 0%, #F5EBF3 100%)",
-        primary: "linear-gradient(135deg,#F779A8 0%,#E65C92 100%)",
-        hero: "linear-gradient(135deg,#FFC2D9 0%,#FF9EBF 100%)",
+        shell: "var(--hyeni-product-canvas)",
+        page: "var(--hyeni-product-canvas)",
+        primary: "linear-gradient(135deg,var(--theme-accent) 0%,var(--theme-accent-deep) 100%)",
+        hero: "linear-gradient(135deg,color-mix(in srgb, var(--theme-accent) 28%, #FFFFFF) 0%,var(--theme-accent) 100%)",
         parent: "linear-gradient(135deg,#60A5FA 0%,#3B82F6 100%)",
-        child: "linear-gradient(135deg,#F779A8 0%,#FF6B9D 100%)",
-        warm: "linear-gradient(135deg,#FFFFFF 0%,#FFF5FA 100%)",
-        onboard: "radial-gradient(500px 400px at 50% 0%, #FFDCEC 0%, transparent 60%), radial-gradient(400px 300px at 100% 100%, #FFEBC2 0%, transparent 60%), radial-gradient(400px 350px at 0% 80%, #D0E4FA 0%, transparent 60%), linear-gradient(180deg, #FFF8F2 0%, #F6E9F0 100%)",
-        map: "radial-gradient(200px 200px at 30% 30%, #FFE4EF 0%, transparent 60%), radial-gradient(300px 220px at 70% 60%, #E0F0FE 0%, transparent 60%), radial-gradient(200px 180px at 50% 90%, #FFEBBE 0%, transparent 60%), linear-gradient(180deg, #FDF5F0 0%, #F0E8F3 100%)",
+        child: "linear-gradient(135deg,var(--theme-accent) 0%,var(--theme-accent-deep) 100%)",
+        warm: "linear-gradient(135deg,#FFFFFF 0%,var(--theme-accent-soft) 100%)",
+        onboard: "var(--hyeni-product-canvas)",
+        map: "linear-gradient(180deg, color-mix(in srgb, var(--theme-accent-soft) 48%, #fff 52%) 0%, #fffaf6 100%)",
         // Non-emergency destructive/warn confirmation gradient (amber tones).
         // Saturated red reserved for SOS, 긴급, 하트 visuals only.
-        danger: "linear-gradient(135deg,#F59E0B,#B45309)",
+        danger: "linear-gradient(135deg,var(--status-cautionary),var(--status-cautionary-strong))",
     },
     radius: {
         sm: 12,
@@ -839,9 +739,9 @@ const DESIGN = Object.freeze({
     shadow: {
         soft: "none",
         card: "none",
-        elevated: "0 12px 32px rgba(247,121,168,0.30)",
-        sheet: "0 -16px 40px rgba(180,120,150,0.20)",
-        focus: "0 0 0 4px rgba(247,121,168,0.16)",
+        elevated: "var(--hyeni-theme-shadow)",
+        sheet: "var(--hyeni-theme-shadow)",
+        focus: "0 0 0 4px var(--theme-accent-soft)",
     },
 });
 
@@ -853,7 +753,7 @@ const modalBackdropStyle = {
 const makeCardStyle = (overrides = {}) => ({
     background: DESIGN.colors.surface,
     borderRadius: DESIGN.radius.xl,
-    border: `2px solid rgba(255,228,239,0.8)`,
+    border: "2px solid var(--theme-accent-line)",
     boxShadow: DESIGN.shadow.card,
     ...overrides,
 });
@@ -861,7 +761,7 @@ const makeCardStyle = (overrides = {}) => ({
 const makeSheetStyle = (overrides = {}) => ({
     background: DESIGN.colors.surface,
     borderRadius: DESIGN.radius.sheet,
-    border: `1px solid ${DESIGN.colors.pinkLine}`,
+    border: "1px solid var(--theme-accent-line)",
     boxShadow: DESIGN.shadow.sheet,
     ...overrides,
 });
@@ -894,7 +794,7 @@ const makePrimaryButtonStyle = (overrides = {}) => ({
     fontWeight: "var(--weight-bold)",
     cursor: "pointer",
     fontFamily: FF,
-    boxShadow: "0 8px 20px rgba(190,24,93,0.18)",
+    boxShadow: "var(--hyeni-theme-shadow-soft)",
     transition: "transform 0.12s ease, box-shadow 0.16s ease",
     ...overrides,
 });
@@ -989,7 +889,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                     <AppBrandLogo size={76} radius={22} />
                 </div>
-                <div style={{ fontSize: 21, fontWeight: 900, color: "#BE185D", marginBottom: 6, letterSpacing: -0.4 }}>가족 연결을 시작해요</div>
+                <div style={{ fontSize: 21, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 6, letterSpacing: 0 }}>가족 연결을 시작해요</div>
                 <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginBottom: 26, lineHeight: 1.55, fontWeight: 600 }}>
                     새 가족을 만들거나<br/>이미 받은 연동코드로 합류하세요
                 </div>
@@ -1002,7 +902,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                             <span aria-hidden="true">→</span>
                         </button>
                         <button onClick={() => setMode("join")}
-                            style={{ ...makeSecondaryButtonStyle({ padding: "16px 18px", background: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep, border: "1.5px solid #BFDBFE" }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                            style={{ ...makeSecondaryButtonStyle({ padding: "16px 18px", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", border: "1.5px solid var(--theme-accent-line)" }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                             <span>기존 가족에 합류</span>
                             <span aria-hidden="true">→</span>
                         </button>
@@ -1015,7 +915,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                             새 가족을 만들면 연동코드가 생성됩니다.<br/>이 코드로 배우자와 아이가 합류할 수 있어요.
                         </div>
                         <button disabled={busy} onClick={handleCreateClick}
-                            style={{ padding: "14px 32px", background: "#BE185D", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: FF, opacity: busy ? 0.6 : 1, boxShadow: busy ? "none" : "0 10px 22px rgba(190,24,93,0.18)" }}>
+                            style={{ padding: "14px 32px", background: "var(--theme-accent)", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: FF, opacity: busy ? 0.6 : 1, boxShadow: busy ? "none" : "var(--hyeni-theme-shadow-soft)" }}>
                             {busy ? "생성 중..." : "가족 만들기"}
                         </button>
                         <div style={{ marginTop: 12 }}>
@@ -1034,7 +934,7 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                                 placeholder="KID-804DF582 또는 804DF582"
                                 style={{ width: "100%", padding: "11px 14px", border: `2px solid ${joinError ? "#FCA5A5" : "#E5E7EB"}`, borderRadius: 12, fontSize: 16, fontWeight: 800, fontFamily: "monospace", textAlign: "center", letterSpacing: 1, boxSizing: "border-box", outline: "none", color: "var(--fg-primary)", background: "white" }} />
                         </div>
-                        {joinError && <div style={{ fontSize: 13, color: "#B45309", fontWeight: 700, marginBottom: 12 }}>{joinError}</div>}
+                        {joinError && <div style={{ fontSize: 13, color: "var(--status-cautionary-strong)", fontWeight: 700, marginBottom: 12 }}>{joinError}</div>}
                         <button disabled={!canJoin} onClick={handleJoinClick}
                             style={{ padding: "14px 32px", background: "#2563EB", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: canJoin ? "pointer" : "default", fontFamily: FF, opacity: canJoin ? 1 : 0.6, boxShadow: canJoin ? "0 10px 22px rgba(37,99,235,0.18)" : "none" }}>
                             {busy ? "합류 중..." : "합류하기"}
@@ -1055,10 +955,10 @@ function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
 
 const CATEGORIES = [
     { id: "school", label: "학원", emoji: "📚", color: "#A78BFA", bg: "#EDE9FE" },
-    { id: "sports", label: "운동", emoji: "⚽", color: "#34D399", bg: "#D1FAE5" },
-    { id: "hobby", label: "취미", emoji: "🎨", color: "#F59E0B", bg: "#FEF3C7" },
-    { id: "family", label: "가족", emoji: "👨‍👩‍👧", color: "#F87171", bg: "#FEE2E2" },
-    { id: "friend", label: "친구", emoji: "👫", color: "#60A5FA", bg: "#DBEAFE" },
+    { id: "sports", label: "운동", emoji: "⚽", color: "#34D399", bg: "var(--status-positive-subtle)" },
+    { id: "hobby", label: "취미", emoji: "🎨", color: "var(--status-cautionary)", bg: "var(--status-cautionary-subtle)" },
+    { id: "family", label: "가족", emoji: "👨‍👩‍👧", color: "#F87171", bg: "var(--status-negative-subtle)" },
+    { id: "friend", label: "친구", emoji: "👫", color: "#60A5FA", bg: "var(--bg-subtle)" },
     { id: "other", label: "기타", emoji: "🌟", color: "#EC4899", bg: "#FCE7F3" },
 ];
 
@@ -1723,7 +1623,7 @@ function MapZoomControls({ mapObj, style, onManualZoom }) {
     const btnSt = { width: 48, height: 48, borderRadius: 14, border: "none", fontSize: 24, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(0,0,0,0.15)", fontFamily: FF };
     return (
         <div style={{ position: "absolute", bottom: 16, left: 12, display: "flex", flexDirection: "column", gap: 8, zIndex: 10, ...style }}>
-            <button onClick={() => zoom(-1)} style={{ ...btnSt, background: "white", color: "#E879A0" }}>+</button>
+            <button onClick={() => zoom(-1)} style={{ ...btnSt, background: "white", color: "var(--theme-accent-text)" }}>+</button>
             <button onClick={() => zoom(1)} style={{ ...btnSt, background: "white", color: "var(--fg-tertiary)" }}>−</button>
         </div>
     );
@@ -1829,7 +1729,7 @@ function FallbackMapCanvas({
                 height,
                 minHeight: typeof height === "number" ? height : undefined,
                 overflow: "hidden",
-                background: "linear-gradient(145deg,#EFF6FF 0%,#FFF9FC 52%,#FFF8F2 100%)",
+                background: "linear-gradient(145deg,var(--bg-subtle) 0%,#FFF9FC 52%,#FFF8F2 100%)",
                 fontFamily: FF,
             }}
         >
@@ -1837,7 +1737,7 @@ function FallbackMapCanvas({
                 <path d="M-5 74 C20 62 28 44 54 44 C73 44 83 31 105 25" fill="none" stroke="#FFFFFF" strokeWidth="9" strokeLinecap="round" opacity="0.92" />
                 <path d="M-5 74 C20 62 28 44 54 44 C73 44 83 31 105 25" fill="none" stroke="#FED7AA" strokeWidth="2" strokeLinecap="round" opacity="0.9" strokeDasharray="2 4" />
                 <path d="M14 -5 C23 19 40 29 38 52 C36 72 49 84 72 105" fill="none" stroke="#FFFFFF" strokeWidth="8" strokeLinecap="round" opacity="0.86" />
-                <path d="M14 -5 C23 19 40 29 38 52 C36 72 49 84 72 105" fill="none" stroke="#BFDBFE" strokeWidth="2" strokeLinecap="round" opacity="0.9" strokeDasharray="2 4" />
+                <path d="M14 -5 C23 19 40 29 38 52 C36 72 49 84 72 105" fill="none" stroke="var(--theme-accent-line)" strokeWidth="2" strokeLinecap="round" opacity="0.9" strokeDasharray="2 4" />
                 <path d="M-5 20 C21 22 29 12 48 17 C68 22 77 45 105 48" fill="none" stroke="#FFFFFF" strokeWidth="6" strokeLinecap="round" opacity="0.76" />
                 <path d="M4 92 L96 8" stroke="#FFFFFF" strokeWidth="2" opacity="0.45" strokeDasharray="1 5" />
                 {route.length >= 2 && (
@@ -1871,11 +1771,11 @@ function FallbackMapCanvas({
             )}
 
             <div style={{ position: "absolute", left: 14, top: 14, right: 14, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, zIndex: 3 }}>
-                <div style={{ minWidth: 0, padding: "9px 12px", borderRadius: 16, background: "rgba(255,255,255,0.90)", border: `1px solid ${DESIGN.colors.pinkLine}`, boxShadow: "0 8px 22px rgba(31,41,55,0.08)" }}>
+                <div style={{ minWidth: 0, padding: "9px 12px", borderRadius: 16, background: "rgba(255,255,255,0.90)", border: "1px solid var(--theme-accent-line)", boxShadow: "0 8px 22px rgba(31,41,55,0.08)" }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: DESIGN.colors.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: DESIGN.colors.muted, marginTop: 2 }}>{subtitle || (hasSdkKey ? "지도 SDK 연결 중" : "간이 지도 모드")}</div>
                 </div>
-                <div style={{ padding: "8px 10px", borderRadius: 999, background: sdkFailed ? "#FFF7ED" : hasSdkKey ? "#EFF6FF" : "#FFFBEB", color: sdkFailed ? "#C2410C" : hasSdkKey ? DESIGN.colors.parentDeep : "#92400E", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(31,41,55,0.08)" }}>
+                <div style={{ padding: "8px 10px", borderRadius: 999, background: sdkFailed ? "var(--status-cautionary-subtle)" : hasSdkKey ? "var(--bg-subtle)" : "var(--status-cautionary-subtle)", color: sdkFailed ? "var(--status-cautionary-strong)" : hasSdkKey ? DESIGN.colors.parentDeep : "var(--status-cautionary-strong)", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(31,41,55,0.08)" }}>
                     {sdkBadge}
                 </div>
             </div>
@@ -2059,8 +1959,8 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
 
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column", background: "white", fontFamily: FF }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 12 }}>
-                <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 닫기</button>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--bg-muted)", display: "flex", alignItems: "center", gap: 12 }}>
+                <button onClick={onClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 닫기</button>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)" }}>{title}</div>
             </div>
             <div style={{ padding: "12px 16px", background: "#FAFAFA", position: "relative", zIndex: 40 }}>
@@ -2068,15 +1968,15 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
                     <input value={query} onChange={e => setQuery(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") doSearch(); }}
                         placeholder="🔍 학원 이름이나 주소 검색..."
-                        style={{ flex: 1, padding: "12px 16px", border: "2px solid #F9A8D4", borderRadius: 16, fontSize: 14, fontFamily: FF, outline: "none", boxSizing: "border-box" }} />
-                    <button onClick={doSearch} style={{ padding: "10px 16px", background: "#E879A0", color: "white", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}>검색</button>
+                        style={{ flex: 1, padding: "12px 16px", border: "2px solid var(--theme-accent-line)", borderRadius: 16, fontSize: 14, fontFamily: FF, outline: "none", boxSizing: "border-box" }} />
+                    <button onClick={doSearch} style={{ padding: "10px 16px", background: "var(--hyeni-theme-gradient)", color: "white", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}>검색</button>
                 </div>
                 {results.length > 0 && (
                     <div style={{ position: "absolute", left: 16, right: 16, top: "100%", background: "white", borderRadius: "0 0 16px 16px", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", zIndex: 60, maxHeight: 240, overflowY: "auto" }}>
                         {results.map((r, i) => (
                             <div key={i} onClick={() => pickResult(r)}
-                                style={{ padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid #F3F4F6", fontSize: 13, lineHeight: 1.5 }}
-                                onMouseEnter={e => e.currentTarget.style.background = "#FFF0F7"}
+                                style={{ padding: "12px 16px", cursor: "pointer", borderBottom: "1px solid var(--bg-muted)", fontSize: 13, lineHeight: 1.5 }}
+                                onMouseEnter={e => e.currentTarget.style.background = "var(--theme-accent-soft)"}
                                 onMouseLeave={e => e.currentTarget.style.background = "white"}>
                                 <div style={{ fontWeight: 700, color: "var(--fg-primary)" }}>{r.place_name}</div>
                                 <div style={{ color: "var(--fg-tertiary)", fontSize: 12 }}>{r.road_address_name || r.address_name}</div>
@@ -2085,13 +1985,13 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
                     </div>
                 )}
                 {searchMessage && (
-                    <div role="status" style={{ marginTop: 8, color: "#BE185D", fontSize: 12, fontWeight: 700, lineHeight: 1.4 }}>
+                    <div role="status" style={{ marginTop: 8, color: "var(--theme-accent-text)", fontSize: 12, fontWeight: 700, lineHeight: 1.4 }}>
                         {searchMessage}
                     </div>
                 )}
             </div>
             <div style={{ flex: 1, position: "relative" }}>
-                {loading && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#FFF0F7", zIndex: 10, fontSize: 15, fontWeight: 700, color: "#E879A0", fontFamily: FF }}>🗺️ 지도 불러오는 중...</div>}
+                {loading && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--theme-accent-soft)", zIndex: 10, fontSize: 15, fontWeight: 700, color: "var(--theme-accent-text)", fontFamily: FF }}>🗺️ 지도 불러오는 중...</div>}
                 {err && (
                     <FallbackMapCanvas
                         center={pos}
@@ -2104,11 +2004,11 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
                 <div ref={mapRef} style={{ width: "100%", height: "100%", display: err ? "none" : "block" }} />
                 {!err && <MapZoomControls mapObj={mapObj} />}
             </div>
-            <div style={{ padding: "16px 20px", borderTop: "1px solid #F3F4F6", fontFamily: FF }}>
+            <div style={{ padding: "16px 20px", borderTop: "1px solid var(--bg-muted)", fontFamily: FF }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 4 }}>선택된 장소</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg-primary)", marginBottom: 14, minHeight: 20 }}>{address || "지도를 클릭하거나 검색하세요"}</div>
                 <button onClick={() => { if (pos) onConfirm({ lat: pos.lat, lng: pos.lng, address, kakao_place_id: kakaoPlaceId }); }}
-                    style={{ width: "100%", padding: "15px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 18, fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
+                    style={{ width: "100%", padding: "15px", background: "var(--hyeni-theme-gradient)", color: "white", border: "none", borderRadius: 18, fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
                     📍 이 장소로 설정하기
                 </button>
             </div>
@@ -2121,7 +2021,7 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
 // ─────────────────────────────────────────────────────────────────────────────
 function AlertBanner({ alerts, onDismiss }) {
     if (!alerts.length) return null;
-    const BG = { parent: DESIGN.gradients.parent, child: DESIGN.gradients.primary, friend: "linear-gradient(135deg,#059669,#10B981)", emergency: DESIGN.gradients.danger, sync: "linear-gradient(135deg,#0369A1,#0EA5E9)" };
+    const BG = { parent: DESIGN.gradients.parent, child: DESIGN.gradients.primary, friend: "linear-gradient(135deg,#059669,var(--status-positive))", emergency: DESIGN.gradients.danger, sync: "linear-gradient(135deg,#0369A1,#0EA5E9)" };
     const ICON = { parent: "👨‍👩‍👧", child: "🐰", friend: "👫", emergency: "🚨", sync: "📅" };
     const LABEL = { parent: "부모님 알림", child: "아이 알림", friend: "친구 알림", emergency: "⚠️ 긴급 미도착", sync: "📅 일정 동기화" };
     return (
@@ -2149,25 +2049,25 @@ function EmergencyBanner({ emergencies, onDismiss }) {
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)", fontFamily: FF }}>
             <div style={{ background: "white", borderRadius: 28, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(220,38,38,0.4)", animation: "emergencyPulse 0.6s ease" }}>
-                <div style={{ height: 8, borderRadius: 8, background: "linear-gradient(90deg,#EF4444,#DC2626,#EF4444)", backgroundSize: "200% 100%", animation: "shimmer 1s linear infinite", marginBottom: 20 }} />
+                <div style={{ height: 8, borderRadius: 8, background: "linear-gradient(90deg,var(--status-negative),var(--status-negative-strong),var(--status-negative))", backgroundSize: "200% 100%", animation: "shimmer 1s linear infinite", marginBottom: 20 }} />
                 <div style={{ textAlign: "center", marginBottom: 16 }}>
                     <div style={{ fontSize: 56, marginBottom: 8, animation: "shake 0.5s ease infinite" }}>🚨</div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: "#DC2626" }}>긴급 알림</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: "var(--status-negative-strong)" }}>긴급 알림</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-secondary)", marginTop: 4 }}>학부모님, 확인이 필요해요!</div>
                 </div>
-                <div style={{ background: "#FEF2F2", border: "2px solid #FECACA", borderRadius: 18, padding: "16px 18px", marginBottom: 20 }}>
+                <div style={{ background: "var(--status-negative-subtle)", border: "2px solid var(--status-negative-subtle)", borderRadius: 18, padding: "16px 18px", marginBottom: 20 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                         <div style={{ fontSize: 28 }}>{em.emoji}</div>
                         <div><div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)" }}>{em.title}</div><div style={{ fontSize: 13, color: "var(--fg-secondary)" }}>예정: ⏰ {em.time}</div></div>
                     </div>
-                    <div style={{ background: "#DC2626", borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>
+                    <div style={{ background: "var(--status-negative-strong)", borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>
                         <div style={{ color: "white", fontWeight: 800, fontSize: 14 }}>⚠️ 5분 후 시작인데 아직 미도착!</div>
                         <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 3 }}>{em.location}</div>
                     </div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => onDismiss(em.id, "contact")} style={{ flex: 1, padding: "14px", background: "linear-gradient(135deg,#DC2626,#B91C1C)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: FF }}>📞 아이에게 전화</button>
-                    <button onClick={() => onDismiss(em.id, "ok")} style={{ flex: 1, padding: "14px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>확인했어요</button>
+                    <button onClick={() => onDismiss(em.id, "contact")} style={{ flex: 1, padding: "14px", background: "linear-gradient(135deg,var(--status-negative-strong),var(--status-negative-strong))", color: "white", border: "none", borderRadius: 16, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: FF }}>📞 아이에게 전화</button>
+                    <button onClick={() => onDismiss(em.id, "ok")} style={{ flex: 1, padding: "14px", background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>확인했어요</button>
                 </div>
             </div>
         </div>
@@ -2191,12 +2091,12 @@ function AppConfirmDialog({ dialog, onCancel, onConfirm }) {
                 aria-labelledby={titleId}
                 aria-describedby={descId}
                 onClick={(event) => event.stopPropagation()}
-                style={{ width: "100%", maxWidth: 360, borderRadius: 24, background: "rgba(255,255,255,0.98)", border: "1.5px solid rgba(244,114,182,0.20)", boxShadow: "0 24px 72px rgba(190,24,93,0.24)", padding: 20, boxSizing: "border-box" }}
+                style={{ width: "100%", maxWidth: 360, borderRadius: 24, background: "rgba(255,255,255,0.98)", border: "1.5px solid var(--theme-accent-line)", boxShadow: "var(--hyeni-theme-shadow)", padding: 20, boxSizing: "border-box" }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                     <div
                         aria-hidden="true"
-                        style={{ width: 42, height: 42, borderRadius: 16, background: isDanger ? "#FEF3C7" : DESIGN.colors.pinkSoft, color: isDanger ? "#B45309" : DESIGN.colors.brand, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 950, flexShrink: 0 }}
+                        style={{ width: 42, height: 42, borderRadius: 16, background: isDanger ? "var(--status-cautionary-subtle)" : "var(--theme-accent-soft)", color: isDanger ? "var(--status-cautionary-strong)" : "var(--theme-accent-text)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 950, flexShrink: 0 }}
                     >
                         {dialog.icon || (isDanger ? "!" : "?")}
                     </div>
@@ -2211,7 +2111,7 @@ function AppConfirmDialog({ dialog, onCancel, onConfirm }) {
                     <button
                         type="button"
                         onClick={onCancel}
-                        style={{ ...makeSecondaryButtonStyle({ padding: "12px 14px", background: "#F8FAFC", color: "var(--fg-secondary)" }), minHeight: 46 }}
+                        style={{ ...makeSecondaryButtonStyle({ padding: "12px 14px", background: "var(--bg-subtle)", color: "var(--fg-secondary)" }), minHeight: 46 }}
                     >
                         {dialog.cancelLabel || "취소"}
                     </button>
@@ -2251,37 +2151,37 @@ function RoleSetupModal({ onSelect, loading }) {
     }
 
     return (
-        <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", fontFamily: FF, overflowY: "auto" }}>
-            <div style={{ width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <AppBrandLogo size={96} radius={26} />
-                <div style={{ fontSize: 31, fontWeight: 900, color: "#BE185D", marginTop: 20, marginBottom: 4, letterSpacing: -0.8, textAlign: "center" }}>
+        <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: "var(--hyeni-product-canvas)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", fontFamily: FF, overflowY: "auto" }}>
+            <div style={{ width: "100%", maxWidth: 344, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <AppBrandLogo size={88} radius={22} />
+                <div style={{ fontSize: 28, fontWeight: 900, color: "var(--theme-accent-text)", marginTop: 18, marginBottom: 4, letterSpacing: 0, textAlign: "center" }}>
                     혜니캘린더
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", marginBottom: 20, letterSpacing: 1.8 }}>HYENI CALENDAR</div>
-                <div style={{ borderRadius: 999, padding: "7px 12px", background: "rgba(255,255,255,0.86)", border: "1px solid rgba(244,114,182,0.20)", color: "#BE185D", fontSize: 12, fontWeight: 800, marginBottom: 22 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", marginBottom: 18, letterSpacing: 0 }}>HYENI CALENDAR</div>
+                <div style={{ borderRadius: 999, padding: "7px 12px", background: "var(--hyeni-product-surface)", border: "1px solid var(--hyeni-product-border)", color: "var(--theme-accent-text)", fontSize: 12, fontWeight: 800, marginBottom: 22 }}>
                     {loading ? "로딩 중..." : isReturning ? "다시 오셨군요" : "처음 사용하시나요?"}
                 </div>
-                <div style={{ fontSize: 15, color: "var(--fg-secondary)", marginBottom: 30, textAlign: "center", lineHeight: 1.55, fontWeight: 600 }}>
+                <div style={{ fontSize: 15, color: "var(--fg-secondary)", marginBottom: 26, textAlign: "center", lineHeight: 1.55, fontWeight: 600 }}>
                     사용할 역할을 선택해 주세요
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
                     <button onClick={handleParent}
-                        style={{ padding: "18px", background: "white", color: "#1E3A8A", border: "1.5px solid #DBEAFE", borderRadius: DESIGN.radius.lg, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 14px 34px rgba(37,99,235,0.12)", display: "flex", alignItems: "center", gap: 14 }}>
-                        <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 16, background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>👨‍👩‍👧</span>
+                        style={{ padding: "16px", background: "var(--hyeni-product-surface-solid)", color: "var(--theme-accent-text)", border: "1px solid var(--hyeni-product-border)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "none", display: "flex", alignItems: "center", gap: 14 }}>
+                        <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, background: "var(--theme-accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>👨‍👩‍👧</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>학부모</span>
                             <span style={{ display: "block", fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>ID/PW 또는 카카오로 로그인해요</span>
                         </span>
-                        <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
+                        <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>›</span>
                     </button>
                     <button onClick={handleChild}
-                        style={{ padding: "18px", background: DESIGN.gradients.primary, color: "white", border: "none", borderRadius: DESIGN.radius.lg, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "0 16px 34px rgba(190,24,93,0.22)", display: "flex", alignItems: "center", gap: 14 }}>
-                        <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 16, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>🐰</span>
+                        style={{ padding: "16px", background: DESIGN.gradients.primary, color: "white", border: "1px solid color-mix(in srgb, var(--theme-accent) 60%, transparent)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", gap: 14 }}>
+                        <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🐰</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>아이</span>
                             <span style={{ display: "block", fontSize: 13, opacity: 0.86, marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>부모님 코드로 연결하고 내 일정을 확인해요</span>
                         </span>
-                        <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 900, flexShrink: 0 }}>→</span>
+                        <span aria-hidden="true" style={{ fontSize: 20, fontWeight: 900, flexShrink: 0 }}>›</span>
                     </button>
                 </div>
             </div>
@@ -2316,7 +2216,7 @@ function ParentAuthScreen({ onBack }) {
     });
 
     const fieldWrapStyle = { display: "flex", flexDirection: "column", gap: 7, textAlign: "left" };
-    const labelStyle = { fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", letterSpacing: -0.005 };
+    const labelStyle = { fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", letterSpacing: 0 };
 
     const handleKakao = async () => {
         setBusy("kakao");
@@ -2446,17 +2346,17 @@ function ParentAuthScreen({ onBack }) {
                 </div>
 
                 <div style={{ textAlign: "center", marginBottom: 18 }}>
-                    <div style={{ fontSize: 21, fontWeight: 900, color: "var(--hyeni-pink-deep)", marginBottom: 6 }}>학부모 로그인</div>
+                    <div style={{ fontSize: 21, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 6 }}>학부모 로그인</div>
                     <div style={{ fontSize: 13, color: "var(--fg-secondary)", fontWeight: 700 }}>아이 일정 관리를 시작해 주세요</div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
                     <button type="button" onClick={() => switchMode("login")}
-                        style={{ padding: "12px 10px", borderRadius: 12, border: "none", background: mode === "login" ? "var(--hyeni-pink-deep)" : "var(--bg-subtle)", color: mode === "login" ? "var(--fg-on-primary)" : "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF, transition: "background 0.16s ease, color 0.16s ease" }}>
+                        style={{ padding: "12px 10px", borderRadius: 12, border: "none", background: mode === "login" ? "var(--theme-accent)" : "var(--bg-subtle)", color: mode === "login" ? "var(--fg-on-primary)" : "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF, transition: "background 0.16s ease, color 0.16s ease" }}>
                         로그인
                     </button>
                     <button type="button" onClick={() => switchMode("signup")}
-                        style={{ padding: "12px 10px", borderRadius: 12, border: "none", background: mode === "signup" ? "var(--hyeni-pink-deep)" : "var(--bg-subtle)", color: mode === "signup" ? "var(--fg-on-primary)" : "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF, transition: "background 0.16s ease, color 0.16s ease" }}>
+                        style={{ padding: "12px 10px", borderRadius: 12, border: "none", background: mode === "signup" ? "var(--theme-accent)" : "var(--bg-subtle)", color: mode === "signup" ? "var(--fg-on-primary)" : "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF, transition: "background 0.16s ease, color 0.16s ease" }}>
                         회원가입
                     </button>
                 </div>
@@ -2563,9 +2463,9 @@ function ParentAuthScreen({ onBack }) {
                                             style={{
                                                 padding: "12px 10px",
                                                 borderRadius: 14,
-                                                border: `1.5px solid ${selected ? "#BE185D" : "#E5E7EB"}`,
-                                                background: selected ? "#FDF2F8" : "white",
-                                                color: selected ? "#BE185D" : "#374151",
+                                                border: `1.5px solid ${selected ? "var(--theme-accent)" : "#E5E7EB"}`,
+                                                background: selected ? "var(--theme-accent-soft)" : "white",
+                                                color: selected ? "var(--theme-accent-text)" : "#374151",
                                                 fontWeight: 800,
                                                 fontFamily: FF,
                                                 cursor: codeSent ? "not-allowed" : "pointer",
@@ -2635,12 +2535,12 @@ function ParentAuthScreen({ onBack }) {
                 )}
 
                 {message && (
-                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "#ECFDF5", color: "#047857", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
+                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "#ECFDF5", color: "var(--status-positive-strong)", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
                         {message}
                     </div>
                 )}
                 {error && (
-                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "#FFFBEB", color: "#B45309", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
+                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
                         {error}
                     </div>
                 )}
@@ -2685,7 +2585,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
         await run();
     };
     const ttlLine = ttlLabel ? (
-        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 10, color: ttlLabel.expired ? "#B45309" : "#047857" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 10, color: ttlLabel.expired ? "var(--status-cautionary-strong)" : "var(--status-positive-strong)" }}>
             ⏱️ {ttlLabel.text}
         </div>
     ) : null;
@@ -2713,7 +2613,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
                         height="160"
                         style={{ width: 160, height: 160, borderRadius: 16, background: "white", padding: 8 }}
                     />
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#047857", textAlign: "center", lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--status-positive-strong)", textAlign: "center", lineHeight: 1.6 }}>
                         아이 기기에서 QR을 스캔하면<br />즉시 연동돼요
                     </div>
                 </div>
@@ -2725,7 +2625,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
     }
 
     return (
-        <div style={{ background: showCode ? "#F0FDF4" : "#F9FAFB", border: showCode ? "1.5px solid #86EFAC" : "1.5px solid #E5E7EB", borderRadius: 16, padding: "12px 16px", marginBottom: 20 }}>
+        <div style={{ background: showCode ? "#F0FDF4" : "var(--bg-subtle)", border: showCode ? "1.5px solid #86EFAC" : "1.5px solid #E5E7EB", borderRadius: 16, padding: "12px 16px", marginBottom: 20 }}>
             <button onClick={() => setShowCode(v => !v)}
                 style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: 0, fontFamily: FF }}>
                 <span style={{ fontSize: 14 }}>{showCode ? "🔓" : "🔑"}</span>
@@ -2747,7 +2647,7 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
                             height="160"
                             style={{ width: 160, height: 160, borderRadius: 16, background: "white", padding: 8 }}
                         />
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#047857", textAlign: "center", lineHeight: 1.6 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--status-positive-strong)", textAlign: "center", lineHeight: 1.6 }}>
                             아이 기기에서 QR을 스캔하면<br />즉시 연동돼요
                         </div>
                     </div>
@@ -2798,14 +2698,14 @@ function ChildRemoteListenReadiness({ health }) {
     }
     if (summary.ready) {
         return (
-            <div style={{ marginTop: 4, fontSize: 10, color: "#15803D", fontWeight: 700, fontFamily: FF }}>
+            <div style={{ marginTop: 4, fontSize: 10, color: "var(--status-positive-strong)", fontWeight: 700, fontFamily: FF }}>
                 ✅ 원격 청취 준비 완료
             </div>
         );
     }
     const missingLabels = summary.missing.map((s) => s.label).join(" · ");
     return (
-        <div style={{ marginTop: 4, fontSize: 10, color: "#B45309", fontWeight: 700, fontFamily: FF }}>
+        <div style={{ marginTop: 4, fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, fontFamily: FF }}>
             ⚠️ 원격 청취 준비 부족 — {missingLabels}
         </div>
     );
@@ -2814,13 +2714,51 @@ function ChildRemoteListenReadiness({ health }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Pairing Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onPhotoChange, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null, childDeviceStatusMap = {} }) {
+function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, onUnpair, onRename, onPhotoChange, onProfileChange, activeThemeColor = null, onClose, maxChildren = 2, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, canManageFamily = true, onConfirm = null, childDeviceStatusMap = {} }) {
     const isParent = myRole === "parent";
     const children = pairedMembers?.filter(m => m.role === "child") || [];
     const parent = pairedMembers?.find(m => m.role === "parent") || null;
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState("");
+    const [editColor, setEditColor] = useState("");
     const [photoUploadingId, setPhotoUploadingId] = useState(null);
+    const usedChildColors = children.map((child) => child.color_hex).filter(Boolean);
+
+    const stopProfileEditing = () => {
+        setEditingId(null);
+        setEditName("");
+        setEditColor("");
+        applyThemeColor(activeThemeColor || null);
+    };
+
+    const handleClose = () => {
+        if (editingId) {
+            applyThemeColor(activeThemeColor || null);
+        }
+        onClose?.();
+    };
+
+    const startProfileEditing = (child) => {
+        setEditingId(child.id);
+        setEditName(child.name || "");
+        setEditColor(child.color_hex || "#F779A8");
+    };
+
+    const saveProfileEditing = async (child) => {
+        if (!canManageFamily || !child?.id) return;
+        const nextName = editName.trim();
+        const nextColor = editColor || child.color_hex || "#F779A8";
+        if (!nextName) return;
+
+        const saved = onProfileChange
+            ? await onProfileChange(child.id, { name: nextName, colorHex: nextColor })
+            : await onRename?.(child.id, nextName);
+        if (saved !== false) {
+            setEditingId(null);
+            setEditName("");
+            setEditColor("");
+        }
+    };
 
     async function handlePhotoSelected(child, file) {
         if (!file || !_familyId || !child?.id) return;
@@ -2849,12 +2787,12 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
 
     return (
         <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            onClick={e => { if (e.target === e.currentTarget) handleClose(); }}>
             <div style={makeSheetStyle({ padding: "28px 24px 40px", width: "100%", maxWidth: 460, maxHeight: "80vh", overflowY: "auto" })}>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: "var(--fg-primary)" }}>🔗 {isParent ? "아이 연동 관리" : "부모님 연동"}</div>
-                    <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
+                    <button onClick={handleClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
                 </div>
 
                 {/* Pair code display (parent) */}
@@ -2870,9 +2808,9 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                             onConfirm={onConfirm}
                         />
                     ) : children.length === 0 ? (
-                        <div style={{ background: "#FEF3C7", border: "1.5px solid #FCD34D", borderRadius: 16, padding: "16px", marginBottom: 20, textAlign: "center" }}>
+                        <div style={{ background: "var(--status-cautionary-subtle)", border: "1.5px solid #FCD34D", borderRadius: 16, padding: "16px", marginBottom: 20, textAlign: "center" }}>
                             <div style={{ fontSize: 28, marginBottom: 8 }}>🔐</div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: "#92400E", marginBottom: 4 }}>카카오 로그인이 필요해요</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--status-cautionary-strong)", marginBottom: 4 }}>카카오 로그인이 필요해요</div>
                             <div style={{ fontSize: 12, color: "#A16207", lineHeight: 1.6 }}>로그인하면 연동 코드가 생성되고<br/>아이 기기와 연결할 수 있어요</div>
                         </div>
                     ) : null
@@ -2882,8 +2820,12 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                 {isParent && children.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 10 }}>연동된 아이 ({children.length}/{maxChildren})</div>
-                        {children.map((child, i) => (
-                            <div key={child.user_id || i} style={{ background: "#F0FDF4", borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: "1.5px solid #BBF7D0" }}>
+                        {children.map((child, i) => {
+                            const childTone = editingId === child.id
+                                ? (editColor || child.color_hex || "#F779A8")
+                                : (child.color_hex || "#F779A8");
+                            return (
+                            <div key={child.id || child.user_id || i} style={{ background: "color-mix(in srgb, var(--theme-accent-soft) 64%, white)", borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: "1.5px solid var(--theme-accent-line)" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                                     {child.photo_url ? (
                                         <div
@@ -2892,16 +2834,16 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                 width: 44, height: 44, borderRadius: "50%",
                                                 backgroundImage: `url(${child.photo_url})`,
                                                 backgroundSize: "cover", backgroundPosition: "center",
-                                                border: "2px solid #BBF7D0", flexShrink: 0,
+                                                border: `2px solid ${childTone}`, flexShrink: 0,
                                             }}
                                         />
                                     ) : (
                                         <div style={{
                                             width: 44, height: 44, borderRadius: "50%",
-                                            background: "#DCFCE7", border: "2px solid #BBF7D0",
+                                            background: childTone, border: `2px solid ${childTone}`,
                                             display: "flex", alignItems: "center", justifyContent: "center",
                                             fontSize: child.emoji ? 24 : 18, fontWeight: 800,
-                                            color: "#065F46", flexShrink: 0,
+                                            color: "white", flexShrink: 0,
                                         }}>
                                             {child.emoji || (child.name ? child.name.trim()[0] : "👶")}
                                         </div>
@@ -2911,41 +2853,54 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                             previously caused unpaired placeholders (user_id=null) to match a
                                             null editingId and auto-render the input + keyboard with empty value. */}
                                         {editingId && editingId === child.id ? (
-                                            <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0, flexWrap: "wrap" }}>
-                                                <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
-                                                    style={{ width: 110, minWidth: 0, padding: "6px 8px", border: "2px solid #6EE7B7", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
-                                                    maxLength={10} />
-                                                <button onClick={() => { if (editName.trim() && onRename && canManageFamily && child.id) { onRename(child.id, editName.trim()); } setEditingId(null); }}
-                                                    style={{ padding: "6px 10px", borderRadius: 10, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
-                                                <button onClick={() => setEditingId(null)}
-                                                    style={{ padding: "6px 8px", borderRadius: 10, background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
-                                                <label
-                                                    htmlFor={`pmodal-photo-${child.id}`}
-                                                    style={{ padding: "6px 10px", borderRadius: 10, background: photoUploadingId === child.id ? "#FEF3C7" : "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA", fontSize: 12, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
-                                                >
-                                                    {photoUploadingId === child.id ? "⏳ 업로드 중" : "📷 사진 변경"}
-                                                </label>
-                                                <input
-                                                    id={`pmodal-photo-${child.id}`}
-                                                    type="file"
-                                                    accept="image/*"
-                                                    disabled={photoUploadingId === child.id}
-                                                    style={{ display: "none" }}
-                                                    onChange={e => {
-                                                        const f = e.target.files?.[0];
-                                                        e.target.value = "";
-                                                        handlePhotoSelected(child, f);
-                                                    }}
-                                                />
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                                                <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0, flexWrap: "wrap" }}>
+                                                    <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
+                                                        style={{ width: 110, minWidth: 0, padding: "6px 8px", border: "2px solid var(--theme-accent)", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
+                                                        maxLength={10} />
+                                                    <button onClick={() => saveProfileEditing(child)}
+                                                        style={{ padding: "6px 10px", borderRadius: 10, background: "var(--hyeni-theme-gradient)", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
+                                                    <button onClick={stopProfileEditing}
+                                                        style={{ padding: "6px 8px", borderRadius: 10, background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
+                                                    <label
+                                                        htmlFor={`pmodal-photo-${child.id}`}
+                                                        style={{ padding: "6px 10px", borderRadius: 10, background: photoUploadingId === child.id ? "var(--status-cautionary-subtle)" : "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", border: "1px solid #FED7AA", fontSize: 12, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
+                                                    >
+                                                        {photoUploadingId === child.id ? "⏳ 업로드 중" : "📷 사진 변경"}
+                                                    </label>
+                                                    <input
+                                                        id={`pmodal-photo-${child.id}`}
+                                                        type="file"
+                                                        accept="image/*"
+                                                        disabled={photoUploadingId === child.id}
+                                                        style={{ display: "none" }}
+                                                        onChange={e => {
+                                                            const f = e.target.files?.[0];
+                                                            e.target.value = "";
+                                                            handlePhotoSelected(child, f);
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--fg-secondary)", marginBottom: 7 }}>테마 색상</div>
+                                                    <ColorPicker
+                                                        selected={editColor}
+                                                        usedColors={usedChildColors.filter((color) => color !== child.color_hex)}
+                                                        onChange={setEditColor}
+                                                    />
+                                                    <div style={{ fontSize: 10, color: "var(--fg-tertiary)", marginTop: 6, fontWeight: 700 }}>
+                                                        저장하면 앱 전체 테마에 반영돼요
+                                                    </div>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
-                                                <div style={{ fontWeight: 800, fontSize: 15, color: "#065F46", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
+                                                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
                                                 {canManageFamily && child.id && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => { setEditingId(child.id); setEditName(child.name); }}
-                                                        style={{ padding: "4px 10px", borderRadius: 10, background: "#ECFDF5", color: "#047857", border: "1px solid #A7F3D0", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
+                                                        onClick={() => startProfileEditing(child)}
+                                                        style={{ padding: "4px 10px", borderRadius: 10, background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", border: "1px solid var(--theme-accent-line)", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
                                                     >
                                                         ✏️ 프로필 수정
                                                     </button>
@@ -2970,22 +2925,23 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                             }
                                             run();
                                         }}
-                                            style={{ fontSize: 11, padding: "6px 12px", borderRadius: 10, background: "#FEF3C7", color: "#B45309", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
+                                            style={{ fontSize: 11, padding: "6px 12px", borderRadius: 10, background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", border: "none", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
                                             해제
                                         </button>
                                     )}
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
                 {/* Child view: show parent */}
                 {!isParent && parent && (
-                    <div style={{ background: "#D1FAE5", border: "2px solid #6EE7B7", borderRadius: 20, padding: "20px", marginBottom: 20, textAlign: "center" }}>
+                    <div style={{ background: "var(--status-positive-subtle)", border: "2px solid #6EE7B7", borderRadius: 20, padding: "20px", marginBottom: 20, textAlign: "center" }}>
                         <div style={{ fontSize: 40, marginBottom: 8 }}>👨‍👩‍👧</div>
                         <div style={{ fontWeight: 800, fontSize: 18, color: "#065F46" }}>연동 완료</div>
-                        <div style={{ fontSize: 14, color: "#047857", marginTop: 4 }}>{parent.name} (부모님)</div>
+                        <div style={{ fontSize: 14, color: "var(--status-positive-strong)", marginTop: 4 }}>{parent.name} (부모님)</div>
                     </div>
                 )}
 
@@ -3120,7 +3076,7 @@ function QrPairScanner({ onDetected, onClose }) {
                     <div style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.8)" }}>
                         QR을 인식하면 코드 입력 없이 바로 연동을 시작해요
                     </div>
-                    {error && <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "#B45309" }}>{error}</div>}
+                    {error && <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--status-cautionary-strong)" }}>{error}</div>}
                 </div>
             </div>
         </div>
@@ -3172,7 +3128,7 @@ function ChildPairInput({ userId, onPaired }) {
         return (
             <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF, textAlign: "center" }}>
                 <div style={{ fontSize: 64, marginBottom: 18 }}>🎉</div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: "#BE185D", marginBottom: 10 }}>연결됐어요!</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 10 }}>연결됐어요!</div>
                 <div style={{ fontSize: 14, color: "var(--fg-secondary)", lineHeight: 1.55 }}>
                     가족 정보를 불러오는 중이에요...<br />위치 권한을 묻는 창이 뜨면 허용해 주세요.
                 </div>
@@ -3183,15 +3139,15 @@ function ChildPairInput({ userId, onPaired }) {
     return (
         <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
             <AppBrandLogo size={78} radius={24} />
-            <div style={{ fontSize: 24, fontWeight: 900, color: "#E879A0", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: "var(--theme-accent-text)", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
             <div style={{ fontSize: 14, color: "var(--fg-secondary)", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
             <div style={{ position: "relative", width: "100%", maxWidth: 320, marginBottom: 8 }}>
-                <div style={{ position: "absolute", left: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 20, fontFamily: "monospace", fontWeight: 700, color: "#E879A0", pointerEvents: "none", zIndex: 1 }}>KID-</div>
+                <div style={{ position: "absolute", left: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 20, fontFamily: "monospace", fontWeight: 700, color: "var(--theme-accent-text)", pointerEvents: "none", zIndex: 1 }}>KID-</div>
                 <input value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
                     placeholder="XXXXXXXX" maxLength={8}
-                    style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid #F3E8F0", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "var(--fg-primary)", background: "white", boxShadow: "0 2px 8px rgba(232,121,160,0.1)" }} />
+                    style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid var(--theme-accent-line)", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "var(--fg-primary)", background: "white", boxShadow: "var(--hyeni-theme-shadow-soft)" }} />
             </div>
-            {error && <div style={{ fontSize: 13, color: "#B45309", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
+            {error && <div style={{ fontSize: 13, color: "var(--status-cautionary-strong)", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
             <button onClick={() => { void handleJoin(); }} disabled={busy}
                 style={{ ...makePrimaryButtonStyle({ maxWidth: 320, padding: "16px", fontSize: 16, marginTop: 8, opacity: busy ? 0.7 : 1 }), cursor: busy ? "wait" : "pointer" }}>
                 {busy ? "연결 중..." : "🔗 연결하기"}
@@ -3200,7 +3156,7 @@ function ChildPairInput({ userId, onPaired }) {
                 type="button"
                 onClick={() => { if (!busy) setShowScanner(true); }}
                 disabled={busy}
-                style={{ ...makeSecondaryButtonStyle({ maxWidth: 320, padding: "14px", color: DESIGN.colors.parentDeep, border: "1.5px solid #BFDBFE", background: DESIGN.colors.parentPale, fontSize: 15, marginTop: 10 }), cursor: busy ? "wait" : "pointer" }}
+                style={{ ...makeSecondaryButtonStyle({ maxWidth: 320, padding: "14px", color: "var(--theme-accent-text)", border: "1.5px solid var(--theme-accent-line)", background: "var(--theme-accent-soft)", fontSize: 15, marginTop: 10 }), cursor: busy ? "wait" : "pointer" }}
             >
                 📷 QR로 연결하기
             </button>
@@ -3333,7 +3289,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
 
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "white", display: "flex", flexDirection: "column", fontFamily: FF }}>
-            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid var(--bg-muted)", display: "flex", alignItems: "center", gap: 12 }}>
                 <button
                     onClick={async () => {
                         try {
@@ -3350,7 +3306,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             console.error("[AcademyManager] save failed:", error);
                         }
                     }}
-                    style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}
+                    style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}
                 >
                     ← 저장
                 </button>
@@ -3370,15 +3326,15 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                                 </button>
                             ))}
                             <button onClick={() => openNew()}
-                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #F9A8D4", background: "#FFF0F7", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#E879A0" }}>
+                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed var(--theme-accent-line)", background: "var(--theme-accent-soft)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "var(--theme-accent-text)" }}>
                                 + 학원 입력
                             </button>
                             <button onClick={openNewSavedPlace}
-                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #F9A8D4", background: savedPlacesLocked ? "#F3F4F6" : "#FFF0F7", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: savedPlacesLocked ? "#9CA3AF" : "#BE185D" }}>
+                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed var(--theme-accent-line)", background: savedPlacesLocked ? "var(--bg-muted)" : "var(--theme-accent-soft)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: savedPlacesLocked ? "#9CA3AF" : "var(--theme-accent-text)" }}>
                                 + 자주 가는 장소
                             </button>
                             <button onClick={openNewSafePlace}
-                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #86EFAC", background: savedPlacesLocked ? "#F3F4F6" : "#F0FDF4", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: savedPlacesLocked ? "#9CA3AF" : "#047857" }}>
+                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #86EFAC", background: savedPlacesLocked ? "var(--bg-muted)" : "#F0FDF4", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: savedPlacesLocked ? "#9CA3AF" : "var(--status-positive-strong)" }}>
                                 + 안전장소
                             </button>
                         </div>
@@ -3392,29 +3348,32 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                         <div style={{ marginBottom: 12 }}>
                             <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>학원 이름</label>
                             <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="예) 영어학원, 수학왕..."
-                                style={{ width: "100%", padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }} />
+                                style={{ width: "100%", padding: "12px 14px", border: "2px solid var(--bg-muted)", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }} />
                         </div>
                         <div style={{ marginBottom: 12 }}>
                             <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>카테고리</label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                {CATEGORIES.map(cat => (
-                                    <button key={cat.id} onClick={() => setForm(p => ({ ...p, category: cat.id, emoji: cat.emoji }))}
-                                        style={{ padding: "7px 12px", borderRadius: 14, border: `2px solid ${form.category === cat.id ? cat.color : "#E5E7EB"}`, background: form.category === cat.id ? cat.color : "white", color: form.category === cat.id ? "white" : cat.color, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: FF }}>
-                                        {cat.emoji} {cat.label}
-                                    </button>
-                                ))}
+                                {CATEGORIES.map(cat => {
+                                    const active = form.category === cat.id;
+                                    return (
+                                        <button key={cat.id} onClick={() => setForm(p => ({ ...p, category: cat.id, emoji: cat.emoji }))}
+                                            style={{ padding: "7px 12px", borderRadius: 14, border: active ? "2px solid var(--theme-accent)" : "2px solid var(--theme-accent-line)", background: active ? "var(--theme-accent-soft)" : "white", color: active ? "var(--theme-accent-text)" : "var(--fg-secondary)", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: FF }}>
+                                            {cat.emoji} {cat.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                         <div style={{ marginBottom: 16 }}>
                             <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>📍 위치 (GPS)</label>
                             {form.location ? (
-                                <div style={{ background: "#FFF0F7", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                <div style={{ background: "var(--theme-accent-soft)", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                                     <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {form.location.address}</div>
-                                    <button onClick={() => setShowMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #E879A0", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
+                                    <button onClick={() => setShowMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid var(--theme-accent)", color: "var(--theme-accent-text)", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                 </div>
                             ) : (
                                 <button onClick={() => setShowMap(true)}
-                                    style={{ width: "100%", padding: "12px", border: "2px dashed #F9A8D4", borderRadius: 14, background: "#FFF0F7", color: "#E879A0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
+                                    style={{ width: "100%", padding: "12px", border: "2px dashed var(--theme-accent-line)", borderRadius: 14, background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
                                     🗺️ 지도에서 위치 선택
                                 </button>
                             )}
@@ -3431,7 +3390,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                                             const newDays = active ? days.filter(x => x !== i) : [...days, i].sort();
                                             setForm(p => ({ ...p, schedule: { ...(p.schedule || { startTime: "15:00", endTime: "16:00", repeatWeeks: 4 }), days: newDays } }));
                                         }}
-                                            style={{ flex: 1, padding: "8px 0", borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: FF, border: active ? "2px solid #E879A0" : "2px solid #F3F4F6", background: active ? "#FFF0F7" : "#FAFAFA", color: active ? "#E879A0" : i === 0 ? "#F87171" : i === 6 ? "#60A5FA" : "#6B7280", transition: "all 0.15s" }}>
+                                            style={{ flex: 1, padding: "8px 0", borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: FF, border: active ? "2px solid var(--theme-accent)" : "2px solid var(--bg-muted)", background: active ? "var(--theme-accent-soft)" : "#FAFAFA", color: active ? "var(--theme-accent-text)" : "var(--fg-secondary)", transition: "all 0.15s" }}>
                                             {d}
                                         </button>
                                     );
@@ -3440,10 +3399,10 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             {form.schedule?.days?.length > 0 && (
                                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                     <input type="time" value={form.schedule?.startTime || "15:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, startTime: e.target.value } }))}
-                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
+                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid var(--bg-muted)", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: "var(--theme-accent)", colorScheme: "light" }} />
                                     <span style={{ fontSize: 14, fontWeight: 700, color: "var(--fg-tertiary)" }}>~</span>
                                     <input type="time" value={form.schedule?.endTime || "16:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, endTime: e.target.value } }))}
-                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid #F3F4F6", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
+                                        style={{ flex: 1, padding: "10px 12px", border: "2px solid var(--bg-muted)", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: "var(--theme-accent)", colorScheme: "light" }} />
                                 </div>
                             )}
                             {form.schedule?.days?.length > 0 && (
@@ -3452,7 +3411,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                                     <select
                                         value={Math.max(1, Number(form.schedule?.repeatWeeks || 4))}
                                         onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, repeatWeeks: Number(e.target.value) } }))}
-                                        style={{ padding: "8px 10px", borderRadius: 10, border: "2px solid #F3F4F6", fontSize: 13, fontWeight: 700, color: "var(--fg-primary)", fontFamily: FF, background: "white" }}
+                                        style={{ padding: "8px 10px", borderRadius: 10, border: "2px solid var(--bg-muted)", fontSize: 13, fontWeight: 700, color: "var(--fg-primary)", fontFamily: FF, background: "white" }}
                                     >
                                         <option value={2}>2주</option>
                                         <option value={4}>4주</option>
@@ -3464,14 +3423,14 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             )}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={saveForm} style={{ flex: 1, padding: "13px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
-                            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "13px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
+                            <button onClick={saveForm} style={{ flex: 1, padding: "13px", background: "var(--hyeni-theme-gradient)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
+                            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "13px", background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
                         </div>
                     </div>
                 )}
 
                 {showSavedForm && (
-                    <div style={{ background: "#FFF7FB", borderRadius: 20, padding: "18px", marginBottom: 16, border: "1px solid #FCE7F3" }}>
+                    <div style={{ background: "var(--hyeni-surface-warm)", borderRadius: 20, padding: "18px", marginBottom: 16, border: "1px solid var(--theme-accent-line)" }}>
                         <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 14 }}>{savedEditIdx !== null ? "✏️ 장소 수정" : savedForm.is_playdate_safe ? "➕ 안전장소 추가" : "➕ 자주 가는 장소 추가"}</div>
                         <div style={{ marginBottom: 12 }}>
                             <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>장소 이름</label>
@@ -3479,7 +3438,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                                 value={savedForm.name}
                                 onChange={e => setSavedForm(prev => ({ ...prev, name: e.target.value }))}
                                 placeholder={savedForm.is_playdate_safe ? "예) 학교 정문, 태권도장, 놀이터" : "예) 집, 할머니 집, 도서관"}
-                                style={{ width: "100%", padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
+                                style={{ width: "100%", padding: "12px 14px", border: "2px solid var(--bg-muted)", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
                             />
                         </div>
                         <div style={{ marginBottom: 16 }}>
@@ -3487,18 +3446,18 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             {savedForm.location ? (
                                 <div style={{ background: "white", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                                     <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {savedForm.location.address}</div>
-                                    <button onClick={() => setShowSavedMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #E879A0", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
+                                    <button onClick={() => setShowSavedMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid var(--theme-accent)", color: "var(--theme-accent-text)", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                 </div>
                             ) : (
                                 <button onClick={() => setShowSavedMap(true)}
-                                    style={{ width: "100%", padding: "12px", border: "2px dashed #F9A8D4", borderRadius: 14, background: "white", color: "#E879A0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
+                                    style={{ width: "100%", padding: "12px", border: "2px dashed var(--theme-accent-line)", borderRadius: 14, background: "white", color: "var(--theme-accent-text)", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
                                     🗺️ 지도에서 장소 선택
                                 </button>
                             )}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={saveSavedPlaceForm} style={{ flex: 1, padding: "13px", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
-                            <button onClick={() => setShowSavedForm(false)} style={{ flex: 1, padding: "13px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
+                            <button onClick={saveSavedPlaceForm} style={{ flex: 1, padding: "13px", background: "var(--hyeni-theme-gradient)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
+                            <button onClick={() => setShowSavedForm(false)} style={{ flex: 1, padding: "13px", background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
                         </div>
                     </div>
                 )}
@@ -3513,15 +3472,15 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                     </div>
                 )}
                 {list.map((a, i) => (
-                    <div key={i} style={{ background: a.bg || "#F9FAFB", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: `4px solid ${a.color || "#E5E7EB"}` }}>
+                    <div key={i} style={{ background: a.bg || "var(--bg-subtle)", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: `4px solid ${a.color || "#E5E7EB"}` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <div style={{ fontSize: 26 }}>{a.emoji}</div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)" }}>{a.name}</div>
                                 <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>{CATEGORIES.find(c => c.id === a.category)?.label}</div>
                                 {a.location && <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>📍 {a.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
-                                {!a.location && <div style={{ fontSize: 11, color: "#F59E0B", marginTop: 2 }}>📍 위치 미등록</div>}
-                                {a.schedule?.days?.length > 0 && <div style={{ fontSize: 11, color: "#E879A0", fontWeight: 700, marginTop: 3 }}>📅 {a.schedule.days.map(d => DAYS_LABEL[d]).join(", ")} {a.schedule.startTime}~{a.schedule.endTime} · {Math.max(1, Number(a.schedule.repeatWeeks || 4))}주 반복</div>}
+                                {!a.location && <div style={{ fontSize: 11, color: "var(--status-cautionary)", marginTop: 2 }}>📍 위치 미등록</div>}
+                                {a.schedule?.days?.length > 0 && <div style={{ fontSize: 11, color: "var(--theme-accent-text)", fontWeight: 700, marginTop: 3 }}>📅 {a.schedule.days.map(d => DAYS_LABEL[d]).join(", ")} {a.schedule.startTime}~{a.schedule.endTime} · {Math.max(1, Number(a.schedule.repeatWeeks || 4))}주 반복</div>}
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openEdit(i)} style={{ background: "rgba(255,255,255,0.8)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
@@ -3531,7 +3490,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                     </div>
                 ))}
 
-                <div style={{ height: 1, background: "#F3F4F6", margin: "18px 0" }} />
+                <div style={{ height: 1, background: "var(--bg-muted)", margin: "18px 0" }} />
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                     <div>
@@ -3541,13 +3500,13 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                     <button
                         type="button"
                         onClick={openNewSavedPlace}
-                        style={{ border: "none", borderRadius: 14, padding: "8px 12px", background: savedPlacesLocked ? "#F3F4F6" : "#FFF0F7", color: savedPlacesLocked ? "#9CA3AF" : "#BE185D", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                        style={{ border: "none", borderRadius: 14, padding: "8px 12px", background: savedPlacesLocked ? "var(--bg-muted)" : "var(--theme-accent-soft)", color: savedPlacesLocked ? "#9CA3AF" : "var(--theme-accent-text)", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                     >
                         + 장소
                     </button>
                 </div>
                 {savedPlacesLocked && (
-                    <div style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, marginBottom: 10, fontFamily: FF }}>
+                    <div style={{ background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, marginBottom: 10, fontFamily: FF }}>
                         유료계정은 자주가는 장소를 무제한 등록할 수 있어요
                     </div>
                 )}
@@ -3559,14 +3518,14 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                     </div>
                 )}
                 {savedList.map((place, index) => (
-                    <div key={place.id || index} style={{ background: "#FFF7FB", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: "4px solid #F472B6" }}>
+                    <div key={place.id || index} style={{ background: "var(--hyeni-surface-warm)", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: "4px solid var(--theme-accent)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <div style={{ fontSize: 24 }}>{place.is_playdate_safe ? "🛡️" : "📍"}</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                     <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)" }}>{place.name}</div>
                                     {place.is_playdate_safe && (
-                                        <span style={{ borderRadius: 999, background: "#DCFCE7", color: "#047857", padding: "2px 7px", fontSize: 10, fontWeight: 900 }}>
+                                        <span style={{ borderRadius: 999, background: "var(--status-positive-subtle)", color: "var(--status-positive-strong)", padding: "2px 7px", fontSize: 10, fontWeight: 900 }}>
                                             안전장소
                                         </span>
                                     )}
@@ -3585,7 +3544,7 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
     );
 }
 
-function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isChildMode = false }) {
+function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapLoadError = "", onClose, isChildMode = false }) {
     const mapRef = useRef();
     const mapInst = useRef();
     const myMarkerRef = useRef(null);
@@ -3609,6 +3568,9 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
 
     // Compute live distance/time
     const currentPos = livePos || childPos;
+    const currentMarkerColor = childProfile?.color_hex || childPos?.color_hex || childPos?.color || "var(--theme-accent)";
+    const currentMarkerEmoji = childProfile?.emoji || childPos?.emoji || "👧";
+    const currentMarkerLabel = isChildMode ? "내 위치" : `${childProfile?.name || "아이"} 위치`;
     const liveDist = currentPos && ev.location
         ? haversineM(currentPos.lat, currentPos.lng, ev.location.lat, ev.location.lng)
         : null;
@@ -3897,7 +3859,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
             new window.kakao.maps.CustomOverlay({
                 map: mapInst.current, position: destLL, yAnchor: 1.4, zIndex: 5,
                 content: `<div style="display:flex;flex-direction:column;align-items:center">
-                    <div style="background:${ev.color};color:white;padding:8px 14px;border-radius:16px;font-size:14px;font-weight:900;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-family:'Noto Sans KR',sans-serif;border:2px solid white">🏁 ${escHtml(ev.title)}</div>
+                    <div style="background:${ev.color};color:white;padding:8px 14px;border-radius:16px;font-size:14px;font-weight:900;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif;border:2px solid white">🏁 ${escHtml(ev.title)}</div>
                     <div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid ${ev.color}"></div>
                 </div>`
             });
@@ -3910,38 +3872,12 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
         const startPos = currentPos;
         const myLL = new window.kakao.maps.LatLng(startPos.lat, startPos.lng);
 
-        // ── 내 위치 마커 (이동 가능) — 토끼 + 펄스 링 ──
-        const bunnySvg = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="92" viewBox="-4 -10 64 92">
-          <!-- outer pulse ring -->
-          <circle cx="28" cy="36" r="30" fill="none" stroke="rgba(236,72,153,0.4)" stroke-width="3"><animate attributeName="r" values="28;34;28" dur="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0.1;0.8" dur="1.8s" repeatCount="indefinite"/></circle>
-          <!-- inner pulse ring -->
-          <circle cx="28" cy="36" r="24" fill="rgba(244,114,182,0.12)" stroke="none"><animate attributeName="r" values="22;26;22" dur="2s" repeatCount="indefinite"/></circle>
-          <!-- left ear -->
-          <ellipse cx="16" cy="12" rx="7" ry="16" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
-          <ellipse cx="16" cy="12" rx="4" ry="12" fill="#FBCFE8"/>
-          <!-- right ear -->
-          <ellipse cx="40" cy="12" rx="7" ry="16" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
-          <ellipse cx="40" cy="12" rx="4" ry="12" fill="#FBCFE8"/>
-          <!-- head -->
-          <circle cx="28" cy="36" r="20" fill="#FBCFE8" stroke="#EC4899" stroke-width="2.5"/>
-          <!-- blush -->
-          <ellipse cx="14" cy="40" rx="5" ry="3" fill="#F9A8D4" opacity="0.5"/>
-          <ellipse cx="42" cy="40" rx="5" ry="3" fill="#F9A8D4" opacity="0.5"/>
-          <!-- eyes -->
-          <circle cx="20" cy="33" r="3.5" fill="#1F2937"/><circle cx="21.2" cy="31.5" r="1.2" fill="white"/>
-          <circle cx="36" cy="33" r="3.5" fill="#1F2937"/><circle cx="37.2" cy="31.5" r="1.2" fill="white"/>
-          <!-- nose -->
-          <ellipse cx="28" cy="40" rx="3" ry="2.2" fill="#EC4899"/>
-          <!-- mouth -->
-          <path d="M24 43 Q28 47 32 43" stroke="#EC4899" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          <!-- label: 내 위치 -->
-          <rect x="6" y="62" width="44" height="16" rx="8" fill="#EC4899" stroke="white" stroke-width="1.5"/>
-          <text x="28" y="74" text-anchor="middle" font-size="10" font-weight="900" fill="white" font-family="sans-serif">내 위치</text>
-        </svg>`)}`;
+        // ── 내 위치 마커 (이동 가능) — 기존 아이 이모티콘 + 선택 테마색 ──
         const myOverlay = new window.kakao.maps.CustomOverlay({
             map: mapInst.current, position: myLL, yAnchor: 0.85, zIndex: 10,
-            content: `<div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 4px 12px rgba(236,72,153,0.5))">
-                <img src="${bunnySvg}" width="60" height="86" style="display:block" />
+            content: `<div style="display:flex;flex-direction:column;align-items:center;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif">
+                <div style="width:56px;height:56px;border-radius:20px;background:#fff;border:3px solid ${currentMarkerColor};box-shadow:0 0 0 8px color-mix(in srgb, ${currentMarkerColor} 18%, transparent),0 7px 18px rgba(15,23,42,0.22);display:flex;align-items:center;justify-content:center;font-size:28px;line-height:1">${escHtml(currentMarkerEmoji)}</div>
+                <div style="margin-top:5px;background:${currentMarkerColor};color:white;padding:5px 10px;border-radius:12px;font-size:11px;font-weight:900;box-shadow:0 4px 12px rgba(15,23,42,0.18);white-space:nowrap">${escHtml(currentMarkerLabel)}</div>
             </div>`
         });
         myMarkerRef.current = myOverlay;
@@ -3949,14 +3885,14 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
         // ── "출발" 라벨 오버레이 (내 위치 위에) ──
         const startOv = new window.kakao.maps.CustomOverlay({
             map: mapInst.current, position: myLL, yAnchor: 2.6, zIndex: 9,
-            content: `<div style="background:linear-gradient(135deg,#10B981,#059669);color:white;padding:6px 14px;border-radius:12px;font-size:13px;font-weight:900;box-shadow:0 3px 12px rgba(16,185,129,0.4);font-family:'Noto Sans KR',sans-serif;border:2px solid white">🚶 출발</div>`
+            content: `<div style="background:linear-gradient(135deg,var(--status-positive),#059669);color:white;padding:6px 14px;border-radius:12px;font-size:13px;font-weight:900;box-shadow:0 3px 12px rgba(16,185,129,0.4);font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif;border:2px solid white">🚶 출발</div>`
         });
         startOverlayRef.current = startOv;
 
          
         lastRoutePosRef.current = { ...startPos };
         requestWalkingRoute(startPos, ev.location, { fit: true });
-    }, [mapReady, ev, currentPos, requestWalkingRoute]);
+    }, [mapReady, ev, currentPos, currentMarkerColor, currentMarkerEmoji, currentMarkerLabel, requestWalkingRoute]);
 
     const recenterMap = () => {
         if (!mapInst.current || !currentPos) return;
@@ -4032,7 +3968,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: DESIGN.gradients.map, display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Navigation Header */}
             <div style={{ padding: "12px 16px", paddingTop: "max(12px, env(safe-area-inset-top))", background: "white", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, zIndex: 2 }}>
-                <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, width: 40, height: 40, cursor: "pointer", fontWeight: 800, fontSize: 18, fontFamily: FF, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-secondary)", flexShrink: 0 }}>←</button>
+                <button onClick={onClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, width: 40, height: 40, cursor: "pointer", fontWeight: 800, fontSize: 18, fontFamily: FF, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-secondary)", flexShrink: 0 }}>←</button>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 800, color: "var(--fg-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.emoji} {ev.title}</div>
                     <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 1 }}>
@@ -4040,8 +3976,8 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                     </div>
                 </div>
                 {isTracking && (
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#3B82F6", background: "#DBEAFE", padding: "4px 8px", borderRadius: 8, whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "center", gap: 3 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#3B82F6", animation: "pulse 1.5s infinite" }} />
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--theme-accent-text)", background: "var(--theme-accent-soft)", padding: "4px 8px", borderRadius: 8, whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "center", gap: 3 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--theme-accent)", animation: "pulse 1.5s infinite" }} />
                         GPS
                     </div>
                 )}
@@ -4050,7 +3986,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
             {/* Route info bar */}
             {!routeInfo?.loading && distLabel && (
                 <div style={{
-                    margin: "0 16px", marginTop: 10, background: arrived ? "#D1FAE5" : "white",
+                    margin: "0 16px", marginTop: 10, background: arrived ? "var(--status-positive-subtle)" : "white",
                     borderRadius: 20, padding: "14px 20px", boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                     display: "flex", alignItems: "center", gap: 14, zIndex: 2
                 }}>
@@ -4070,7 +4006,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                                     {routeInfo?.error ? `예상 직선거리 · 도보 약 ${timeLabel}` : `도보 약 ${timeLabel}`}
                                 </div>
                                 {bunnyEncouragement && (
-                                    <div style={{ fontSize: 12, fontWeight: 700, color: "#E879A0", marginTop: 4 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--theme-accent-text)", marginTop: 4 }}>
                                         {bunnyEncouragement.emoji} {bunnyEncouragement.msg}
                                     </div>
                                 )}
@@ -4098,7 +4034,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
             )}
 
             {/* Map */}
-            <div style={{ flex: 1, margin: "10px 16px", borderRadius: 24, overflow: "hidden", boxShadow: "0 4px 20px rgba(247,121,168,0.10)", position: "relative", minHeight: 0, border: "2px solid rgba(255,228,239,0.8)" }}>
+            <div style={{ flex: 1, margin: "10px 16px", borderRadius: 24, overflow: "hidden", boxShadow: "var(--hyeni-theme-shadow-soft)", position: "relative", minHeight: 0, border: "2px solid var(--theme-accent-line)" }}>
                 {!mapReady && (
                     <FallbackMapCanvas
                         center={currentPos || ev.location}
@@ -4123,7 +4059,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                         {gpsError ? (
                             <>
                                 <div style={{ fontSize: 40 }}>📍</div>
-                                <div style={{ fontSize: 15, fontWeight: 800, color: "#B45309", fontFamily: FF }}>
+                                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--status-cautionary-strong)", fontFamily: FF }}>
                                     위치를 찾을 수 없어요
                                 </div>
                                 <div style={{ fontSize: 12, color: "var(--fg-secondary)", fontFamily: FF, textAlign: "center", lineHeight: 1.5 }}>
@@ -4167,9 +4103,9 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                             boxShadow: "0 2px 12px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center",
                             position: "relative"
                         }}>
-                            <div style={{ position: "absolute", top: 3, fontSize: 8, fontWeight: 800, color: "#EF4444", fontFamily: FF }}>N</div>
+                            <div style={{ position: "absolute", top: 3, fontSize: 8, fontWeight: 800, color: "var(--status-negative)", fontFamily: FF }}>N</div>
                             <svg width="32" height="32" viewBox="0 0 32 32" style={{ transform: `rotate(${heading}deg)`, transition: "transform 0.3s ease-out" }}>
-                                <polygon points="16,4 12,20 16,17 20,20" fill="#EC4899" stroke="#BE185D" strokeWidth="1" />
+                                <polygon points="16,4 12,20 16,17 20,20" fill="var(--theme-accent)" stroke="var(--theme-accent-text)" strokeWidth="1" />
                                 <polygon points="16,28 12,20 16,17 20,20" fill="#D1D5DB" stroke="#9CA3AF" strokeWidth="0.5" />
                             </svg>
                         </div>
@@ -4188,11 +4124,11 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                     <button onClick={recenterMap} title="내 위치"
                         style={{
                             minWidth: 56, height: 56, borderRadius: 16, padding: "0 16px",
-                            background: centered ? "linear-gradient(135deg, #EC4899, #F472B6)" : "white",
-                            border: centered ? "none" : "2px solid #F9A8D4",
-                            cursor: "pointer", boxShadow: centered ? "0 4px 14px rgba(236,72,153,0.4)" : "0 2px 8px rgba(0,0,0,0.15)",
+                            background: centered ? "var(--hyeni-theme-gradient)" : "white",
+                            border: centered ? "none" : "2px solid var(--theme-accent-line)",
+                            cursor: "pointer", boxShadow: centered ? "var(--hyeni-theme-shadow-soft)" : "0 2px 8px rgba(0,0,0,0.15)",
                             display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                            fontSize: 14, fontWeight: 800, color: centered ? "white" : "#EC4899", fontFamily: FF,
+                            fontSize: 14, fontWeight: 800, color: centered ? "white" : "var(--theme-accent-text)", fontFamily: FF,
                             transition: "all 0.2s ease"
                         }}>
                         🐰 내 위치
@@ -4217,16 +4153,16 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                             </div>
                         </div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                            <div style={{ padding: "7px 10px", borderRadius: 999, background: arrived ? "#DCFCE7" : ev.bg, color: arrived ? "#166534" : ev.color, fontSize: 11, fontWeight: 800 }}>
+                            <div style={{ padding: "7px 10px", borderRadius: 999, background: arrived ? "var(--status-positive-subtle)" : ev.bg, color: arrived ? "#166534" : ev.color, fontSize: 11, fontWeight: 800 }}>
                                 {arrived ? "근처 도착" : distLabel || "경로 확인"}
                             </div>
                             {displayMin != null && !routeInfo?.error && (
-                                <div style={{ padding: "7px 10px", borderRadius: 999, background: "#EEF2FF", color: "#4338CA", fontSize: 11, fontWeight: 800 }}>
+                                <div style={{ padding: "7px 10px", borderRadius: 999, background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", fontSize: 11, fontWeight: 800 }}>
                                     도보 {timeLabel}
                                 </div>
                             )}
                             {routeInfo?.error && (
-                                <div style={{ padding: "7px 10px", borderRadius: 999, background: "#DBEAFE", color: "#1D4ED8", fontSize: 11, fontWeight: 800 }}>
+                                <div style={{ padding: "7px 10px", borderRadius: 999, background: "var(--bg-subtle)", color: "var(--theme-accent-text)", fontSize: 11, fontWeight: 800 }}>
                                     위치 확인
                                 </div>
                             )}
@@ -4237,7 +4173,7 @@ function RouteOverlay({ ev, childPos, mapReady, mapLoadError = "", onClose, isCh
                         <button
                             onClick={guidanceStarted ? fitFullRoute : startInAppGuidance}
                             disabled={!currentPos || !ev.location}
-                            style={{ flex: 1, padding: "15px 14px", borderRadius: 18, border: "none", cursor: currentPos && ev.location ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "white", background: currentPos && ev.location ? "linear-gradient(135deg, #EC4899, #BE185D)" : "#D1D5DB", boxShadow: currentPos && ev.location ? "0 12px 24px rgba(236,72,153,0.26)" : "none" }}
+                            style={{ flex: 1, padding: "15px 14px", borderRadius: 18, border: "none", cursor: currentPos && ev.location ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "white", background: currentPos && ev.location ? "var(--hyeni-theme-gradient)" : "#D1D5DB", boxShadow: currentPos && ev.location ? "var(--hyeni-theme-shadow-soft)" : "none" }}
                         >
                             {guidanceStarted ? "전체 경로 보기" : "길안내 시작"}
                         </button>
@@ -4488,12 +4424,12 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
         `}</style>
 
         {/* UI-SPEC §1 — MemoSection container */}
-        <div ref={containerRef} style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid #E5E7EB", overflow: "hidden" }}>
+        <div ref={containerRef} style={{ marginTop: 18, background: "white", borderRadius: 20, padding: 0, border: "1.5px solid var(--theme-accent-line)", overflow: "hidden", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
 
             {/* UI-SPEC §2 — Header bar */}
-            <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,#FFF5FA,#FDF2F8)", borderBottom: "1px solid #FBCFE8", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", borderBottom: "1px solid var(--theme-accent-line)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 {/* UI-SPEC §2 — section title: fontSize 14, fontWeight 700 (corrected from 800) */}
-                <div style={{ fontSize: 17, fontWeight: 900, color: "#BE185D", letterSpacing: "-0.01em" }}>💬 오늘의 메모</div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: "var(--theme-accent-text)", letterSpacing: 0 }}>💬 오늘의 메모</div>
                 {/* UI-SPEC §2 — conditional ✓ 읽음 badge */}
                 {hasMessages && othersRead && (
                     <div style={{ fontSize: 12, color: "#059669", fontWeight: 800, background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 999, padding: "4px 10px" }}>✓ 읽음</div>
@@ -4511,7 +4447,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                 {!hasMessages ? (
                     <div style={{ textAlign: "center", padding: "28px 16px", color: "#D1D5DB" }}>
                         <div style={{ fontSize: 36, marginBottom: 10 }}>💗</div>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: "#BE185D", marginBottom: 4 }}>아직 주고받은 메시지가 없어요</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: "var(--theme-accent-text)", marginBottom: 4 }}>아직 주고받은 메시지가 없어요</div>
                         <div style={{ fontSize: 14, color: "var(--fg-secondary)", fontWeight: 600 }}>
                             {isParentMode ? "아이에게 첫 메시지를 남겨보세요 💗" : "부모님께 오늘 하루를 전해봐~ 🐰"}
                         </div>
@@ -4528,7 +4464,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                                     style={{ display: "flex", alignItems: "center", margin: "8px 0" }}
                                 >
                                     <hr style={{ flex: 1, border: "none", borderTop: "1px solid #E5E7EB", margin: 0 }} />
-                                    <span style={{ padding: "3px 12px", borderRadius: 99, background: "#F3F4F6", fontSize: 10, color: "var(--fg-tertiary)", fontWeight: 700, margin: "0 8px", whiteSpace: "nowrap" }}>
+                                    <span style={{ padding: "3px 12px", borderRadius: 99, background: "var(--bg-muted)", fontSize: 10, color: "var(--fg-tertiary)", fontWeight: 700, margin: "0 8px", whiteSpace: "nowrap" }}>
                                         {item.label}
                                     </span>
                                     <hr style={{ flex: 1, border: "none", borderTop: "1px solid #E5E7EB", margin: 0 }} />
@@ -4542,12 +4478,12 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                         const isMe = !isLegacy && r.user_id === myUserId;
 
                         /* UI-SPEC §4c — avatar colors per role */
-                        const avatarBg = isLegacy ? "#FEF3C7" : (r.user_role === "parent" ? "#DBEAFE" : "#FCE7F3");
+                        const avatarBg = isLegacy ? "var(--status-cautionary-subtle)" : (r.user_role === "parent" ? "var(--bg-subtle)" : "var(--theme-accent-soft)");
                         const avatarGlyph = isLegacy ? "👶" : (r.user_role === "parent" ? "👩" : "🐰");
 
                         /* UI-SPEC §4d — bubble colors and border-radius */
-                        const bubbleBg = isLegacy ? "#FEF3C7" : (isMe ? "#E879A0" : "#F3F4F6");
-                        const bubbleColor = isLegacy ? "#92400E" : (isMe ? "#FFFFFF" : "#374151");
+                        const bubbleBg = isLegacy ? "var(--status-cautionary-subtle)" : (isMe ? "var(--theme-accent)" : "var(--bg-muted)");
+                        const bubbleColor = isLegacy ? "var(--status-cautionary-strong)" : (isMe ? "#FFFFFF" : "#374151");
                         const bubbleRadius = isLegacy ? "12px" : (isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px");
 
                         /* UI-SPEC §4f — animation for new bubbles */
@@ -4592,7 +4528,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                                 <div style={{ maxWidth: "75%" }}>
                                     {/* UI-SPEC §4d — legacy "예전 메모" label */}
                                     {isLegacy && (
-                                        <div style={{ fontSize: 10, color: "#92400E", marginBottom: 3, fontWeight: 700 }}>예전 메모</div>
+                                        <div style={{ fontSize: 10, color: "var(--status-cautionary-strong)", marginBottom: 3, fontWeight: 700 }}>예전 메모</div>
                                     )}
 
                                     {/* UI-SPEC §4d — bubble body */}
@@ -4628,7 +4564,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
             <div style={{
                 padding: "10px 12px",
                 paddingBottom: "max(10px, env(safe-area-inset-bottom))",
-                borderTop: "1px solid #F3F4F6",
+                borderTop: "1px solid var(--bg-muted)",
                 display: "flex",
                 gap: 8,
                 alignItems: "center",
@@ -4653,8 +4589,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     }}
                     style={{
                         flex: 1,
-                        /* UI-SPEC §5 — focus border swap #E5E7EB → #E879A0 */
-                        border: `1.5px solid ${isFocused ? "#E879A0" : "#E5E7EB"}`,
+                        border: `1.5px solid ${isFocused ? "var(--theme-accent)" : "#E5E7EB"}`,
                         borderRadius: 22,
                         padding: "11px 16px",
                         fontSize: 16,
@@ -4677,7 +4612,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                         borderRadius: 22,
                         /* UI-SPEC §5 — active gradient vs. inactive grey */
                         background: inputText.trim()
-                            ? "linear-gradient(135deg,#E879A0,#BE185D)"
+                            ? "var(--hyeni-theme-gradient)"
                             : "#E5E7EB",
                         color: "white",
                         border: "none",
@@ -4705,7 +4640,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     bottom: "max(80px, calc(80px + env(safe-area-inset-bottom)))",
                     left: "50%",
                     transform: "translateX(-50%)",
-                    background: "#E879A0",
+                    background: "var(--theme-accent)",
                     color: "#FFFFFF",
                     borderRadius: 24,
                     padding: "12px 20px",
@@ -4715,7 +4650,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    boxShadow: "0 4px 20px rgba(232,121,160,0.35)",
+                    boxShadow: "var(--hyeni-theme-shadow-soft)",
                     whiteSpace: "nowrap",
                     zIndex: 9999,
                     animation: prefersReducedMotion ? "none" : "toastIn 200ms ease-out forwards"
@@ -4744,8 +4679,8 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     bottom: "max(80px, calc(80px + env(safe-area-inset-bottom)))",
                     left: "50%",
                     transform: "translateX(-50%)",
-                    background: "#FEF3C7",
-                    color: "#92400E",
+                    background: "var(--status-cautionary-subtle)",
+                    color: "var(--status-cautionary-strong)",
                     borderRadius: 24,
                     padding: "12px 20px",
                     fontSize: 14,
@@ -4764,7 +4699,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     type="button"
                     aria-label="메시지 전송 다시 시도"
                     onClick={handleRetry}
-                    style={{ background: "transparent", border: "1px solid #92400E", borderRadius: 12, color: "#92400E", fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", marginLeft: 8 }}
+                    style={{ background: "transparent", border: "1px solid var(--status-cautionary-strong)", borderRadius: 12, color: "var(--status-cautionary-strong)", fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", marginLeft: 8 }}
                 >
                     다시 시도
                 </button>
@@ -4772,7 +4707,7 @@ function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, o
                     type="button"
                     aria-label="전송 실패 숨김"
                     onClick={() => { setShowSendFailureToast(false); if (sendFailureTimerRef.current) clearTimeout(sendFailureTimerRef.current); }}
-                    style={{ background: "transparent", border: "none", color: "#92400E", fontSize: 16, cursor: "pointer", padding: "0 0 0 4px", lineHeight: 1, minWidth: 24, minHeight: 24 }}
+                    style={{ background: "transparent", border: "none", color: "var(--status-cautionary-strong)", fontSize: 16, cursor: "pointer", padding: "0 0 0 4px", lineHeight: 1, minWidth: 24, minHeight: 24 }}
                 >
                     ×
                 </button>
@@ -4950,8 +4885,8 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
         <div style={{ fontFamily: FF }}>
             <div style={{ textAlign: "center", padding: "40px 0" }}>
                 <div style={{ fontSize: 56, marginBottom: 12 }}>{isParentMode ? "🌙" : "🎉"}</div>
-                <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "#D1D5DB" : "#F9A8D4" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
-                <div style={{ fontSize: isParentMode ? 13 : 14, color: "#E5E7EB", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
+                <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "var(--fg-tertiary)" : "var(--theme-accent-text)" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
+                <div style={{ fontSize: isParentMode ? 13 : 14, color: "var(--fg-tertiary)", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
             </div>
             {showInlineMemo && <MemoSection replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} onReplyRef={onReplyRef} />}
         </div>
@@ -4965,14 +4900,14 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                     <div style={{ fontSize: 12, color: "var(--fg-tertiary)", marginTop: 2 }}>{events.length}개 일정</div>
                 </div>
                 {childPos
-                    ? <div style={{ fontSize: 11, fontWeight: 700, color: "#34D399", background: "#D1FAE5", padding: "5px 12px", borderRadius: 12 }}>💕 엄마가 항상 함께하고 있어요</div>
-                    : <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-tertiary)", background: "#F3F4F6", padding: "5px 12px", borderRadius: 12 }}>위치 없음</div>}
+                    ? <div style={{ fontSize: 11, fontWeight: 700, color: "var(--theme-accent-text)", background: "var(--theme-accent-soft)", padding: "5px 12px", borderRadius: 12 }}>💕 엄마가 항상 함께하고 있어요</div>
+                    : <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-tertiary)", background: "var(--bg-muted)", padding: "5px 12px", borderRadius: 12 }}>위치 없음</div>}
             </div>
 
             {/* Timeline */}
             <div style={{ position: "relative", paddingLeft: 28 }}>
                 {/* Vertical line */}
-                <div style={{ position: "absolute", left: 11, top: 8, bottom: 8, width: 3, background: "linear-gradient(to bottom, #E879A0, #F9A8D4, #60A5FA)", borderRadius: 4 }} />
+                <div style={{ position: "absolute", left: 11, top: 8, bottom: 8, width: 3, background: "linear-gradient(to bottom, var(--theme-accent), var(--theme-accent-soft), var(--fg-tertiary))", borderRadius: 4 }} />
 
                 {events.map((ev, i) => {
                     if (typeof ev.time !== "string") return null;
@@ -5011,7 +4946,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                                 style={{
                                     background: isCurrent ? `linear-gradient(135deg,${ev.bg},white)` : "white",
                                     borderRadius: 20, padding: "14px 16px",
-                                    border: isCurrent ? `2px solid ${ev.color}` : "2px solid #F3F4F6",
+                                    border: isCurrent ? `2px solid ${ev.color}` : "2px solid var(--bg-muted)",
                                     cursor: ev.location ? "pointer" : "default",
                                     transition: "all 0.2s",
                                     opacity: isPast && !isCurrent ? 0.6 : 1,
@@ -5032,10 +4967,10 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                                         : <span style={{ fontSize: 13, fontWeight: 800, color: "white", background: ev.color, padding: "3px 10px", borderRadius: 10, animation: "pulse 1.5s infinite" }}>지금 갈 시간! 🏃</span>
                                     )}
                                     {isFuture && !isCurrent && (
-                                        <span style={{ fontSize: 11, fontWeight: 700, color: DESIGN.colors.parentDeep, background: DESIGN.colors.parentPale, padding: "2px 8px", borderRadius: 8 }}>예정</span>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--theme-accent-text)", background: "var(--theme-accent-soft)", padding: "2px 8px", borderRadius: 8 }}>예정</span>
                                     )}
                                     {arrived && <span style={{ fontSize: isParentMode ? 11 : 13, fontWeight: 700, color: "#059669" }}>✅ 도착</span>}
-                                    {emergency && isParentMode && <span style={{ fontSize: 11, fontWeight: 800, color: "#DC2626", animation: "pulse 1s infinite" }}>🚨 미도착</span>}
+                                    {emergency && isParentMode && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--status-negative-strong)", animation: "pulse 1s infinite" }}>🚨 미도착</span>}
                                 </div>
 
                                 {/* Content */}
@@ -5068,7 +5003,7 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
                                     )}
                                     {!ev.location && isParentMode && (
                                         <button onClick={(e) => { e.stopPropagation(); onEditLoc(ev.id); }}
-                                            style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, background: "#FFF0F7", border: "1.5px dashed #F9A8D4", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
+                                            style={{ fontSize: 11, padding: "4px 10px", borderRadius: 10, background: "var(--theme-accent-soft)", border: "1.5px dashed var(--theme-accent-line)", color: "var(--theme-accent-text)", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>
                                             📍 장소 추가
                                         </button>
                                     )}
@@ -5087,8 +5022,8 @@ function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, ch
 
             {/* Stickers earned today */}
             {stickers && stickers.length > 0 && (
-                <div style={{ marginTop: 16, background: "linear-gradient(135deg, #FEF3C7, #FDE68A22)", borderRadius: 20, padding: 14, border: "2px solid #FCD34D" }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#F59E0B", marginBottom: 8 }}>🏆 오늘 받은 칭찬스티커</div>
+                <div style={{ marginTop: 16, background: "linear-gradient(135deg, var(--status-cautionary-subtle), #FDE68A22)", borderRadius: 20, padding: 14, border: "2px solid #FCD34D" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--status-cautionary)", marginBottom: 8 }}>🏆 오늘 받은 칭찬스티커</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         {stickers.map((s, i) => (
                             <div key={s.id || i} style={{
@@ -5148,20 +5083,20 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                                 <div style={{ fontSize: 11, color: "var(--fg-tertiary)" }}>{dateLabel}</div>
                             </div>
                         </div>
-                        <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF, fontSize: 13 }}>닫기</button>
+                        <button onClick={onClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF, fontSize: 13 }}>닫기</button>
                     </div>
 
                     {/* 요약 카운트 — 한 줄 컴팩트 */}
                     <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
                         {[
-                            { emoji: "🌟", count: earlyCount, label: "일찍", bg: "#FEF3C7", color: "#F59E0B" },
+                            { emoji: "🌟", count: earlyCount, label: "일찍", bg: "var(--status-cautionary-subtle)", color: "var(--status-cautionary)" },
                             { emoji: "⭐", count: onTimeCount, label: "정시", bg: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep },
-                            { emoji: "😢", count: lateCount, label: "아쉬워", bg: "#F3F4F6", color: "var(--fg-tertiary)" },
-                            { emoji: "💕", count: stickers.filter(s => s.sticker_type === "praise").length, label: "칭찬", bg: "#FFF0F5", color: "#EC4899" },
+                            { emoji: "😢", count: lateCount, label: "아쉬워", bg: "var(--bg-muted)", color: "var(--fg-tertiary)" },
+                            { emoji: "💕", count: stickers.filter(s => s.sticker_type === "praise").length, label: "칭찬", bg: "var(--theme-accent-soft)", color: "var(--theme-accent-text)" },
                         ].map((item, i) => (
                             <div key={i} style={{ flex: 1, background: item.bg, borderRadius: 12, padding: "8px 4px", textAlign: "center" }}>
                                 <div style={{ fontSize: 16 }}>{item.emoji} <span style={{ fontWeight: 900, color: item.color }}>{item.count}</span></div>
-                                <div style={{ fontSize: 9, color: item.color, fontWeight: 700, marginTop: 2 }}>{item.label}</div>
+                                <div style={{ fontSize: 11, color: item.color, fontWeight: 700, marginTop: 2 }}>{item.label}</div>
                             </div>
                         ))}
                     </div>
@@ -5178,13 +5113,13 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))", gap: 8 }}>
                             {stickers.map((s, i) => (
                                 <div key={s.id || i} style={{
-                                    background: s.sticker_type === "early" ? "#FEF3C7" : s.sticker_type === "late" ? "#F3F4F6" : s.sticker_type === "praise" ? "#FFF0F5" : DESIGN.colors.parentPale,
+                                    background: s.sticker_type === "early" ? "var(--status-cautionary-subtle)" : s.sticker_type === "late" ? "var(--bg-muted)" : s.sticker_type === "praise" ? "var(--theme-accent-soft)" : DESIGN.colors.parentPale,
                                     borderRadius: 14, padding: "8px 6px", textAlign: "center",
-                                    border: `1.5px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : s.sticker_type === "praise" ? "#F9A8D4" : "#C4B5FD"}`,
+                                    border: `1.5px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : s.sticker_type === "praise" ? "var(--theme-accent-line)" : "#C4B5FD"}`,
                                     opacity: s.sticker_type === "late" ? 0.6 : 1,
                                 }}>
                                     <div style={{ fontSize: 22 }}>{s.emoji}</div>
-                                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-primary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-primary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
                                 </div>
                             ))}
                         </div>
@@ -5195,12 +5130,12 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                 <div style={{ padding: "12px 20px 20px", flexShrink: 0 }}>
                     {isParentMode && onGiveSticker && !showGive && (
                         <button onClick={() => setShowGive(true)}
-                            style={{ width: "100%", padding: "13px", marginBottom: 8, borderRadius: 16, border: "2px dashed #FCD34D", background: "linear-gradient(135deg, #FFFBEB, #FEF3C7)", cursor: "pointer", fontSize: 14, fontWeight: 900, color: "#F59E0B", fontFamily: FF }}>
+                            style={{ width: "100%", padding: "13px", marginBottom: 8, borderRadius: 16, border: "2px dashed #FCD34D", background: "linear-gradient(135deg, var(--status-cautionary-subtle), var(--status-cautionary-subtle))", cursor: "pointer", fontSize: 14, fontWeight: 900, color: "var(--status-cautionary)", fontFamily: FF }}>
                             🌟 칭찬스티커 주기
                         </button>
                     )}
                     {isParentMode && onGiveSticker && showGive && (
-                        <div style={{ background: "#FFFBEB", borderRadius: 16, padding: 12, border: "2px solid #FCD34D", marginBottom: 8 }}>
+                        <div style={{ background: "var(--status-cautionary-subtle)", borderRadius: 16, padding: 12, border: "2px solid #FCD34D", marginBottom: 8 }}>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
                                 {PRAISE.map((ps, i) => (
                                     <button key={i} onClick={async () => {
@@ -5209,7 +5144,7 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
                                     }}
                                         style={{ background: "white", border: "1.5px solid #FCD34D", borderRadius: 12, padding: "8px 2px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontFamily: FF }}>
                                         <span style={{ fontSize: 20 }}>{ps.emoji}</span>
-                                        <span style={{ fontSize: 9, fontWeight: 700, color: "#92400E" }}>{ps.title}</span>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--status-cautionary-strong)" }}>{ps.title}</span>
                                     </button>
                                 ))}
                             </div>
@@ -5543,15 +5478,15 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                 {status === "listening" && (
                     <div style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 3 }}>
-                            {REMOTE_AUDIO_LEVEL_BARS.map((height, i) => <div key={i} style={{ width: 4, height, background: "#D97706", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
+                            {REMOTE_AUDIO_LEVEL_BARS.map((height, i) => <div key={i} style={{ width: 4, height, background: "var(--status-cautionary-strong)", borderRadius: 2, animation: "pulse 0.5s infinite", animationDelay: `${i * 0.1}s` }} />)}
                         </div>
                     </div>
                 )}
                 {isConnecting && statusCopy.hint && (
-                    <div style={{ marginBottom: 16, fontSize: 12, color: "#F59E0B", fontWeight: 700, lineHeight: 1.45 }}>{statusCopy.hint}</div>
+                    <div style={{ marginBottom: 16, fontSize: 12, color: "var(--status-cautionary)", fontWeight: 700, lineHeight: 1.45 }}>{statusCopy.hint}</div>
                 )}
                 {errorMessage && (
-                    <div role="alert" style={{ marginBottom: 16, fontSize: 12, color: "#B45309", fontWeight: 800, lineHeight: 1.45 }}>
+                    <div role="alert" style={{ marginBottom: 16, fontSize: 12, color: "var(--status-cautionary-strong)", fontWeight: 800, lineHeight: 1.45 }}>
                         {errorMessage}
                     </div>
                 )}
@@ -5569,7 +5504,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                         </button>
                     )}
                     <button onClick={() => { stopListening(); onClose(); }}
-                        style={{ padding: "14px 20px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
+                        style={{ padding: "14px 20px", background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", borderRadius: 18, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
                         닫기
                     </button>
                 </div>
@@ -5723,17 +5658,28 @@ function LocationMapView({
         childPinsRef.current.forEach(m => m.setMap(null));
         childPinsRef.current = [];
 
-        // 다중 자녀 핀: 학부모 + 자녀 2명 이상이면 자녀별 색상 마커를 렌더
+        // 다중 자녀 핀: 학부모 + 자녀 2명 이상이면 자녀별 색상 + 이름 라벨 마커
         const multiChildPins = isParentMode && Array.isArray(displayChildPositions) && displayChildPositions.length > 1;
         if (multiChildPins) {
             displayChildPositions.forEach((pos) => {
                 if (!Number.isFinite(Number(pos?.lat)) || !Number.isFinite(Number(pos?.lng))) return;
                 const child = pairedChildren.find((c) => c.user_id === pos.user_id);
                 const color = child?.color_hex || "#3B82F6";
+                const name = child?.name || "아이";
+                const emoji = child?.emoji || "🐰";
+                // Labeled pin: emoji + 이름 badge with colored border + dot under
+                const content = `
+                    <div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif">
+                        <div style="background:#FFFFFF;color:#171719;padding:5px 10px 5px 6px;border-radius:999px;border:2px solid ${color};box-shadow:0 2px 10px rgba(15,15,18,0.16);display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;white-space:nowrap;letter-spacing:0;max-width:140px">
+                            <span style="font-size:13px;line-height:1">${escHtml(emoji)}</span>
+                            <span style="overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</span>
+                        </div>
+                        <div style="width:14px;height:14px;background:${color};border:2.5px solid #FFFFFF;border-radius:50%;box-shadow:0 2px 6px ${color}66;margin-top:-3px"></div>
+                    </div>`;
                 const overlay = new window.kakao.maps.CustomOverlay({
                     position: new window.kakao.maps.LatLng(Number(pos.lat), Number(pos.lng)),
-                    content: `<div style="width:18px;height:18px;background:${color};border:3px solid white;border-radius:50%;box-shadow:0 2px 8px ${color}80"></div>`,
-                    yAnchor: 0.5, xAnchor: 0.5,
+                    content,
+                    yAnchor: 1, xAnchor: 0.5,
                 });
                 overlay.setMap(mapObj.current);
                 childPinsRef.current.push(overlay);
@@ -5773,10 +5719,10 @@ function LocationMapView({
             const overlay = new window.kakao.maps.CustomOverlay({
                 position: pos,
                 content: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer" data-marker-key="event:${place.key}">
-                    <div style="background:${arrived ? '#059669' : nextEvent?.color || '#E879A0'};color:white;padding:6px 10px;border-radius:14px;font-size:12px;font-weight:800;box-shadow:0 3px 12px rgba(0,0,0,0.2);white-space:nowrap;font-family:'Noto Sans KR',sans-serif">
+                    <div style="background:${arrived ? '#059669' : nextEvent?.color || 'var(--theme-accent)'};color:white;padding:6px 10px;border-radius:14px;font-size:12px;font-weight:800;box-shadow:0 3px 12px rgba(0,0,0,0.2);white-space:nowrap;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif">
                         ${escHtml(nextEvent?.emoji || '📍')} ${escHtml(place.title)}${place.eventCount > 1 ? ` · ${place.eventCount}` : ''}${arrived ? ' ✅' : ''}
                     </div>
-                    <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${arrived ? '#059669' : nextEvent?.color || '#E879A0'}"></div>
+                    <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${arrived ? '#059669' : nextEvent?.color || 'var(--theme-accent)'}"></div>
                 </div>`,
                 yAnchor: 1.3, xAnchor: 0.5
             });
@@ -5792,10 +5738,10 @@ function LocationMapView({
             const overlay = new window.kakao.maps.CustomOverlay({
                 position: pos,
                 content: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer" data-marker-key="saved:${place.id}">
-                    <div style="background:#BE185D;color:white;padding:6px 10px;border-radius:14px;font-size:12px;font-weight:800;box-shadow:0 3px 12px rgba(190,24,93,0.25);white-space:nowrap;font-family:'Noto Sans KR',sans-serif">
+                    <div style="background:var(--theme-accent);color:white;padding:6px 10px;border-radius:14px;font-size:12px;font-weight:800;box-shadow:var(--hyeni-theme-shadow-soft);white-space:nowrap;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif">
                         📍 ${escHtml(place.name)}
                     </div>
-                    <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #BE185D"></div>
+                    <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid var(--theme-accent)"></div>
                 </div>`,
                 yAnchor: 1.3,
                 xAnchor: 0.5,
@@ -5839,7 +5785,7 @@ function LocationMapView({
     return (
         <div style={{ width: "100%", maxWidth: 420, marginBottom: 0 }}>
             {/* Map */}
-            <div style={{ width: "100%", height: 300, borderRadius: 24, overflow: "hidden", boxShadow: "0 4px 12px rgba(180,120,150,0.10)", marginBottom: 14, position: "relative", background: DESIGN.gradients.map, border: "2px solid rgba(255,228,239,0.8)" }}>
+            <div style={{ width: "100%", height: 300, borderRadius: 24, overflow: "hidden", boxShadow: "var(--hyeni-theme-shadow-soft)", marginBottom: 14, position: "relative", background: DESIGN.gradients.map, border: "2px solid var(--theme-accent-line)" }}>
                 {!mapReady && (
                     <FallbackMapCanvas
                         center={center}
@@ -5857,7 +5803,7 @@ function LocationMapView({
                 {mapReady && <MapZoomControls mapObj={mapObj} onManualZoom={() => { initialBoundsAppliedRef.current = true; }} />}
                 {childPos && (
                     <div style={{ position: "absolute", top: 12, left: 12, background: "white", borderRadius: 999, padding: "8px 14px", fontSize: 11, fontWeight: 800, color: DESIGN.colors.ink, boxShadow: "0 6px 20px rgba(180,120,150,0.15)", fontFamily: FF, display: mapReady ? "flex" : "none", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 0 3px rgba(16,185,129,0.25)" }} /> 실시간
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--status-positive)", boxShadow: "0 0 0 3px rgba(16,185,129,0.25)" }} /> 실시간
                     </div>
                 )}
                 {mapReady && childPos && (
@@ -5887,12 +5833,12 @@ function LocationMapView({
                             height: 52,
                             borderRadius: 18,
                             border: "none",
-                            background: "linear-gradient(135deg,#F472B6,#DB2777)",
+                            background: "var(--hyeni-theme-gradient)",
                             color: "white",
                             fontSize: 28,
                             fontWeight: 900,
                             cursor: "pointer",
-                            boxShadow: "0 12px 24px rgba(219,39,119,0.24)",
+                            boxShadow: "var(--hyeni-theme-shadow-soft)",
                             fontFamily: FF,
                         }}
                     >
@@ -5903,7 +5849,7 @@ function LocationMapView({
 
             {/* Selected card */}
             {selectedEventPlace && (
-                <div style={{ background: selectedEventPlace.nextEvent?.bg || "#FDF2F8", borderRadius: 20, padding: 16, marginBottom: 12, borderLeft: `4px solid ${selectedEventPlace.nextEvent?.color || "#DB2777"}`, boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+                <div style={{ background: selectedEventPlace.nextEvent?.bg || "var(--theme-accent-soft)", borderRadius: 20, padding: 16, marginBottom: 12, borderLeft: `4px solid ${selectedEventPlace.nextEvent?.color || "var(--theme-accent)"}`, boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                         <div style={{ fontSize: 28 }}>{selectedEventPlace.nextEvent?.emoji || "📍"}</div>
                         <div style={{ flex: 1 }}>
@@ -5912,7 +5858,7 @@ function LocationMapView({
                                 일정 {selectedEventPlace.eventCount}개
                                 {selectedEventPlace.nextEvent ? ` · 다음 ${selectedEventPlace.nextEvent.time}` : ""}
                             </div>
-                            <div style={{ fontSize: 12, color: selectedEventPlace.nextEvent?.color || "#BE185D", marginTop: 3, fontWeight: 600, fontFamily: FF }}>📍 {selectedEventPlace.location.address}</div>
+                            <div style={{ fontSize: 12, color: selectedEventPlace.nextEvent?.color || "var(--theme-accent-text)", marginTop: 3, fontWeight: 600, fontFamily: FF }}>📍 {selectedEventPlace.location.address}</div>
                             {selectedEventPlace.events.slice(0, 2).map((event) => (
                                 <div key={event.id} style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 4, fontFamily: FF }}>
                                     • {event.time}{event.endTime ? ` ~ ${event.endTime}` : ""} {event.title}
@@ -5925,27 +5871,27 @@ function LocationMapView({
                             )}
                         </div>
                         {selectedEventPlace.arrivedCount > 0
-                            ? <span style={{ fontSize: 12, padding: "6px 12px", borderRadius: 12, background: "#D1FAE5", color: "#065F46", fontWeight: 700, fontFamily: FF }}>✅ {selectedEventPlace.arrivedCount}개 도착</span>
-                            : <span style={{ fontSize: 12, padding: "6px 12px", borderRadius: 12, background: "#FEF3C7", color: "#92400E", fontWeight: 700, fontFamily: FF }}>대기</span>}
+                            ? <span style={{ fontSize: 12, padding: "6px 12px", borderRadius: 12, background: "var(--status-positive-subtle)", color: "#065F46", fontWeight: 700, fontFamily: FF }}>✅ {selectedEventPlace.arrivedCount}개 도착</span>
+                            : <span style={{ fontSize: 12, padding: "6px 12px", borderRadius: 12, background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", fontWeight: 700, fontFamily: FF }}>대기</span>}
                     </div>
                 </div>
             )}
             {selectedPlace && (
-                <div style={{ background: "#FFF0F7", borderRadius: 20, padding: 16, marginBottom: 12, borderLeft: "4px solid #BE185D", boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+                <div style={{ background: "var(--theme-accent-soft)", borderRadius: 20, padding: 16, marginBottom: 12, borderLeft: "4px solid var(--theme-accent)", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                         <div style={{ fontSize: 28 }}>📍</div>
                         <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)", fontFamily: FF }}>{selectedPlace.name}</div>
-                            <div style={{ fontSize: 12, color: "#BE185D", marginTop: 3, fontWeight: 600, fontFamily: FF }}>{selectedPlace.location.address}</div>
+                            <div style={{ fontSize: 12, color: "var(--theme-accent-text)", marginTop: 3, fontWeight: 600, fontFamily: FF }}>{selectedPlace.location.address}</div>
                             {childPos && <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 4, fontFamily: FF }}>현재 위치에서 {distLabel(haversineM(childPos.lat, childPos.lng, selectedPlace.location.lat, selectedPlace.location.lng))}</div>}
                         </div>
-                        <span style={{ fontSize: 12, padding: "6px 12px", borderRadius: 12, background: "#FCE7F3", color: "#9D174D", fontWeight: 700, fontFamily: FF }}>저장됨</span>
+                        <span style={{ fontSize: 12, padding: "6px 12px", borderRadius: 12, background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", border: "1px solid var(--theme-accent-line)", fontWeight: 700, fontFamily: FF }}>저장됨</span>
                     </div>
                 </div>
             )}
 
             {/* Card list */}
-            <div style={{ background: "white", borderRadius: 24, boxShadow: "0 8px 32px rgba(232,121,160,0.12)", padding: 16 }}>
+            <div style={{ background: "white", borderRadius: 24, boxShadow: "var(--hyeni-theme-shadow-soft)", padding: 16, border: "1px solid var(--theme-accent-line)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)", fontFamily: FF }}>📍 등록된 장소</div>
                     {isParentMode && (
@@ -5953,14 +5899,14 @@ function LocationMapView({
                             type="button"
                             aria-label="📍 자주 가는 장소 추가"
                             onClick={onAddSavedPlace}
-                            style={{ border: "none", borderRadius: 14, padding: "8px 12px", background: "linear-gradient(135deg,#F472B6,#DB2777)", color: "white", fontWeight: 800, cursor: "pointer", fontFamily: FF, fontSize: 12 }}
+                            style={{ border: "none", borderRadius: 14, padding: "8px 12px", background: "var(--hyeni-theme-gradient)", color: "white", fontWeight: 800, cursor: "pointer", fontFamily: FF, fontSize: 12, boxShadow: "var(--hyeni-theme-shadow-soft)" }}
                         >
                             + 자주 가는 장소
                         </button>
                     )}
                 </div>
                 {isParentMode && savedPlacesLocked && (
-                    <div style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, marginBottom: 12, fontFamily: FF }}>
+                    <div style={{ background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, marginBottom: 12, fontFamily: FF }}>
                         유료계정은 자주가는 장소를 무제한 등록할 수 있어요
                     </div>
                 )}
@@ -5971,8 +5917,8 @@ function LocationMapView({
                             display: "flex",
                             alignItems: "center",
                             gap: 8,
-                            background: "#FEF3C7",
-                            color: "#92400E",
+                            background: "var(--status-cautionary-subtle)",
+                            color: "var(--status-cautionary-strong)",
                             borderRadius: 14,
                             padding: "10px 12px",
                             fontSize: 12,
@@ -5999,14 +5945,14 @@ function LocationMapView({
                 )}
                 {savedPlaceItems.length > 0 && (
                     <div style={{ marginBottom: 14 }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: "#BE185D", marginBottom: 8, fontFamily: FF }}>자주 가는 장소</div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "var(--theme-accent-text)", marginBottom: 8, fontFamily: FF }}>자주 가는 장소</div>
                         {savedPlaceItems.map((place) => (
                             <div
                                 key={place.id}
                                 onClick={() => focusLocation(`saved:${place.id}`, place.location)}
                                 style={{
                                     display: "flex", gap: 10, alignItems: "center", padding: "12px", borderRadius: 16, marginBottom: 8, cursor: "pointer", fontFamily: FF,
-                                    background: selected === `saved:${place.id}` ? "#FFF0F7" : "#FDF2F8", borderLeft: "3px solid #DB2777",
+                                    background: selected === `saved:${place.id}` ? "var(--theme-accent-soft)" : "var(--hyeni-surface-warm)", borderLeft: "3px solid var(--theme-accent)",
                                     transition: "all 0.15s",
                                 }}
                             >
@@ -6015,7 +5961,7 @@ function LocationMapView({
                                     <div style={{ fontWeight: 700, fontSize: 13, color: "var(--fg-primary)" }}>{place.name}</div>
                                     <div style={{ fontSize: 11, color: "var(--fg-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.location.address}</div>
                                 </div>
-                                {childPos && <div style={{ fontSize: 11, color: "#BE185D", fontWeight: 700, flexShrink: 0 }}>{distLabel(haversineM(childPos.lat, childPos.lng, place.location.lat, place.location.lng))}</div>}
+                                {childPos && <div style={{ fontSize: 11, color: "var(--theme-accent-text)", fontWeight: 700, flexShrink: 0 }}>{distLabel(haversineM(childPos.lat, childPos.lng, place.location.lat, place.location.lng))}</div>}
                             </div>
                         ))}
                     </div>
@@ -6035,7 +5981,7 @@ function LocationMapView({
                         }}
                         style={{
                             display: "flex", gap: 10, alignItems: "center", padding: "12px", borderRadius: 16, marginBottom: 8, cursor: "pointer", fontFamily: FF,
-                            background: selected === `event:${place.key}` ? (place.nextEvent?.bg || "#FDF2F8") : "#F9FAFB", borderLeft: `3px solid ${place.nextEvent?.color || "#DB2777"}`,
+                            background: selected === `event:${place.key}` ? (place.nextEvent?.bg || "var(--theme-accent-soft)") : "var(--bg-subtle)", borderLeft: `3px solid ${place.nextEvent?.color || "var(--theme-accent)"}`,
                             transition: "all 0.15s"
                         }}>
                         <div style={{ fontSize: 22 }}>{place.nextEvent?.emoji || "📍"}</div>
@@ -6149,11 +6095,11 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
             }
         } catch (err) {
             console.error("[AiSchedule]", err);
-            setResults({ action: "unknown", message: "AI 분석 실패: " + err.message });
+            setResults({ action: "unknown", message: "일정 정리 실패: " + err.message });
         } finally { setLoading(false); }
     };
 
-    const CATS = { school: { emoji: "📚", color: "#A78BFA", bg: "#EDE9FE" }, sports: { emoji: "⚽", color: "#34D399", bg: "#D1FAE5" }, hobby: { emoji: "🎨", color: "#F59E0B", bg: "#FEF3C7" }, family: { emoji: "👨‍👩‍👧", color: "#F87171", bg: "#FEE2E2" }, friend: { emoji: "👫", color: "#60A5FA", bg: "#DBEAFE" }, other: { emoji: "📌", color: "#EC4899", bg: "#FCE7F3" } };
+    const CATS = { school: { emoji: "📚", color: "#A78BFA", bg: "#EDE9FE" }, sports: { emoji: "⚽", color: "#34D399", bg: "var(--status-positive-subtle)" }, hobby: { emoji: "🎨", color: "var(--status-cautionary)", bg: "var(--status-cautionary-subtle)" }, family: { emoji: "👨‍👩‍👧", color: "#F87171", bg: "var(--status-negative-subtle)" }, friend: { emoji: "👫", color: "#60A5FA", bg: "var(--bg-subtle)" }, other: { emoji: "📌", color: "#EC4899", bg: "#FCE7F3" } };
 
     const saveOne = async (ev, idx) => {
         if (savedIds.has(idx)) return;
@@ -6176,8 +6122,8 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                 const d = ev.day ?? currentDate.day;
                 sendInstantPush({
                     action: "new_event", familyId, senderUserId: authUser.id,
-                    title: `🤖 새 일정: ${newEv.emoji} ${ev.title}`,
-                    message: `${m}월 ${d}일 ${newEv.time}에 "${ev.title}" 일정이 추가됐어요 (AI)`,
+                    title: `새 일정: ${newEv.emoji} ${ev.title}`,
+                    message: `${m}월 ${d}일 ${newEv.time}에 "${ev.title}" 일정이 추가됐어요`,
                 });
             } catch (err) { console.error("[AiSchedule] save error:", err); }
         }
@@ -6204,26 +6150,26 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={makeSheetStyle({ padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto" })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)" }}>🤖 AI로 일정입력</div>
-                    <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)" }}>일정 빠른 입력</div>
+                    <button onClick={onClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
                 </div>
 
                 {/* 3가지 입력 방식 버튼 */}
                 {!results && !loading && (
                     <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 16 }}>
                         <button onClick={startVoiceInput}
-                            style={{ ...btnSt, background: voiceListening ? "#E879A0" : "linear-gradient(135deg,#F9A8D4,#E879A0)", color: "white", boxShadow: "0 4px 12px rgba(232,121,160,0.3)", animation: voiceListening ? "pulse 1s infinite" : "none" }}>
+                            style={{ ...btnSt, background: voiceListening ? "var(--theme-accent)" : "var(--hyeni-theme-gradient)", color: "white", boxShadow: "var(--hyeni-theme-shadow-soft)", animation: voiceListening ? "pulse 1s infinite" : "none" }}>
                             <span style={{ fontSize: 24 }}>🎤</span>
-                            {voiceListening ? "듣는 중..." : "음성"}
+                            {voiceListening ? "듣는 중..." : "말하기"}
                         </button>
                         <button onClick={() => fileInputRef.current?.click()}
-                            style={{ ...btnSt, background: "linear-gradient(135deg,#93C5FD,#3B82F6)", color: "white", boxShadow: "0 4px 12px rgba(59,130,246,0.3)" }}>
+                            style={{ ...btnSt, background: "var(--hyeni-theme-gradient)", color: "white", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
                             <span style={{ fontSize: 24 }}>📷</span>
                             이미지
                         </button>
                         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageSelect} style={{ display: "none" }} />
                         <button onClick={() => document.getElementById("ai-text-input")?.focus()}
-                            style={{ ...btnSt, background: DESIGN.gradients.primary, color: "white", boxShadow: "0 4px 12px rgba(190,24,93,0.22)" }}>
+                            style={{ ...btnSt, background: DESIGN.gradients.primary, color: "white", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
                             <span style={{ fontSize: 24 }}>✏️</span>
                             텍스트
                         </button>
@@ -6242,21 +6188,21 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                 {imageData && (
                     <div style={{ marginTop: 8, position: "relative", display: "inline-block" }}>
                         <img src={imageData} alt="첨부 이미지" style={{ maxWidth: "100%", maxHeight: 160, borderRadius: 12, border: "2px solid #E5E7EB" }} />
-                        <button onClick={() => setImageData(null)} style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, borderRadius: "50%", background: "#EF4444", color: "white", border: "none", fontSize: 12, cursor: "pointer", fontWeight: 800 }}>✕</button>
+                        <button onClick={() => setImageData(null)} aria-label="이미지 제거" style={{ position: "absolute", top: -10, right: -10, width: 32, height: 32, borderRadius: "50%", background: "var(--status-negative)", color: "var(--fg-on-primary)", border: "none", fontSize: 14, cursor: "pointer", fontWeight: 700, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
                     </div>
                 )}
 
                 {/* 분석 버튼 */}
                 <button onClick={() => analyze()} disabled={loading || (!inputText.trim() && !imageData)}
-                    style={{ width: "100%", marginTop: 10, padding: "14px 16px", borderRadius: 16, border: "none", fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: FF, color: "white", background: loading ? "#9CA3AF" : DESIGN.gradients.primary, boxShadow: loading ? "none" : "0 4px 16px rgba(190,24,93,0.22)" }}>
-                    {loading ? "🔍 AI가 분석하고 있어요..." : "✅ 다 입력했어요^^"}
+                    style={{ width: "100%", marginTop: 10, padding: "14px 16px", borderRadius: 16, border: "none", fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: FF, color: "white", background: loading ? "#9CA3AF" : "var(--hyeni-theme-gradient)", boxShadow: loading ? "none" : "var(--hyeni-theme-shadow-soft)" }}>
+                    {loading ? "🔍 일정을 정리하고 있어요..." : "✅ 다 입력했어요^^"}
                 </button>
 
                 {/* Results */}
                 {results && results.action === "add_events" && results.events?.length > 0 && (
                     <div style={{ marginTop: 20 }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)" }}>📋 추출된 일정 ({results.events.length}건)</div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)" }}>📋 정리된 일정 ({results.events.length}건)</div>
                             <button onClick={saveAll} style={{ padding: "6px 14px", borderRadius: 12, background: "#059669", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>모두 등록</button>
                         </div>
                         {results.events.map((ev, i) => {
@@ -6265,7 +6211,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                             const m = ev.month != null ? ev.month + 1 : (currentDate.month + 1);
                             const d = ev.day ?? currentDate.day;
                             return (
-                                <div key={i} style={{ background: saved ? "#F0FDF4" : cat.bg, borderRadius: 16, padding: "12px 14px", marginBottom: 8, border: saved ? "2px solid #6EE7B7" : `1.5px solid #E5E7EB`, opacity: saved ? 0.7 : 1 }}>
+                                <div key={i} style={{ background: saved ? "var(--status-positive-subtle)" : "var(--theme-accent-soft)", borderRadius: 16, padding: "12px 14px", marginBottom: 8, border: saved ? "2px solid var(--status-positive)" : "1.5px solid var(--theme-accent-line)", opacity: saved ? 0.7 : 1 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                         <div style={{ fontSize: 24 }}>{cat.emoji}</div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -6280,7 +6226,7 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                                             if (onNavigateDate) onNavigateDate(ev.year ?? currentDate.year, ev.month ?? currentDate.month, ev.day ?? currentDate.day);
                                             onClose();
                                         }} disabled={saved}
-                                            style={{ padding: "6px 12px", borderRadius: 10, background: saved ? "#D1FAE5" : cat.color, color: saved ? "#065F46" : "white", border: "none", fontSize: 11, fontWeight: 800, cursor: saved ? "default" : "pointer", fontFamily: FF, flexShrink: 0 }}>
+                                            style={{ padding: "6px 12px", borderRadius: 10, background: saved ? "var(--status-positive-subtle)" : "var(--hyeni-theme-gradient)", color: saved ? "var(--status-positive-strong)" : "white", border: "none", fontSize: 11, fontWeight: 800, cursor: saved ? "default" : "pointer", fontFamily: FF, flexShrink: 0 }}>
                                             {saved ? "✓" : "등록"}
                                         </button>
                                     </div>
@@ -6290,9 +6236,9 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
                     </div>
                 )}
                 {results && results.action === "unknown" && (
-                    <div style={{ marginTop: 16, textAlign: "center", padding: 20, background: "#FEF3C7", borderRadius: 16 }}>
+                    <div style={{ marginTop: 16, textAlign: "center", padding: 20, background: "var(--status-cautionary-subtle)", borderRadius: 16 }}>
                         <div style={{ fontSize: 28, marginBottom: 8 }}>🤔</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E" }}>{results.message}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--status-cautionary-strong)" }}>{results.message}</div>
                     </div>
                 )}
             </div>
@@ -6315,8 +6261,8 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
     const newRadiusRef = useRef(newRadius);
 
     const ZONE_TYPES = [
-        { id: "construction", label: "🚧 공사장", color: "#F59E0B" },
-        { id: "entertainment", label: "🎰 유흥가", color: "#EF4444" },
+        { id: "construction", label: "🚧 공사장", color: "var(--status-cautionary)" },
+        { id: "entertainment", label: "🎰 유흥가", color: "var(--status-negative)" },
         { id: "water", label: "🌊 수변지역", color: "#3B82F6" },
         { id: "custom", label: "📍 직접 설정", color: "var(--fg-secondary)" },
     ];
@@ -6341,8 +6287,8 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
             if (circleRef.current) circleRef.current.setMap(null);
             circleRef.current = new window.kakao.maps.Circle({
                 map, center: e.latLng, radius: newRadiusRef.current,
-                strokeWeight: 3, strokeColor: "#EF4444", strokeOpacity: 0.8,
-                fillColor: "#EF4444", fillOpacity: 0.15
+                strokeWeight: 3, strokeColor: "var(--status-negative)", strokeOpacity: 0.8,
+                fillColor: "var(--status-negative)", fillOpacity: 0.15
             });
         });
     }, [showAdd, mapReady]);
@@ -6372,7 +6318,7 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
             <div style={makeSheetStyle({ padding: "24px 20px 32px", width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto" })}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                     <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)" }}>⚠️ 위험지역 관리</div>
-                    <button onClick={onClose} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
+                    <button onClick={onClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
                 </div>
 
                 <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginBottom: 16 }}>아이가 설정한 지역에 접근하면 알림을 받습니다.</div>
@@ -6384,7 +6330,7 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
                         <div style={{ fontSize: 14, fontWeight: 700 }}>설정된 위험지역이 없어요</div>
                     </div>
                 ) : zones.map(z => (
-                    <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#FEF2F2", borderRadius: 16, marginBottom: 8, border: "1.5px solid #FECACA" }}>
+                    <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "var(--status-negative-subtle)", borderRadius: 16, marginBottom: 8, border: "1.5px solid var(--status-negative-subtle)" }}>
                         <div style={{ width: 40, height: 40, borderRadius: 12, background: zoneColor(z.zone_type), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "white", fontWeight: 800, flexShrink: 0 }}>
                             {z.zone_type === "construction" ? "🚧" : z.zone_type === "entertainment" ? "🎰" : z.zone_type === "water" ? "🌊" : "⚠️"}
                         </div>
@@ -6404,7 +6350,7 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
                         + 위험지역 추가
                     </button>
                 ) : (
-                    <div style={{ marginTop: 12, background: "#F9FAFB", borderRadius: 20, padding: 16, border: "1.5px solid #E5E7EB" }}>
+                    <div style={{ marginTop: 12, background: "var(--bg-subtle)", borderRadius: 20, padding: 16, border: "1.5px solid #E5E7EB" }}>
                         <div style={{ fontSize: 14, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 12 }}>새 위험지역 추가</div>
 
                         <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="지역 이름 (예: 공사장 앞)"
@@ -6430,7 +6376,7 @@ function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDele
 
                         <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={handleAdd} disabled={!newName.trim() || !selectedLoc}
-                                style={{ flex: 1, padding: "12px", borderRadius: 14, border: "none", background: !newName.trim() || !selectedLoc ? "#D1D5DB" : "#EF4444", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
+                                style={{ flex: 1, padding: "12px", borderRadius: 14, border: "none", background: !newName.trim() || !selectedLoc ? "#D1D5DB" : "var(--status-negative)", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
                                 ⚠️ 위험지역 등록
                             </button>
                             <button onClick={() => { setShowAdd(false); mapInst.current = null; }}
@@ -6458,20 +6404,20 @@ function PhoneSettingsModal({ phones, onSave, onClose }) {
                 <div style={{ fontSize: 13, color: "var(--fg-secondary)", textAlign: "center", marginBottom: 20 }}>아이 화면에서 바로 전화할 수 있어요</div>
 
                 <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#E879A0", marginBottom: 6 }}>👩 엄마 전화번호</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--theme-accent-text)", marginBottom: 6 }}>👩 엄마 전화번호</div>
                     <input value={mom} onChange={e => setMom(e.target.value)} placeholder="010-0000-0000" type="tel" style={inputSt}
-                        onFocus={e => { e.target.style.borderColor = "#E879A0"; }} onBlur={e => { e.target.style.borderColor = "#F3F4F6"; }} />
+                        onFocus={e => { e.target.style.borderColor = "var(--theme-accent)"; }} onBlur={e => { e.target.style.borderColor = "var(--bg-muted)"; }} />
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#3B82F6", marginBottom: 6 }}>👨 아빠 전화번호</div>
                     <input value={dad} onChange={e => setDad(e.target.value)} placeholder="010-0000-0000" type="tel" style={inputSt}
-                        onFocus={e => { e.target.style.borderColor = "#3B82F6"; }} onBlur={e => { e.target.style.borderColor = "#F3F4F6"; }} />
+                        onFocus={e => { e.target.style.borderColor = "#3B82F6"; }} onBlur={e => { e.target.style.borderColor = "var(--bg-muted)"; }} />
                 </div>
 
                 <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "var(--fg-secondary)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>취소</button>
-                    <button onClick={() => onSave({ mom: mom.trim(), dad: dad.trim() })} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>저장</button>
+                    <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "var(--bg-muted)", color: "var(--fg-secondary)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>취소</button>
+                    <button onClick={() => onSave({ mom: mom.trim(), dad: dad.trim() })} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "var(--hyeni-theme-gradient)", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF, boxShadow: "var(--hyeni-theme-shadow-soft)" }}>저장</button>
                 </div>
             </div>
         </div>
@@ -6528,8 +6474,8 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
 
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "white", display: "flex", flexDirection: "column", fontFamily: FF }}>
-            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: 12 }}>
-                <button onClick={() => { onSave(list); onClose(); }} style={{ background: "#F3F4F6", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 저장</button>
+            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid var(--bg-muted)", display: "flex", alignItems: "center", gap: 12 }}>
+                <button onClick={() => { onSave(list); onClose(); }} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 저장</button>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "var(--fg-primary)" }}>📍 자주 가는 장소</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: 16, paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
@@ -6538,7 +6484,7 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>빠른 추가</div>
                         <button
                             onClick={openNew}
-                            style={{ padding: "10px 14px", borderRadius: 16, border: "2px dashed #F9A8D4", background: "#FFF0F7", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "#E879A0" }}
+                            style={{ padding: "10px 14px", borderRadius: 16, border: "2px dashed var(--theme-accent-line)", background: "var(--theme-accent-soft)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "var(--theme-accent-text)" }}
                         >
                             + 장소 직접 추가
                         </button>
@@ -6554,25 +6500,25 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                                 value={form.name}
                                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                                 placeholder="예) 할머니 집, 피아노 학원, 도서관"
-                                style={{ width: "100%", padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
+                                style={{ width: "100%", padding: "12px 14px", border: "2px solid var(--bg-muted)", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
                             />
                         </div>
                         <div style={{ marginBottom: 16 }}>
                             <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>📍 위치</label>
                             {form.location ? (
-                                <div style={{ background: "#FFF0F7", borderRadius: 14, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                <div style={{ background: "var(--theme-accent-soft)", borderRadius: 14, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                                     <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {form.location.address}</div>
-                                    <button onClick={() => setShowMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #E879A0", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
+                                    <button onClick={() => setShowMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid var(--theme-accent)", color: "var(--theme-accent-text)", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                 </div>
                             ) : (
-                                <button onClick={() => setShowMap(true)} style={{ width: "100%", padding: 12, border: "2px dashed #F9A8D4", borderRadius: 14, background: "#FFF0F7", color: "#E879A0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
+                                <button onClick={() => setShowMap(true)} style={{ width: "100%", padding: 12, border: "2px dashed var(--theme-accent-line)", borderRadius: 14, background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
                                     🗺️ 지도에서 장소 선택
                                 </button>
                             )}
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={saveForm} style={{ flex: 1, padding: 13, background: "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
-                            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: 13, background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
+                            <button onClick={saveForm} style={{ flex: 1, padding: 13, background: "var(--hyeni-theme-gradient)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>저장</button>
+                            <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: 13, background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
                         </div>
                     </div>
                 )}
@@ -6586,7 +6532,7 @@ function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                     </div>
                 )}
                 {list.map((place, index) => (
-                    <div key={place.id || index} style={{ background: "#FFF7FB", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: "4px solid #F472B6" }}>
+                    <div key={place.id || index} style={{ background: "var(--hyeni-surface-warm)", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: "4px solid var(--theme-accent)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <div style={{ fontSize: 24 }}>📍</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -6616,14 +6562,14 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
                         <div style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)" }}>💌 피드백 보내기</div>
                         <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 6, lineHeight: 1.6 }}>필요한 기능이 있으면 제안해 주세요</div>
                     </div>
-                    <button onClick={onClose} style={{ padding: "8px 12px", borderRadius: 12, border: "none", background: "#F3F4F6", color: "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF }}>닫기</button>
+                    <button onClick={onClose} style={{ padding: "8px 12px", borderRadius: 12, border: "none", background: "var(--bg-muted)", color: "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF }}>닫기</button>
                 </div>
 
                 <textarea
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                     placeholder="예) 형제자매별 위치 알림 시간을 따로 설정하고 싶어요"
-                    style={{ width: "100%", minHeight: 170, resize: "vertical", padding: "16px 18px", borderRadius: 20, border: "2px solid #F3E8F0", outline: "none", fontSize: 15, lineHeight: 1.6, fontFamily: FF, color: "var(--fg-primary)", background: "#FFF9FC", boxSizing: "border-box" }}
+                    style={{ width: "100%", minHeight: 170, resize: "vertical", padding: "16px 18px", borderRadius: 20, border: "2px solid var(--theme-accent-line)", outline: "none", fontSize: 15, lineHeight: 1.6, fontFamily: FF, color: "var(--fg-primary)", background: "var(--hyeni-surface-warm)", boxSizing: "border-box" }}
                 />
                 <div style={{ marginTop: 12, fontSize: 11, color: "var(--fg-tertiary)", lineHeight: 1.6 }}>
                     제안은 {FEEDBACK_RECIPIENT}으로 전달됩니다.
@@ -6634,11 +6580,11 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
                         type="button"
                         onClick={onSend}
                         disabled={busy || !value.trim()}
-                        style={{ flex: 1, padding: "15px", borderRadius: 16, border: "none", background: busy || !value.trim() ? "#FBCFE8" : "linear-gradient(135deg,#E879A0,#BE185D)", color: "white", fontWeight: 800, fontSize: 14, cursor: busy || !value.trim() ? "not-allowed" : "pointer", fontFamily: FF }}
+                        style={{ flex: 1, padding: "15px", borderRadius: 16, border: "none", background: busy || !value.trim() ? "var(--theme-accent-soft)" : "var(--hyeni-theme-gradient)", color: busy || !value.trim() ? "var(--theme-accent-text)" : "white", fontWeight: 800, fontSize: 14, cursor: busy || !value.trim() ? "not-allowed" : "pointer", fontFamily: FF, boxShadow: busy || !value.trim() ? "none" : "var(--hyeni-theme-shadow-soft)" }}
                     >
                         {busy ? "보내는 중..." : "제안 보내기"}
                     </button>
-                    <button type="button" onClick={onClose} style={{ padding: "15px 16px", borderRadius: 16, border: "1px solid #E5E7EB", background: "#F9FAFB", color: "var(--fg-secondary)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>
+                    <button type="button" onClick={onClose} style={{ padding: "15px 16px", borderRadius: 16, border: "1px solid #E5E7EB", background: "var(--bg-subtle)", color: "var(--fg-secondary)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>
                         취소
                     </button>
                 </div>
@@ -6653,8 +6599,8 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
 function ChildCallCard({ phones = {} }) {
     const cleanNumber = (num) => (num || "").replace(/[^0-9+]/g, "");
     const targets = [
-        phones.mom && phones.mom.length >= 8 ? { key: "mom", label: "엄마", emoji: "👩", number: cleanNumber(phones.mom), color: "#BE185D", bg: "#FFF0F7" } : null,
-        phones.dad && phones.dad.length >= 8 ? { key: "dad", label: "아빠", emoji: "👨", number: cleanNumber(phones.dad), color: "#1D4ED8", bg: "#EFF6FF" } : null,
+        phones.mom && phones.mom.length >= 8 ? { key: "mom", label: "엄마", emoji: "👩", number: cleanNumber(phones.mom), color: "var(--theme-accent-text)", bg: "var(--theme-accent-soft)" } : null,
+        phones.dad && phones.dad.length >= 8 ? { key: "dad", label: "아빠", emoji: "👨", number: cleanNumber(phones.dad), color: "var(--theme-accent-text)", bg: "var(--theme-accent-soft)" } : null,
     ].filter(Boolean);
     const hasTargets = targets.length > 0;
 
@@ -6665,10 +6611,10 @@ function ChildCallCard({ phones = {} }) {
                 minHeight: 132,
                 padding: "14px",
                 borderRadius: DESIGN.radius.xl,
-                border: "1px solid #BBF7D0",
-                background: hasTargets ? "linear-gradient(135deg,#ECFDF5,#D1FAE5)" : "#F9FAFB",
-                color: hasTargets ? "#047857" : "#9CA3AF",
-                boxShadow: hasTargets ? "0 12px 26px rgba(5,150,105,0.16)" : "none",
+                border: "1px solid var(--theme-accent-line)",
+                background: hasTargets ? "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))" : "var(--bg-subtle)",
+                color: hasTargets ? "var(--theme-accent-text)" : "#9CA3AF",
+                boxShadow: hasTargets ? "var(--hyeni-theme-shadow-soft)" : "none",
                 fontFamily: FF,
                 display: "flex",
                 flexDirection: "column",
@@ -6678,16 +6624,16 @@ function ChildCallCard({ phones = {} }) {
         >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 14, background: "rgba(255,255,255,0.86)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.7)" }}>📞</div>
+                    <div style={{ width: 36, height: 36, borderRadius: 14, background: "rgba(255,255,255,0.86)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.7)" }}>☎</div>
                     <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15, color: hasTargets ? "#065F46" : "#9CA3AF" }}>전화연결</div>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: hasTargets ? "#059669" : "#9CA3AF", marginTop: 3 }}>
+                        <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15, color: hasTargets ? "var(--theme-accent-text)" : "#9CA3AF" }}>전화연결</div>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: hasTargets ? "var(--fg-secondary)" : "#9CA3AF", marginTop: 3 }}>
                             {hasTargets ? "엄마 · 아빠" : "연락처 없음"}
                         </div>
                     </div>
                 </div>
                 {hasTargets && (
-                    <div style={{ padding: "5px 9px", borderRadius: 999, background: "rgba(255,255,255,0.72)", color: "#047857", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
+                    <div style={{ padding: "5px 9px", borderRadius: 999, background: "rgba(255,255,255,0.72)", color: "var(--theme-accent-text)", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
                         바로 연결
                     </div>
                 )}
@@ -6723,7 +6669,7 @@ function ChildCallCard({ phones = {} }) {
                     ))}
                 </div>
             ) : (
-                <div style={{ minHeight: 58, borderRadius: 18, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-tertiary)", fontSize: 13, fontWeight: 900 }}>
+                <div style={{ minHeight: 58, borderRadius: 18, background: "var(--bg-muted)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-tertiary)", fontSize: 13, fontWeight: 900 }}>
                     연락처 없음
                 </div>
             )}
@@ -6982,7 +6928,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                 position: ll,
                 content: `<div style="display:flex;flex-direction:column;align-items:center">
                     <div style="width:${isActive ? 34 : 28}px;height:${isActive ? 34 : 28}px;background:${color};border:${isActive ? 5 : 4}px solid white;border-radius:50%;box-shadow:0 0 0 ${isActive ? 12 : 8}px ${color}33,0 3px 12px ${color}66;display:flex;align-items:center;justify-content:center;font-size:${isActive ? 16 : 14}px">${escHtml(child.emoji)}</div>
-                    <div style="margin-top:4px;background:${color};color:white;padding:${isActive ? "5px 14px" : "4px 12px"};border-radius:10px;font-size:11px;font-weight:800;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap">${escHtml(child.name)}${updatedLabel ? ` · ${updatedLabel}` : ""}</div>
+                    <div style="margin-top:4px;background:${color};color:white;padding:${isActive ? "5px 14px" : "4px 12px"};border-radius:10px;font-size:11px;font-weight:800;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap">${escHtml(child.name)}${updatedLabel ? ` · ${updatedLabel}` : ""}</div>
                 </div>`,
                 yAnchor: 1.8, xAnchor: 0.5, zIndex: isActive ? 20 : 10
             });
@@ -7066,7 +7012,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                 const isSelectedSegment = selectedTrailSegmentKey && segment.key === selectedTrailSegmentKey;
                 const overlay = new window.kakao.maps.CustomOverlay({
                     position: new window.kakao.maps.LatLng(markerPoint.lat, markerPoint.lng),
-                    content: `<div style="background:${segment.color};color:white;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:900;font-family:'Noto Sans KR',sans-serif;box-shadow:0 4px 12px rgba(15,23,42,0.2);white-space:nowrap;border:${isSelectedSegment ? "2px solid white" : "0"}">${escHtml(segment.label)}</div>`,
+                    content: `<div style="background:${segment.color};color:white;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:900;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif;box-shadow:0 4px 12px rgba(15,23,42,0.2);white-space:nowrap;border:${isSelectedSegment ? "2px solid white" : "0"}">${escHtml(segment.label)}</div>`,
                     yAnchor: 1.4,
                     xAnchor: 0.5,
                     zIndex: 8,
@@ -7081,8 +7027,8 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
             const overlay = new window.kakao.maps.CustomOverlay({
                 position: new window.kakao.maps.LatLng(place.lat, place.lng),
                 content: `<div style="display:flex;flex-direction:column;align-items:center">
-                    <div style="background:#F59E0B;color:white;padding:5px 10px;border-radius:12px;font-size:10px;font-weight:900;font-family:'Noto Sans KR',sans-serif;box-shadow:0 5px 14px rgba(245,158,11,0.32);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis">${escHtml(place.displayTitle)}</div>
-                    <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #F59E0B"></div>
+                    <div style="background:var(--status-cautionary);color:white;padding:5px 10px;border-radius:12px;font-size:10px;font-weight:900;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif;box-shadow:0 5px 14px rgba(245,158,11,0.32);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis">${escHtml(place.displayTitle)}</div>
+                    <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--status-cautionary)"></div>
                 </div>`,
                 yAnchor: 1.25,
                 xAnchor: 0.5,
@@ -7109,7 +7055,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
             const el = document.createElement("div");
             el.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer";
             const timeLabel = ev.endTime ? `${ev.time}~${ev.endTime}` : ev.time;
-            el.innerHTML = `<div style="background:${bg};color:white;padding:5px 10px;border-radius:12px;font-size:11px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,0.18);white-space:nowrap;font-family:'Noto Sans KR',sans-serif">${escHtml(ev.emoji)} ${escHtml(ev.title)}<span style="font-weight:600;opacity:0.85;margin-left:4px">${escHtml(timeLabel)}</span>${arrived ? " ✅" : ""}</div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${bg}"></div>`;
+            el.innerHTML = `<div style="background:${bg};color:white;padding:5px 10px;border-radius:12px;font-size:11px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,0.18);white-space:nowrap;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif">${escHtml(ev.emoji)} ${escHtml(ev.title)}<span style="font-weight:600;opacity:0.85;margin-left:4px">${escHtml(timeLabel)}</span>${arrived ? " ✅" : ""}</div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${bg}"></div>`;
             el.addEventListener("click", () => setSelectedEvent(prev => prev?.id === ev.id ? null : ev));
             const overlay = new window.kakao.maps.CustomOverlay({
                 position: new window.kakao.maps.LatLng(ev.location.lat, ev.location.lng),
@@ -7134,7 +7080,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                         onClick={onRefreshLocation}
                         title="현재 위치 다시 확인"
                         aria-label="현재 위치 다시 확인"
-                        style={{ width: 42, height: 42, borderRadius: 14, border: "none", background: "white", color: DESIGN.colors.pinkText, fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", flexShrink: 0 }}
+                        style={{ width: 42, height: 42, borderRadius: 14, border: "none", background: "white", color: "var(--theme-accent-text)", fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: FF, boxShadow: "var(--hyeni-theme-shadow-soft)", flexShrink: 0 }}
                     >
                         ↻
                     </button>
@@ -7153,7 +7099,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
             </div>
 
             {/* Map */}
-            <div style={{ flex: 1, margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "0 4px 20px rgba(247,121,168,0.10)", position: "relative", minHeight: 0, border: "2px solid rgba(255,228,239,0.8)" }}>
+            <div style={{ flex: 1, margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "var(--hyeni-theme-shadow-soft)", position: "relative", minHeight: 0, border: "2px solid var(--theme-accent-line)" }}>
                 {!mapReady && (
                     <FallbackMapCanvas
                         center={center}
@@ -7177,7 +7123,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                 {mapReady && <MapZoomControls mapObj={mapObj} onManualZoom={() => { initialFocusDoneRef.current = true; }} />}
                 {selectedChild && (
                     <>
-                        <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, background: "rgba(255,255,255,0.94)", borderRadius: 999, padding: "8px 14px", boxShadow: "0 6px 20px rgba(180,120,150,0.15)", border: "1px solid rgba(255,228,239,0.8)", maxWidth: "calc(100% - 92px)", display: mapReady ? "block" : "none" }}>
+                        <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, background: "rgba(255,255,255,0.94)", borderRadius: 999, padding: "8px 14px", boxShadow: "var(--hyeni-theme-shadow-soft)", border: "1px solid var(--theme-accent-line)", maxWidth: "calc(100% - 92px)", display: mapReady ? "block" : "none" }}>
                             <div style={{ fontSize: 12, fontWeight: 900, color: DESIGN.colors.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedChild.name} · {refreshPending ? "현재 위치 확인 중" : selectedLocationLabel}</div>
                             <div style={{ fontSize: 10, fontWeight: 700, color: DESIGN.colors.muted, marginTop: 2 }}>도보 확인 반경 {CHILD_TRACKER_WALK_RADIUS_M}m</div>
                         </div>
@@ -7186,7 +7132,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                             aria-label={`${selectedChild.name} 위치로 이동`}
                             title={`${selectedChild.name} 위치로 이동`}
                             onClick={() => focusChildLocation(selectedChild)}
-                            style={{ position: "absolute", top: 12, right: 12, zIndex: 10, width: 48, height: 48, borderRadius: 16, border: "none", background: DESIGN.gradients.primary, color: "white", fontSize: 22, fontWeight: 900, cursor: "pointer", boxShadow: "0 6px 16px rgba(247,121,168,0.35)", display: mapReady ? "flex" : "none", alignItems: "center", justifyContent: "center", fontFamily: FF }}
+                            style={{ position: "absolute", top: 12, right: 12, zIndex: 10, width: 48, height: 48, borderRadius: 16, border: "none", background: DESIGN.gradients.primary, color: "white", fontSize: 22, fontWeight: 900, cursor: "pointer", boxShadow: "var(--hyeni-theme-shadow-soft)", display: mapReady ? "flex" : "none", alignItems: "center", justifyContent: "center", fontFamily: FF }}
                         >
                             🎯
                         </button>
@@ -7287,17 +7233,17 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                         {trailPointCount > 0 && (
                             <>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 8 }}>
-                                    <div style={{ background: "#EFF6FF", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
-                                        <div style={{ fontSize: 13, fontWeight: 900, color: "#3B82F6" }}>{distLabel(totalDistM)}</div>
-                                        <div style={{ fontSize: 10, color: "#60A5FA", fontWeight: 800, marginTop: 2 }}>오늘 이동</div>
+                                    <div style={{ background: "var(--theme-accent-soft)", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 900, color: "var(--theme-accent-text)" }}>{distLabel(totalDistM)}</div>
+                                        <div style={{ fontSize: 10, color: "var(--fg-secondary)", fontWeight: 800, marginTop: 2 }}>오늘 이동</div>
                                     </div>
-                                    <div style={{ background: "#F8FAFC", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
-                                        <div style={{ fontSize: 13, fontWeight: 900, color: "#334155" }}>{trailPointCount}개</div>
-                                        <div style={{ fontSize: 10, color: "#94A3B8", fontWeight: 800, marginTop: 2 }}>기록 지점</div>
+                                    <div style={{ background: "var(--bg-subtle)", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 900, color: "var(--fg-primary)" }}>{trailPointCount}개</div>
+                                        <div style={{ fontSize: 10, color: "var(--fg-secondary)", fontWeight: 800, marginTop: 2 }}>기록 지점</div>
                                     </div>
-                                    <div style={{ background: "#FFF7ED", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
-                                        <div style={{ fontSize: 13, fontWeight: 900, color: "#EA580C", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trailLastLabel || "오늘"}</div>
-                                        <div style={{ fontSize: 10, color: "#FDBA74", fontWeight: 800, marginTop: 2 }}>기준 시각</div>
+                                    <div style={{ background: "var(--bg-subtle)", borderRadius: 12, padding: "8px 10px", textAlign: "center", minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 900, color: "var(--fg-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trailLastLabel || "오늘"}</div>
+                                        <div style={{ fontSize: 10, color: "var(--fg-secondary)", fontWeight: 800, marginTop: 2 }}>기준 시각</div>
                                     </div>
                                 </div>
                                 {trailHourSegments.length > 0 && (
@@ -7320,8 +7266,8 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                                     </div>
                                 )}
                                 {displayTrailDwellPlaces.length > 0 && (
-                                    <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 14, padding: "10px 12px", marginBottom: 8 }}>
-                                        <div style={{ fontSize: 11, fontWeight: 900, color: "#B45309", marginBottom: 6 }}>오래 머문 곳</div>
+                                    <div style={{ background: "var(--status-cautionary-subtle)", border: "1px solid #FDE68A", borderRadius: 14, padding: "10px 12px", marginBottom: 8 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 900, color: "var(--status-cautionary-strong)", marginBottom: 6 }}>오래 머문 곳</div>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                             {displayTrailDwellPlaces.slice(0, 3).map((place, index) => (
                                                 <button
@@ -7330,13 +7276,13 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                                                     onClick={() => focusTrailPoints([place], Math.max(2, CHILD_TRACKER_ZOOM_LEVEL - 1))}
                                                     style={{ border: "none", background: "white", borderRadius: 11, padding: "8px 10px", display: "flex", alignItems: "center", gap: 8, textAlign: "left", cursor: "pointer", fontFamily: FF, boxShadow: "0 1px 6px rgba(180,83,9,0.08)" }}
                                                 >
-                                                    <span style={{ width: 24, height: 24, borderRadius: 9, background: "#F59E0B", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, flexShrink: 0 }}>{index + 1}</span>
+                                                    <span style={{ width: 24, height: 24, borderRadius: 9, background: "var(--status-cautionary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, flexShrink: 0 }}>{index + 1}</span>
                                                     <span style={{ flex: 1, minWidth: 0 }}>
                                                         <span style={{ display: "block", fontSize: 12, color: "var(--fg-primary)", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.displayTitle}</span>
                                                         {place.addressLabel && (
                                                             <span style={{ display: "block", fontSize: 10, color: "#78350F", fontWeight: 800, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.addressLabel}</span>
                                                         )}
-                                                        <span style={{ display: "block", fontSize: 10, color: "#92400E", fontWeight: 700, marginTop: 1 }}>{formatTrailDuration(place.durationMs)} · {place.timeLabel || place.label}</span>
+                                                        <span style={{ display: "block", fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, marginTop: 1 }}>{formatTrailDuration(place.durationMs)} · {place.timeLabel || place.label}</span>
                                                     </span>
                                                 </button>
                                             ))}
@@ -7400,11 +7346,11 @@ function ChildDeviceCard({ child, status }) {
                 배터리: {battery == null ? "—" : `${battery}%`} · 마지막 접속: {minutesAgo == null ? "—" : `${minutesAgo}분 전`}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
-                <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "6px 8px" }}>
+                <div style={{ background: "var(--bg-subtle)", borderRadius: 10, padding: "6px 8px" }}>
                     <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 켜짐 시간</div>
                     <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>⏱️ {screenLabel}</div>
                 </div>
-                <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "6px 8px", minWidth: 0 }}>
+                <div style={{ background: "var(--bg-subtle)", borderRadius: 10, padding: "6px 8px", minWidth: 0 }}>
                     <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 700 }}>가장 많이 실행한 앱</div>
                     <div style={{ fontSize: 12.5, color: "var(--fg-primary)", fontWeight: 800, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📱 {recentApp}</div>
                 </div>
@@ -7554,8 +7500,28 @@ export default function KidsScheduler() {
     const selectedChild = selectedChildId
       ? pairedChildren.find((c) => c.id === selectedChildId)
       : null;
+    const activeThemeColor = useMemo(() => {
+      if (isParent) {
+        return selectedChild?.color_hex
+          || pairedChildren?.find((member) => member?.role === "child")?.color_hex
+          || null;
+      }
+      const me = pairedChildren.find((member) => member.user_id === authUser?.id);
+      return me?.color_hex || null;
+    }, [authUser?.id, isParent, pairedChildren, selectedChild?.color_hex]);
+
+    // Theme accent — picks the child color whose perspective the user is in,
+    // so the entire app reflects the selected child's identity color.
+    //   parent: selectedChild.color_hex (or first child if none picked)
+    //   child : own row's color_hex from pairedChildren
+    // Falls back to cached → default warm-pink on first launch.
+    useEffect(() => {
+      if (activeThemeColor) applyThemeColor(activeThemeColor);
+      else initThemeFromCache();
+    }, [activeThemeColor]);
+
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
-    const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", timestamp }
+    const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", emoji, timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
     const [showParentMemoPage, setShowParentMemoPage] = useState(false);
     const [showChildMemoPage, setShowChildMemoPage] = useState(false);
@@ -7648,6 +7614,10 @@ export default function KidsScheduler() {
         () => effectiveChildLocation(childPos, entitlement) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
         [childPos, displayChildPositions, entitlement]
     );
+    const routeChildProfile = selectedChild
+        || (displayChildPos?.user_id ? pairedChildren.find(child => child.user_id === displayChildPos.user_id) : null)
+        || pairedChildren[0]
+        || null;
     // ── 다중 자녀 프라이버시 (원칙 5): 자녀 기기는 자기 데이터만 본다 ─────────────────
     // events 는 { [dateKey]: Event[] } 형태의 맵. 학부모는 그대로 두고,
     // 자녀 모드일 때만 가족 전체 일정 OR 본인이 포함된 일정으로 좁힌다.
@@ -7727,7 +7697,7 @@ export default function KidsScheduler() {
     }, [openAcademyManagement]);
 
     // Playdate context: bypass the academy-schedule entitlement gate. The user
-    // came here to register a 친구놀이 안전장소, not to manage academies, so
+    // came here to register a 친구 만남 안전 장소, not to manage academies, so
     // showing them the ACADEMY_SCHEDULE paywall is wrong-feature messaging.
     // NOTE: the SAVED_PLACES paywall inside AcademyManager still blocks
     // free-tier users at the create step. Fully enabling free-tier playdate
@@ -8170,7 +8140,9 @@ export default function KidsScheduler() {
         }
 
         // Parent account with no family → show parent setup choice (don't auto-create)
-        if (isKakao || isPhoneParent) {
+        // Covers Kakao/phone (prod) and email/dev signups whose stored role is "parent".
+        const storedRole = (typeof window !== "undefined" && (window.localStorage?.getItem("hyeni-my-role") || window.sessionStorage?.getItem("hyeni-my-role"))) || null;
+        if (isKakao || isPhoneParent || storedRole === "parent") {
             setMyRole("parent");
             setShowParentSetup(true); // Show "새 가족 만들기 / 기존 가족 합류" choice
         }
@@ -8334,7 +8306,7 @@ export default function KidsScheduler() {
                 });
             },
             onAcademiesChange: (type, newRow, oldRow) => {
-                const CAT_COLORS = { school: { color: "#A78BFA", bg: "#EDE9FE" }, sports: { color: "#34D399", bg: "#D1FAE5" }, hobby: { color: "#F59E0B", bg: "#FEF3C7" }, family: { color: "#F87171", bg: "#FEE2E2" }, friend: { color: "#60A5FA", bg: "#DBEAFE" }, other: { color: "#EC4899", bg: "#FCE7F3" } };
+                const CAT_COLORS = { school: { color: "#A78BFA", bg: "#EDE9FE" }, sports: { color: "#34D399", bg: "var(--status-positive-subtle)" }, hobby: { color: "var(--status-cautionary)", bg: "var(--status-cautionary-subtle)" }, family: { color: "#F87171", bg: "var(--status-negative-subtle)" }, friend: { color: "#60A5FA", bg: "var(--bg-subtle)" }, other: { color: "#EC4899", bg: "#FCE7F3" } };
                 setAcademies(prev => {
                     let updated = [...prev];
                     if (type === "INSERT" && newRow) {
@@ -8488,7 +8460,12 @@ export default function KidsScheduler() {
                 }
 
                 const senderLabel = payload.senderRole === "parent" ? "엄마" : "아이";
-                setShowKkukReceived({ from: senderLabel, timestamp: Date.now() });
+                const members = familyInfoRef.current?.members || [];
+                const senderChildEmoji = payload.senderRole === "child"
+                    ? members.find(member => member.user_id === payload.senderId)?.emoji
+                    : members.find(member => member.role === "child" && member.user_id === authUser?.id)?.emoji;
+                const senderEmoji = payload.senderEmoji || senderChildEmoji || (payload.senderRole === "parent" ? "👨‍👩‍👧" : "👧");
+                setShowKkukReceived({ from: senderLabel, emoji: senderEmoji, timestamp: Date.now() });
                 // Vibrate if supported
                 if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
                 // Native notification (wakes screen on Android)
@@ -9055,6 +9032,10 @@ export default function KidsScheduler() {
             ? crypto.randomUUID()
             : `${authUser.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
         const kkukPayload = { senderId: authUser.id, senderRole, timestamp: Date.now(), dedup_key: dedupKey };
+        if (senderRole === "child") {
+            const senderMember = familyInfo?.members?.find(member => member.user_id === authUser.id);
+            kkukPayload.senderEmoji = senderMember?.emoji || "👧";
+        }
 
         // Local UX feedback fires immediately — kkukCooldown above already
         // prevents rapid re-taps. The server-side RPC below can still veto
@@ -9335,7 +9316,24 @@ export default function KidsScheduler() {
     const openChildSafetySetupStep = useCallback(async (step) => {
         if (!step) return;
         try {
-            if (step.target === "appLocation") {
+            // 1) Try in-app permission prompt first for OS-level RUNTIME permissions.
+            //    Falls through to Settings only if the system already marked
+            //    the permission "don't ask again" or the plugin is unavailable.
+            if (step.id === "microphone") {
+                const res = await requestNativePermission("microphone");
+                if (res?.granted || res?.requested) {
+                    setTimeout(() => { void refreshNativeReadiness(); }, 1200);
+                    return;
+                }
+                await openNativeNotificationSettings({ target: "appDetails" });
+            } else if (step.id === "notifications") {
+                const res = await requestNativePermission("notifications");
+                if (res?.granted || res?.requested) {
+                    setTimeout(() => { void refreshNativeReadiness(); }, 1200);
+                    return;
+                }
+                await openNativeNotificationSettings(step);
+            } else if (step.target === "appLocation") {
                 const { Capacitor, registerPlugin } = await import("@capacitor/core");
                 if (Capacitor.isNativePlatform()) {
                     const BgLoc = registerPlugin("BackgroundLocation");
@@ -9358,6 +9356,18 @@ export default function KidsScheduler() {
             showNotif("설정을 열지 못했어요. Android 앱 설정에서 직접 허용해주세요.", "error");
         }
     }, [authUser?.id, familyId, myRole, refreshNativeReadiness, showNotif]);
+
+    // 일괄 허용: 미허용 단계를 순차적으로 처리한다. OS 시스템 다이얼로그는
+    // 현재 액티비티에서만 한 번에 한 개 표시 가능하므로 직렬로 진행하고,
+    // 각 단계 사이에 잠깐의 텀(1.5s)을 두어 health 갱신이 반영되도록 한다.
+    const runAllChildSafetySteps = useCallback(async () => {
+        for (const step of childSafetySetupSteps) {
+            if (step.ready) continue;
+            await openChildSafetySetupStep(step);
+            await new Promise(r => setTimeout(r, 1500));
+        }
+        setTimeout(() => { void refreshNativeReadiness(); }, 800);
+    }, [childSafetySetupSteps, openChildSafetySetupStep, refreshNativeReadiness]);
 
     const addAlert = useCallback((msg, type = "parent") => {
         const id = Date.now() + Math.random();
@@ -9994,7 +10004,7 @@ export default function KidsScheduler() {
                 const { error } = await supabase.rpc("insert_parent_alert", {
                     p_family_id: familyId,
                     p_alert_type: "memo_" + (result.category || "emotional"),
-                    p_title: "🤖 AI: " + result.title,
+                    p_title: "활동 리포트: " + result.title,
                     p_message: result.message,
                     p_severity: result.severity || "info",
                 });
@@ -10003,7 +10013,7 @@ export default function KidsScheduler() {
         } catch (err) { console.warn("[AI memo analysis]", err.message); }
     };
 
-    // ── AI settings toggle ───────────────────────────────────────────────────
+    // ── Activity analysis settings toggle ───────────────────────────────────
     const toggleAiEnabled = (val) => {
         setAiEnabled(val);
         try { localStorage.setItem("hyeni-ai-enabled", val ? "true" : "false"); } catch { /* ignored */ }
@@ -10021,7 +10031,7 @@ export default function KidsScheduler() {
         setShowAiSchedule(true);
     };
 
-    // ── Process AI/regex result → create event or add memo ────────────────────
+    // ── Process structured/regex result → create event or add memo ───────────
     const handleVoiceResult = async (parsed, rawText) => {
         if (!parsed || parsed.action === "unknown") {
             showNotif(parsed?.message || "음성을 이해하지 못했어요", "error");
@@ -10124,8 +10134,8 @@ export default function KidsScheduler() {
                 maybeOpenTrialInvite();
                 sendInstantPush({
                     action: "new_event", familyId, senderUserId: authUser.id,
-                    title: `🤖 새 일정: ${ev.emoji} ${parsed.title}`,
-                    message: `${dateLabel} ${ev.time}에 "${parsed.title}" 일정이 추가됐어요 (AI 음성)`,
+                    title: `새 일정: ${ev.emoji} ${parsed.title}`,
+                    message: `${dateLabel} ${ev.time}에 "${parsed.title}" 일정이 추가됐어요`,
                 });
             } catch (err) {
                 console.error("[voiceEvent] Supabase error:", err);
@@ -10194,10 +10204,10 @@ export default function KidsScheduler() {
             if (!transcript) { showNotif("음성 인식 실패", "error"); return; }
         }
 
-        // Try AI parsing first (if enabled), fall back to regex
+        // Try structured parsing first (if enabled), fall back to regex
         let parsed;
         if (aiEnabled) {
-            showNotif("🤖 AI 분석 중...");
+            showNotif("일정을 정리하고 있어요...");
             parsed = await aiParseVoice(transcript);
         }
         if (!parsed || parsed.error) {
@@ -10403,7 +10413,7 @@ export default function KidsScheduler() {
     const labelSt = { fontSize: 12, fontWeight: 800, color: DESIGN.colors.muted, marginBottom: 6, display: "block" };
     const cardSt = makeCardStyle({ width: "100%", maxWidth: contentMaxWidth, padding: 20, marginBottom: 14 });
     const primBtn = makePrimaryButtonStyle({ marginTop: 16 });
-    const secBtn = makeSecondaryButtonStyle({ marginTop: 8, background: "#F8FAFC" });
+    const secBtn = makeSecondaryButtonStyle({ marginTop: 8, background: "var(--bg-subtle)" });
     const todayDateKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
     const todayEvents = events[todayDateKey] || [];
     const todayDateLabel = today.toLocaleDateString("ko-KR", { weekday: "long", month: "long", day: "numeric" });
@@ -10591,7 +10601,8 @@ export default function KidsScheduler() {
     const handleParentFamilyTabClick = () => {
         closeParentManagementPanels();
         setShowParentMemoPage(false);
-        setShowPairing(true);
+        if (familyId) setShowPairing(true);
+        else setShowParentSetup(true);
     };
     const handleParentHomeTabClick = () => {
         closeParentManagementPanels();
@@ -10905,7 +10916,7 @@ export default function KidsScheduler() {
             : status.tone === "danger"
                 ? { background: DESIGN.colors.dangerPale, color: DESIGN.colors.danger }
                 : status.tone === "done"
-                    ? { background: "#F3F4F6", color: DESIGN.colors.muted }
+                    ? { background: "var(--bg-muted)", color: DESIGN.colors.muted }
                     : null;
         const whoLabel = pairedChildren[0]?.name || "아이";
         return (
@@ -10922,7 +10933,7 @@ export default function KidsScheduler() {
                     }
                 }}
                 className={`hyeni-v5-event-card${status.current ? " is-current" : ""}${status.past ? " is-past" : ""}`}
-                style={{ "--event-color": event.color || DESIGN.colors.pink, "--event-bg": event.bg || DESIGN.colors.pinkSoft, fontFamily: FF, cursor: "pointer" }}
+                style={{ "--event-color": event.color || "var(--theme-accent)", "--event-bg": event.bg || "var(--theme-accent-soft)", fontFamily: FF, cursor: "pointer" }}
                 aria-label={`${event.title} 편집`}
             >
                 <div className="hyeni-v5-event-icon">{event.emoji || "📌"}</div>
@@ -10940,7 +10951,7 @@ export default function KidsScheduler() {
                     <div className="hyeni-v5-event-chips">
                         {distanceLabel && <span className="hyeni-v5-chip distance">📍 {distanceLabel}</span>}
                         {event.memo && <span className="hyeni-v5-chip memo">📝 메모</span>}
-                        <span className="hyeni-v5-chip" style={{ background: "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA" }}>✏️ 수정</span>
+                        <span className="hyeni-v5-chip" style={{ background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", border: "1px solid #FED7AA" }}>✏️ 수정</span>
                     </div>
                 </div>
                 <div className="hyeni-v5-event-tag" style={statusStyle || undefined}>{status.label}</div>
@@ -10956,7 +10967,7 @@ export default function KidsScheduler() {
                         style={{
                             position: "absolute", top: 8, right: 38,
                             width: 28, height: 28, borderRadius: "50%",
-                            border: "1px solid #DBEAFE", background: "#EFF6FF",
+                            border: "1px solid var(--bg-subtle)", background: "var(--bg-subtle)",
                             color: "#1D4ED8", fontSize: 13, cursor: "pointer",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             zIndex: 1,
@@ -11025,11 +11036,11 @@ export default function KidsScheduler() {
     }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName]);
 
     const TABS = isParent
-        ? [["calendar", "📅 달력"], ["maplist", "🏫 학원관리"]]
-        : [["calendar", "📅 달력"], ["maplist", "📍 장소"]];
-    const quickPanelTone = isParent
-        ? { bg: "rgba(255,255,255,0.88)", border: DESIGN.colors.pinkLine, color: DESIGN.colors.brand }
-        : { bg: "rgba(255,255,255,0.88)", border: "#FED7AA", color: "#C2410C" };
+        ? [["calendar", "○ 달력"], ["maplist", "□ 학원관리"]]
+        : [["calendar", "○ 달력"], ["maplist", "⌖ 장소"]];
+    const quickPanelTone = { bg: "rgba(255,255,255,0.88)", border: "var(--theme-accent-line)", color: "var(--theme-accent-text)" };
+    const quickThemePalette = { bg: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", color: "var(--theme-accent-text)", shadow: "var(--hyeni-theme-shadow-soft)" };
+    const quickDangerPalette = { bg: "linear-gradient(135deg,var(--status-negative-subtle),rgba(255,255,255,0.92))", color: "var(--status-negative-strong)", shadow: "rgba(229,34,34,0.14)" };
     const quickModeActions = TABS.map(([view, label]) => {
         const [icon, text] = label.split(" ");
         return {
@@ -11050,34 +11061,34 @@ export default function KidsScheduler() {
     const quickUtilityActions = [
         activeView !== "calendar" ? {
             key: "home",
-            icon: "🏠",
+            icon: "⌂",
             label: "홈",
-            ariaLabel: "🏠 홈",
-            palette: { bg: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: "#BE185D", shadow: "rgba(232,121,160,0.16)" },
+            ariaLabel: "홈",
+            palette: quickThemePalette,
             onClick: () => setActiveView("calendar"),
         } : null,
         isParent && parentCapabilities.canRequestChildLocation ? {
             key: "child-tracker",
-            icon: "📍",
+            icon: "⌖",
             label: "우리아이",
-            ariaLabel: "📍 우리아이",
-            palette: { bg: "linear-gradient(135deg,#EFF6FF,#DBEAFE)", color: "#1D4ED8", shadow: "rgba(59,130,246,0.16)" },
+            ariaLabel: "우리아이",
+            palette: quickThemePalette,
             onClick: () => setShowChildTracker(true),
         } : null,
         isParent && parentCapabilities.canManagePlaces ? {
             key: "academy",
-            icon: "🏫",
+            icon: "□",
             label: "학원관리",
-            ariaLabel: "🏫 학원관리",
-            palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(245,158,11,0.18)" },
+            ariaLabel: "학원관리",
+            palette: quickThemePalette,
             onClick: openAcademyManagement,
         } : null,
         isParent && parentCapabilities.canManageFamily ? {
             key: "friend-playdate",
-            icon: "🤝",
-            label: "친구놀이",
-            ariaLabel: "🤝 친구놀이 관리",
-            palette: { bg: "linear-gradient(135deg,#ECFDF5,#D1FAE5)", color: "#047857", shadow: "rgba(16,185,129,0.15)" },
+            icon: "◇",
+            label: "친구 만남",
+            ariaLabel: "친구 만남 관리",
+            palette: quickThemePalette,
             onClick: () => {
                 setShowParentMemoPage(false);
                 setActiveView("friendPlaydateSettings");
@@ -11088,10 +11099,10 @@ export default function KidsScheduler() {
         } : null,
         isParent && parentCapabilities.canUseForceRing ? {
             key: "force-ring",
-            icon: "❗",
+            icon: "!",
             label: "응급알림",
-            ariaLabel: "❗ 응급 강제 알림",
-            palette: { bg: "linear-gradient(135deg,#FEF2F2,#FEE2E2)", color: "#B91C1C", shadow: "rgba(220,38,38,0.16)" },
+            ariaLabel: "응급 강제 알림",
+            palette: quickDangerPalette,
             onClick: () => {
                 setShowParentMemoPage(false);
                 setActiveView("forceRing");
@@ -11102,11 +11113,11 @@ export default function KidsScheduler() {
         } : null,
         {
             key: "stickers",
-            icon: "🏆",
+            icon: "★",
             label: isParent ? "스티커" : "스티커북",
-            ariaLabel: isParent ? "🏆 스티커" : "🏆 스티커북",
+            ariaLabel: isParent ? "스티커" : "스티커북",
             description: isParent ? "" : "오늘 받은 칭찬 보기",
-            palette: { bg: "linear-gradient(135deg,#FEF3C7,#FDE68A)", color: "#92400E", shadow: "rgba(251,191,36,0.16)" },
+            palette: quickThemePalette,
             onClick: () => {
                 setShowStickerBook(true);
                 if (familyId) {
@@ -11117,26 +11128,26 @@ export default function KidsScheduler() {
         },
         isParent && parentCapabilities.canManageSubscription ? {
             key: "subscription",
-            icon: "💎",
+            icon: "◆",
             label: "구독",
-            ariaLabel: "💎 구독",
-            palette: { bg: "linear-gradient(135deg,#FFF0F7,#FCE7F3)", color: DESIGN.colors.brand, shadow: "rgba(190,24,93,0.14)" },
+            ariaLabel: "구독",
+            palette: quickThemePalette,
             onClick: () => setShowSubscriptionSettings(true),
         } : null,
         isParent && parentCapabilities.canEditParentPhones ? {
             key: "contacts",
-            icon: "📞",
+            icon: "☎",
             label: "연락처",
-            ariaLabel: "📞 연락처",
-            palette: { bg: "linear-gradient(135deg,#FDF2F8,#FCE7F3)", color: "#BE185D", shadow: "rgba(236,72,153,0.15)" },
+            ariaLabel: "연락처",
+            palette: quickThemePalette,
             onClick: () => setShowPhoneSettings(true),
         } : null,
         isParent && parentCapabilities.canUseRemoteListen ? {
             key: "remote-audio",
-            icon: "🎙️",
+            icon: "◉",
             label: "주변소리",
-            ariaLabel: "🎙️ 주변소리",
-            palette: { bg: "linear-gradient(135deg,#FFFBEB,#FEF3C7)", color: "#B45309", shadow: "rgba(217,119,6,0.15)" },
+            ariaLabel: "주변소리",
+            palette: quickThemePalette,
             onClick: () => {
                 if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
                     openFeatureLock(
@@ -11151,18 +11162,18 @@ export default function KidsScheduler() {
         } : null,
         isParent && parentCapabilities.canManagePlaces ? {
             key: "danger-zones",
-            icon: "⚠️",
+            icon: "!",
             label: "위험지역",
-            ariaLabel: "⚠️ 위험지역",
-            palette: { bg: "linear-gradient(135deg,#FFF1F2,#FFE4E6)", color: "#E11D48", shadow: "rgba(244,63,94,0.15)" },
+            ariaLabel: "위험지역",
+            palette: quickDangerPalette,
             onClick: () => setShowDangerZones(true),
         } : null,
         isParent ? {
             key: "feedback",
-            icon: "💌",
+            icon: "✉",
             label: "피드백",
-            ariaLabel: "💌 피드백 보내기",
-            palette: { bg: "linear-gradient(135deg,#FDF2F8,#FCE7F3)", color: "#BE185D", shadow: "rgba(244,114,182,0.16)" },
+            ariaLabel: "피드백 보내기",
+            palette: quickThemePalette,
             onClick: () => setShowFeedbackModal(true),
         } : null,
     ].filter(Boolean);
@@ -11170,6 +11181,8 @@ export default function KidsScheduler() {
     const renderQuickAction = (action, type = "utility") => {
         const isMode = type === "mode";
         const isChildStickerShortcut = !isParent && !isMode && action.key === "stickers";
+        const actionShadow = String(action.palette?.shadow || "rgba(31,41,55,0.08)");
+        const actionBoxShadow = actionShadow.startsWith("var(") ? actionShadow : `0 10px 22px ${actionShadow}`;
         return (
             <button
                 key={action.key}
@@ -11177,7 +11190,7 @@ export default function KidsScheduler() {
                 aria-label={action.ariaLabel}
                 onClick={action.onClick}
                 style={{
-                    border: isMode ? "none" : `1px solid ${DESIGN.colors.pinkLine}`,
+                    border: isMode ? "none" : "1px solid var(--theme-accent-line)",
                     cursor: "pointer",
                     fontFamily: FF,
                     borderRadius: isMode ? DESIGN.radius.lg : DESIGN.radius.xl,
@@ -11196,8 +11209,8 @@ export default function KidsScheduler() {
                         : action.palette.bg,
                     color: isMode ? (action.active ? "white" : DESIGN.colors.muted) : action.palette.color,
                     boxShadow: isMode
-                        ? (action.active ? "0 10px 20px rgba(232,121,160,0.22)" : "inset 0 0 0 1px rgba(226,232,240,0.85)")
-                        : `0 10px 22px ${action.palette.shadow}`,
+                        ? (action.active ? "var(--hyeni-theme-shadow-soft)" : "inset 0 0 0 1px rgba(226,232,240,0.85)")
+                        : actionBoxShadow,
                 }}
             >
                 <span aria-hidden="true" style={{
@@ -11215,11 +11228,11 @@ export default function KidsScheduler() {
                     {action.icon}
                 </span>
                 <span style={{ display: "flex", flexDirection: "column", alignItems: isChildStickerShortcut ? "flex-start" : "center", gap: 3, minWidth: 0 }}>
-                    <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 13), fontWeight: action.active ? 800 : 800, letterSpacing: -0.2, wordBreak: "keep-all" }}>
+                    <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 13), fontWeight: action.active ? 800 : 800, letterSpacing: 0, wordBreak: "keep-all" }}>
                         {action.label}
                     </span>
                     {action.description && (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#A16207", lineHeight: 1.25, wordBreak: "keep-all" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--theme-accent-text)", lineHeight: 1.25, wordBreak: "keep-all" }}>
                             {action.description}
                         </span>
                     )}
@@ -11294,7 +11307,7 @@ export default function KidsScheduler() {
         <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF }}>
             <div style={{ textAlign: "center" }}>
                 <AppBrandLogo size={84} radius={26} />
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#E879A0", marginTop: 16 }}>혜니캘린더</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "var(--theme-accent-text)", marginTop: 16 }}>혜니캘린더</div>
                 <div style={{ fontSize: 13, color: "var(--fg-tertiary)", marginTop: 8 }}>로딩 중...</div>
             </div>
         </div>
@@ -11698,12 +11711,12 @@ export default function KidsScheduler() {
         </>
     );
 
-    if (childSafetySetupBlocked) return (
-        <ChildSafetySetupGate
+    if (childSafetySetupBlocked && !permissionWizardDismissed) return (
+        <ChildPermissionWizard
             steps={childSafetySetupSteps}
-            health={nativeNotifHealth}
-            onOpenStep={openChildSafetySetupStep}
-            onRefresh={refreshNativeReadiness}
+            onAction={openChildSafetySetupStep}
+            onAllowAll={runAllChildSafetySteps}
+            onDismiss={() => setPermissionWizardDismissed(true)}
         />
     );
 
@@ -11712,8 +11725,8 @@ export default function KidsScheduler() {
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "#FEF3C7" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
-                    color: notification.type === "error" ? "#B45309" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
+                    background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
+                    color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {notification.msg}
@@ -11736,8 +11749,8 @@ export default function KidsScheduler() {
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "#FEF3C7" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
-                    color: notification.type === "error" ? "#B45309" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
+                    background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
+                    color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {notification.msg}
@@ -11781,7 +11794,7 @@ export default function KidsScheduler() {
         @keyframes shake{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
         @media(hover:hover){button:hover{filter:brightness(0.99)}}
         button:active{transform:scale(0.98)!important}
-        input:focus,textarea:focus{border-color:#E879A0!important;box-shadow:0 0 0 4px rgba(232,121,160,0.12)}
+        input:focus,textarea:focus{border-color:var(--theme-accent)!important;box-shadow:0 0 0 4px var(--theme-accent-soft)}
         ::-webkit-scrollbar{display:none}
         *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
       `}</style>
@@ -11791,8 +11804,8 @@ export default function KidsScheduler() {
             {notification && (
                 <div style={{
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "#FEF3C7" : notification.type === "child" ? DESIGN.colors.pinkSoft : notification.type === "parent" ? "#DBEAFE" : "#D1FAE5",
-                    color: notification.type === "error" ? "#B45309" : notification.type === "child" ? DESIGN.colors.brand : notification.type === "parent" ? "#1D4ED8" : "#065F46",
+                    background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
+                    color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
                     borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {notification.msg}
@@ -11804,8 +11817,8 @@ export default function KidsScheduler() {
             {syncDegraded && (
                 <div style={{
                     position: "fixed", top: 64, left: "50%", transform: "translateX(-50%)",
-                    background: syncDegraded === "circuit_open" ? "#FED7AA" : "#FEF3C7",
-                    color: syncDegraded === "circuit_open" ? "#9A3412" : "#92400E",
+                    background: syncDegraded === "circuit_open" ? "#FED7AA" : "var(--status-cautionary-subtle)",
+                    color: syncDegraded === "circuit_open" ? "var(--status-cautionary-strong)" : "var(--status-cautionary-strong)",
                     borderRadius: 16, padding: "8px 14px", fontWeight: 600, fontSize: 12, boxShadow: "0 2px 10px rgba(0,0,0,0.08)", zIndex: 240, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                 }}>
                     {syncDegraded === "circuit_open"
@@ -11814,21 +11827,21 @@ export default function KidsScheduler() {
                 </div>
             )}
 
-            {/* AI Alert Panel (parent only) */}
+            {/* Activity alert panel (parent only) */}
             {showAlertPanel && isParent && (
                 <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 500, fontFamily: FF, paddingTop: 60 }}
                     onClick={e => { if (e.target === e.currentTarget) setShowAlertPanel(false); }}>
                     <div style={makeCardStyle({ width: "92%", maxWidth: 420, maxHeight: "75vh", overflow: "hidden" })}>
-                        <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid var(--bg-muted)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
-                                <div style={{ fontSize: 17, fontWeight: 900, color: "var(--fg-primary)" }}>🤖 AI 알림</div>
-                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>아이 활동 분석 리포트</div>
+                                <div style={{ fontSize: 17, fontWeight: 900, color: "var(--fg-primary)" }}>활동 알림</div>
+                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>아이 활동 리포트</div>
                             </div>
                             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, color: aiEnabled ? "#10B981" : "#9CA3AF" }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, color: aiEnabled ? "var(--status-positive)" : "#9CA3AF" }}>
                                     <input type="checkbox" checked={aiEnabled} onChange={e => toggleAiEnabled(e.target.checked)}
-                                        style={{ width: 14, height: 14, accentColor: "#10B981" }} />
-                                    AI {aiEnabled ? "ON" : "OFF"}
+                                        style={{ width: 14, height: 14, accentColor: "var(--status-positive)" }} />
+                                    분석 {aiEnabled ? "ON" : "OFF"}
                                 </label>
                                 <button onClick={() => setShowAlertPanel(false)}
                                     style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--fg-tertiary)" }}>×</button>
@@ -11837,23 +11850,23 @@ export default function KidsScheduler() {
                         <div style={{ overflowY: "auto", maxHeight: "calc(75vh - 80px)", padding: "12px 16px" }}>
                             {!aiEnabled && (
                                 <div style={{ textAlign: "center", padding: "30px 20px", color: "var(--fg-tertiary)" }}>
-                                    <div style={{ fontSize: 36, marginBottom: 8 }}>🤖</div>
-                                    <div style={{ fontSize: 14, fontWeight: 700 }}>AI 기능이 꺼져 있어요</div>
-                                    <div style={{ fontSize: 12, marginTop: 4 }}>위 토글을 켜면 아이 활동을 AI가 분석합니다</div>
+                                    <div style={{ fontSize: 36, marginBottom: 8 }}>✨</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700 }}>활동 분석이 꺼져 있어요</div>
+                                    <div style={{ fontSize: 12, marginTop: 4 }}>위 토글을 켜면 아이 활동을 정리해 알려드려요</div>
                                 </div>
                             )}
                             {aiEnabled && parentAlerts.length === 0 && (
                                 <div style={{ textAlign: "center", padding: "30px 20px", color: "var(--fg-tertiary)" }}>
                                     <div style={{ fontSize: 36, marginBottom: 8 }}>✨</div>
                                     <div style={{ fontSize: 14, fontWeight: 700 }}>아직 알림이 없어요</div>
-                                    <div style={{ fontSize: 12, marginTop: 4 }}>아이가 일정 장소에 도착/출발하면 AI가 알려드려요</div>
+                                    <div style={{ fontSize: 12, marginTop: 4 }}>아이가 일정 장소에 도착/출발하면 정리해 알려드려요</div>
                                 </div>
                             )}
                             {aiEnabled && parentAlerts.map(alert => {
                                 const severityColors = {
-                                    urgent: { bg: "#FEE2E2", border: "#EF4444", icon: "🚨" },
-                                    warning: { bg: "#FEF3C7", border: "#F59E0B", icon: "⚠️" },
-                                    info: { bg: "#DBEAFE", border: "#3B82F6", icon: "ℹ️" },
+                                    urgent: { bg: "var(--status-negative-subtle)", border: "var(--status-negative)", icon: "🚨" },
+                                    warning: { bg: "var(--status-cautionary-subtle)", border: "var(--status-cautionary)", icon: "⚠️" },
+                                    info: { bg: "var(--bg-subtle)", border: "var(--theme-accent)", icon: "ℹ️" },
                                 };
                                 const sc = severityColors[alert.severity] || severityColors.info;
                                 const timeAgo = (() => {
@@ -11865,18 +11878,19 @@ export default function KidsScheduler() {
                                     if (h < 24) return `${h}시간 전`;
                                     return `${Math.floor(h / 24)}일 전`;
                                 })();
+                                const alertTitle = String(alert.title || "").replace(/^🤖\s*(AI:\s*)?/i, "").trim() || "활동 알림";
                                 return (
                                     <div key={alert.id}
                                         onClick={async () => { if (!alert.read) { await markAlertRead(alert.id); setParentAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, read: true } : a)); } }}
-                                        style={{ background: alert.read ? "#F9FAFB" : sc.bg, borderLeft: `4px solid ${sc.border}`, borderRadius: 14, padding: "12px 14px", marginBottom: 10, cursor: "pointer", opacity: alert.read ? 0.7 : 1 }}>
+                                        style={{ background: alert.read ? "var(--bg-subtle)" : sc.bg, borderLeft: `4px solid ${sc.border}`, borderRadius: 14, padding: "12px 14px", marginBottom: 10, cursor: "pointer", opacity: alert.read ? 0.7 : 1 }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                                             <div style={{ fontSize: 13, fontWeight: 800, color: "var(--fg-primary)" }}>
-                                                {alert.title.startsWith("🤖") ? "" : sc.icon + " "}{alert.title}
+                                                {sc.icon} {alertTitle}
                                             </div>
                                             <div style={{ fontSize: 10, color: "var(--fg-tertiary)" }}>{timeAgo}</div>
                                         </div>
                                         <div style={{ fontSize: 12, color: "var(--fg-secondary)", lineHeight: 1.5 }}>{alert.message}</div>
-                                        {!alert.read && <div style={{ fontSize: 9, color: sc.border, fontWeight: 700, marginTop: 4 }}>탭하여 읽음 표시</div>}
+                                        {!alert.read && <div style={{ fontSize: 11, color: sc.border, fontWeight: 700, marginTop: 4 }}>탭하여 읽음 표시</div>}
                                     </div>
                                 );
                             })}
@@ -11889,11 +11903,11 @@ export default function KidsScheduler() {
             {voicePreview && (
                 <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 260, width: "calc(100% - 32px)", maxWidth: 400, animation: "slideUpCard 0.35s cubic-bezier(.34,1.56,.64,1)" }}>
                     <div style={{ background: "white", borderRadius: 24, boxShadow: "0 12px 40px rgba(0,0,0,0.18)", overflow: "hidden" }}>
-                        <div style={{ height: 4, background: "#10B981", animation: "shrinkBar 8s linear forwards" }} />
+                        <div style={{ height: 4, background: "var(--status-positive)", animation: "shrinkBar 8s linear forwards" }} />
                         <div style={{ padding: "16px 18px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                                <div style={{ fontSize: 11, fontWeight: 800, color: "#10B981", background: "#D1FAE5", padding: "4px 10px", borderRadius: 8 }}>{voicePreview.aiParsed ? "🤖 AI 저장 완료" : "🎤 음성 저장 완료"}</div>
-                                {voicePreview.academyMatched && <div style={{ fontSize: 11, fontWeight: 700, color: DESIGN.colors.parentDeep, background: DESIGN.colors.parentPale, padding: "4px 10px", borderRadius: 8 }}>🏫 학원 자동 매칭</div>}
+                                <div style={{ fontSize: 11, fontWeight: 800, color: "var(--status-positive)", background: "var(--status-positive-subtle)", padding: "4px 10px", borderRadius: 8 }}>{voicePreview.aiParsed ? "일정 저장 완료" : "음성 저장 완료"}</div>
+                                {voicePreview.academyMatched && <div style={{ fontSize: 11, fontWeight: 700, color: "var(--theme-accent-text)", background: "var(--theme-accent-soft)", padding: "4px 10px", borderRadius: 8 }}>🏫 학원 자동 매칭</div>}
                                 <div style={{ fontSize: 11, color: "var(--fg-tertiary)", flex: 1, textAlign: "right" }}>8초 후 닫힘</div>
                             </div>
                             <div style={{ background: voicePreview.ev.bg, borderRadius: 16, padding: "12px 14px", borderLeft: `4px solid ${voicePreview.ev.color}`, marginBottom: 12 }}>
@@ -11906,13 +11920,13 @@ export default function KidsScheduler() {
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginBottom: 12, padding: "6px 10px", background: "#F9FAFB", borderRadius: 8 }}>🎙 인식: "{voicePreview.rawText}"</div>
+                            <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginBottom: 12, padding: "6px 10px", background: "var(--bg-subtle)", borderRadius: 8 }}>🎙 인식: "{voicePreview.rawText}"</div>
                             <div style={{ display: "flex", gap: 8 }}>
                                 <button onClick={() => { setVoicePreview(null); setCurrentYear(parseInt(voicePreview.dateKey.split("-")[0])); setCurrentMonth(parseInt(voicePreview.dateKey.split("-")[1])); setSelectedDate(parseInt(voicePreview.dateKey.split("-")[2])); setActiveView("calendar"); }}
-                                    style={{ flex: 1, padding: "11px", background: "linear-gradient(135deg,#10B981,#059669)", color: "white", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✅ 달력에서 보기</button>
+                                    style={{ flex: 1, padding: "11px", background: "linear-gradient(135deg,var(--status-positive),#059669)", color: "white", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✅ 달력에서 보기</button>
                                 <button onClick={() => { setVoicePreview(null); setNewTitle(voicePreview.ev.title); setNewTime(voicePreview.ev.time); setNewEndTime(voicePreview.ev.endTime || ""); setNewCategory(voicePreview.ev.category); setNewLocation(voicePreview.ev.location); setEvents(prev => ({ ...prev, [voicePreview.dateKey]: (prev[voicePreview.dateKey] || []).filter(e => e.id !== voicePreview.ev.id) })); setShowAddModal(true); }}
-                                    style={{ flex: 1, padding: "11px", background: DESIGN.colors.parentPale, color: DESIGN.colors.parentDeep, border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✏️ 수정</button>
-                                <button onClick={undoVoiceEvent} style={{ padding: "11px 14px", background: "#F3F4F6", color: "var(--fg-secondary)", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>↩</button>
+                                    style={{ flex: 1, padding: "11px", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✏️ 수정</button>
+                                <button onClick={undoVoiceEvent} style={{ padding: "11px 14px", background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>↩</button>
                             </div>
                         </div>
                     </div>
@@ -11924,11 +11938,11 @@ export default function KidsScheduler() {
 
             {/* ── Background location permission banner (child mode) ── */}
             {isNativeApp && !isParent && !bgLocationGranted && (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "14px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FFFBEB, #FEF3C7)", border: "1.5px solid #FDE68A", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(217,119,6,0.12)" }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "14px 14px", borderRadius: 18, background: "linear-gradient(135deg, var(--status-cautionary-subtle), var(--status-cautionary-subtle))", border: "1.5px solid #FDE68A", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(217,119,6,0.12)" }}>
                     <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📍</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: "#B45309" }}>위치 권한을 "항상 허용"으로 바꿔주세요</div>
-                        <div style={{ fontSize: 11, color: "#92400E", marginTop: 3, lineHeight: 1.45 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: "var(--status-cautionary-strong)" }}>위치 권한을 "항상 허용"으로 바꿔주세요</div>
+                        <div style={{ fontSize: 11, color: "var(--status-cautionary-strong)", marginTop: 3, lineHeight: 1.45 }}>
                             앱을 꺼도 위치가 부모님께 전달돼요
                         </div>
                     </div>
@@ -11942,7 +11956,7 @@ export default function KidsScheduler() {
                         } catch (error) {
                             void error;
                         }
-                    }} style={{ padding: "9px 13px", borderRadius: 12, background: "#D97706", color: "white", border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(217,119,6,0.2)" }}>
+                    }} style={{ padding: "9px 13px", borderRadius: 12, background: "var(--status-cautionary-strong)", color: "white", border: "none", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "0 8px 18px rgba(217,119,6,0.2)" }}>
                         설정 열기
                     </button>
                 </div>
@@ -11950,10 +11964,10 @@ export default function KidsScheduler() {
 
             {/* ── Push notification permission banner ── */}
             {isNativeApp && !isParent && nativeSetupAction && (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "12px 14px", borderRadius: 18, background: "linear-gradient(135deg, #FFF7ED, #FEF3C7)", border: "1px solid #FCD34D", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(245,158,11,0.12)" }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "12px 14px", borderRadius: 18, background: "linear-gradient(135deg, var(--status-cautionary-subtle), var(--status-cautionary-subtle))", border: "1px solid #FCD34D", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 24px rgba(245,158,11,0.12)" }}>
                     <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🔔</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: "#9A3412" }}>앱이 꺼져도 알림이 바로 보이도록 설정이 더 필요해요</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: "var(--status-cautionary-strong)" }}>앱이 꺼져도 알림이 바로 보이도록 설정이 더 필요해요</div>
                         <div style={{ fontSize: 11, color: "#7C2D12", marginTop: 3, lineHeight: 1.45 }}>
                             알림 권한, 전체화면 알림, 배터리 예외, 정확한 알림 중 일부가 아직 꺼져 있어요.
                         </div>
@@ -11984,15 +11998,15 @@ export default function KidsScheduler() {
                             showNotif("알림이 차단되었어요. 브라우저 설정에서 허용해주세요.", "error");
                         }
                     }}
-                        style={{ padding: "8px 14px", borderRadius: 12, background: "var(--hyeni-pink)", color: "var(--fg-on-primary)", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap" }}>
+                        style={{ padding: "8px 14px", borderRadius: 12, background: "var(--hyeni-theme-gradient)", color: "var(--fg-on-primary)", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
                         허용하기
                     </button>
                 </div>
             )}
             {!isNativeApp && pushPermission === "denied" && (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "8px 14px", borderRadius: 14, background: "#FEF3C7", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "8px 14px", borderRadius: 14, background: "var(--status-cautionary-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 18 }}>🔕</span>
-                    <div style={{ fontSize: 11, color: "#92400E", fontWeight: 600 }}>푸시 알림이 차단됨 — 브라우저 설정에서 이 사이트의 알림을 허용해주세요</div>
+                    <div style={{ fontSize: 11, color: "var(--status-cautionary-strong)", fontWeight: 600 }}>푸시 알림이 차단됨 — 브라우저 설정에서 이 사이트의 알림을 허용해주세요</div>
                 </div>
             )}
 
@@ -12004,22 +12018,25 @@ export default function KidsScheduler() {
             />
 
             {/* ── Header Row 1: Logo + 꾹 + 로그아웃 ── */}
-            <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "10px 12px", background: "rgba(255,255,255,0.88)", border: `1px solid ${DESIGN.colors.pinkLine}`, borderRadius: DESIGN.radius.xl, boxShadow: DESIGN.shadow.soft }}>
+            <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "10px 12px", background: "rgba(255,255,255,0.88)", border: "1px solid var(--theme-accent-line)", borderRadius: DESIGN.radius.xl, boxShadow: DESIGN.shadow.soft }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: "1 1 auto" }}>
                     <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
                         <AppBrandLogo size={isParent ? 38 : 44} radius={isParent ? 12 : 14} shadow={false} />
                     </div>
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-                        <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: DESIGN.colors.pinkText, whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
+                        <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
                         {isParent && (
                             <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 2 }}>
                                 <span onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
                                     style={{ fontSize: 10, padding: "3px 7px", borderRadius: 6, fontWeight: 700, cursor: "pointer", background: "var(--bg-subtle)", color: "var(--fg-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}>
                                     학부모 모드
                                 </span>
-                                <button onClick={() => setShowPairing(true)}
-                                    style={{ fontSize: 9, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "none", cursor: "pointer", fontFamily: FF, background: pairedChildren.length > 0 ? "#D1FAE5" : "#FEF3C7", color: pairedChildren.length > 0 ? "#065F46" : "#92400E", whiteSpace: "nowrap" }}>
-                                    {pairedChildren.length > 0 ? `🔗 연동 (${pairedChildren.length}명)` : "🔗 연동하기"}
+                                <button onClick={() => {
+                                    if (familyId) setShowPairing(true);
+                                    else setShowParentSetup(true);
+                                }}
+                                    style={{ fontSize: 11, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "none", cursor: "pointer", fontFamily: FF, background: pairedChildren.length > 0 ? "var(--status-positive-subtle)" : "var(--status-cautionary-subtle)", color: pairedChildren.length > 0 ? "#065F46" : "var(--status-cautionary-strong)", whiteSpace: "nowrap" }}>
+                                    {pairedChildren.length > 0 ? `🔗 연동 (${pairedChildren.length}명)` : (familyId ? "🔗 연동하기" : "👨‍👩‍👧 가족 만들기")}
                                 </button>
                             </div>
                         )}
@@ -12028,10 +12045,10 @@ export default function KidsScheduler() {
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
                     {isParent && (
                         <button onClick={() => { setShowAlertPanel(true); loadParentAlerts(); }}
-                            style={{ position: "relative", fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "#F3F4F6", lineHeight: 1 }}>
+                            style={{ position: "relative", fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}>
                             🔔
                             {parentAlerts.filter(a => !a.read).length > 0 && (
-                                <span style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "#EF4444", color: "white", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <span style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "var(--status-negative)", color: "white", fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     {Math.min(parentAlerts.filter(a => !a.read).length, 9)}
                                 </span>
                             )}
@@ -12052,8 +12069,8 @@ export default function KidsScheduler() {
                         style={{
                             fontSize: isParent ? 13 : 15, padding: isParent ? "8px 14px" : "10px 18px", borderRadius: 16, border: "none", cursor: kkukCooldown ? "default" : "pointer",
                             fontWeight: 900, fontFamily: FF, whiteSpace: "nowrap",
-                            background: kkukCooldown ? "var(--bg-muted)" : "linear-gradient(135deg, var(--hyeni-pink), var(--hyeni-pink-deep))",
-                            color: "var(--fg-on-primary)", boxShadow: kkukCooldown ? "none" : "0 2px 8px rgba(232,121,160,0.32)",
+                            background: kkukCooldown ? "var(--bg-muted)" : "var(--hyeni-theme-gradient)",
+                            color: "var(--fg-on-primary)", boxShadow: kkukCooldown ? "none" : "var(--hyeni-theme-shadow-soft)",
                             transition: "all 0.2s", transform: kkukCooldown ? "scale(0.95)" : "scale(1)",
                             userSelect: "none",
                             WebkitTouchCallout: "none",
@@ -12091,8 +12108,10 @@ export default function KidsScheduler() {
                                 },
                             });
                         }}
-                            style={{ fontSize: 11, padding: "6px 10px", borderRadius: 10, background: "var(--bg-subtle)", color: "var(--fg-secondary)", border: "1px solid var(--line-soft)", cursor: "pointer", fontWeight: 700, fontFamily: FF, whiteSpace: "nowrap" }}>
-                            로그아웃
+                            aria-label="로그아웃"
+                            title="로그아웃"
+                            style={{ fontSize: 16, width: 36, height: 36, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", cursor: "pointer", fontFamily: FF, lineHeight: 1 }}>
+                            ⎋
                         </button>
                     )}
                 </div>
@@ -12102,8 +12121,8 @@ export default function KidsScheduler() {
                 parent header so the chip rail is always reachable from
                 any tab. Only renders for parents with 2+ paired children.
                 Active chip is filled with the child's theme color; the
-                top-bar 🏡 home tab in the bottom tabbar handles the
-                "back to family overview" action. */}
+                home button only appears when a child is currently
+                selected (so it disappears on the home tab). */}
             {isParent && pairedChildren.length >= 2 && (
               <div
                 role="group"
@@ -12178,6 +12197,17 @@ export default function KidsScheduler() {
                     );
                   })}
                 </div>
+                {selectedChild && (
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontFamily: FF, flexShrink: 0 }}
+                    aria-label="가족 홈으로 돌아가기"
+                  >
+                    🏡 홈
+                  </button>
+                )}
               </div>
             )}
 
@@ -12225,7 +12255,7 @@ export default function KidsScheduler() {
                             height: 100,
                             borderRadius: 28,
                             transform: "rotate(-8deg)",
-                            boxShadow: "0 8px 24px rgba(196,68,122,0.45), 0 0 0 5px rgba(255,255,255,0.4)",
+                            boxShadow: "var(--hyeni-theme-shadow), 0 0 0 5px rgba(255,255,255,0.4)",
                             overflow: "hidden",
                             background: "rgba(255,255,255,0.18)",
                         }}
@@ -12261,9 +12291,9 @@ export default function KidsScheduler() {
                                         padding: "6px 11px",
                                         borderRadius: 999,
                                         background: "#FFFFFF",
-                                        color: "#C4447A",
-                                        border: "1px solid rgba(231,219,228,0.70)",
-                                        boxShadow: "0 2px 8px rgba(232,121,160,0.10)",
+                                        color: "var(--theme-accent-text)",
+                                        border: "1px solid var(--theme-accent-line)",
+                                        boxShadow: "var(--hyeni-theme-shadow-soft)",
                                         fontSize: 11,
                                         fontWeight: 700,
                                         lineHeight: 1.25,
@@ -12284,8 +12314,8 @@ export default function KidsScheduler() {
                                 <span style={{
                                     padding: "7px 10px",
                                     borderRadius: 999,
-                                    background: "#FFF7ED",
-                                    color: "#9A3412",
+                                    background: "var(--status-cautionary-subtle)",
+                                    color: "var(--status-cautionary-strong)",
                                     border: "1.5px solid #FDBA74",
                                     boxShadow: "0 5px 14px rgba(251,146,60,0.18)",
                                     fontSize: 11,
@@ -12305,7 +12335,7 @@ export default function KidsScheduler() {
                                     padding: "7px 10px",
                                     borderRadius: 999,
                                     background: "#ECFDF5",
-                                    color: "#047857",
+                                    color: "var(--status-positive-strong)",
                                     border: "1.5px solid #86EFAC",
                                     boxShadow: "0 5px 14px rgba(16,185,129,0.18)",
                                     fontSize: 11,
@@ -12348,7 +12378,7 @@ export default function KidsScheduler() {
                                         borderRadius: 18,
                                         padding: "10px 14px",
                                         background: homeRouteEvent ? "#ECFDF5" : "rgba(255,255,255,0.82)",
-                                        color: homeRouteEvent ? "#047857" : "#9CA3AF",
+                                        color: homeRouteEvent ? "var(--status-positive-strong)" : "#9CA3AF",
                                         fontSize: 12,
                                         fontWeight: 900,
                                         cursor: "pointer",
@@ -12373,11 +12403,11 @@ export default function KidsScheduler() {
                                             borderRadius: 18,
                                             padding: "10px 14px",
                                             background: "rgba(255,255,255,0.94)",
-                                            color: DESIGN.colors.pinkText,
+                                            color: "var(--theme-accent-text)",
                                             fontSize: 12,
                                             fontWeight: 900,
                                             cursor: "pointer",
-                                            boxShadow: "0 6px 16px rgba(196,68,122,0.18)",
+                                            boxShadow: "var(--hyeni-theme-shadow-soft)",
                                             fontFamily: FF,
                                             display: "inline-flex",
                                             alignItems: "center",
@@ -12396,7 +12426,7 @@ export default function KidsScheduler() {
                 </section>
             )}
 
-            {/* Hero 바로 아래: 친구놀이 진행 중 알림 (active 일 때만 렌더) */}
+            {/* Hero 바로 아래: 친구 만남 진행 중 알림 (active 일 때만 렌더) */}
             {familyId && (
                 <div style={{ width: "100%", maxWidth: contentMaxWidth }}>
                     <ActivePlaydateBanner familyId={familyId} isParent={isParent} />
@@ -12471,8 +12501,8 @@ export default function KidsScheduler() {
                                 background: "white",
                                 borderRadius: 16,
                                 padding: "10px 12px",
-                                boxShadow: "0 4px 12px rgba(247,121,168,0.10)",
-                                border: "1px solid #FBCFE8",
+                                boxShadow: "var(--hyeni-theme-shadow-soft)",
+                                border: "1px solid var(--theme-accent-line)",
                             }}>
                                 <FriendPlaydateChildPanel familyId={familyId} currentUserId={authUser?.id} />
                             </div>
@@ -12493,9 +12523,9 @@ export default function KidsScheduler() {
                       margin: "10px 16px 0",
                       padding: "12px 14px",
                       borderRadius: 12,
-                      background: "linear-gradient(135deg,#FFF7ED,#FFEDD5)",
+                      background: "linear-gradient(135deg,var(--status-cautionary-subtle),#FFEDD5)",
                       border: "1.5px solid #FDBA74",
-                      color: "#9A3412",
+                      color: "var(--status-cautionary-strong)",
                       fontSize: 13,
                       fontWeight: 700,
                       lineHeight: 1.45,
@@ -12538,165 +12568,40 @@ export default function KidsScheduler() {
             )}
             {activeView === "calendar" && !(isParent && isMultiChild && !selectedChildId) && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
-                    {/* 아이 현황 — full-width hero card per child. The previous
-                        2-col grid wasted half the row because dashboardChildren
-                        is always 1 child here (multi-child + no selection is
-                        excluded by the outer conditional). The hero layout
-                        gives location/next-event labels room to breathe and
-                        carries the active child's theme color via left stripe. */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div className="hyeni-v5-section-head">
+                        <span>아이 현황</span>
+                        <span className="hyeni-v5-section-meta hyeni-v1-live-meta">
+                            {displayChildPos ? "실시간" : "위치 대기"}
+                            {displayChildPos && <span aria-hidden="true">●</span>}
+                        </span>
+                    </div>
+                    <div className="hyeni-v5-kids-grid">
                         {dashboardChildren.map((child, index) => {
-                            const pos = getDashboardChildPosition(child, index);
-                            const isLive = Boolean(pos);
                             const childLocationLabel = getDashboardChildLocationLabel(child, index);
-                            const tint = child.color_hex || "#A78BFA";
                             return (
                                 <button
                                     key={child.user_id || child.id || index}
                                     type="button"
                                     onClick={() => setShowChildTracker(true)}
-                                    aria-label={`${child.name || "아이"} 현황 자세히 보기`}
-                                    style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "auto 1fr auto",
-                                        alignItems: "center",
-                                        gap: 14,
-                                        width: "100%",
-                                        padding: "16px 18px",
-                                        border: `1px solid var(--line-soft)`,
-                                        borderLeft: `4px solid ${tint}`,
-                                        borderRadius: "var(--radius-lg)",
-                                        background: "var(--bg-base)",
-                                        boxShadow: "none",
-                                        cursor: "pointer",
-                                        fontFamily: FF,
-                                        textAlign: "left",
-                                        transition: "transform 0.12s ease, border-color 0.12s ease",
-                                    }}
+                                    className="hyeni-v5-kid-card"
+                                    style={{ cursor: "pointer", fontFamily: FF }}
                                 >
                                     <span
-                                        aria-hidden="true"
-                                        style={{
-                                            position: "relative",
-                                            width: 52,
-                                            height: 52,
-                                            borderRadius: "var(--radius-full)",
-                                            background: child.photo_url
-                                                ? `url(${child.photo_url}) center/cover`
-                                                : tint,
-                                            color: "white",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            fontSize: 22,
-                                            fontWeight: "var(--weight-bold)",
-                                            flexShrink: 0,
-                                        }}
+                                        className={`hyeni-v5-kid-avatar ${index % 2 === 1 ? "blue" : ""}`}
+                                        style={child.photo_url ? { backgroundImage: `url(${child.photo_url})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}
                                     >
-                                        {child.photo_url ? "" : (child.emoji || (child.name?.trim?.()[0] ?? "👶"))}
-                                        {isLive && (
-                                            <span
-                                                aria-hidden="true"
-                                                style={{
-                                                    position: "absolute",
-                                                    right: -2,
-                                                    bottom: -2,
-                                                    width: 14,
-                                                    height: 14,
-                                                    borderRadius: "var(--radius-full)",
-                                                    background: "var(--status-positive)",
-                                                    border: "2px solid var(--bg-base)",
-                                                    boxShadow: "0 0 0 2px rgba(5,150,105,0.16)",
-                                                }}
-                                            />
-                                        )}
+                                        {child.photo_url ? "" : (child.emoji || (child.name ? child.name.trim()[0] : "👶"))}
+                                        {getDashboardChildPosition(child, index) && <span className="live" />}
                                     </span>
-                                    <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                                        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                                            <span
-                                                style={{
-                                                    fontSize: 17,
-                                                    fontWeight: "var(--weight-bold)",
-                                                    color: "var(--fg-primary)",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                    whiteSpace: "nowrap",
-                                                    minWidth: 0,
-                                                }}
-                                            >
-                                                {child.name || "아이"}
-                                            </span>
-                                            <span
-                                                aria-hidden="true"
-                                                style={{
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    gap: 4,
-                                                    padding: "2px 8px",
-                                                    borderRadius: "var(--radius-full)",
-                                                    background: isLive ? "var(--status-positive-subtle)" : "var(--bg-subtle)",
-                                                    color: isLive ? "var(--status-positive-strong)" : "var(--fg-tertiary)",
-                                                    fontSize: 11,
-                                                    fontWeight: "var(--weight-bold)",
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                <span
-                                                    style={{
-                                                        width: 6,
-                                                        height: 6,
-                                                        borderRadius: "var(--radius-full)",
-                                                        background: isLive ? "var(--status-positive)" : "var(--fg-tertiary)",
-                                                    }}
-                                                />
-                                                {isLive ? "실시간" : "위치 대기"}
-                                            </span>
+                                    <span className="hyeni-v5-kid-info">
+                                        <span className="hyeni-v5-kid-name">{child.name || "아이"}</span>
+                                        <span className="hyeni-v5-kid-loc">
+                                            <span aria-hidden="true">{getDashboardChildPosition(child, index) ? "📍" : "🕘"}</span>
+                                            <span>{childLocationLabel}</span>
                                         </span>
-                                        <span
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "flex-start",
-                                                gap: 6,
-                                                fontSize: 13,
-                                                color: "var(--fg-secondary)",
-                                                fontWeight: "var(--weight-medium)",
-                                                lineHeight: 1.35,
-                                            }}
-                                        >
-                                            <span aria-hidden="true" style={{ flexShrink: 0 }}>📍</span>
-                                            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                                                {childLocationLabel}
-                                            </span>
+                                        <span className="hyeni-v5-kid-next">
+                                            {nextTodayEvent ? `다음 일정 · ${nextTodayEvent.time}` : "오늘 일정 없음"}
                                         </span>
-                                        <span
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: 6,
-                                                fontSize: 12,
-                                                color: "var(--fg-tertiary)",
-                                                fontWeight: "var(--weight-medium)",
-                                                overflow: "hidden",
-                                                textOverflow: "ellipsis",
-                                                whiteSpace: "nowrap",
-                                            }}
-                                        >
-                                            <span aria-hidden="true" style={{ flexShrink: 0 }}>📅</span>
-                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                {nextTodayEvent ? `다음 일정 · ${nextTodayEvent.time}` : "오늘 일정 없음"}
-                                            </span>
-                                        </span>
-                                    </span>
-                                    <span
-                                        aria-hidden="true"
-                                        style={{
-                                            color: "var(--fg-tertiary)",
-                                            fontSize: 22,
-                                            fontWeight: "var(--weight-medium)",
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        ›
                                     </span>
                                 </button>
                             );
@@ -12709,20 +12614,20 @@ export default function KidsScheduler() {
                             style={{
                                 marginTop: 12,
                                 marginBottom: 12,
-                                background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
-                                border: "1px solid #E0E7FF",
+                                background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))",
+                                border: "1px solid var(--theme-accent-line)",
                                 borderRadius: 16,
                                 padding: "12px 14px",
-                                boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
+                                boxShadow: "var(--hyeni-theme-shadow-soft)",
                                 fontFamily: FF
                             }}
                         >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3" }}>📱 아이 기기 안전 지표</div>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--theme-accent-text)" }}>📱 아이 기기 안전 지표</div>
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "1px solid var(--theme-accent-line)", background: "white", color: "var(--theme-accent-text)", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     지금 갱신
                                 </button>
@@ -12743,15 +12648,15 @@ export default function KidsScheduler() {
                             style={{
                                 marginTop: 12,
                                 marginBottom: 12,
-                                background: "linear-gradient(135deg,#F8FAFC,#EEF2FF)",
-                                border: "1px solid #E0E7FF",
+                                background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))",
+                                border: "1px solid var(--theme-accent-line)",
                                 borderRadius: 16,
                                 padding: "12px 14px",
-                                boxShadow: "0 6px 16px rgba(99,102,241,0.10)",
+                                boxShadow: "var(--hyeni-theme-shadow-soft)",
                                 fontFamily: FF
                             }}
                         >
-                            <div style={{ fontSize: 13, fontWeight: 800, color: "#3730A3", marginBottom: 8 }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "var(--theme-accent-text)", marginBottom: 8 }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
                                     <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>배터리</div>
@@ -12775,7 +12680,7 @@ export default function KidsScheduler() {
                                         {primaryChildDeviceStatus?.recentApp || "운영체제 사용기록 권한이 필요해요"}
                                     </div>
                                     {primaryChildDeviceStatus?.usagePermission === "requires_permission" && (
-                                        <div style={{ fontSize: 10, color: "#B45309", marginTop: 3, fontWeight: 700 }}>
+                                        <div style={{ fontSize: 10, color: "var(--status-cautionary-strong)", marginTop: 3, fontWeight: 700 }}>
                                             Usage Access 권한을 켜면 실제 최근 앱 목록을 가져와요.
                                         </div>
                                     )}
@@ -12783,12 +12688,12 @@ export default function KidsScheduler() {
                             </div>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
                                 <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 600 }}>
-                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "#B45309", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "var(--status-cautionary-strong)", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "1px solid #C7D2FE", background: "white", color: "#4338CA", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "1px solid var(--theme-accent-line)", background: "white", color: "var(--theme-accent-text)", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     지금 갱신
                                 </button>
@@ -12839,12 +12744,12 @@ export default function KidsScheduler() {
                         {renderParentCalendarGrid("parent-main")}
                     </section>
 
-                    {parentCapabilities.canWriteSchedule && (
-                    <div className="hyeni-v5-add-row">
-                        <button type="button" className="hyeni-v5-ai-button" onClick={openAiSchedule} style={{ fontFamily: FF }}>
-                            🤖 AI로 일정입력
-                        </button>
-                        <button type="button" className="hyeni-v5-plus-button" onClick={() => {
+                     {parentCapabilities.canWriteSchedule && (
+                     <div className="hyeni-v5-add-row">
+                         <button type="button" className="hyeni-v5-ai-button" onClick={openAiSchedule} style={{ fontFamily: FF }}>
+                             빠른 일정입력
+                         </button>
+                         <button type="button" className="hyeni-v5-plus-button" onClick={() => {
                             // Default the recipient to the active child context: the
                             // selected child (multi-child mode) or the lone paired
                             // child (single-child mode). Falls back to empty when no
@@ -12875,7 +12780,7 @@ export default function KidsScheduler() {
                         {selectedEventsSorted.length > 0 ? selectedEventsSorted.slice(0, 5).map(renderParentScheduleCard) : (
                             <div className="hyeni-v5-empty">
                                 <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
-                                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>아래 + 버튼으로 일정을 추가해 주세요.</div>
+                                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{parentCapabilities.canWriteSchedule ? "아래 + 버튼으로 일정을 추가해 주세요." : "가족 연동 후 일정을 추가할 수 있어요."}</div>
                             </div>
                         )}
                     </div>
@@ -12887,7 +12792,7 @@ export default function KidsScheduler() {
                 <div style={{ ...cardSt, padding: "18px 14px 16px", borderRadius: DESIGN.radius.xl }}>
                     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 14, padding: "0 6px" }}>
                         <div>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: DESIGN.colors.pinkText }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--theme-accent-text)" }}>
                                 {currentYear}
                             </div>
                             <div style={{ fontSize: 28, fontWeight: 800, color: DESIGN.colors.ink, lineHeight: 1 }}>
@@ -12895,21 +12800,19 @@ export default function KidsScheduler() {
                             </div>
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={prevMonth} aria-label="이전 달" style={{ width: 36, height: 36, borderRadius: "50%", background: "white", border: "none", fontSize: 18, cursor: "pointer", color: DESIGN.colors.pinkText, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 10px rgba(247,121,168,0.15)", fontWeight: 800 }}>‹</button>
-                            <button onClick={nextMonth} aria-label="다음 달" style={{ width: 36, height: 36, borderRadius: "50%", background: "white", border: "none", fontSize: 18, cursor: "pointer", color: DESIGN.colors.pinkText, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 10px rgba(247,121,168,0.15)", fontWeight: 800 }}>›</button>
+                            <button onClick={prevMonth} aria-label="이전 달" style={{ width: 36, height: 36, borderRadius: "50%", background: "white", border: "none", fontSize: 18, cursor: "pointer", color: "var(--theme-accent-text)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--hyeni-theme-shadow-soft)", fontWeight: 800 }}>‹</button>
+                            <button onClick={nextMonth} aria-label="다음 달" style={{ width: 36, height: 36, borderRadius: "50%", background: "white", border: "none", fontSize: 18, cursor: "pointer", color: "var(--theme-accent-text)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--hyeni-theme-shadow-soft)", fontWeight: 800 }}>›</button>
                         </div>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", padding: "0 2px 6px", fontSize: 10, fontWeight: 800, textAlign: "center", color: DESIGN.colors.pinkText }}>
-                        {DAYS_KO.map((d, i) => <div key={d} style={{ padding: "4px 0", color: i === 0 ? "#F87171" : i === 6 ? DESIGN.colors.parent : DESIGN.colors.pinkText }}>{d}</div>)}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", padding: "0 2px 6px", fontSize: 10, fontWeight: 800, textAlign: "center", color: "var(--theme-accent-text)" }}>
+                        {DAYS_KO.map((d) => <div key={d} style={{ padding: "4px 0", color: "var(--fg-secondary)" }}>{d}</div>)}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, padding: "12px 8px", background: "white", borderRadius: DESIGN.radius.xl, boxShadow: "0 6px 20px rgba(180,120,150,0.10)", border: "2px solid rgba(255,228,239,0.8)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, padding: "12px 8px", background: "white", borderRadius: DESIGN.radius.xl, boxShadow: "var(--hyeni-theme-shadow-soft)", border: "2px solid var(--theme-accent-line)" }}>
                         {Array(firstDay).fill(null).map((_, i) => <div key={`e${i}`} style={{ minHeight: 44 }} />)}
                         {Array(getDays).fill(null).map((_, i) => {
                             const day = i + 1;
                             const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
                             const isSel = day === selectedDate;
-                            const isSun = (firstDay + i) % 7 === 0;
-                            const isSat = (firstDay + i) % 7 === 6;
                             // 자녀 프라이버시: visibleEvents 사용
                             const dayEvs = visibleEvents[`${currentYear}-${currentMonth}-${day}`] || [];
                             const activeCell = isSel || isToday;
@@ -12930,7 +12833,7 @@ export default function KidsScheduler() {
                                         transition: "all 0.15s",
                                         background: activeCell ? DESIGN.gradients.primary : "transparent",
                                         border: "none",
-                                        color: activeCell ? "white" : isSun ? "#F87171" : isSat ? DESIGN.colors.parent : DESIGN.colors.ink,
+                                        color: activeCell ? "white" : "var(--fg-primary)",
                                         fontFamily: FF,
                                     }}
                                 >
@@ -12960,7 +12863,7 @@ export default function KidsScheduler() {
                                     setNewTitle(ac.name); setNewCategory(ac.category); setNewLocation(ac.location || null);
                                     setShowAddModal(true);
                                 }}
-                                    style={{ flexShrink: 0, padding: "9px 14px", borderRadius: 16, border: `2px solid ${ac.color || "#E5E7EB"}`, background: ac.bg || "white", color: ac.color || "#374151", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+                                    style={{ flexShrink: 0, padding: "9px 14px", borderRadius: 16, border: "2px solid var(--theme-accent-line)", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
                                     <span>{ac.emoji}</span><span>{ac.name}</span>
                                     {ac.location && <span style={{ fontSize: 10, opacity: 0.7 }}>📍</span>}
                                 </button>
@@ -12970,11 +12873,11 @@ export default function KidsScheduler() {
                 )}
 
                 {/* 배너 — 추후 광고 배치용 */}
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, background: "linear-gradient(135deg, #FFF0F7, #FCE7F3)", borderRadius: 20, padding: "14px 18px", marginBottom: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#BE185D", fontFamily: FF, border: "1.5px solid #FBCFE8" }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", borderRadius: 20, padding: "14px 18px", marginBottom: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--theme-accent-text)", fontFamily: FF, border: "1.5px solid var(--theme-accent-line)", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
                     혜니캘린더는 아이와 함께 만들어갑니다
                 </div>
 
-                {/* AI 일정입력 + 수동 추가 */}
+                {/* 빠른 일정입력 + 수동 추가 */}
                 {(!isParent || parentCapabilities.canWriteSchedule) && (
                 <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", gap: 8, marginBottom: 14 }}>
                     <button onClick={openAiSchedule}
@@ -12982,10 +12885,10 @@ export default function KidsScheduler() {
                             flex: 1, padding: "10px 16px", height: 44, color: "white", border: "none", borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: FF,
                             background: DESIGN.gradients.parent, boxShadow: "0 3px 12px rgba(37,99,235,0.22)"
                         }}>
-                        🤖 AI로 일정입력
+                        빠른 일정입력
                     </button>
                     <button onClick={() => setShowAddModal(true)}
-                        style={{ minWidth: isParent ? 44 : 56, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#F9A8D4,#E879A0)", color: "white", border: "none", fontSize: isParent ? 22 : 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 3px 12px rgba(232,121,160,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FF, gap: 2, padding: isParent ? 0 : "0 12px" }}>{isParent ? "+" : "✏️ 추가"}</button>
+                        style={{ minWidth: isParent ? 44 : 56, height: 44, borderRadius: 14, background: "var(--hyeni-theme-gradient)", color: "white", border: "none", fontSize: isParent ? 22 : 14, fontWeight: 800, cursor: "pointer", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FF, gap: 2, padding: isParent ? 0 : "0 12px" }}>{isParent ? "+" : "✏️ 추가"}</button>
                 </div>
                 )}
 
@@ -13053,7 +12956,7 @@ export default function KidsScheduler() {
                         {selectedEventsSorted.length > 0 ? selectedEventsSorted.map(renderParentScheduleCard) : (
                             <div className="hyeni-v5-empty">
                                 <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
-                                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>오른쪽 위 + 버튼으로 일정을 추가해 주세요.</div>
+                                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{parentCapabilities.canWriteSchedule ? "오른쪽 위 + 버튼으로 일정을 추가해 주세요." : "가족 연동 후 일정을 추가할 수 있어요."}</div>
                             </div>
                         )}
                     </div>
@@ -13064,11 +12967,11 @@ export default function KidsScheduler() {
 
             {/* ── FRIEND PLAYDATE SETTINGS PAGE ── */}
             {activeView === "friendPlaydateSettings" && isParent && (
-                <section className="hyeni-v5-calendar-page" aria-label="친구놀이 관리">
+                <section className="hyeni-v5-calendar-page" aria-label="친구 만남 관리">
                     <div className="hyeni-v5-page-head">
                         <div>
                             <div className="hyeni-v5-page-kicker">안전장소 매칭 설정</div>
-                            <h2>친구놀이</h2>
+                            <h2>친구 만남</h2>
                         </div>
                         <button
                             type="button"
@@ -13089,7 +12992,7 @@ export default function KidsScheduler() {
                             />
                         ) : (
                             <div className="hyeni-tool-empty">
-                                가족 연동 후 친구놀이를 설정할 수 있어요.
+                                가족 연동 후 친구 만남을 설정할 수 있어요.
                             </div>
                         )}
                     </div>
@@ -13164,7 +13067,7 @@ export default function KidsScheduler() {
                             } else {
                                 msg = "📌 아래에서 받을 아이를 선택해 주세요";
                             }
-                            return <div style={{ fontSize: 12, fontWeight: 700, color: "#2563EB", background: "#EFF6FF", borderRadius: 10, padding: "6px 12px", marginBottom: 14, display: "inline-block" }}>{msg}</div>;
+                            return <div style={{ fontSize: 12, fontWeight: 700, color: "#2563EB", background: "var(--bg-subtle)", borderRadius: 10, padding: "6px 12px", marginBottom: 14, display: "inline-block" }}>{msg}</div>;
                         })()}
 
                         <div style={{ marginBottom: 14 }}>
@@ -13179,7 +13082,7 @@ export default function KidsScheduler() {
                                             const last = findLastEventByTitle(p.label);
                                             if (last) { setNewTime(last.time); if (last.location) setNewLocation(last.location); }
                                         }}
-                                            style={{ padding: "6px 12px", borderRadius: 16, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, border: active ? "2px solid #E879A0" : "2px solid #F3F4F6", background: active ? "#FFF0F7" : "#F9FAFB", color: active ? "#E879A0" : "#6B7280", transition: "all 0.15s" }}>
+                                            style={{ padding: "6px 12px", borderRadius: 16, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, border: active ? "2px solid var(--theme-accent)" : "2px solid var(--bg-muted)", background: active ? "var(--theme-accent-soft)" : "var(--bg-subtle)", color: active ? "var(--theme-accent-text)" : "#6B7280", transition: "all 0.15s" }}>
                                             {p.emoji} {p.label}
                                         </button>
                                     );
@@ -13193,18 +13096,18 @@ export default function KidsScheduler() {
                         <div style={{ marginBottom: 14 }}>
                             <label style={labelSt}>⏰ 시간 {selectedPreset && findLastEventByTitle(selectedPreset.label) && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(지난번 시간)</span>}</label>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                                <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} style={{ padding: "12px 14px", border: "2px solid #F3F4F6", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
+                                <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} style={{ padding: "12px 14px", border: "2px solid var(--bg-muted)", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: "var(--theme-accent)", colorScheme: "light" }} />
                                 <div style={{ display: "flex", gap: 4 }}>
                                     <button onClick={() => { const [h, m] = newTime.split(":").map(Number); const nh = m > 0 ? h : Math.max(0, h - 1); const nm = m > 0 ? 0 : 30; setNewTime(`${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`); }}
-                                        style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid #F3F4F6", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "var(--fg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
+                                        style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid var(--bg-muted)", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "var(--fg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
                                     <button onClick={() => { const [h, m] = newTime.split(":").map(Number); const nm = m >= 30 ? 0 : 30; const nh = m >= 30 ? Math.min(23, h + 1) : h; setNewTime(`${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`); }}
-                                        style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid #F3F4F6", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "var(--fg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                                        style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid var(--bg-muted)", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "var(--fg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                                 </div>
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                                 {["13:00", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "18:00"].map(t => (
                                     <button key={t} onClick={() => setNewTime(t)}
-                                        style={{ padding: "5px 10px", borderRadius: 10, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FF, border: newTime === t ? "2px solid #E879A0" : "1.5px solid #F3F4F6", background: newTime === t ? "#FFF0F7" : "#FAFAFA", color: newTime === t ? "#E879A0" : "#9CA3AF", transition: "all 0.15s" }}>
+                                        style={{ padding: "5px 10px", borderRadius: 10, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FF, border: newTime === t ? "2px solid var(--theme-accent)" : "1.5px solid var(--bg-muted)", background: newTime === t ? "var(--theme-accent-soft)" : "#FAFAFA", color: newTime === t ? "var(--theme-accent-text)" : "#9CA3AF", transition: "all 0.15s" }}>
                                         {parseInt(t) > 12 ? `오후 ${parseInt(t) - 12}` : `오전 ${parseInt(t)}`}:{t.split(":")[1]}
                                     </button>
                                 ))}
@@ -13214,20 +13117,25 @@ export default function KidsScheduler() {
                             <label style={labelSt}>🏁 종료시간 <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(선택)</span></label>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <input type="time" value={newEndTime} onChange={e => setNewEndTime(e.target.value)}
-                                    style={{ padding: "12px 14px", border: `2px solid ${newEndTime ? "#E879A0" : "#F3F4F6"}`, borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: DESIGN.colors.brand, colorScheme: "light" }} />
+                                    style={{ padding: "12px 14px", border: `2px solid ${newEndTime ? "var(--theme-accent)" : "var(--bg-muted)"}`, borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: "var(--theme-accent)", colorScheme: "light" }} />
                                 {newEndTime && (
                                     <button onClick={() => setNewEndTime("")}
-                                        style={{ padding: "6px 12px", borderRadius: 12, border: "none", background: "#F3F4F6", color: "var(--fg-tertiary)", cursor: "pointer", fontSize: 13, fontFamily: FF }}>삭제</button>
+                                        style={{ padding: "6px 12px", borderRadius: 12, border: "none", background: "var(--bg-muted)", color: "var(--fg-tertiary)", cursor: "pointer", fontSize: 13, fontFamily: FF }}>삭제</button>
                                 )}
                             </div>
                             {newEndTime && (
-                                <div style={{ fontSize: 11, color: "#E879A0", marginTop: 4, fontWeight: 600 }}>⏱ {newTime} ~ {newEndTime}</div>
+                                <div style={{ fontSize: 11, color: "var(--theme-accent-text)", marginTop: 4, fontWeight: 600 }}>⏱ {newTime} ~ {newEndTime}</div>
                             )}
                         </div>
                         <div style={{ marginBottom: 14 }}>
                             <label style={labelSt}>🏷️ 종류 {selectedPreset && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(자동 매칭됨)</span>}</label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                {CATEGORIES.map(cat => <button key={cat.id} onClick={() => setNewCategory(cat.id)} style={{ padding: "8px 14px", borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, background: newCategory === cat.id ? cat.color : cat.bg, color: newCategory === cat.id ? "white" : cat.color, border: `2px solid ${cat.color}` }}>{cat.emoji} {cat.label}</button>)}
+                                {CATEGORIES.map(cat => {
+                                    const active = newCategory === cat.id;
+                                    return (
+                                        <button key={cat.id} onClick={() => setNewCategory(cat.id)} style={{ padding: "8px 14px", borderRadius: 20, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF, background: active ? "var(--theme-accent-soft)" : "white", color: active ? "var(--theme-accent-text)" : "var(--fg-secondary)", border: active ? "2px solid var(--theme-accent)" : "2px solid var(--theme-accent-line)" }}>{cat.emoji} {cat.label}</button>
+                                    );
+                                })}
                             </div>
                         </div>
                         {(isParent || savedPlaces.length > 0 || newLocation) && (
@@ -13245,7 +13153,7 @@ export default function KidsScheduler() {
                                                 border: "none",
                                                 borderRadius: 12,
                                                 padding: "7px 10px",
-                                                background: "linear-gradient(135deg,#F472B6,#DB2777)",
+                                                background: "var(--hyeni-theme-gradient)",
                                                 color: "white",
                                                 fontSize: 11,
                                                 fontWeight: 800,
@@ -13259,7 +13167,7 @@ export default function KidsScheduler() {
                                     )}
                                 </div>
                                 {isParent && !entitlement.canUse(FEATURES.SAVED_PLACES) && (
-                                    <div style={{ fontSize: 11, color: "#BE185D", marginBottom: 10, fontWeight: 700, fontFamily: FF }}>
+                                    <div style={{ fontSize: 11, color: "var(--theme-accent-text)", marginBottom: 10, fontWeight: 700, fontFamily: FF }}>
                                         유료계정은 자주가는 장소를 무제한 등록할 수 있어요
                                     </div>
                                 )}
@@ -13275,9 +13183,9 @@ export default function KidsScheduler() {
                                                     style={{
                                                         padding: "8px 12px",
                                                         borderRadius: 16,
-                                                        border: active ? "2px solid #DB2777" : "1.5px solid #FBCFE8",
-                                                        background: active ? "#FFF0F7" : "#FFF7FB",
-                                                        color: active ? "#BE185D" : "#9D174D",
+                                                        border: active ? "2px solid var(--theme-accent)" : "1.5px solid var(--theme-accent-line)",
+                                                        background: active ? "var(--theme-accent-soft)" : "var(--hyeni-surface-warm)",
+                                                        color: "var(--theme-accent-text)",
                                                         fontSize: 12,
                                                         fontWeight: 700,
                                                         cursor: "pointer",
@@ -13291,18 +13199,18 @@ export default function KidsScheduler() {
                                     </div>
                                 )}
                                 {newLocation ? (
-                                    <div style={{ background: "#FFF0F7", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                    <div style={{ background: "var(--theme-accent-soft)", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                                         <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {newLocation.address}</div>
                                         {isParent ? (
-                                            <button onClick={() => { setEditingLocForEvent(null); setShowMapPicker(true); }} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #E879A0", color: "#E879A0", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
+                                            <button onClick={() => { setEditingLocForEvent(null); setShowMapPicker(true); }} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid var(--theme-accent)", color: "var(--theme-accent-text)", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                         ) : (
                                             <button onClick={() => setNewLocation(null)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid #D1D5DB", color: "var(--fg-secondary)", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>지우기</button>
                                         )}
                                     </div>
                                 ) : isParent ? (
-                                    <button onClick={() => { setEditingLocForEvent(null); setShowMapPicker(true); }} style={{ width: "100%", padding: "12px 14px", border: "2px dashed #F9A8D4", borderRadius: 14, background: "#FFF0F7", color: "#E879A0", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>🗺️ 지도에서 장소 선택</button>
+                                    <button onClick={() => { setEditingLocForEvent(null); setShowMapPicker(true); }} style={{ width: "100%", padding: "12px 14px", border: "2px dashed var(--theme-accent-line)", borderRadius: 14, background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>🗺️ 지도에서 장소 선택</button>
                                 ) : (
-                                    <div style={{ background: "#FFF7ED", color: "#C2410C", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, fontFamily: FF }}>
+                                    <div style={{ background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, fontFamily: FF }}>
                                         부모님이 등록한 장소를 선택하면 일정에 바로 연결돼요
                                     </div>
                                 )}
@@ -13312,7 +13220,7 @@ export default function KidsScheduler() {
                         {!editingEventId && <div style={{ marginBottom: 14 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                                 <label style={{ ...labelSt, marginBottom: 0, flex: 1 }}>🔁 매주 같은 날에 반복</label>
-                                <div onClick={() => setWeeklyRepeat(p => !p)} style={{ width: 52, height: 30, borderRadius: 15, background: weeklyRepeat ? "#E879A0" : "#E5E7EB", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
+                                <div onClick={() => setWeeklyRepeat(p => !p)} style={{ width: 52, height: 30, borderRadius: 15, background: weeklyRepeat ? "var(--theme-accent)" : "#E5E7EB", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
                                     <div style={{ width: 24, height: 24, borderRadius: 12, background: "white", position: "absolute", top: 3, left: weeklyRepeat ? 25 : 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }} />
                                 </div>
                             </div>
@@ -13321,7 +13229,7 @@ export default function KidsScheduler() {
                                     <div style={{ display: "flex", gap: 6, animation: "kkukFadeIn 0.2s ease", marginBottom: 8 }}>
                                         {[{ w: 4, label: "📅 1개월" }, { w: 8, label: "📅 2개월" }, { w: 12, label: "📅 3개월" }].map(({ w, label }) => (
                                             <button key={w} onClick={() => setRepeatWeeks(w)}
-                                                style={{ flex: 1, padding: "8px 0", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, border: repeatWeeks === w ? "2px solid #E879A0" : "2px solid #F3F4F6", background: repeatWeeks === w ? "#FFF0F7" : "#F9FAFB", color: repeatWeeks === w ? "#E879A0" : "#6B7280", transition: "all 0.15s" }}>
+                                                style={{ flex: 1, padding: "8px 0", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, border: repeatWeeks === w ? "2px solid var(--theme-accent)" : "2px solid var(--bg-muted)", background: repeatWeeks === w ? "var(--theme-accent-soft)" : "var(--bg-subtle)", color: repeatWeeks === w ? "var(--theme-accent-text)" : "#6B7280", transition: "all 0.15s" }}>
                                                 {label}
                                             </button>
                                         ))}
@@ -13351,7 +13259,7 @@ export default function KidsScheduler() {
 
             {/* Route Overlay */}
             {routeEvent && (
-                <RouteOverlay ev={routeEvent} childPos={displayChildPos} mapReady={mapReady} mapLoadError={mapLoadError} isChildMode={!isParent} onClose={() => setRouteEvent(null)} />
+                <RouteOverlay ev={routeEvent} childPos={displayChildPos} childProfile={routeChildProfile} mapReady={mapReady} mapLoadError={mapLoadError} isChildMode={!isParent} onClose={() => setRouteEvent(null)} />
             )}
 
             {/* Map Picker */}
@@ -13367,6 +13275,7 @@ export default function KidsScheduler() {
             {showPairing && familyId && (
                 <PairingModal myRole={familyInfo?.myRole || myRole} pairCode={pairCode} pairedMembers={familyInfo?.members}
                     familyId={familyId}
+                    activeThemeColor={activeThemeColor}
                     childDeviceStatusMap={childDeviceStatusMap}
                     maxChildren={entitlement.canUse(FEATURES.MULTI_CHILD) ? 2 : 1}
                     lockedMessage={!entitlement.canUse(FEATURES.MULTI_CHILD) ? "두 번째 아이를 추가하려면 프리미엄을 시작해 주세요" : ""}
@@ -13407,7 +13316,39 @@ export default function KidsScheduler() {
                             const fam = await getMyFamily(authUser.id);
                             if (fam) setFamilyInfo(fam);
                             showNotif(`이름이 "${newName}"으로 변경됐어요`);
-                        } catch (err) { console.error("[rename]", err); showNotif("이름 변경 실패: " + (err.message || err), "error"); }
+                            return true;
+                        } catch (err) { console.error("[rename]", err); showNotif("이름 변경 실패: " + (err.message || err), "error"); return false; }
+                    }}
+                    onProfileChange={async (memberId, profile) => {
+                        try {
+                            const { error } = await supabase.rpc("set_family_member_profile_by_id", {
+                                p_family_id: familyId,
+                                p_member_id: memberId,
+                                p_new_name: profile.name,
+                                p_color_hex: profile.colorHex,
+                            });
+                            if (error) throw error;
+                            const fam = await getMyFamily(authUser.id);
+                            if (fam) setFamilyInfo(fam);
+                            const activeMemberId = isParent
+                                ? (selectedChild?.id || pairedChildren[0]?.id || null)
+                                : (pairedChildren.find(child => child.user_id === authUser?.id)?.id || null);
+                            if (activeMemberId === memberId) {
+                                applyThemeColor(profile.colorHex);
+                            } else {
+                                applyThemeColor(activeThemeColor || null);
+                            }
+                            showNotif(`프로필이 "${profile.name}"으로 저장됐어요`);
+                            return true;
+                        } catch (err) {
+                            console.error("[profile update]", err);
+                            if (isMissingProfileThemeRpcError(err)) {
+                                showNotif(PROFILE_THEME_RPC_MISSING_MESSAGE, "error");
+                            } else {
+                                showNotif("프로필 저장 실패: " + (err.message || err), "error");
+                            }
+                            return false;
+                        }
                     }}
                     onPhotoChange={async (memberId, photoUrl) => {
                         try {
@@ -13420,9 +13361,11 @@ export default function KidsScheduler() {
                             const fam = await getMyFamily(authUser.id);
                             if (fam) setFamilyInfo(fam);
                             showNotif("사진이 변경됐어요");
+                            return true;
                         } catch (err) {
                             console.error("[photo update]", err);
                             showNotif("사진 변경 실패: " + (err.message || err), "error");
+                            return false;
                         }
                     }}
                     onConfirm={openConfirmDialog}
@@ -13515,19 +13458,6 @@ export default function KidsScheduler() {
                 />
             )}
 
-            {/* Child permission onboarding wizard. Shown automatically when
-                native setup is incomplete and the user hasn't dismissed it,
-                so a fresh child install gets a single fullscreen view of
-                every required permission with one-tap deep-links. */}
-            {isNativeApp && !isParent && !!familyId && !!nativeNotifHealth
-                && !permissionWizardDismissed && childSafetySetupBlocked && (
-                <ChildPermissionWizard
-                    steps={childSafetySetupSteps}
-                    onAction={openChildSafetySetupStep}
-                    onDismiss={() => setPermissionWizardDismissed(true)}
-                />
-            )}
-
             {showMicPermissionHelp && !isParent && (
                 <div
                     role="dialog"
@@ -13550,16 +13480,16 @@ export default function KidsScheduler() {
                 >
                     <div style={{ width: "100%", maxWidth: 420, background: "white", borderRadius: 24, padding: "22px 20px 20px", boxShadow: "0 16px 42px rgba(15,23,42,0.24)", fontFamily: FF }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                            <div style={{ width: 46, height: 46, borderRadius: 16, background: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>🎤</div>
+                            <div style={{ width: 46, height: 46, borderRadius: 16, background: "var(--status-cautionary-subtle)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>🎤</div>
                             <div>
-                                <div id="mic-permission-title" style={{ fontSize: 18, fontWeight: 900, color: "#92400E" }}>마이크 권한이 필요해요</div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: "#B45309", marginTop: 2 }}>주위 소리 듣기 연결이 중단됐어요</div>
+                                <div id="mic-permission-title" style={{ fontSize: 18, fontWeight: 900, color: "var(--status-cautionary-strong)" }}>마이크 권한이 필요해요</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--status-cautionary-strong)", marginTop: 2 }}>주위 소리 듣기 연결이 중단됐어요</div>
                             </div>
                         </div>
                         <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--fg-secondary)", fontWeight: 600, marginBottom: 14 }}>
                             아이 기기에서 마이크 권한을 허용해야 부모님과 주위 소리 듣기 세션을 안전하게 연결할 수 있어요.
                         </div>
-                        <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 16, padding: "12px 14px", color: "#92400E", fontSize: 12, lineHeight: 1.55, fontWeight: 800, marginBottom: 16 }}>
+                        <div style={{ background: "var(--status-cautionary-subtle)", border: "1px solid #FDE68A", borderRadius: 16, padding: "12px 14px", color: "var(--status-cautionary-strong)", fontSize: 12, lineHeight: 1.55, fontWeight: 800, marginBottom: 16 }}>
                             Android 설정 &gt; 앱 &gt; 혜니캘린더 &gt; 권한 &gt; 마이크 &gt; 허용
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
@@ -13567,7 +13497,7 @@ export default function KidsScheduler() {
                                 <button
                                     type="button"
                                     onClick={openAppPermissionSettings}
-                                    style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "#D97706", color: "white", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
+                                    style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "var(--status-cautionary-strong)", color: "white", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
                                 >
                                     설정 열기
                                 </button>
@@ -13575,7 +13505,7 @@ export default function KidsScheduler() {
                             <button
                                 type="button"
                                 onClick={() => setShowMicPermissionHelp(false)}
-                                style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "#F3F4F6", color: "var(--fg-secondary)", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
+                                style={{ flex: 1, padding: "13px 14px", borderRadius: 14, border: "none", background: "var(--bg-muted)", color: "var(--fg-secondary)", fontSize: 14, fontWeight: 900, cursor: "pointer", fontFamily: FF }}
                             >
                                 확인
                             </button>
@@ -13718,7 +13648,7 @@ export default function KidsScheduler() {
                         top: 0, left: 0, right: 0,
                         zIndex: 10000,
                         padding: "14px 16px",
-                        background: "linear-gradient(135deg, #DC2626, #B91C1C)",
+                        background: "linear-gradient(135deg, var(--status-negative-strong), var(--status-negative-strong))",
                         color: "white",
                         fontFamily: FF,
                         fontWeight: 900,
@@ -13740,7 +13670,7 @@ export default function KidsScheduler() {
             {showKkukReceived && (
                 <div style={{
                     position: "fixed", inset: 0, zIndex: 9999,
-                    background: "linear-gradient(135deg, #FFF0F5, #FFE4EC, #FFF0F7)",
+                    background: "linear-gradient(135deg, var(--theme-accent-soft), var(--hyeni-surface-warm), var(--theme-accent-soft))",
                     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                     fontFamily: FF, animation: "kkukFadeIn 0.3s ease"
                 }}
@@ -13750,27 +13680,28 @@ export default function KidsScheduler() {
                         @keyframes kkukPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
                         @keyframes kkukFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
                     `}</style>
-                    <div style={{ animation: "kkukPulse 1.2s ease-in-out infinite", marginBottom: 20 }}>
-                        <svg width="120" height="120" viewBox="0 0 100 100" fill="none">
-                            <ellipse cx="33" cy="22" rx="9" ry="18" fill="#FFD6E8" />
-                            <ellipse cx="67" cy="22" rx="9" ry="18" fill="#FFD6E8" />
-                            <ellipse cx="33" cy="22" rx="5" ry="13" fill="#FFB3D1" />
-                            <ellipse cx="67" cy="22" rx="5" ry="13" fill="#FFB3D1" />
-                            <ellipse cx="50" cy="65" rx="26" ry="22" fill="#FFF0F7" />
-                            <circle cx="50" cy="48" r="24" fill="#FFF0F7" />
-                            <path d="M38 44 Q40 41 42 44" stroke="#FF7BAC" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-                            <path d="M58 44 Q60 41 62 44" stroke="#FF7BAC" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-                            <ellipse cx="50" cy="51" rx="3" ry="2" fill="#FFB3D1" />
-                            <path d="M45 54 Q50 58 55 54" stroke="#FF7BAC" strokeWidth="2" strokeLinecap="round" fill="none" />
-                            <circle cx="37" cy="52" r="5" fill="#FFB3D1" opacity="0.5" />
-                            <circle cx="63" cy="52" r="5" fill="#FFB3D1" opacity="0.5" />
-                        </svg>
+                    <div style={{
+                        animation: "kkukPulse 1.2s ease-in-out infinite",
+                        marginBottom: 18,
+                        width: 112,
+                        height: 112,
+                        borderRadius: 34,
+                        background: "rgba(255,255,255,0.86)",
+                        border: "2px solid var(--theme-accent-line)",
+                        boxShadow: "var(--hyeni-theme-shadow)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        position: "relative",
+                    }}>
+                        <span aria-hidden="true" style={{ position: "absolute", inset: 10, borderRadius: 28, background: "var(--theme-accent-soft)" }} />
+                        <span aria-hidden="true" style={{ position: "relative", fontSize: 54, lineHeight: 1 }}>{showKkukReceived.emoji || "👧"}</span>
                     </div>
-                    <div style={{ fontSize: 56, marginBottom: 16, animation: "kkukFloat 2s ease-in-out infinite" }}>💗</div>
-                    <div style={{ fontSize: 28, fontWeight: 900, color: "#E879A0", marginBottom: 8, textAlign: "center" }}>
+                    <div style={{ fontSize: 44, lineHeight: 1, marginBottom: 16, animation: "kkukFloat 2s ease-in-out infinite", color: "var(--theme-accent-text)" }}>♥</div>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 8, textAlign: "center" }}>
                         꾹!
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#BE185D", marginBottom: 32, textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--theme-accent-text)", marginBottom: 32, textAlign: "center" }}>
                         {showKkukReceived.from}가 꾹을 보냈어요
                     </div>
                     <div style={{
