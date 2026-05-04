@@ -2346,8 +2346,8 @@ function ParentAuthScreen({ onBack }) {
                 </div>
 
                 <div style={{ textAlign: "center", marginBottom: 18 }}>
-                    <div style={{ fontSize: 21, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 6 }}>학부모 로그인</div>
-                    <div style={{ fontSize: 13, color: "var(--fg-secondary)", fontWeight: 700 }}>아이 일정 관리를 시작해 주세요</div>
+                    <div style={{ fontSize: 21, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 6 }}>{mode === "signup" ? "학부모 가입" : "학부모 로그인"}</div>
+                    <div style={{ fontSize: 13, color: "var(--fg-secondary)", fontWeight: 700 }}>{mode === "signup" ? "혜니캘린더에 처음 오셨군요" : "아이 일정 관리를 시작해 주세요"}</div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
@@ -2364,7 +2364,7 @@ function ParentAuthScreen({ onBack }) {
                 {mode === "login" && (
                     <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>ID</span>
+                            <span style={labelStyle}>아이디</span>
                             <input
                                 value={login.loginId}
                                 onChange={(event) => setLogin((prev) => ({ ...prev, loginId: event.target.value }))}
@@ -2374,7 +2374,7 @@ function ParentAuthScreen({ onBack }) {
                             />
                         </label>
                         <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>PW</span>
+                            <span style={labelStyle}>비밀번호</span>
                             <input
                                 type="password"
                                 value={login.password}
@@ -2410,7 +2410,7 @@ function ParentAuthScreen({ onBack }) {
                             />
                         </label>
                         <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>ID</span>
+                            <span style={labelStyle}>아이디</span>
                             <input
                                 value={signup.loginId}
                                 onChange={(event) => setSignup((prev) => ({ ...prev, loginId: event.target.value }))}
@@ -2421,7 +2421,7 @@ function ParentAuthScreen({ onBack }) {
                             />
                         </label>
                         <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>PW</span>
+                            <span style={labelStyle}>비밀번호</span>
                             <input
                                 type="password"
                                 value={signup.password}
@@ -2433,7 +2433,7 @@ function ParentAuthScreen({ onBack }) {
                             />
                         </label>
                         <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>PW 확인</span>
+                            <span style={labelStyle}>비밀번호 확인</span>
                             <input
                                 type="password"
                                 value={signup.passwordConfirm}
@@ -4727,7 +4727,7 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
     const title = "오늘의 메모";
     const subtitle = mode === "child"
         ? "부모님과 도란도란 이야기중"
-        : (partnerName ? `${partnerName}와 실시간 공유중` : "실시간 공유중");
+        : (partnerName ? `${partnerName}와 실시간 공유중` : "가족 연동 후 공유돼요");
     const messages = Array.isArray(replies) ? replies : [];
     const quickItems = Array.isArray(quickReplies) && quickReplies.length > 0
         ? quickReplies
@@ -7541,6 +7541,9 @@ export default function KidsScheduler() {
     const [allChildPositions, setAllChildPositions] = useState([]); // [{user_id, name, emoji, lat, lng, updatedAt}]
     const [locationTrail, setLocationTrail] = useState([]); // 오늘 아이 이동경로
     const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
+    const [pushDeniedDismissed, setPushDeniedDismissed] = useState(() => {
+        try { return sessionStorage.getItem("hyeni-push-denied-dismissed") === "1"; } catch (e) { return false; }
+    });
     const [nativeNotifHealth, setNativeNotifHealth] = useState(null);
     // ── Stickers ────────────────────────────────────────────────────────────────
     const [stickers, setStickers] = useState([]);
@@ -10719,11 +10722,11 @@ export default function KidsScheduler() {
     const primaryDeviceChargingLabel = primaryChildDeviceStatus?.isCharging == null
         ? "확인 중"
         : (primaryChildDeviceStatus.isCharging ? "충전 중" : "미충전");
-    const primaryDeviceConnectionLabel = primaryChildDeviceStatus?.connectionType || "unknown";
+    const primaryDeviceConnectionLabel = primaryChildDeviceStatus?.connectionType || "확인 중";
     const primaryDeviceScreenLabel = formatDeviceDuration(Number(primaryChildDeviceStatus?.screenOnMs || 0));
     const primaryDeviceUpdatedLabel = primaryChildDeviceStatus?.updatedAt
         ? getRelativeTime(primaryChildDeviceStatus.updatedAt)
-        : "업데이트 대기";
+        : "곧 업데이트돼요";
     const primaryDeviceSafetyLabel = (() => {
         const battery = Number(primaryChildDeviceStatus?.batteryLevel);
         const screenMs = Number(primaryChildDeviceStatus?.screenOnMs || 0);
@@ -10804,7 +10807,7 @@ export default function KidsScheduler() {
     };
     const getDashboardChildLocationLabel = (child, index) => {
         const pos = getDashboardChildPosition(child, index);
-        if (!pos) return "위치 대기";
+        if (!pos) return "연결 준비 중";
         const resolvedLocation = childLocationLabels[getPositionLocationKey(pos)];
         if (resolvedLocation?.shortLabel || resolvedLocation?.label) {
             return resolvedLocation.shortLabel || buildCompactAddressLabel({ road_address: { address_name: resolvedLocation.label } }) || resolvedLocation.label;
@@ -11829,9 +11832,9 @@ export default function KidsScheduler() {
 
             {/* Activity alert panel (parent only) */}
             {showAlertPanel && isParent && (
-                <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 500, fontFamily: FF, paddingTop: 60 }}
+                <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 500, fontFamily: FF }}
                     onClick={e => { if (e.target === e.currentTarget) setShowAlertPanel(false); }}>
-                    <div style={makeCardStyle({ width: "92%", maxWidth: 420, maxHeight: "75vh", overflow: "hidden" })}>
+                    <div style={makeCardStyle({ width: "100%", maxWidth: 480, height: "82vh", maxHeight: "82vh", overflow: "hidden", borderRadius: "20px 20px 0 0", paddingBottom: "env(safe-area-inset-bottom, 0px)" })}>
                         <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid var(--bg-muted)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
                                 <div style={{ fontSize: 17, fontWeight: 900, color: "var(--fg-primary)" }}>활동 알림</div>
@@ -12003,10 +12006,13 @@ export default function KidsScheduler() {
                     </button>
                 </div>
             )}
-            {!isNativeApp && pushPermission === "denied" && (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "8px 14px", borderRadius: 14, background: "var(--status-cautionary-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 18 }}>🔕</span>
-                    <div style={{ fontSize: 11, color: "var(--status-cautionary-strong)", fontWeight: 600 }}>푸시 알림이 차단됨 — 브라우저 설정에서 이 사이트의 알림을 허용해주세요</div>
+            {!isNativeApp && pushPermission === "denied" && !pushDeniedDismissed && (
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "8px 12px", borderRadius: 14, background: "var(--bg-muted)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 14 }}>🔕</span>
+                    <div style={{ flex: 1, fontSize: 11, color: "var(--fg-secondary)", fontWeight: 500 }}>알림이 꺼져있어요. 브라우저 설정에서 켤 수 있어요</div>
+                    <button onClick={() => { try { sessionStorage.setItem("hyeni-push-denied-dismissed", "1"); } catch (e) {} setPushDeniedDismissed(true); }}
+                        aria-label="배너 닫기"
+                        style={{ padding: "4px 8px", border: "none", background: "transparent", color: "var(--fg-tertiary)", cursor: "pointer", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>×</button>
                 </div>
             )}
 
@@ -12571,7 +12577,7 @@ export default function KidsScheduler() {
                     <div className="hyeni-v5-section-head">
                         <span>아이 현황</span>
                         <span className="hyeni-v5-section-meta hyeni-v1-live-meta">
-                            {displayChildPos ? "실시간" : "위치 대기"}
+                            {displayChildPos ? "실시간" : "연결 준비 중"}
                             {displayChildPos && <span aria-hidden="true">●</span>}
                         </span>
                     </div>
@@ -12677,7 +12683,7 @@ export default function KidsScheduler() {
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px", gridColumn: "1 / -1" }}>
                                     <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>최근 실행 앱</div>
                                     <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: 800, marginTop: 2 }}>
-                                        {primaryChildDeviceStatus?.recentApp || "운영체제 사용기록 권한이 필요해요"}
+                                        {primaryChildDeviceStatus?.recentApp || "사용기록 권한 허용이 필요해요"}
                                     </div>
                                     {primaryChildDeviceStatus?.usagePermission === "requires_permission" && (
                                         <div style={{ fontSize: 10, color: "var(--status-cautionary-strong)", marginTop: 3, fontWeight: 700 }}>
