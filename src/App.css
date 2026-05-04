@@ -317,16 +317,16 @@ a:focus-visible {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   justify-content: center;
 }
 
 .hyeni-v5-kid-name {
   color: var(--hyeni-ink);
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: -0.01em;
-  line-height: 1.25;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -338,21 +338,23 @@ a:focus-visible {
   gap: 5px;
   margin-top: 0;
   color: var(--fg-secondary);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
-  line-height: 1.3;
+  letter-spacing: -0.005em;
+  line-height: 1.35;
   min-width: 0;
 }
 
 .hyeni-v5-kid-loc.is-live {
   color: var(--hyeni-success);
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .hyeni-v5-kid-loc > span:first-child {
   flex: none;
   font-size: 11px;
   line-height: 1;
+  opacity: 0.85;
 }
 
 .hyeni-v5-kid-loc > span:last-child {
@@ -361,7 +363,7 @@ a:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .hyeni-v5-kid-next {
@@ -372,25 +374,27 @@ a:focus-visible {
   color: var(--fg-tertiary);
   font-size: 11.5px;
   font-weight: 600;
-  line-height: 1.3;
+  letter-spacing: -0.005em;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .hyeni-v5-kid-next.has-event {
-  color: var(--theme-accent-text);
-  font-weight: 700;
+  color: var(--fg-secondary);
+  font-weight: 600;
 }
 
 .hyeni-v5-kid-chev {
   flex: none;
   align-self: center;
-  font-size: 22px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 400;
   line-height: 1;
   color: var(--fg-tertiary);
-  margin-left: 2px;
+  opacity: 0.55;
+  margin-left: 0;
 }
 
 .hyeni-v5-action-rail {
@@ -2628,26 +2632,31 @@ a:focus-visible {
 }
 
 .hyeni-v5-kid-card {
-  min-height: 76px;
-  padding: 12px;
+  min-height: 82px;
+  padding: 13px 14px;
+  gap: 12px;
 }
 
 .hyeni-v5-kid-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   background: var(--theme-accent-soft);
   color: var(--theme-accent-text);
+  font-size: 22px;
 }
 
-.hyeni-v5-kid-name,
 .hyeni-v5-event-title,
 .hyeni-v5-calendar-list-head span:first-child {
   color: var(--fg-primary);
   font-weight: 850;
 }
 
-.hyeni-v5-kid-loc,
+.hyeni-v5-kid-name {
+  color: var(--fg-primary);
+  font-weight: 800;
+}
+
 .hyeni-v5-event-time {
   color: var(--fg-secondary);
 }
