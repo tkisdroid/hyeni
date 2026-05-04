@@ -1531,9 +1531,16 @@ function formatLatLngLabel(position) {
 }
 
 function getPositionLocationKey(position) {
-    if (position?.user_id) return `user:${position.user_id}`;
-    if (!Number.isFinite(position?.lat) || !Number.isFinite(position?.lng)) return "";
-    return `coord:${position.lat.toFixed(6)},${position.lng.toFixed(6)}`;
+    const hasCoord = Number.isFinite(position?.lat) && Number.isFinite(position?.lng);
+    if (!hasCoord) return position?.user_id ? `user:${position.user_id}` : "";
+    // ~11 m grid so a moved child invalidates its cached geocode label.
+    // Without this the dashboard label stayed frozen at the first geocoded
+    // address while the map marker (raw lat/lng) followed the child.
+    const lat = position.lat.toFixed(4);
+    const lng = position.lng.toFixed(4);
+    return position?.user_id
+        ? `user:${position.user_id}:${lat},${lng}`
+        : `coord:${lat},${lng}`;
 }
 
 function extractNeighborhoodLabel(label, source = {}) {
@@ -12391,116 +12398,97 @@ export default function KidsScheduler() {
                 </div>
             </div>}
 
-            {/* Selected-child header (multi-child only, on non-home tabs) */}
-            {/* Row 1: avatar + "{name} 관리 중" + 홈. Row 2 (when 2+ kids):
-                horizontal chip rail. Banner uses warm-tinted card surface
-                so it sits coherently with the M3 cards below; the active
-                child's color carries identity via 4px left accent. */}
+            {/* Selected-child header (multi-child only, on non-home tabs).
+                Single row: child chips (active = filled with child color) +
+                home button. The active chip itself communicates "managing
+                this child" — no separate "관리 중" label needed. */}
             {isParent && isMultiChild && selectedChild && activeView !== "home" && (() => {
               const activeTint = selectedChild.color_hex || "#A78BFA";
               return (
               <div
                 role="status"
+                aria-label={`${selectedChild.name} 관리 중`}
                 style={{
                   display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                  padding: "12px 16px",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 16px",
                   background: "var(--bg-base)",
                   borderBottom: "1px solid var(--line-soft)",
                   borderLeft: `4px solid ${activeTint}`,
                   fontFamily: FF,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "var(--radius-full)",
-                      background: selectedChild.photo_url ? `url(${selectedChild.photo_url}) center/cover` : activeTint,
-                      border: `2px solid ${activeTint}`,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", fontSize: 15, overflow: "hidden", textOverflow: "ellipsis" }}>{selectedChild.name}</span>
-                    <span aria-hidden="true" style={{ display: "inline-block", width: 4, height: 4, borderRadius: "var(--radius-full)", background: activeTint, flexShrink: 0 }} />
-                    <span style={{ color: "var(--fg-secondary)", fontWeight: "var(--weight-medium)", fontSize: 12 }}>관리 중</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontFamily: FF, flexShrink: 0 }}
-                    aria-label="가족 홈으로 돌아가기"
-                  >
-                    🏡 홈
-                  </button>
-                </div>
-                {pairedChildren.length > 1 && (
-                  <div
-                    role="group"
-                    aria-label="자녀 빠른 전환"
-                    style={{
-                      display: "flex",
-                      gap: 6,
-                      overflowX: "auto",
-                      paddingBottom: 2,
-                      WebkitOverflowScrolling: "touch",
-                    }}
-                  >
-                    {pairedChildren.map((child) => {
-                      const isActive = child.id === selectedChild.id;
-                      const tint = child.color_hex || "#A78BFA";
-                      return (
-                        <button
-                          key={child.id || child.user_id}
-                          type="button"
-                          aria-pressed={isActive}
-                          aria-current={isActive ? "true" : undefined}
-                          onClick={() => setSelectedChildId(child.id)}
-                          className="hyeni-child-switch-chip"
+                <div
+                  role="group"
+                  aria-label="자녀 빠른 전환"
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: "flex",
+                    gap: 6,
+                    overflowX: "auto",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  {pairedChildren.map((child) => {
+                    const isActive = child.id === selectedChild.id;
+                    const tint = child.color_hex || "#A78BFA";
+                    return (
+                      <button
+                        key={child.id || child.user_id}
+                        type="button"
+                        aria-pressed={isActive}
+                        aria-current={isActive ? "true" : undefined}
+                        onClick={() => setSelectedChildId(child.id)}
+                        className="hyeni-child-switch-chip"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 7,
+                          padding: "5px 12px 5px 5px",
+                          borderRadius: "var(--radius-full)",
+                          background: isActive ? tint : "white",
+                          border: `1.5px solid ${isActive ? tint : "var(--line-subtle)"}`,
+                          color: isActive ? "white" : "var(--fg-secondary)",
+                          fontWeight: isActive ? "var(--weight-bold)" : "var(--weight-medium)",
+                          fontSize: 13,
+                          cursor: "pointer",
+                          fontFamily: FF,
+                          flexShrink: 0,
+                          outline: "2px solid transparent",
+                          outlineOffset: 2,
+                          transition: "background 0.16s ease, border-color 0.16s ease, color 0.16s ease",
+                        }}
+                      >
+                        <span
+                          aria-hidden="true"
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 7,
-                            padding: "5px 12px 5px 5px",
+                            width: 24,
+                            height: 24,
                             borderRadius: "var(--radius-full)",
-                            background: isActive ? `${tint}26` : "white",
-                            border: `1.5px solid ${isActive ? tint : "var(--line-subtle)"}`,
-                            color: isActive ? "var(--fg-primary)" : "var(--fg-tertiary)",
-                            fontWeight: isActive ? "var(--weight-bold)" : "var(--weight-medium)",
-                            fontSize: 12,
-                            cursor: "pointer",
-                            fontFamily: FF,
+                            background: child.photo_url
+                              ? `url(${child.photo_url}) center/cover`
+                              : tint,
+                            border: `2px solid ${isActive ? "white" : tint}`,
+                            display: "inline-block",
                             flexShrink: 0,
-                            outline: "2px solid transparent",
-                            outlineOffset: 2,
-                            transition: "background 0.16s ease, border-color 0.16s ease",
                           }}
-                        >
-                          <span
-                            aria-hidden="true"
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: "var(--radius-full)",
-                              background: child.photo_url
-                                ? `url(${child.photo_url}) center/cover`
-                                : tint,
-                              border: `2px solid ${tint}`,
-                              display: "inline-block",
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span style={{ whiteSpace: "nowrap" }}>{child.name || "아이"}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                        />
+                        <span style={{ whiteSpace: "nowrap" }}>{child.name || "아이"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontFamily: FF, flexShrink: 0 }}
+                  aria-label="가족 홈으로 돌아가기"
+                >
+                  🏡 홈
+                </button>
               </div>
               );
             })()}
