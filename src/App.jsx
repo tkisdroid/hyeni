@@ -2388,6 +2388,11 @@ function ParentAuthScreen({ onBack }) {
                             style={makePrimaryButtonStyle({ marginTop: 2, opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
                             {busy === "login" ? "로그인 중..." : "로그인"}
                         </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 4px", color: "var(--fg-tertiary)", fontSize: 11, fontWeight: 600 }}>
+                            <div style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
+                            <span>또는</span>
+                            <div style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
+                        </div>
                         <button type="button" onClick={handleKakao} disabled={!!busy}
                             style={makeSecondaryButtonStyle({ background: "#FEE500", color: "var(--fg-primary)", border: "1.5px solid #FACC15", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
                             {busy === "kakao" ? "카카오 로그인 중..." : "카카오로 로그인"}
@@ -2445,11 +2450,12 @@ function ParentAuthScreen({ onBack }) {
                             />
                         </label>
                         <fieldset disabled={codeSent} style={{ ...fieldWrapStyle, border: "none", padding: 0, margin: 0 }}>
-                            <legend style={labelStyle}>성별</legend>
-                            <div role="radiogroup" aria-label="성별" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <legend style={labelStyle}>역할</legend>
+                            <div role="radiogroup" aria-label="역할" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                                 {[
                                     { value: "엄마", emoji: "🤱" },
                                     { value: "아빠", emoji: "👨" },
+                                    { value: "보호자", emoji: "👤" },
                                 ].map((option) => {
                                     const selected = signup.gender === option.value;
                                     return (
@@ -9024,7 +9030,11 @@ export default function KidsScheduler() {
     }, [authUser, familyId, feedbackBusy, feedbackDraft, myRole, showNotif]);
 
     const sendKkuk = useCallback(() => {
-        if (kkukCooldown || !familyId || !authUser) return;
+        if (kkukCooldown || !authUser) return;
+        if (!familyId) {
+            showNotif("가족 연동 후 사용할 수 있어요");
+            return;
+        }
         setKkukCooldown(true);
         setTimeout(() => setKkukCooldown(false), 5000); // 5s client-side UX cooldown
 
@@ -12977,8 +12987,7 @@ export default function KidsScheduler() {
                 <section className="hyeni-v5-calendar-page" aria-label="부모 캘린더">
                     <div className="hyeni-v5-page-head">
                         <div>
-                            <div className="hyeni-v5-page-kicker">일정 한눈에 보기</div>
-                            <h2>캘린더</h2>
+                            <h2>일정</h2>
                         </div>
                         {parentCapabilities.canWriteSchedule && (
                         <button
