@@ -12098,6 +12098,100 @@ export default function KidsScheduler() {
                 </div>
             </div>
 
+            {/* Multi-child quick switch — sits directly under the top
+                parent header so the chip rail is always reachable from
+                any tab. Only renders for parents with 2+ paired children.
+                Active chip is filled with the child's theme color; the
+                home button only appears when a child is currently
+                selected (so it disappears on the home tab). */}
+            {isParent && pairedChildren.length >= 2 && (
+              <div
+                role="group"
+                aria-label="자녀 빠른 전환"
+                style={{
+                  width: "100%",
+                  maxWidth: contentMaxWidth,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "0 4px",
+                  marginBottom: 10,
+                  fontFamily: FF,
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: "flex",
+                    gap: 6,
+                    overflowX: "auto",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  {pairedChildren.map((child) => {
+                    const isActive = selectedChild?.id === child.id;
+                    const tint = child.color_hex || "#A78BFA";
+                    return (
+                      <button
+                        key={child.id || child.user_id}
+                        type="button"
+                        aria-pressed={isActive}
+                        aria-current={isActive ? "true" : undefined}
+                        onClick={() => setSelectedChildId(child.id)}
+                        className="hyeni-child-switch-chip"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 7,
+                          padding: "5px 12px 5px 5px",
+                          borderRadius: "var(--radius-full)",
+                          background: isActive ? tint : "white",
+                          border: `1.5px solid ${isActive ? tint : "var(--line-subtle)"}`,
+                          color: isActive ? "white" : "var(--fg-secondary)",
+                          fontWeight: isActive ? "var(--weight-bold)" : "var(--weight-medium)",
+                          fontSize: 13,
+                          cursor: "pointer",
+                          fontFamily: FF,
+                          flexShrink: 0,
+                          outline: "2px solid transparent",
+                          outlineOffset: 2,
+                          transition: "background 0.16s ease, border-color 0.16s ease, color 0.16s ease",
+                        }}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "var(--radius-full)",
+                            background: child.photo_url
+                              ? `url(${child.photo_url}) center/cover`
+                              : tint,
+                            border: `2px solid ${isActive ? "white" : tint}`,
+                            display: "inline-block",
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span style={{ whiteSpace: "nowrap" }}>{child.name || "아이"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedChild && (
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontFamily: FF, flexShrink: 0 }}
+                    aria-label="가족 홈으로 돌아가기"
+                  >
+                    🏡 홈
+                  </button>
+                )}
+              </div>
+            )}
+
             {activeView === "calendar" && (
                 <section
                     aria-label={heroTitle}
@@ -12397,101 +12491,6 @@ export default function KidsScheduler() {
                     </div>
                 </div>
             </div>}
-
-            {/* Selected-child header (multi-child only, on non-home tabs).
-                Single row: child chips (active = filled with child color) +
-                home button. The active chip itself communicates "managing
-                this child" — no separate "관리 중" label needed. */}
-            {isParent && isMultiChild && selectedChild && activeView !== "home" && (() => {
-              const activeTint = selectedChild.color_hex || "#A78BFA";
-              return (
-              <div
-                role="status"
-                aria-label={`${selectedChild.name} 관리 중`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "10px 16px",
-                  background: "var(--bg-base)",
-                  borderBottom: "1px solid var(--line-soft)",
-                  borderLeft: `4px solid ${activeTint}`,
-                  fontFamily: FF,
-                }}
-              >
-                <div
-                  role="group"
-                  aria-label="자녀 빠른 전환"
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    display: "flex",
-                    gap: 6,
-                    overflowX: "auto",
-                    WebkitOverflowScrolling: "touch",
-                  }}
-                >
-                  {pairedChildren.map((child) => {
-                    const isActive = child.id === selectedChild.id;
-                    const tint = child.color_hex || "#A78BFA";
-                    return (
-                      <button
-                        key={child.id || child.user_id}
-                        type="button"
-                        aria-pressed={isActive}
-                        aria-current={isActive ? "true" : undefined}
-                        onClick={() => setSelectedChildId(child.id)}
-                        className="hyeni-child-switch-chip"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 7,
-                          padding: "5px 12px 5px 5px",
-                          borderRadius: "var(--radius-full)",
-                          background: isActive ? tint : "white",
-                          border: `1.5px solid ${isActive ? tint : "var(--line-subtle)"}`,
-                          color: isActive ? "white" : "var(--fg-secondary)",
-                          fontWeight: isActive ? "var(--weight-bold)" : "var(--weight-medium)",
-                          fontSize: 13,
-                          cursor: "pointer",
-                          fontFamily: FF,
-                          flexShrink: 0,
-                          outline: "2px solid transparent",
-                          outlineOffset: 2,
-                          transition: "background 0.16s ease, border-color 0.16s ease, color 0.16s ease",
-                        }}
-                      >
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "var(--radius-full)",
-                            background: child.photo_url
-                              ? `url(${child.photo_url}) center/cover`
-                              : tint,
-                            border: `2px solid ${isActive ? "white" : tint}`,
-                            display: "inline-block",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span style={{ whiteSpace: "nowrap" }}>{child.name || "아이"}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontFamily: FF, flexShrink: 0 }}
-                  aria-label="가족 홈으로 돌아가기"
-                >
-                  🏡 홈
-                </button>
-              </div>
-              );
-            })()}
 
             {/* ── HOME VIEW (multi-child only) ── */}
             {activeView === "home" && isMultiChild && (
