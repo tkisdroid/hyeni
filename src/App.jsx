@@ -2332,8 +2332,8 @@ function ParentAuthScreen({ onBack }) {
     });
 
     return (
-        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF, padding: 20 }}>
-            <div style={makeCardStyle({ padding: "26px 22px", maxWidth: 400, width: "100%" })}>
+        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "flex-start", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF, padding: "calc(env(safe-area-inset-top, 0px) + 24px) 20px 32px" }}>
+            <div style={{ padding: "8px 22px 22px", maxWidth: 400, width: "100%" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
                     <button type="button" onClick={onBack} aria-label="뒤로"
                         style={{ width: 36, height: 36, borderRadius: 12, border: "1.5px solid #E5E7EB", background: "white", cursor: "pointer", fontSize: 18, fontWeight: 900, color: "var(--fg-secondary)", fontFamily: FF }}>
@@ -7544,6 +7544,7 @@ export default function KidsScheduler() {
     const [pushDeniedDismissed, setPushDeniedDismissed] = useState(() => {
         try { return sessionStorage.getItem("hyeni-push-denied-dismissed") === "1"; } catch (e) { return false; }
     });
+    const [showSettingsSheet, setShowSettingsSheet] = useState(false);
     const [nativeNotifHealth, setNativeNotifHealth] = useState(null);
     // ── Stickers ────────────────────────────────────────────────────────────────
     const [stickers, setStickers] = useState([]);
@@ -11830,6 +11831,78 @@ export default function KidsScheduler() {
                 </div>
             )}
 
+            {/* Settings sheet (parent only) — bottom sheet with subscription / logout */}
+            {showSettingsSheet && isParent && (
+                <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 500, fontFamily: FF }}
+                    onClick={e => { if (e.target === e.currentTarget) setShowSettingsSheet(false); }}>
+                    <div style={makeCardStyle({ width: "100%", maxWidth: 480, maxHeight: "70vh", overflow: "hidden", borderRadius: "20px 20px 0 0", paddingBottom: "env(safe-area-inset-bottom, 0px)" })}>
+                        <div style={{ padding: "18px 20px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ fontSize: 17, fontWeight: 900, color: "var(--fg-primary)" }}>설정</div>
+                            <button onClick={() => setShowSettingsSheet(false)}
+                                aria-label="닫기"
+                                style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--fg-tertiary)" }}>×</button>
+                        </div>
+                        <div style={{ padding: "8px 12px 16px", display: "flex", flexDirection: "column", gap: 4, overflowY: "auto" }}>
+                            <button type="button"
+                                onClick={() => { setShowSettingsSheet(false); setShowSubscriptionSettings(true); }}
+                                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 12px", background: "transparent", border: "none", borderRadius: 12, cursor: "pointer", textAlign: "left", fontFamily: FF }}>
+                                <span style={{ fontSize: 22, width: 28, textAlign: "center" }}>💎</span>
+                                <span style={{ flex: 1 }}>
+                                    <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "var(--fg-primary)" }}>구독 관리</span>
+                                    <span style={{ display: "block", fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>플랜 확인 · 결제 정보</span>
+                                </span>
+                                <span aria-hidden="true" style={{ color: "var(--fg-tertiary)" }}>›</span>
+                            </button>
+                            <button type="button"
+                                onClick={() => { setShowSettingsSheet(false); setShowAlertPanel(true); loadParentAlerts(); }}
+                                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 12px", background: "transparent", border: "none", borderRadius: 12, cursor: "pointer", textAlign: "left", fontFamily: FF }}>
+                                <span style={{ fontSize: 22, width: 28, textAlign: "center" }}>🔔</span>
+                                <span style={{ flex: 1 }}>
+                                    <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "var(--fg-primary)" }}>알림</span>
+                                    <span style={{ display: "block", fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>활동 알림 · 분석 ON/OFF</span>
+                                </span>
+                                <span aria-hidden="true" style={{ color: "var(--fg-tertiary)" }}>›</span>
+                            </button>
+                            <div style={{ height: 1, background: "var(--bg-muted)", margin: "8px 4px" }} />
+                            <button type="button"
+                                onClick={() => {
+                                    setShowSettingsSheet(false);
+                                    setConfirmDialog({
+                                        title: "로그아웃 하시겠어요?",
+                                        message: "현재 기기에서 계정이 로그아웃돼요. 다음에 다시 로그인하면 가족 정보가 복구돼요.",
+                                        confirmLabel: "로그아웃",
+                                        cancelLabel: "취소",
+                                        tone: "danger",
+                                        icon: "👋",
+                                        onConfirm: async () => {
+                                            try {
+                                                await stopNativeLocationService();
+                                                await unsubscribeFromPush();
+                                                await logout();
+                                                setMyRole(null);
+                                                setFamilyInfo(null);
+                                                setAuthUser(null);
+                                                setEvents({});
+                                                setAcademies([]);
+                                                setMemos({});
+                                                setParentPhones({ mom: "", dad: "" });
+                                                showNotif("로그아웃 되었어요");
+                                            } catch (err) {
+                                                console.error("[logout]", err);
+                                                showNotif("로그아웃 실패");
+                                            }
+                                        },
+                                    });
+                                }}
+                                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 12px", background: "transparent", border: "none", borderRadius: 12, cursor: "pointer", textAlign: "left", fontFamily: FF }}>
+                                <span style={{ fontSize: 22, width: 28, textAlign: "center" }}>👋</span>
+                                <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: "var(--status-negative-strong, #B91C1C)" }}>로그아웃</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Activity alert panel (parent only) */}
             {showAlertPanel && isParent && (
                 <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 500, fontFamily: FF }}
@@ -12086,38 +12159,11 @@ export default function KidsScheduler() {
                         💗 꾹
                     </button>
                     {isParent && (
-                        <button onClick={() => {
-                            setConfirmDialog({
-                                title: "로그아웃 하시겠어요?",
-                                message: "현재 기기에서 계정이 로그아웃돼요. 다음에 다시 로그인하면 가족 정보가 복구돼요.",
-                                confirmLabel: "로그아웃",
-                                cancelLabel: "취소",
-                                tone: "danger",
-                                icon: "👋",
-                                onConfirm: async () => {
-                                    try {
-                                        await stopNativeLocationService();
-                                        await unsubscribeFromPush();
-                                        await logout();
-                                        setMyRole(null);
-                                        setFamilyInfo(null);
-                                        setAuthUser(null);
-                                        setEvents({});
-                                        setAcademies([]);
-                                        setMemos({});
-                                        setParentPhones({ mom: "", dad: "" });
-                                        showNotif("로그아웃 되었어요");
-                                    } catch (err) {
-                                        console.error("[logout]", err);
-                                        showNotif("로그아웃 실패");
-                                    }
-                                },
-                            });
-                        }}
-                            aria-label="로그아웃"
-                            title="로그아웃"
+                        <button onClick={() => setShowSettingsSheet(true)}
+                            aria-label="설정"
+                            title="설정"
                             style={{ fontSize: 16, width: 36, height: 36, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", cursor: "pointer", fontFamily: FF, lineHeight: 1 }}>
-                            ⎋
+                            ⚙
                         </button>
                     )}
                 </div>
@@ -12275,7 +12321,9 @@ export default function KidsScheduler() {
                         {isParent ? (
                             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, lineHeight: 1.2, color: "var(--fg-primary)", textShadow: "none" }}>
                                 {parentHeroChildrenText},<br />
-                                오늘 일정 <span className={todayEvents.length > 0 ? "hyeni-v1-hero-count" : "hyeni-v1-hero-count-zero"}>{todayEvents.length}개</span>
+                                {todayEvents.length > 0
+                                    ? <>오늘 일정 <span className="hyeni-v1-hero-count">{todayEvents.length}개</span></>
+                                    : <span className="hyeni-v1-hero-count-zero">오늘은 여유로워요</span>}
                             </h1>
                         ) : (
                             <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, lineHeight: 1.15, maxWidth: 250, textShadow: "none" }}>
