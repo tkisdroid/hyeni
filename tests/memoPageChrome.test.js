@@ -1,13 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 
-const app = readFileSync("src/App.jsx", "utf8");
+// Phase 5 #4 / B19: ParentMemoPage moved to src/components/memo/ParentMemoPage.jsx.
+const parentMemoPageSrc = readFileSync("src/components/memo/ParentMemoPage.jsx", "utf8");
 
 function getParentMemoPageSource() {
-  const start = app.indexOf("function ParentMemoPage(");
-  // Phase 5 #4 / B13: DayTimetable extracted — boundary now uses moved-comment marker.
-  const end = app.indexOf("// DayTimetable moved to", start);
-  return start >= 0 && end > start ? app.slice(start, end) : "";
+  return parentMemoPageSrc;
 }
 
 describe("today memo page chrome", () => {
