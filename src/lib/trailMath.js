@@ -16,6 +16,10 @@ import { LOCATION_TRAIL_GRADIENT_STOPS } from "./locationTrailDisplay.js";
 export const LOCATION_TRAIL_JITTER_M = 8;
 export const LOCATION_TRAIL_DWELL_RADIUS_M = 80;
 export const LOCATION_TRAIL_DWELL_MIN_MS = 10 * 60_000;
+// Phase 6 movement summary: trail polyline 그릴 때 200m 미만의 작은 흔들림은
+// 합쳐서 한 chunk로 그려 noise 를 줄인다. 사용자 요구 "200m 이상의 큰 이동만
+// 정리해서 표시".
+export const LOCATION_TRAIL_SIGNIFICANT_MOVE_M = 200;
 
 export function haversineM(la1, lo1, la2, lo2) {
     const R = 6371000, p1 = la1 * Math.PI / 180, p2 = la2 * Math.PI / 180;
@@ -238,6 +242,48 @@ export function buildTrailGradientSegments(points) {
             key: `trail-gradient-${index}-${point?.recordedMs || index}`,
             color: interpolateTrailColor(getTrailProgress(point, index, points.length, firstMs, lastMs)),
             points: [prev, point],
+        });
+    }
+    return segments;
+}
+
+// 200m 이상 누적 이동한 단위로 trail 을 chunk 화. chunk 내부의 작은 흔들림은
+// 시작 → 끝 한 직선으로 단순화해 polyline noise 를 제거한다. 마지막 tail 이
+// minMoveM 의 절반 이상이면 별도 segment 로 추가한다.
+export function buildSignificantMovementSegments(points, minMoveM = LOCATION_TRAIL_SIGNIFICANT_MOVE_M) {
+    if (!Array.isArray(points) || points.length < 2) return [];
+    const { firstMs, lastMs } = getTrailTimeBounds(points);
+    const segments = [];
+    let chunkStart = points[0];
+    let lastInChunk = points[0];
+    let cumDist = 0;
+    for (let i = 1; i < points.length; i += 1) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const step = haversineM(prev.lat, prev.lng, curr.lat, curr.lng);
+        cumDist += step;
+        lastInChunk = curr;
+        if (cumDist >= minMoveM) {
+            segments.push({
+                key: `trail-move-${segments.length}-${chunkStart?.recordedMs ?? i}`,
+                color: interpolateTrailColor(getTrailProgress(curr, i, points.length, firstMs, lastMs)),
+                points: [chunkStart, curr],
+                distanceM: cumDist,
+                startMs: chunkStart?.recordedMs ?? null,
+                endMs: curr?.recordedMs ?? null,
+            });
+            chunkStart = curr;
+            cumDist = 0;
+        }
+    }
+    if (cumDist >= minMoveM / 2 && chunkStart !== lastInChunk) {
+        segments.push({
+            key: `trail-move-${segments.length}-tail`,
+            color: interpolateTrailColor(1),
+            points: [chunkStart, lastInChunk],
+            distanceM: cumDist,
+            startMs: chunkStart?.recordedMs ?? null,
+            endMs: lastInChunk?.recordedMs ?? null,
         });
     }
     return segments;

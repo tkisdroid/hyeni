@@ -8,7 +8,7 @@ import { ColorPicker } from "../multichild/PairingWizard/ColorPicker.jsx";
 import { applyThemeColor } from "../../lib/theme.js";
 import { formatDeviceDuration } from "../../lib/deviceFormat.js";
 import { getDeviceLabelFromUA } from "../../lib/deviceInfo.js";
-import { FF } from "../../lib/styleHelpers.js";
+import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
 import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "../../lib/remoteListenHealth.js";
 
 export function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, onConfirm = null }) {

@@ -77,6 +77,7 @@ import {
     buildEventPlaceItems,
     eventDateValue,
 } from "./lib/placeFormat.js";
+import { useReverseGeocodedLabel } from "./lib/reverseGeocode.js";
 // routeParsers used only inside ./lib/walkingRoute.js (extracted with RouteOverlay).
 import {
     getMemoTime,
@@ -4158,7 +4159,9 @@ export default function KidsScheduler() {
                             {selectedDateMovementSummary.timeline.slice(0, 6).map((point) => (
                                 <li key={point.id}>
                                     <span>{point.timeLabel || "시간 미상"}</span>
-                                    <strong>{point.placeLabel || `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`}</strong>
+                                    <strong>
+                                        <TimelinePointLabel point={point} />
+                                    </strong>
                                 </li>
                             ))}
                         </ol>
@@ -7314,4 +7317,10 @@ export default function KidsScheduler() {
 
         </div>
     );
+}
+
+function TimelinePointLabel({ point }) {
+    const fallback = point?.placeLabel || `${point?.lat?.toFixed(4) ?? "?"}, ${point?.lng?.toFixed(4) ?? "?"}`;
+    const label = useReverseGeocodedLabel(point?.lat, point?.lng, fallback);
+    return <>{point?.placeLabel || label}</>;
 }

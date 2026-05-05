@@ -11,9 +11,12 @@ import {
     buildSelectedLocationTrail,
     buildTrailHourSegments,
     buildTrailGradientSegments,
+    buildSignificantMovementSegments,
     buildTrailDwellPlaces,
+    LOCATION_TRAIL_SIGNIFICANT_MOVE_M,
 } from "../../lib/trailMath.js";
 import { extractPreciseAddressFromKakao, getPositionLocationKey } from "../../lib/placeFormat.js";
+import { useReverseGeocodedLabel } from "../../lib/reverseGeocode.js";
 import { getStayDisplayParts } from "../../lib/locationTrailDisplay.js";
 import { DESIGN, FF } from "../../lib/styleHelpers.js";
 import { KAKAO_APP_KEY } from "../../lib/kakaoMap.js";
@@ -128,6 +131,10 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     );
     const trailHourSegments = useMemo(() => buildTrailHourSegments(selectedTrail), [selectedTrail]);
     const trailGradientSegments = useMemo(() => buildTrailGradientSegments(selectedTrail), [selectedTrail]);
+    const trailMovementSegments = useMemo(
+        () => buildSignificantMovementSegments(selectedTrail, LOCATION_TRAIL_SIGNIFICANT_MOVE_M),
+        [selectedTrail]
+    );
     const trailDwellPlaces = useMemo(() => buildTrailDwellPlaces(selectedTrail), [selectedTrail]);
     const displayTrailDwellPlaces = useMemo(() => {
         return trailDwellPlaces.map((place) => {
@@ -341,8 +348,12 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
 
         const selectedHourSegment = trailHourSegments.find(segment => segment.key === selectedTrailSegmentKey) || null;
 
-        // 실제 이동경로: 시간 흐름 그라데이션
-        trailGradientSegments.forEach((segment) => {
+        // 실제 이동경로: 200m 이상 누적 이동한 chunk 만 직선 polyline 으로 단순화.
+        // chunk 내부의 작은 흔들림은 시작 → 끝 직선으로 합쳐 noise 를 제거.
+        // movementSegments 가 비어있으면 (총 이동 < 200m) trail 자체가 "거의 안 움직임"
+        // 이라는 뜻이라 polyline 을 그리지 않는다.
+        const segmentsToDraw = trailMovementSegments.length > 0 ? trailMovementSegments : trailGradientSegments;
+        segmentsToDraw.forEach((segment) => {
             if (segment.points.length >= 2) {
                 const path = segment.points.map(pt => new window.kakao.maps.LatLng(pt.lat, pt.lng));
                 const isSelectedSegment = selectedHourSegment
@@ -418,7 +429,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
             overlay.setMap(mapObj.current);
             eventMarkersRef.current.push(overlay);
         });
-    }, [trailGradientSegments, trailHourSegments, displayTrailDwellPlaces, todayLocEvents, arrivedSet, selectedTrailSegmentKey]);
+    }, [trailGradientSegments, trailMovementSegments, trailHourSegments, displayTrailDwellPlaces, todayLocEvents, arrivedSet, selectedTrailSegmentKey]);
 
     const distLabel = (m) => m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 
@@ -567,7 +578,11 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                                             {updatedAt ? `${new Date(updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} ${selectedChild?.trackerKey === child.trackerKey && refreshPending ? "확인 중" : "업데이트"}` : "위치 수신 중..."}
                                         </div>
                                         <div style={{ fontSize: 10, color: "var(--fg-secondary)", marginTop: 1 }}>
-                                            {child.lat.toFixed(5)}, {child.lng.toFixed(5)}
+                                            <ChildPositionLabel
+                                                lat={child.lat}
+                                                lng={child.lng}
+                                                fallback={childLocationLabels?.[child.user_id] || ""}
+                                            />
                                         </div>
                                     </div>
                                     <div style={{ minWidth: 50, borderRadius: 999, padding: "5px 8px", background: isActive ? color : "white", color: isActive ? "white" : color, fontSize: 10, fontWeight: 900, textAlign: "center", boxShadow: isActive ? "none" : "0 1px 6px rgba(0,0,0,0.06)" }}>
@@ -663,3 +678,9 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
         </div>
     );
 }
+
+function ChildPositionLabel({ lat, lng, fallback = "" }) {
+    const label = useReverseGeocodedLabel(lat, lng, fallback);
+    return <>{label}</>;
+}
+

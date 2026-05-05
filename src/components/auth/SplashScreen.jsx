@@ -27,6 +27,7 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 1500 }) 
                 background: "var(--bg-subtle)",
                 display: "flex",
                 flexDirection: "column",
+                justifyContent: "center",
                 padding: "calc(env(safe-area-inset-top, 0px) + var(--space-8)) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-6))",
                 opacity: exiting ? 0 : 1,
                 transition: "opacity var(--duration-screen-fade) var(--easing-standard)",
@@ -34,7 +35,7 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 1500 }) 
             role="status"
             aria-live="polite"
         >
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "var(--space-screen-gap)" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "var(--space-screen-gap)", flex: "0 0 auto" }}>
                 {AppBrandLogo ? <AppBrandLogo size={88} radius={22} /> : null}
                 <h1 className="t-screen-title" style={{ marginTop: "var(--space-4)", textAlign: "center" }}>혜니캘린더</h1>
                 <p className="t-screen-subtitle" style={{ marginTop: "var(--space-2)", textAlign: "center" }}>가족 일정 동기화 중</p>

@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
+import { useReverseGeocodedLabel } from "../../lib/reverseGeocode.js";
 
 export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDelete, onClose }) {
     const [showAdd, setShowAdd] = useState(false);
@@ -128,7 +129,7 @@ export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd,
                         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6 }}>지도를 클릭해서 위치를 선택하세요</div>
                         <div ref={mapRef} style={{ width: "100%", height: 200, borderRadius: 16, overflow: "hidden", border: "2px solid #E5E7EB", marginBottom: 12 }} />
 
-                        {selectedLoc && <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, marginBottom: 8 }}>✓ 위치 선택됨 ({selectedLoc.lat.toFixed(4)}, {selectedLoc.lng.toFixed(4)})</div>}
+                        {selectedLoc && <SelectedLocLabel lat={selectedLoc.lat} lng={selectedLoc.lng} />}
 
                         <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={handleAdd} disabled={!newName.trim() || !selectedLoc}
@@ -143,4 +144,10 @@ export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd,
             </div>
         </div>
     );
+}
+
+function SelectedLocLabel({ lat, lng }) {
+    const label = useReverseGeocodedLabel(lat, lng, "");
+    const display = label || `좌표 ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    return <div style={{ fontSize: 11, color: "#059669", fontWeight: 700, marginBottom: 8 }}>✓ 위치 선택됨 — {display}</div>;
 }
