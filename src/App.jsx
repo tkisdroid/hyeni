@@ -17,6 +17,10 @@ import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { EventSheet } from "./components/multichild/EventModal/EventSheet.jsx";
 import { ChildDetailScreen } from "./components/multichild/ChildDetail/ChildDetailScreen.jsx";
+import { ChildHero } from "./components/childMode/ChildHero.jsx";
+import { ChildSettingsScreen } from "./components/childMode/ChildSettingsScreen.jsx";
+import { SendStickerSheet } from "./components/childMode/SendStickerSheet.jsx";
+import { MemoBubble } from "./components/childMode/MemoBubble.jsx";
 import { saveEventWithChildren } from "./lib/sync.js";
 import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, requestNativePermission, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
@@ -8034,6 +8038,19 @@ export default function KidsScheduler() {
     const [selectedChildId, setSelectedChildId] = useState(null);
     // Phase 2 — 자녀 상세 overlay (Life360식). null이면 닫힘.
     const [childDetailId, setChildDetailId] = useState(null);
+    // Phase 3 — 자녀 모드 설정 / 스티커 보내기 / 마스코트 표시 토글
+    const [showChildSettings, setShowChildSettings] = useState(false);
+    const [showSendStickerSheet, setShowSendStickerSheet] = useState(false);
+    const [childShowMascot, setChildShowMascot] = useState(() => {
+        if (typeof window === "undefined") return true;
+        const stored = window.localStorage.getItem("hyeni-child-show-mascot");
+        return stored === null ? true : stored !== "false";
+    });
+    const [childSendingSticker, setChildSendingSticker] = useState(false);
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        window.localStorage.setItem("hyeni-child-show-mascot", String(childShowMascot));
+    }, [childShowMascot]);
     // Multi-child explanatory banner shown when a parent taps a non-home tab
     // before picking a child. The banner is also raised by the force-redirect
     // useEffect below so deep-link / other entry paths surface the same hint.
@@ -11751,17 +11768,22 @@ export default function KidsScheduler() {
                             <span className="cal-day-num">{day}</span>
                             {dayEvs.length > 0 && (
                                 <span className="cal-chips">
-                                    {visibleEvs.map((e) => (
-                                        <span
-                                            key={e.id}
-                                            className="cal-chip"
-                                            data-family={e.is_family_event ? "true" : undefined}
-                                            style={{ "--rail": e.color || "var(--theme-accent)" }}
-                                            title={e.title}
-                                        >
-                                            {e.title}
-                                        </span>
-                                    ))}
+                                    {visibleEvs.map((e) => {
+                                        const cat = CATEGORIES.find((c) => c.id === e.category);
+                                        const childLabel = `${cat?.emoji || "🌟"} ${e.time || ""}`.trim();
+                                        return (
+                                            <span
+                                                key={e.id}
+                                                className="cal-chip"
+                                                data-family={e.is_family_event ? "true" : undefined}
+                                                data-mode={isParent ? "parent" : "child"}
+                                                style={{ "--rail": e.color || "var(--theme-accent)" }}
+                                                title={e.title}
+                                            >
+                                                {isParent ? e.title : childLabel}
+                                            </span>
+                                        );
+                                    })}
                                     {overflow > 0 && (
                                         <span className="cal-chip-overflow">+{overflow}</span>
                                     )}
@@ -13172,7 +13194,48 @@ export default function KidsScheduler() {
               </div>
             )}
 
-            {activeView === "calendar" && (
+            {/* Phase 3 — 자녀 모드 hero (Playful-Character) */}
+            {activeView === "calendar" && !isParent && (
+                <section style={{ width: "100%", maxWidth: contentMaxWidth, padding: isNativeApp ? "calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-screen-pad) var(--space-3)" : "var(--space-3) var(--space-screen-pad)" }}>
+                    <ChildHero
+                        eventCount={todayEvents.length}
+                        showMascot={childShowMascot}
+                        onSettings={() => setShowChildSettings(true)}
+                        now={today}
+                    />
+                    {nextTodayEvent && (
+                        <button
+                            type="button"
+                            onClick={() => setRouteEvent(nextTodayEvent)}
+                            style={{
+                                marginTop: "var(--space-3)",
+                                width: "100%",
+                                padding: "var(--space-4)",
+                                borderRadius: "var(--radius-2xl)",
+                                background: "var(--bg-base)",
+                                border: "1px solid var(--line-soft)",
+                                boxShadow: "var(--child-quick-card-shadow)",
+                                textAlign: "left",
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "var(--space-3)",
+                            }}
+                            aria-label={`다음 일정 · ${nextTodayEvent.time || ""} ${nextTodayEvent.title || ""} 길찾기`}
+                        >
+                            <span style={{ fontSize: 28 }} aria-hidden="true">{(CATEGORIES.find((c) => c.id === nextTodayEvent.category)?.emoji) || "📌"}</span>
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ display: "block", fontSize: 12, color: "var(--fg-secondary)", fontWeight: "var(--weight-semibold)" }}>다음 일정 · {nextTodayEvent.time || ""}</span>
+                                <span style={{ display: "block", fontSize: 16, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nextTodayEvent.title}</span>
+                            </span>
+                            <span aria-hidden="true" style={{ fontSize: 18, color: "var(--fg-tertiary)", flexShrink: 0 }}>›</span>
+                        </button>
+                    )}
+                </section>
+            )}
+
+            {activeView === "calendar" && isParent && (
                 <section
                     aria-label={heroTitle}
                     className={isParent ? "hyeni-v1-parent-hero" : undefined}
@@ -13396,83 +13459,58 @@ export default function KidsScheduler() {
                 </div>
             )}
 
-            {/* ── Header Row 2: Quick action buttons ── */}
-            {!isParent && <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 12 }}>
-                <div
-                    style={{
-                        background: quickPanelTone.bg,
-                        borderRadius: DESIGN.radius.xl,
-                        border: `1px solid ${quickPanelTone.border}`,
-                        boxShadow: DESIGN.shadow.card,
-                        padding: 12,
-                    }}
-                >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-                        <div>
-                            <div style={{ fontSize: 11, fontWeight: 900, color: quickPanelTone.color }}>
-                                빠른 실행
-                            </div>
-                            <div style={{ fontSize: 10, color: "var(--fg-secondary)", marginTop: 2 }}>
-                                스크롤 없이 주요 기능을 바로 열 수 있어요
-                            </div>
-                        </div>
-                        <div
-                            style={{
-                                padding: "6px 10px",
-                                borderRadius: 999,
-                                background: "rgba(255,255,255,0.84)",
-                                color: quickPanelTone.color,
-                                fontSize: 10,
-                                fontWeight: 800,
-                                whiteSpace: "nowrap",
-                                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.62)",
-                            }}
+            {/* ── Phase 3 자녀 모드 빠른 실행 grid (2x2) + 부모 연락 + 친구만남 ── */}
+            {!isParent && (
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, padding: "0 var(--space-screen-pad)", marginBottom: "var(--space-3)" }}>
+                    <div className="child-quick-grid" style={{ marginBottom: "var(--space-3)" }}>
+                        <button
+                            type="button"
+                            className="child-quick-card"
+                            data-tone="memo"
+                            onClick={handleChildMemoOpen}
+                            aria-label={`부모님 메모 ${memoPreviewCount || 0}개`}
                         >
-                            {isParent ? "학부모 모드" : "아이 모드"}
-                        </div>
+                            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                                <span aria-hidden="true" style={{ fontSize: 22 }}>💌</span>
+                                <span className="t-child-quick-label">메모</span>
+                            </span>
+                            <span className="t-child-quick-meta">
+                                {memoPreviewCount > 0 ? `${memoPreviewCount}개 · 눌러서 보기` : "눌러서 답장하기"}
+                            </span>
+                            {memoPreviewCount > 0 && <span className="child-quick-card-dot" aria-hidden="true" />}
+                        </button>
+                        <button
+                            type="button"
+                            className="child-quick-card"
+                            data-tone="sticker"
+                            onClick={() => setShowSendStickerSheet(true)}
+                            aria-label="스티커 보내기"
+                        >
+                            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                                <span aria-hidden="true" style={{ fontSize: 22 }}>🎁</span>
+                                <span className="t-child-quick-label">스티커 보내기</span>
+                            </span>
+                            <span className="t-child-quick-meta">부모님께 마음 전하기</span>
+                        </button>
                     </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginBottom: 8 }}>
-                        {quickModeActions.map((action) => renderQuickAction(action, "mode"))}
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {!isParent && (
-                            <button
-                                type="button"
-                                className="hyeni-child-memo-card"
-                                onClick={handleChildMemoOpen}
-                                aria-label="오늘의 메모 이력 보기"
-                                style={{ fontFamily: FF, width: "100%" }}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                        <ChildCallCard phones={parentPhones} />
+                        {familyId && (
+                            <div
+                                style={{
+                                    background: "var(--bg-base)",
+                                    borderRadius: "var(--radius-card)",
+                                    padding: "var(--space-3) var(--space-4)",
+                                    border: "1px solid var(--line-soft)",
+                                    boxShadow: "var(--child-quick-card-shadow)",
+                                }}
                             >
-                                <span className="hyeni-child-memo-card-icon" aria-hidden="true">💌</span>
-                                <span className="hyeni-child-memo-card-body">
-                                    <span className="hyeni-child-memo-card-kicker">부모님과 도란도란</span>
-                                    <span className="hyeni-child-memo-card-title">오늘의 메모</span>
-                                    <span className="hyeni-child-memo-card-text">{memoPreviewText}</span>
-                                    <span className="hyeni-child-memo-card-meta">{memoPreviewMeta || "눌러서 메모를 남겨보세요"}</span>
-                                </span>
-                                <span className="hyeni-child-memo-card-count">{memoPreviewCount}</span>
-                            </button>
-                        )}
-                        <div style={{ display: "grid", gridTemplateColumns: quickUtilityColumns, gap: 8 }}>
-                            {quickUtilityActions.map((action) => renderQuickAction(action))}
-                        </div>
-                        {!isParent && <ChildCallCard phones={parentPhones} />}
-                        {!isParent && familyId && (
-                            <div style={{
-                                background: "white",
-                                borderRadius: 16,
-                                padding: "10px 12px",
-                                boxShadow: "var(--hyeni-theme-shadow-soft)",
-                                border: "1px solid var(--theme-accent-line)",
-                            }}>
                                 <FriendPlaydateChildPanel familyId={familyId} currentUserId={authUser?.id} />
                             </div>
                         )}
                     </div>
                 </div>
-            </div>}
+            )}
 
             {/* ── HOME VIEW (multi-child only) ── */}
             {activeView === "home" && isMultiChild && (
@@ -14240,6 +14278,61 @@ export default function KidsScheduler() {
                     />
                 );
             })()}
+
+            {/* ── Phase 3 자녀 설정 화면 ── */}
+            {!isParent && showChildSettings && (
+                <ChildSettingsScreen
+                    onBack={() => setShowChildSettings(false)}
+                    currentTheme={(() => {
+                        const accent = (typeof window !== "undefined" && window.localStorage.getItem("hyeni-theme-color")) || "#F779A8";
+                        const map = { "#F779A8": "pink", "#3B82F6": "blue", "#10B981": "green", "#8B5CF6": "purple", "#F59E0B": "orange", "#EC4899": "rose" };
+                        return map[accent] || "pink";
+                    })()}
+                    onChangeTheme={(_id, color) => {
+                        applyThemeColor(color);
+                        if (typeof window !== "undefined") window.localStorage.setItem("hyeni-theme-color", color);
+                    }}
+                    soundEnabled={true}
+                    onChangeSound={() => showNotif("알림 소리는 부모님이 잠궜어")}
+                    showMascot={childShowMascot}
+                    onChangeShowMascot={setChildShowMascot}
+                    childName={authUser?.user_metadata?.name || familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.name || ""}
+                    parentNames={(familyInfo?.members || []).filter((m) => m.role === "parent").map((m) => m.name).join(", ")}
+                    onRequestParentChange={() => showNotif("부모님께 변경 요청을 보냈어요")}
+                    onLogout={async () => {
+                        if (!window.confirm("정말 로그아웃할까?")) return;
+                        try { await supabase.auth.signOut(); } catch (e) { console.error(e); }
+                        if (typeof window !== "undefined") window.localStorage.removeItem("hyeni-last-role");
+                        setMyRole(null);
+                    }}
+                />
+            )}
+
+            {/* ── Phase 3 자녀 스티커 보내기 sheet ── */}
+            {!isParent && (
+                <SendStickerSheet
+                    open={showSendStickerSheet}
+                    isSending={childSendingSticker}
+                    onClose={() => setShowSendStickerSheet(false)}
+                    onSend={async (emoji) => {
+                        if (!authUser?.id || !familyId) {
+                            showNotif("가족 연결 후 스티커를 보낼 수 있어요", "error");
+                            return;
+                        }
+                        setChildSendingSticker(true);
+                        try {
+                            await addSticker(authUser.id, familyId, "", dateKey, "child_to_parent", emoji, "자녀 스티커");
+                            showNotif(`${emoji} 스티커 보냈어!`);
+                            setShowSendStickerSheet(false);
+                        } catch (err) {
+                            console.error("[child sticker]", err);
+                            showNotif("스티커 보내기 실패. 다시 시도해줘", "error");
+                        } finally {
+                            setChildSendingSticker(false);
+                        }
+                    }}
+                />
+            )}
 
             {/* Friend Playdate panels: hero 바로 아래 banner + parent 카드 섹션 / child sticker 아래로 이동 */}
 

@@ -1,189 +1,234 @@
 // src/components/onboarding/ChildPermissionWizard.jsx
-// Fullscreen wizard shown to a child user the first time they reach the
-// home screen with native setup incomplete. Lists every required permission
-// and exposes a deep-link button per item; the rest of the app keeps polling
-// native readiness, so once the user finishes a step the wizard reflects the
-// new state and (when everything is ready) collapses automatically.
-//
+// Phase 3 spec section 4.1 — Playful-Character 톤으로 재구성.
+// HyeniMascot wave + 진행률 그라디언트 + .perm-step 카드 + 완료 시 mascot cheer.
 // Mounted from src/App.jsx (isNativeApp && !isParent && !allReady && !dismissed).
-// Steps come from CHILD_SAFETY_SETUP_STEPS via getChildSafetySetupSteps; this
-// component only renders. The deep-link plumbing (battery / fullScreen / DND /
-// location / channel) lives in src/App.jsx → openChildSetupAction.
+// Steps come from CHILD_SAFETY_SETUP_STEPS via getChildSafetySetupSteps.
 
-const FF = '"BMHANNAPro", "Pretendard", system-ui, -apple-system, sans-serif';
+import { useState } from "react";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
-export function ChildPermissionWizard({ steps = [], onAction, onDismiss }) {
-  const totalCount = steps.length;
-  const readyCount = steps.filter((s) => s.ready).length;
-  const allReady = totalCount > 0 && readyCount === totalCount;
-  const progressPct = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0;
+const FF = '"Pretendard Variable", "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
 
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="child-permission-wizard-title"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 900,
-        background: "linear-gradient(180deg,#FFF1F7 0%,#FFFBFE 100%)",
-        display: "flex",
-        flexDirection: "column",
-        fontFamily: FF,
-        overflowY: "auto",
-      }}
-    >
-      <header style={{ padding: "calc(env(safe-area-inset-top, 0px) + 24px) 20px 12px" }}>
-        <div style={{ fontSize: 12, color: "var(--hyeni-pink-deep)", fontWeight: 800, letterSpacing: 1 }}>처음 사용 안내</div>
-        <h2
-          id="child-permission-wizard-title"
-          style={{ margin: "6px 0 8px", fontSize: 22, fontWeight: 900, color: "var(--fg-primary)", whiteSpace: "pre-line" }}
-        >
-          {allReady ? "준비가 모두 끝났어요!" : "안전 사용을 위해\n권한을 모두 허용해주세요"}
-        </h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--fg-secondary)", lineHeight: 1.55 }}>
-          {allReady
-            ? "이제 부모님이 안전 상태를 정확히 받아볼 수 있어요."
-            : "각 항목에서 \"허용하기\"를 눌러 설정 화면으로 이동해 주세요. 돌아오면 자동으로 다음 단계가 안내돼요."}
-        </p>
+export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDismiss }) {
+    const totalCount = steps.length;
+    const readyCount = steps.filter((s) => s.ready).length;
+    const allReady = totalCount > 0 && readyCount === totalCount;
+    const progressPct = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0;
+    const [running, setRunning] = useState(false);
 
+    const handleAllowAll = async () => {
+        if (!onAllowAll || running) return;
+        setRunning(true);
+        try { await onAllowAll(); } finally { setRunning(false); }
+    };
+
+    return (
         <div
-          aria-label={`설정 진행률 ${readyCount} / ${totalCount}`}
-          style={{
-            marginTop: 16,
-            background: "var(--hyeni-pink-line)",
-            borderRadius: 999,
-            height: 8,
-            overflow: "hidden",
-          }}
-        >
-          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="child-permission-wizard-title"
             style={{
-              width: `${progressPct}%`,
-              height: "100%",
-              background: allReady ? "var(--status-positive)" : "var(--hyeni-pink)",
-              transition: "width 240ms ease-out, background 240ms ease-out",
-            }}
-          />
-        </div>
-        <div style={{ marginTop: 6, fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 700 }}>
-          {readyCount} / {totalCount} 완료
-        </div>
-      </header>
-
-      <ul
-        style={{
-          listStyle: "none",
-          padding: "12px 16px 24px",
-          margin: 0,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        {steps.map((step) => {
-          const ready = !!step.ready;
-          return (
-            <li
-              key={step.id}
-              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 900,
+                background: "var(--bg-subtle)",
                 display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "14px 14px",
-                background: ready ? "var(--status-positive-subtle)" : "var(--bg-base)",
-                border: ready ? "1.5px solid var(--status-positive-subtle)" : "1.5px solid var(--hyeni-pink-line-strong)",
-                borderRadius: 16,
-                boxShadow: "none",
-              }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  background: ready ? "var(--status-positive)" : "var(--hyeni-pink)",
-                  color: "var(--bg-base)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 16,
-                  fontWeight: 900,
-                  flexShrink: 0,
-                }}
-              >
-                {ready ? "✓" : "!"}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: ready ? "var(--status-positive)" : "var(--fg-primary)" }}>
-                  {step.title}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2, lineHeight: 1.45 }}>
-                  {step.description}
-                </div>
-              </div>
-              {!ready && (
-                <button
-                  type="button"
-                  onClick={() => onAction?.(step)}
-                  aria-label={`${step.title} ${step.actionLabel || "허용하기"}`}
-                  style={{
-                    flexShrink: 0,
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    background: "var(--hyeni-pink)",
-                    color: "var(--bg-base)",
-                    border: "none",
-                    cursor: "pointer",
-                    fontWeight: 800,
-                    fontSize: 13,
-                    fontFamily: FF,
-                    boxShadow: "0 6px 12px rgba(232,121,160,0.25)",
-                  }}
-                >
-                  {step.actionLabel || "허용하기"}
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-
-      <footer
-        style={{
-          marginTop: "auto",
-          padding: "12px 20px calc(env(safe-area-inset-bottom, 0px) + 24px)",
-          background: "rgba(255,255,255,0.85)",
-          borderTop: "1px solid var(--hyeni-pink-line)",
-        }}
-      >
-        <button
-          type="button"
-          onClick={onDismiss}
-          style={{
-            width: "100%",
-            padding: "14px 0",
-            borderRadius: 14,
-            background: allReady ? "var(--status-positive)" : "var(--bg-base)",
-            color: allReady ? "var(--bg-base)" : "var(--fg-secondary)",
-            border: allReady ? "none" : "1.5px solid var(--line-soft)",
-            fontSize: 15,
-            fontWeight: 800,
-            cursor: "pointer",
-            fontFamily: FF,
-            boxShadow: allReady ? "0 8px 18px rgba(16,185,129,0.25)" : "none",
-          }}
+                flexDirection: "column",
+                fontFamily: FF,
+                overflowY: "auto",
+                color: "var(--fg-primary)",
+            }}
         >
-          {allReady ? "시작하기" : "나중에 설정하기"}
-        </button>
-        {!allReady && (
-          <div style={{ marginTop: 8, fontSize: 11, color: "var(--fg-tertiary)", textAlign: "center", lineHeight: 1.5 }}>
-            나중에 설정해도 홈 상단에서 다시 안내해드려요
-          </div>
-        )}
-      </footer>
-    </div>
-  );
+            {/* Hero — mascot + 진행률 그라디언트 */}
+            <header
+                style={{
+                    padding: "calc(env(safe-area-inset-top, 0px) + var(--space-6)) var(--space-screen-pad) var(--space-5)",
+                    background: "var(--bg-base)",
+                    borderBottom: "1px solid var(--line-soft)",
+                }}
+            >
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+                    <div className={allReady ? "hyeni-mascot-cheer" : ""}>
+                        <HyeniMascot size={64} variant={allReady ? "static" : "wave"} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h2
+                            id="child-permission-wizard-title"
+                            style={{
+                                margin: 0,
+                                fontSize: 20,
+                                fontWeight: "var(--weight-bold)",
+                                color: "var(--fg-primary)",
+                                lineHeight: "var(--leading-tight)",
+                                letterSpacing: "-0.01em",
+                            }}
+                        >
+                            {allReady ? "준비 완료! 시작해볼까?" : "혜니가 도와줄게!"}
+                        </h2>
+                        <p
+                            style={{
+                                margin: "var(--space-1) 0 0",
+                                fontSize: 13,
+                                color: "var(--fg-secondary)",
+                                lineHeight: "var(--leading-normal)",
+                                fontWeight: "var(--weight-medium)",
+                            }}
+                        >
+                            {allReady
+                                ? "이제 부모님이 너를 안전하게 챙길 수 있어"
+                                : "안전을 위해 권한 몇 개만 허용해줘"}
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    className="perm-progress"
+                    aria-label={`설정 진행률 ${readyCount} / ${totalCount}`}
+                    style={{ marginTop: "var(--space-3)" }}
+                >
+                    <div className="perm-progress-fill" style={{ width: `${progressPct}%` }} />
+                </div>
+                <div
+                    style={{
+                        marginTop: "var(--space-2)",
+                        fontSize: 12,
+                        color: allReady ? "var(--status-positive-strong)" : "var(--fg-tertiary)",
+                        fontWeight: "var(--weight-semibold)",
+                    }}
+                >
+                    {readyCount} / {totalCount} 완료
+                </div>
+
+                {!allReady && (
+                    <button
+                        type="button"
+                        onClick={handleAllowAll}
+                        disabled={running}
+                        aria-label="모든 권한을 한 번에 허용하기"
+                        style={{
+                            marginTop: "var(--space-4)",
+                            width: "100%",
+                            minHeight: 56,
+                            padding: "0 var(--space-4)",
+                            borderRadius: "var(--radius-control)",
+                            background: running ? "var(--bg-muted)" : "var(--theme-accent)",
+                            color: running ? "var(--fg-disabled)" : "#FFFFFF",
+                            border: "none",
+                            cursor: running ? "wait" : "pointer",
+                            fontWeight: "var(--weight-bold)",
+                            fontSize: 15,
+                            fontFamily: FF,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "var(--space-2)",
+                            userSelect: "none",
+                            touchAction: "manipulation",
+                            transition: "background var(--duration-fast) var(--easing-standard)",
+                        }}
+                    >
+                        {running ? "허용 진행 중…" : "한번에 모두 허용하기"}
+                        {!running && <span aria-hidden="true" style={{ fontSize: 13, opacity: 0.85 }}>→</span>}
+                    </button>
+                )}
+            </header>
+
+            {/* Step list */}
+            <ul
+                style={{
+                    listStyle: "none",
+                    padding: "var(--space-4) var(--space-screen-pad) var(--space-6)",
+                    margin: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "var(--space-2)",
+                }}
+            >
+                {steps.map((step, idx) => {
+                    const ready = !!step.ready;
+                    return (
+                        <li key={step.id}>
+                            <div className="perm-step" data-ready={ready ? "true" : "false"}>
+                                <span className="perm-step-icon" aria-hidden="true">
+                                    {ready ? "✓" : (step.emoji || idx + 1)}
+                                </span>
+                                <div className="perm-step-body">
+                                    <div className="perm-step-title">{step.title}</div>
+                                    <div className="perm-step-desc">{step.description}</div>
+                                </div>
+                                {!ready && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onAction?.(step)}
+                                        aria-label={`${step.title} ${step.actionLabel || "허용하기"}`}
+                                        style={{
+                                            flexShrink: 0,
+                                            height: 36,
+                                            padding: "0 var(--space-3)",
+                                            borderRadius: "var(--radius-md)",
+                                            background: "var(--theme-accent-soft)",
+                                            color: "var(--theme-accent-text)",
+                                            border: "1px solid var(--theme-accent-line)",
+                                            cursor: "pointer",
+                                            fontWeight: "var(--weight-bold)",
+                                            fontSize: 12,
+                                            fontFamily: FF,
+                                            touchAction: "manipulation",
+                                        }}
+                                    >
+                                        {step.actionLabel || "허용"}
+                                    </button>
+                                )}
+                            </div>
+                        </li>
+                    );
+                })}
+            </ul>
+
+            {/* Footer CTA */}
+            <footer
+                style={{
+                    marginTop: "auto",
+                    padding: "var(--space-3) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-5))",
+                    background: "var(--bg-base)",
+                    borderTop: "1px solid var(--line-soft)",
+                }}
+            >
+                <button
+                    type="button"
+                    onClick={onDismiss}
+                    style={{
+                        width: "100%",
+                        minHeight: 56,
+                        padding: "0 var(--space-4)",
+                        borderRadius: "var(--radius-control)",
+                        background: allReady ? "var(--status-positive)" : "var(--bg-base)",
+                        color: allReady ? "#FFFFFF" : "var(--fg-secondary)",
+                        border: allReady ? "none" : "1px solid var(--line-default)",
+                        fontSize: 15,
+                        fontWeight: "var(--weight-bold)",
+                        cursor: "pointer",
+                        fontFamily: FF,
+                        touchAction: "manipulation",
+                    }}
+                >
+                    {allReady ? "시작하기" : "나중에 할래"}
+                </button>
+                {!allReady && (
+                    <p
+                        style={{
+                            marginTop: "var(--space-2)",
+                            fontSize: 11,
+                            color: "var(--fg-tertiary)",
+                            textAlign: "center",
+                            lineHeight: "var(--leading-normal)",
+                            fontWeight: "var(--weight-medium)",
+                        }}
+                    >
+                        나중에 설정해도 홈 위에서 다시 안내해줄게
+                    </p>
+                )}
+            </footer>
+        </div>
+    );
 }

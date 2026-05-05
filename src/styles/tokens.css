@@ -613,3 +613,299 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .event-sheet, .event-sheet-backdrop { animation: none; }
 }
+
+/* ==========================================================================
+   Phase 3 — Child mode (Playful-Character)
+   부모 모드와 시각 분리: 마스코트, 핑크 그라디언트, 큰 radius, 친근체
+   ========================================================================== */
+:root {
+  /* === Child hero — 자녀 홈 상단 카드 === */
+  --child-hero-padding:        var(--space-6);
+  --child-hero-min-height:     160px;
+  --child-hero-radius:         var(--radius-2xl);
+  --child-hero-bg:
+    linear-gradient(135deg,
+      var(--theme-accent-soft) 0%,
+      color-mix(in srgb, var(--theme-accent) 8%, var(--bg-base)) 100%);
+  --child-hero-mascot-size:    88px;
+
+  /* === Child quick-action grid === */
+  --child-quick-card-height:   88px;
+  --child-quick-card-radius:   var(--radius-2xl);
+  --child-quick-card-padding:  var(--space-3) var(--space-4);
+  --child-quick-card-gap:      var(--space-2);
+  --child-quick-grid-cols:     2;
+  --child-quick-card-shadow:
+    0 2px 6px color-mix(in srgb, var(--theme-accent) 6%, transparent);
+
+  /* === Memo bubble (iMessage 풍) === */
+  --memo-bubble-radius:        var(--radius-2xl);
+  --memo-bubble-tail:          6px;
+  --memo-bubble-parent-bg:     var(--bg-muted);
+  --memo-bubble-parent-fg:     var(--fg-primary);
+  --memo-bubble-child-bg:      var(--theme-accent);
+  --memo-bubble-child-fg:      #FFFFFF;
+
+  /* === Sticker grid === */
+  --sticker-cell-size:         72px;
+  --sticker-cell-radius:       var(--radius-xl);
+  --sticker-grid-gap:          var(--space-2);
+  --sticker-emoji-size:        40px;
+
+  /* === Permission wizard === */
+  --perm-step-card-height:     72px;
+  --perm-step-card-radius:     var(--radius-card);
+  --perm-step-icon-size:       40px;
+  --perm-step-progress-height: 6px;
+
+  /* === Child calendar chip 분기 === */
+  --cal-chip-height-child:     22px;
+  --cal-chip-font-size-child:  12px;
+
+  /* === Child mode motion === */
+  --duration-mascot-cheer:     900ms;
+  --duration-sticker-pop:      220ms;
+  --easing-cheer:              cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+/* Dark mode override */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --child-hero-bg:
+      linear-gradient(135deg,
+        color-mix(in srgb, var(--theme-accent) 18%, var(--bg-base)) 0%,
+        color-mix(in srgb, var(--theme-accent) 6%, var(--bg-base)) 100%);
+    --memo-bubble-parent-bg: var(--bg-subtle);
+  }
+}
+
+/* --- Phase 3 typography --- */
+.t-child-hero-title {
+  font-size: 22px;
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  color: var(--fg-primary);
+}
+.t-child-hero-sub {
+  font-size: 14px;
+  font-weight: var(--weight-medium);
+  color: var(--fg-secondary);
+  margin-top: var(--space-1);
+}
+.t-child-hero-emoji {
+  font-size: 36px;
+  line-height: 1;
+}
+.t-child-quick-label {
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+  color: var(--fg-primary);
+}
+.t-child-quick-meta {
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  color: var(--fg-tertiary);
+  margin-top: 2px;
+}
+
+/* --- Phase 3 components --- */
+.child-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--child-hero-padding);
+  min-height: var(--child-hero-min-height);
+  border-radius: var(--child-hero-radius);
+  background: var(--child-hero-bg);
+  border: 1px solid var(--theme-accent-line);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-accent) 10%, transparent);
+}
+.child-hero-mascot {
+  width: var(--child-hero-mascot-size);
+  height: var(--child-hero-mascot-size);
+  flex-shrink: 0;
+}
+.child-hero-body { flex: 1; min-width: 0; }
+
+.child-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--child-quick-grid-cols), 1fr);
+  gap: var(--child-quick-card-gap);
+}
+.child-quick-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: var(--child-quick-card-height);
+  padding: var(--child-quick-card-padding);
+  border-radius: var(--child-quick-card-radius);
+  background: var(--bg-base);
+  border: 1px solid var(--line-soft);
+  box-shadow: var(--child-quick-card-shadow);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: transform var(--duration-fast) var(--easing-cheer);
+  position: relative;
+}
+.child-quick-card:active { transform: scale(0.97); }
+.child-quick-card[data-tone="memo"] {
+  background: linear-gradient(135deg, var(--theme-accent-soft), var(--bg-base));
+}
+.child-quick-card[data-tone="sticker"] {
+  background: linear-gradient(135deg, var(--hyeni-cat-hobby-bg), var(--bg-base));
+}
+
+/* unread dot for quick card */
+.child-quick-card-dot {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--theme-accent);
+}
+
+/* Memo bubble */
+.memo-bubble-row {
+  display: flex;
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+.memo-bubble-row[data-from="parent"] { justify-content: flex-start; }
+.memo-bubble-row[data-from="child"]  { justify-content: flex-end; }
+.memo-bubble {
+  display: inline-block;
+  max-width: 78%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--memo-bubble-radius);
+  font-size: 14px;
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  word-break: break-word;
+}
+.memo-bubble[data-from="parent"] {
+  background: var(--memo-bubble-parent-bg);
+  color: var(--memo-bubble-parent-fg);
+  border-bottom-left-radius: var(--memo-bubble-tail);
+}
+.memo-bubble[data-from="child"] {
+  background: var(--memo-bubble-child-bg);
+  color: var(--memo-bubble-child-fg);
+  border-bottom-right-radius: var(--memo-bubble-tail);
+}
+.memo-bubble-stamp {
+  display: block;
+  font-size: 11px;
+  color: var(--fg-tertiary);
+  margin-top: 2px;
+  font-weight: var(--weight-medium);
+}
+.memo-bubble-row[data-from="parent"] .memo-bubble-stamp { text-align: left; }
+.memo-bubble-row[data-from="child"]  .memo-bubble-stamp { text-align: right; }
+
+/* Sticker grid */
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, var(--sticker-cell-size));
+  gap: var(--sticker-grid-gap);
+  justify-content: center;
+}
+.sticker-cell {
+  width: var(--sticker-cell-size);
+  height: var(--sticker-cell-size);
+  border-radius: var(--sticker-cell-radius);
+  background: var(--bg-base);
+  border: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--sticker-emoji-size);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform var(--duration-sticker-pop) var(--easing-cheer);
+}
+.sticker-cell:active { transform: scale(0.92); }
+.sticker-cell[data-selected="true"] {
+  border: 2px solid var(--theme-accent);
+  background: var(--theme-accent-soft);
+}
+
+/* Permission wizard */
+.perm-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--perm-step-card-height);
+  padding: 0 var(--space-4);
+  border-radius: var(--perm-step-card-radius);
+  background: var(--bg-base);
+  border: 1px solid var(--line-soft);
+}
+.perm-step[data-ready="true"] {
+  border-color: var(--status-positive);
+  background: var(--status-positive-subtle);
+}
+.perm-step-icon {
+  width: var(--perm-step-icon-size);
+  height: var(--perm-step-icon-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--theme-accent-soft);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.perm-step[data-ready="true"] .perm-step-icon {
+  background: var(--status-positive);
+  color: #FFFFFF;
+}
+.perm-step-body { flex: 1; min-width: 0; }
+.perm-step-title {
+  font-size: 14px;
+  font-weight: var(--weight-bold);
+  color: var(--fg-primary);
+}
+.perm-step-desc {
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  color: var(--fg-secondary);
+  margin-top: 2px;
+}
+
+.perm-progress {
+  width: 100%;
+  height: var(--perm-step-progress-height);
+  border-radius: var(--radius-pill);
+  background: var(--bg-muted);
+  overflow: hidden;
+}
+.perm-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--theme-accent), var(--status-positive));
+  transition: width 320ms var(--easing-cheer);
+}
+
+/* Child calendar chip 분기 */
+.cal-chip[data-mode="child"] {
+  height: var(--cal-chip-height-child);
+  font-size: var(--cal-chip-font-size-child);
+}
+
+/* Mascot cheer animation */
+@keyframes hyeni-mascot-cheer {
+  0%   { transform: translateY(0)   scale(1); }
+  35%  { transform: translateY(-12px) scale(1.05); }
+  70%  { transform: translateY(0)   scale(1); }
+  100% { transform: translateY(0)   scale(1); }
+}
+.hyeni-mascot-cheer {
+  animation: hyeni-mascot-cheer var(--duration-mascot-cheer) var(--easing-cheer);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hyeni-mascot-cheer { animation: none; }
+  .child-quick-card, .sticker-cell { transition: none; }
+}
