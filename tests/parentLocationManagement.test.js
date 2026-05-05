@@ -133,7 +133,10 @@ describe("parent location management entry", () => {
   });
 
   test("uses the in-app confirmation dialog for unpair actions", () => {
-    expect(app).toContain("function AppConfirmDialog");
+    // AppConfirmDialog moved to components/dialogs/AppConfirmDialog.jsx (Phase 5 #4 / B1)
+    const dialogSrc = readFileSync("src/components/dialogs/AppConfirmDialog.jsx", "utf8");
+    expect(dialogSrc).toContain("export function AppConfirmDialog");
+    expect(app).toContain("AppConfirmDialog");
     expect(app).toContain("const [confirmDialog, setConfirmDialog] = useState(null)");
     expect(app).toContain('title: "아이 연동 해제"');
     expect(app).toContain("onConfirm={openConfirmDialog}");

@@ -100,6 +100,9 @@ import {
     makePrimaryButtonStyle,
     makeSecondaryButtonStyle,
 } from "./lib/styleHelpers.js";
+import { AppConfirmDialog } from "./components/dialogs/AppConfirmDialog.jsx";
+import { AlertBanner } from "./components/banners/AlertBanner.jsx";
+import { EmergencyBanner } from "./components/banners/EmergencyBanner.jsx";
 import { buildSelectedChildCommandPayload, filterEventMapForChild, resolveSelectedChildPosition } from "./lib/selectedChildIsolation.js";
 import { formatDeviceDuration } from "./lib/deviceFormat.js";
 import { PRICING } from "./lib/paywallCopy.js";
@@ -1519,114 +1522,11 @@ function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfir
 // ─────────────────────────────────────────────────────────────────────────────
 // Alert Banner
 // ─────────────────────────────────────────────────────────────────────────────
-function AlertBanner({ alerts, onDismiss }) {
-    if (!alerts.length) return null;
-    const BG = { parent: DESIGN.gradients.parent, child: DESIGN.gradients.primary, friend: "linear-gradient(135deg,#059669,var(--status-positive))", emergency: DESIGN.gradients.danger, sync: "linear-gradient(135deg,#0369A1,#0EA5E9)" };
-    const ICON = { parent: "👨‍👩‍👧", child: "🐰", friend: "👫", emergency: "🚨", sync: "📅" };
-    const LABEL = { parent: "부모님 알림", child: "아이 알림", friend: "친구 알림", emergency: "⚠️ 긴급 미도착", sync: "📅 일정 동기화" };
-    return (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 350, display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px", pointerEvents: "none" }}>
-            {alerts.map(a => (
-                <div key={a.id} style={{ background: BG[a.type] || BG.parent, color: "white", borderRadius: 20, padding: "14px 18px", boxShadow: "0 8px 32px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", gap: 12, animation: "slideDownFull 0.4s ease", pointerEvents: "all", fontFamily: FF }}>
-                    <div style={{ fontSize: 26 }}>{ICON[a.type] || "🔔"}</div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 1 }}>{LABEL[a.type] || "알림"}</div>
-                        <div style={{ fontSize: 12, opacity: 0.9, lineHeight: 1.4 }}>{a.msg}</div>
-                    </div>
-                    <button onClick={() => onDismiss(a.id)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, padding: "6px 10px", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>확인</button>
-                </div>
-            ))}
-        </div>
-    );
-}
+// AlertBanner moved to ./components/banners/AlertBanner.jsx
+// EmergencyBanner moved to ./components/banners/EmergencyBanner.jsx
+// — both imported at top.
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Emergency Modal
-// ─────────────────────────────────────────────────────────────────────────────
-function EmergencyBanner({ emergencies, onDismiss }) {
-    if (!emergencies.length) return null;
-    const em = emergencies[0];
-    return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)", fontFamily: FF }}>
-            <div style={{ background: "white", borderRadius: 28, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(220,38,38,0.4)", animation: "emergencyPulse 0.6s ease" }}>
-                <div style={{ height: 8, borderRadius: 8, background: "linear-gradient(90deg,var(--status-negative),var(--status-negative-strong),var(--status-negative))", backgroundSize: "200% 100%", animation: "shimmer 1s linear infinite", marginBottom: 20 }} />
-                <div style={{ textAlign: "center", marginBottom: 16 }}>
-                    <div style={{ fontSize: 56, marginBottom: 8, animation: "shake 0.5s ease infinite" }}>🚨</div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: "var(--status-negative-strong)" }}>긴급 알림</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-secondary)", marginTop: 4 }}>학부모님, 확인이 필요해요!</div>
-                </div>
-                <div style={{ background: "var(--status-negative-subtle)", border: "2px solid var(--status-negative-subtle)", borderRadius: 18, padding: "16px 18px", marginBottom: 20 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <div style={{ fontSize: 28 }}>{em.emoji}</div>
-                        <div><div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)" }}>{em.title}</div><div style={{ fontSize: 13, color: "var(--fg-secondary)" }}>예정: ⏰ {em.time}</div></div>
-                    </div>
-                    <div style={{ background: "var(--status-negative-strong)", borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>
-                        <div style={{ color: "white", fontWeight: 800, fontSize: 14 }}>⚠️ 5분 후 시작인데 아직 미도착!</div>
-                        <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 3 }}>{em.location}</div>
-                    </div>
-                </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={() => onDismiss(em.id, "contact")} style={{ flex: 1, padding: "14px", background: "linear-gradient(135deg,var(--status-negative-strong),var(--status-negative-strong))", color: "white", border: "none", borderRadius: 16, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: FF }}>📞 아이에게 전화</button>
-                    <button onClick={() => onDismiss(em.id, "ok")} style={{ flex: 1, padding: "14px", background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>확인했어요</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function AppConfirmDialog({ dialog, onCancel, onConfirm }) {
-    if (!dialog) return null;
-    const isDanger = dialog.tone === "danger";
-    const titleId = "hyeni-confirm-dialog-title";
-    const descId = "hyeni-confirm-dialog-description";
-    return (
-        <div
-            role="presentation"
-            style={{ position: "fixed", inset: 0, zIndex: 10020, background: "rgba(31,41,55,0.36)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 22, fontFamily: FF }}
-            onClick={onCancel}
-        >
-            <section
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                aria-describedby={descId}
-                onClick={(event) => event.stopPropagation()}
-                style={{ width: "100%", maxWidth: 360, borderRadius: 24, background: "rgba(255,255,255,0.98)", border: "1.5px solid var(--theme-accent-line)", boxShadow: "var(--hyeni-theme-shadow)", padding: 20, boxSizing: "border-box" }}
-            >
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                    <div
-                        aria-hidden="true"
-                        style={{ width: 42, height: 42, borderRadius: 16, background: isDanger ? "var(--status-cautionary-subtle)" : "var(--theme-accent-soft)", color: isDanger ? "var(--status-cautionary-strong)" : "var(--theme-accent-text)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 950, flexShrink: 0 }}
-                    >
-                        {dialog.icon || (isDanger ? "!" : "?")}
-                    </div>
-                    <h2 id={titleId} style={{ margin: 0, color: DESIGN.colors.ink, fontSize: 18, fontWeight: 950, lineHeight: 1.25 }}>
-                        {dialog.title || "확인"}
-                    </h2>
-                </div>
-                <p id={descId} style={{ margin: "0 0 18px", color: "var(--fg-secondary)", fontSize: 14, lineHeight: 1.55, fontWeight: 700 }}>
-                    {dialog.message || "계속 진행할까요?"}
-                </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        style={{ ...makeSecondaryButtonStyle({ padding: "12px 14px", background: "var(--bg-subtle)", color: "var(--fg-secondary)" }), minHeight: 46 }}
-                    >
-                        {dialog.cancelLabel || "취소"}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onConfirm}
-                        style={{ ...makePrimaryButtonStyle({ padding: "12px 14px", background: isDanger ? DESIGN.gradients.danger : DESIGN.gradients.primary }), minHeight: 46 }}
-                    >
-                        {dialog.confirmLabel || "확인"}
-                    </button>
-                </div>
-            </section>
-        </div>
-    );
-}
+// AppConfirmDialog moved to ./components/dialogs/AppConfirmDialog.jsx — imported at top.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Role Setup Modal — Phase 1 (splash · 역할 선택 · 학부모 로그인 통합 진입)
