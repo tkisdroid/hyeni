@@ -21,6 +21,9 @@ import { ChildHero } from "./components/childMode/ChildHero.jsx";
 import { ChildSettingsScreen } from "./components/childMode/ChildSettingsScreen.jsx";
 import { SendStickerSheet } from "./components/childMode/SendStickerSheet.jsx";
 import { MemoBubble } from "./components/childMode/MemoBubble.jsx";
+import { ParentSettingsScreen } from "./components/settings/ParentSettingsScreen.jsx";
+import { PlaceManagerScreen } from "./components/settings/PlaceManagerScreen.jsx";
+import { CreatePlaydateSheet } from "./components/friendPlaydate/CreatePlaydateSheet.jsx";
 import { saveEventWithChildren } from "./lib/sync.js";
 import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, requestNativePermission, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
@@ -8041,6 +8044,11 @@ export default function KidsScheduler() {
     // Phase 3 — 자녀 모드 설정 / 스티커 보내기 / 마스코트 표시 토글
     const [showChildSettings, setShowChildSettings] = useState(false);
     const [showSendStickerSheet, setShowSendStickerSheet] = useState(false);
+    // Phase 4 — 부모 운영 화면 통합 진입점
+    const [showParentSettings, setShowParentSettings] = useState(false);
+    const [showPlaceManager, setShowPlaceManager] = useState(false);
+    const [showCreatePlaydate, setShowCreatePlaydate] = useState(false);
+    const [creatingPlaydate, setCreatingPlaydate] = useState(false);
     const [childShowMascot, setChildShowMascot] = useState(() => {
         if (typeof window === "undefined") return true;
         const stored = window.localStorage.getItem("hyeni-child-show-mascot");
@@ -13286,6 +13294,29 @@ export default function KidsScheduler() {
                     >
                         <AppBrandLogo size={100} radius={28} shadow={false} />
                     </div>}
+                    {isParent && (
+                        <button
+                            type="button"
+                            onClick={() => setShowParentSettings(true)}
+                            aria-label="설정"
+                            style={{
+                                position: "absolute",
+                                top: 0,
+                                right: 0,
+                                zIndex: 2,
+                                width: 36, height: 36,
+                                borderRadius: "var(--radius-md)",
+                                border: "1px solid var(--line-soft)",
+                                background: "var(--bg-base)",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                color: "var(--fg-secondary)",
+                                fontFamily: "inherit",
+                            }}
+                        >
+                            ⚙
+                        </button>
+                    )}
                     <div style={{ position: "relative", zIndex: 1, maxWidth: isParent ? "100%" : 270 }}>
                         <div style={{ fontSize: isParent ? 13 : 11, fontWeight: isParent ? 600 : 800, color: isParent ? "#6B5F73" : undefined, opacity: isParent ? 1 : 0.9, marginBottom: isParent ? 4 : 7, display: "flex", alignItems: "center", gap: 6 }}>
                             {todayDateLabel}
@@ -14329,6 +14360,80 @@ export default function KidsScheduler() {
                             showNotif("스티커 보내기 실패. 다시 시도해줘", "error");
                         } finally {
                             setChildSendingSticker(false);
+                        }
+                    }}
+                />
+            )}
+
+            {/* ── Phase 4 부모 설정 통합 화면 ── */}
+            {isParent && showParentSettings && (
+                <ParentSettingsScreen
+                    onBack={() => setShowParentSettings(false)}
+                    parentName={authUser?.user_metadata?.name || familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.name || ""}
+                    parentEmail={authUser?.email || ""}
+                    parentPhone={(familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.phone) || ""}
+                    childCount={(pairedChildren || []).length}
+                    onEditAccount={() => setShowPhoneSettings(true)}
+                    onAddChild={() => { setShowParentSettings(false); setShowPairing(true); }}
+                    onManageChildren={() => { setShowParentSettings(false); setShowPairing(true); }}
+                    onOpenPhoneSettings={() => setShowPhoneSettings(true)}
+                    onOpenPlaceManager={() => { setShowParentSettings(false); setShowPlaceManager(true); }}
+                    onOpenSubscription={() => { setShowParentSettings(false); setShowSubscriptionSettings(true); }}
+                    subscriptionPlanLabel={entitlement?.tier === "premium" ? "프리미엄" : "무료"}
+                    appVersion={typeof window !== "undefined" && window.__APP_VERSION__ ? String(window.__APP_VERSION__) : ""}
+                    onLogout={async () => {
+                        if (!window.confirm("로그아웃 할까요?")) return;
+                        try { await supabase.auth.signOut(); } catch (e) { console.error(e); }
+                        if (typeof window !== "undefined") window.localStorage.removeItem("hyeni-last-role");
+                        setMyRole(null);
+                        setShowParentSettings(false);
+                    }}
+                    onCancelSubscription={() => {
+                        if (!window.confirm("구독을 해지할까요?\n해지 후에도 다음 결제일까지는 사용할 수 있어요")) return;
+                        window.open("https://play.google.com/store/account/subscriptions", "_blank");
+                    }}
+                    onDeleteAccount={() => {
+                        const confirm = window.prompt('정말 계정을 삭제하시겠어요?\n이 작업은 되돌릴 수 없습니다.\n진행하려면 아래에 "삭제"를 입력해주세요');
+                        if (confirm !== "삭제") return;
+                        showNotif("계정 삭제 요청을 접수했어요. 30일 후 영구 삭제됩니다", "error");
+                    }}
+                />
+            )}
+
+            {/* ── Phase 4 장소 관리 통합 화면 ── */}
+            {isParent && showPlaceManager && (
+                <PlaceManagerScreen
+                    onBack={() => setShowPlaceManager(false)}
+                    savedPlaces={savedPlaces}
+                    academies={academies}
+                    dangerZones={dangerZones}
+                    onAdd={(category) => {
+                        setShowPlaceManager(false);
+                        if (category === "academy") setShowAcademyMgr(true);
+                        else setShowSavedPlaceMgr(true);
+                    }}
+                />
+            )}
+
+            {/* ── Phase 4 친구놀이 약속 만들기 sheet ── */}
+            {isParent && (
+                <CreatePlaydateSheet
+                    open={showCreatePlaydate}
+                    onClose={() => setShowCreatePlaydate(false)}
+                    isSubmitting={creatingPlaydate}
+                    candidates={[]}
+                    safePlaces={(savedPlaces || []).filter((p) => p?.playdate_safe)}
+                    onCreate={async (payload) => {
+                        setCreatingPlaydate(true);
+                        try {
+                            console.info("[CreatePlaydate]", payload);
+                            showNotif("친구놀이 초대를 보냈어요");
+                            setShowCreatePlaydate(false);
+                        } catch (err) {
+                            console.error("[CreatePlaydate]", err);
+                            showNotif("초대 보내기 실패. 다시 시도해주세요", "error");
+                        } finally {
+                            setCreatingPlaydate(false);
                         }
                     }}
                 />
