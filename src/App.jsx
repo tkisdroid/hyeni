@@ -77,7 +77,6 @@ import {
     buildEventPlaceItems,
     eventDateValue,
 } from "./lib/placeFormat.js";
-import { useReverseGeocodedLabel } from "./lib/reverseGeocode.js";
 // routeParsers used only inside ./lib/walkingRoute.js (extracted with RouteOverlay).
 import {
     getMemoTime,
@@ -135,6 +134,7 @@ import { CATEGORIES, ACADEMY_PRESETS } from "./lib/scheduleCategories.js";
 import { AcademyManager } from "./components/place-management/AcademyManager.jsx";
 import { LocationMapView } from "./components/map/LocationMapView.jsx";
 import { ChildTrackerOverlay } from "./components/childTracker/ChildTrackerOverlay.jsx";
+import { DailyTrailMap } from "./components/childTracker/DailyTrailMap.jsx";
 import { MemoSection } from "./components/memo/MemoSection.jsx";
 import { PairingModal } from "./components/pairing/PairingModal.jsx";
 import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "./lib/remoteListenHealth.js";
@@ -4155,16 +4155,7 @@ export default function KidsScheduler() {
                             </div>
                         )}
 
-                        <ol className="hyeni-v5-movement-summary__timeline">
-                            {selectedDateMovementSummary.timeline.slice(0, 6).map((point) => (
-                                <li key={point.id}>
-                                    <span>{point.timeLabel || "시간 미상"}</span>
-                                    <strong>
-                                        <TimelinePointLabel point={point} />
-                                    </strong>
-                                </li>
-                            ))}
-                        </ol>
+                        <DailyTrailMap trail={selectedDateLocationTrail} child={selectedChild} height={240} />
                     </>
                 )}
             </section>
@@ -7319,8 +7310,3 @@ export default function KidsScheduler() {
     );
 }
 
-function TimelinePointLabel({ point }) {
-    const fallback = point?.placeLabel || `${point?.lat?.toFixed(4) ?? "?"}, ${point?.lng?.toFixed(4) ?? "?"}`;
-    const label = useReverseGeocodedLabel(point?.lat, point?.lng, fallback);
-    return <>{point?.placeLabel || label}</>;
-}
