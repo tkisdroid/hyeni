@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { ColorPicker } from "../multichild/PairingWizard/ColorPicker.jsx";
+import { ChildAvatar } from "../multichild/HomeDashboard/ChildAvatar.jsx";
 import { applyThemeColor } from "../../lib/theme.js";
 import { formatDeviceDuration } from "../../lib/deviceFormat.js";
 import { getDeviceLabelFromUA } from "../../lib/deviceInfo.js";
