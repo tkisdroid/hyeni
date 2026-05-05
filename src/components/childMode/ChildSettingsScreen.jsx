@@ -2,6 +2,8 @@
 // Phase 3 spec section 4.5 — 자녀 설정 (신규).
 // 자녀가 직접 만질 수 있는 최소 셋: 테마 / 알림 / 마스코트 표시 / 계정 read-only / 로그아웃
 
+import { useBackHandler } from "../../lib/backHandler.js";
+
 const THEME_PALETTE = [
     { id: "pink",   color: "#F779A8", label: "핑크" },
     { id: "blue",   color: "#3B82F6", label: "블루" },
@@ -98,6 +100,10 @@ export function ChildSettingsScreen({
     onLogout,
     themeLocked = false,
 }) {
+    useBackHandler(() => {
+        if (typeof onBack === "function") { onBack(); return true; }
+        return false;
+    });
     return (
         <div
             className="hyeni-child-settings-screen"

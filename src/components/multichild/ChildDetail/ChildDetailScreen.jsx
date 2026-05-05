@@ -4,6 +4,7 @@
 
 import { ChildAvatar } from "../HomeDashboard/ChildAvatar.jsx";
 import { HomeBigStat, pickNextEvent, formatTimeLabel } from "../HomeDashboard/HomeBigStat.jsx";
+import { useBackHandler } from "../../../lib/backHandler.js";
 
 const DOT_COLORS = {
     green: "var(--status-positive)",
@@ -47,6 +48,11 @@ function formatLastSeen(minutes) {
 }
 
 export function ChildDetailScreen({ child, events = [], deviceStatus, locationLabel, onBack, onSettings }) {
+    useBackHandler(() => {
+        if (!child) return false;
+        if (typeof onBack === "function") { onBack(); return true; }
+        return false;
+    });
     if (!child) return null;
     const safetyDots = deviceStatus
         ? [

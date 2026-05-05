@@ -23,7 +23,7 @@ import { SendStickerSheet } from "./components/childMode/SendStickerSheet.jsx";
 import { MemoBubble } from "./components/childMode/MemoBubble.jsx";
 import { ParentSettingsScreen } from "./components/settings/ParentSettingsScreen.jsx";
 import { PlaceManagerScreen } from "./components/settings/PlaceManagerScreen.jsx";
-import { CreatePlaydateSheet } from "./components/friendPlaydate/CreatePlaydateSheet.jsx";
+// CreatePlaydateSheet — Phase 5 wire 대기 (현재는 import 보류)
 import { saveEventWithChildren } from "./lib/sync.js";
 import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, requestNativePermission, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
@@ -8047,8 +8047,6 @@ export default function KidsScheduler() {
     // Phase 4 — 부모 운영 화면 통합 진입점
     const [showParentSettings, setShowParentSettings] = useState(false);
     const [showPlaceManager, setShowPlaceManager] = useState(false);
-    const [showCreatePlaydate, setShowCreatePlaydate] = useState(false);
-    const [creatingPlaydate, setCreatingPlaydate] = useState(false);
     const [childShowMascot, setChildShowMascot] = useState(() => {
         if (typeof window === "undefined") return true;
         const stored = window.localStorage.getItem("hyeni-child-show-mascot");
@@ -14389,13 +14387,19 @@ export default function KidsScheduler() {
                         setShowParentSettings(false);
                     }}
                     onCancelSubscription={() => {
-                        if (!window.confirm("구독을 해지할까요?\n해지 후에도 다음 결제일까지는 사용할 수 있어요")) return;
-                        window.open("https://play.google.com/store/account/subscriptions", "_blank");
+                        // popup blocker 회피: 사용자 클릭 컨텍스트에서 즉시 새 탭 열고, confirm 후 닫기
+                        const win = window.open("about:blank", "_blank");
+                        if (!window.confirm("구독을 해지할까요?\n해지 후에도 다음 결제일까지는 사용할 수 있어요")) {
+                            if (win) win.close();
+                            return;
+                        }
+                        if (win) {
+                            win.location.href = "https://play.google.com/store/account/subscriptions";
+                        }
                     }}
                     onDeleteAccount={() => {
-                        const confirm = window.prompt('정말 계정을 삭제하시겠어요?\n이 작업은 되돌릴 수 없습니다.\n진행하려면 아래에 "삭제"를 입력해주세요');
-                        if (confirm !== "삭제") return;
-                        showNotif("계정 삭제 요청을 접수했어요. 30일 후 영구 삭제됩니다", "error");
+                        // 실제 deleteUser RPC는 Phase 5에서 추가 — 현재는 안내만
+                        showNotif("계정 삭제는 준비 중이에요. 고객센터로 문의해주세요");
                     }}
                 />
             )}
@@ -14415,29 +14419,7 @@ export default function KidsScheduler() {
                 />
             )}
 
-            {/* ── Phase 4 친구놀이 약속 만들기 sheet ── */}
-            {isParent && (
-                <CreatePlaydateSheet
-                    open={showCreatePlaydate}
-                    onClose={() => setShowCreatePlaydate(false)}
-                    isSubmitting={creatingPlaydate}
-                    candidates={[]}
-                    safePlaces={(savedPlaces || []).filter((p) => p?.playdate_safe)}
-                    onCreate={async (payload) => {
-                        setCreatingPlaydate(true);
-                        try {
-                            console.info("[CreatePlaydate]", payload);
-                            showNotif("친구놀이 초대를 보냈어요");
-                            setShowCreatePlaydate(false);
-                        } catch (err) {
-                            console.error("[CreatePlaydate]", err);
-                            showNotif("초대 보내기 실패. 다시 시도해주세요", "error");
-                        } finally {
-                            setCreatingPlaydate(false);
-                        }
-                    }}
-                />
-            )}
+            {/* CreatePlaydateSheet 는 Phase 5에서 backend wire 후 진입점과 함께 활성화 예정 */}
 
             {/* Friend Playdate panels: hero 바로 아래 banner + parent 카드 섹션 / child sticker 아래로 이동 */}
 

@@ -4,6 +4,7 @@
 // 자체 구현 (vaul 의존성 없이) — drag handle + backdrop click + swipe-down 종료.
 
 import { useEffect, useRef, useState } from "react";
+import { useBackHandler } from "../../../lib/backHandler.js";
 
 export function EventSheet({
     open,
@@ -30,6 +31,13 @@ export function EventSheet({
             document.body.style.overflow = previous;
         };
     }, [open]);
+
+    // Capacitor 하드웨어 백키 — 시트가 열린 상태에서만 가로채 닫음
+    useBackHandler(() => {
+        if (!open) return false;
+        if (typeof onClose === "function") onClose();
+        return true;
+    });
 
     const requestClose = () => {
         if (isDirty && !window.confirm("변경사항이 있어요. 정말 닫을까요?")) return;

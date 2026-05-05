@@ -3,6 +3,8 @@
 // 위험 영역은 amber (로그아웃·연결해제·구독해지) → red (계정삭제만) 단계.
 // 흩어진 모달들 → 1 화면으로 통합.
 
+import { useBackHandler } from "../../lib/backHandler.js";
+
 const Toggle = ({ value, onChange, ariaLabel }) => (
     <button
         type="button"
@@ -89,6 +91,10 @@ export function ParentSettingsScreen({
     onCancelSubscription,
     onDeleteAccount,
 }) {
+    useBackHandler(() => {
+        if (typeof onBack === "function") { onBack(); return true; }
+        return false;
+    });
     return (
         <div className="settings-screen" aria-label="부모 설정">
             <header className="settings-header">

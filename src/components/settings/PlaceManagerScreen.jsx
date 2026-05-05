@@ -4,6 +4,7 @@
 // 기존 sync.js CRUD 핸들러를 prop으로 받음 — 자체 호출 X.
 
 import { useEffect, useMemo, useState } from "react";
+import { useBackHandler } from "../../lib/backHandler.js";
 
 const CATEGORIES_DEF = [
     { id: "home",    icon: "🏠", label: "집" },
@@ -89,6 +90,10 @@ export function PlaceManagerScreen({
     onAdd,
 }) {
     const [openId, setOpenId] = useState("academy");
+    useBackHandler(() => {
+        if (typeof onBack === "function") { onBack(); return true; }
+        return false;
+    });
 
     const homePlaces = useMemo(() => {
         const home = findHomeFromSaved(savedPlaces);
@@ -101,9 +106,9 @@ export function PlaceManagerScreen({
     }, [savedPlaces]);
 
     const sections = [
-        { ...CATEGORIES_DEF[0], places: homePlaces, color: "#34D399" },
-        { ...CATEGORIES_DEF[1], places: academies, color: "#A78BFA" },
-        { ...CATEGORIES_DEF[2], places: otherSavedPlaces, color: "#60A5FA" },
+        { ...CATEGORIES_DEF[0], places: homePlaces, color: "var(--hyeni-cat-sports)" },
+        { ...CATEGORIES_DEF[1], places: academies, color: "var(--hyeni-cat-school)" },
+        { ...CATEGORIES_DEF[2], places: otherSavedPlaces, color: "var(--hyeni-cat-friend)" },
         { ...CATEGORIES_DEF[3], places: dangerZones, color: "var(--status-cautionary)" },
     ];
 
