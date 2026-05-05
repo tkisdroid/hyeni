@@ -1,17 +1,16 @@
 // src/components/childMode/ChildSettingsScreen.jsx
 // Phase 3 spec section 4.5 — 자녀 설정 (신규).
 // 자녀가 직접 만질 수 있는 최소 셋: 테마 / 알림 / 마스코트 표시 / 계정 read-only / 로그아웃
+// Theme picker는 lib/theme.js의 canonical THEME_PALETTE를 단일 source로 사용.
 
 import { useBackHandler } from "../../lib/backHandler.js";
+import { THEME_PALETTE as THEME_DICT } from "../../lib/theme.js";
 
-const THEME_PALETTE = [
-    { id: "pink",   color: "#F779A8", label: "핑크" },
-    { id: "blue",   color: "#3B82F6", label: "블루" },
-    { id: "green",  color: "#10B981", label: "그린" },
-    { id: "purple", color: "#8B5CF6", label: "퍼플" },
-    { id: "orange", color: "#F59E0B", label: "오렌지" },
-    { id: "rose",   color: "#EC4899", label: "로즈" },
-];
+const THEME_OPTIONS = Object.entries(THEME_DICT).map(([hex, t]) => ({
+    color: hex,
+    accent: t.accent,
+    label: t.label || hex,
+}));
 
 function Toggle({ value, onChange, ariaLabel }) {
     return (
@@ -154,13 +153,13 @@ export function ChildSettingsScreen({
                             {themeLocked ? "부모님이 잠궜어. 변경하려면 부모님께 부탁해줘." : "내 테마 색을 골라봐"}
                         </p>
                         <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
-                            {THEME_PALETTE.map((t) => {
-                                const active = t.id === currentTheme;
+                            {THEME_OPTIONS.map((t) => {
+                                const active = t.color === currentTheme;
                                 return (
                                     <button
-                                        key={t.id}
+                                        key={t.color}
                                         type="button"
-                                        onClick={() => !themeLocked && onChangeTheme?.(t.id, t.color)}
+                                        onClick={() => !themeLocked && onChangeTheme?.(t.color)}
                                         disabled={themeLocked}
                                         aria-label={`${t.label} 테마${active ? " (선택됨)" : ""}`}
                                         style={{

@@ -1,8 +1,15 @@
 import { StrictMode, Component } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/tokens.css'
+import './styles/tokens-phase3-child.css'
+import './styles/tokens-phase4-ops.css'
 import './index.css'
 import App from './App.jsx'
+import { initThemeFromCache } from './lib/theme.js'
+
+// Apply cached theme accent immediately so the very first paint already
+// reflects the user's chosen color (no pink-flash → blue-snap on reload).
+initThemeFromCache()
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -21,9 +28,9 @@ class ErrorBoundary extends Component {
       const stack = this.state.error?.stack || "";
       const componentStack = this.state.errorInfo?.componentStack || "";
       return (
-        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#FFF0F7", padding: 24, fontFamily: "'Noto Sans KR', sans-serif" }}>
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(180deg, var(--theme-accent-soft) 0%, #fffdf9 100%)", padding: 24, fontFamily: "'Pretendard Variable','Pretendard',system-ui,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🐰</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#E879A0", marginBottom: 8 }}>앗, 문제가 생겼어요!</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--theme-accent-text)", marginBottom: 8 }}>앗, 문제가 생겼어요!</div>
           <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 12, textAlign: "center", wordBreak: "break-all", maxWidth: 360 }}>
             {this.state.error?.message || "알 수 없는 오류"}
           </div>
@@ -32,7 +39,7 @@ class ErrorBoundary extends Component {
             <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", marginTop: 8 }}>{stack}{componentStack}</pre>
           </details>
           <button onClick={() => { try { localStorage.clear(); } catch { /* clear failed, ignore */ } window.location.reload(); }}
-            style={{ padding: "12px 24px", background: "#E879A0", color: "white", border: "none", borderRadius: 16, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+            style={{ padding: "12px 24px", background: "var(--hyeni-theme-gradient)", color: "white", border: "none", borderRadius: 16, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "var(--hyeni-theme-shadow-soft)", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", touchAction: "manipulation" }}>
             초기화 후 다시 시작
           </button>
         </div>

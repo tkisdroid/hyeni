@@ -14312,15 +14312,10 @@ export default function KidsScheduler() {
             {!isParent && showChildSettings && (
                 <ChildSettingsScreen
                     onBack={() => setShowChildSettings(false)}
-                    currentTheme={(() => {
-                        const accent = (typeof window !== "undefined" && window.localStorage.getItem("hyeni-theme-color")) || "#F779A8";
-                        const map = { "#F779A8": "pink", "#3B82F6": "blue", "#10B981": "green", "#8B5CF6": "purple", "#F59E0B": "orange", "#EC4899": "rose" };
-                        return map[accent] || "pink";
-                    })()}
-                    onChangeTheme={(_id, color) => {
-                        applyThemeColor(color);
-                        if (typeof window !== "undefined") window.localStorage.setItem("hyeni-theme-color", color);
-                    }}
+                    currentTheme={(typeof document !== "undefined"
+                        ? (document.documentElement.style.getPropertyValue("--theme-accent") || "#F779A8").trim().toUpperCase()
+                        : "#F779A8")}
+                    onChangeTheme={(color) => applyThemeColor(color)}
                     soundEnabled={true}
                     onChangeSound={() => showNotif("알림 소리는 부모님이 잠궜어")}
                     showMascot={childShowMascot}
