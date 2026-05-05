@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 
-const app = readFileSync("src/App.jsx", "utf8");
+// Phase 5 #4 / B12: AmbientAudioRecorder + remoteAudio constants moved out of App.jsx.
+const appJsxOnly = readFileSync("src/App.jsx", "utf8");
+const ambientAudioRecorderSrc = readFileSync("src/components/audio/AmbientAudioRecorder.jsx", "utf8");
+const remoteAudioSrc = readFileSync("src/lib/remoteAudio.js", "utf8");
+const app = `${appJsxOnly}\n${ambientAudioRecorderSrc}\n${remoteAudioSrc}`;
 const pushNotify = readFileSync("supabase/functions/push-notify/index.ts", "utf8");
 const fcmService = readFileSync(
   "android/app/src/main/java/com/hyeni/calendar/MyFirebaseMessagingService.java",
@@ -54,6 +58,7 @@ describe("native background command contracts", () => {
     expect(app).toContain('if (startInFlightRef.current || (status !== "idle" && status !== "failed")) return;');
     expect(app).toContain("waiting_for_child_notification");
     expect(app).toContain("연결 요청 전송 중");
+    expect(app).toContain('const showRemoteListenDiagnostics = status !== "listening" && remoteListenDiagnostics.length > 0;');
     expect(app).toContain("requestId: options.requestId");
     expect(app).toContain('sequence === "" ? fallbackSource : "seq"');
     expect(app).toContain('sequence === "" ? String(detail.data || "").slice(0, 96) : sequence');
@@ -95,6 +100,31 @@ describe("native background command contracts", () => {
     expect(locationService).toContain("stopAmbientListenFromPending(data)");
   });
 
+  it("keeps remote listen and location refresh scoped to the selected child user", () => {
+    expect(app).toContain("buildSelectedChildCommandPayload");
+    expect(app).toContain("remoteAudioCurrentTargetUserIdRef");
+    expect(app).toContain("const targetUserId = remoteAudioCurrentTargetUserIdRef.current || targetChildUserId || null");
+    expect(app).toContain("fetchTodayLocationHistory(familyId, targetUserId)");
+    expect(fcmService).toContain("target user mismatch");
+    expect(fcmService).toContain('putIfPresent(intent, "targetUserId", data.get("targetUserId"))');
+    expect(mainActivity).toContain('sourceIntent.getStringExtra("targetUserId")');
+    expect(remoteListenActivity).toContain('sourceIntent.getStringExtra("targetUserId")');
+    expect(remoteListenActivity).toContain('copyIfPresent(pendingIntent, intent, "targetUserId")');
+    expect(locationService).toContain('putIfNotBlank(launchIntent, "targetUserId", data.optString("targetUserId", ""))');
+  });
+
+  it("blocks wrong-child or wrong-family remote listen launches before JS fallback", () => {
+    expect(mainActivity).toContain("private enum RemoteListenStartResult");
+    expect(mainActivity).toContain("RemoteListenStartResult.BLOCKED");
+    expect(mainActivity).toContain("Remote listen native start skipped: family mismatch");
+    expect(mainActivity).toContain("Remote listen native start skipped: target user mismatch");
+    expect(mainActivity).toContain("if (result == RemoteListenStartResult.FALLBACK_ALLOWED)");
+    expect(remoteListenActivity).toContain("Remote listen foreground start skipped: family mismatch");
+    expect(remoteListenActivity).toContain("Remote listen foreground start skipped: target user mismatch");
+    expect(fcmService).toContain('commandLabel + " skipped: family mismatch"');
+    expect(locationService).toContain("Skipping pending notification for another family");
+  });
+
   it("keeps the Android 14+ remote-listen launcher visible until the bridge activity opens", () => {
     expect(manifest).toContain('android:name=".RemoteListenActivity"');
     expect(fcmService).toContain("new Intent(this, RemoteListenActivity.class)");
@@ -105,12 +135,23 @@ describe("native background command contracts", () => {
     expect(remoteListenActivity).toContain("startForegroundService(serviceIntent)");
     expect(fcmService).not.toContain("cancelRemoteListenLauncher(launcherNotificationId)");
     expect(fcmService).toContain('putExtra("launcherNotificationId", launcherNotificationId)');
-    expect(fcmService).toContain("RemoteListenRequestStore.markLauncherShown(this, requestId)");
+    expect(remoteListenActivity).toContain("RemoteListenRequestStore.markLauncherShown(this, requestId)");
     expect(locationService).toContain("RemoteListenRequestStore.wasLauncherRecentlyShown(this, requestId)");
     expect(locationService).toContain("Skipping duplicate remote listen pending fallback");
     expect(locationService).toContain('putExtra("launcherNotificationId", notificationId)');
     expect(remoteListenActivity).toContain("cancelLauncherNotification");
     expect(remoteListenActivity).toContain("handler.postDelayed(() -> cancelLauncherNotification(pendingIntent), 800)");
+  });
+
+  it("does not suppress the pending remote-listen fallback before the bridge activity actually opens", () => {
+    expect(fcmService).not.toContain(
+      [
+        "int launcherNotificationId = showRemoteListenLauncher(data);",
+        "RemoteListenRequestStore.markLauncherShown(this, requestId);",
+        "launchRemoteListenActivity(data, launcherNotificationId);",
+      ].join("\r\n                "),
+    );
+    expect(remoteListenActivity).toContain("RemoteListenRequestStore.markLauncherShown(this, requestId)");
   });
 
   it("opts remote-listen activity pending intents into Android background launch rules", () => {
@@ -139,6 +180,13 @@ describe("native background command contracts", () => {
     expect(locationService).toContain("retrying with apikey fallback");
     expect(locationService).toContain('"Authorization", "Bearer " + supabaseKey');
     expect(locationService).toContain("Pending notification poll fallback failed");
+  });
+
+  it("does not require VAPID secrets before queuing native pending fallback", () => {
+    expect(pushNotify).toContain("const webPushConfigured = Boolean(VAPID_PUBLIC && VAPID_PRIVATE)");
+    expect(pushNotify).toContain("if (webPushConfigured) {");
+    expect(pushNotify).toContain("webpush.setVapidDetails");
+    expect(pushNotify).toContain("if (webPushConfigured && subs?.length)");
   });
 
   it("removes the ambient foreground notification on normal capture completion", () => {

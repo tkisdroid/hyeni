@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const app = readFileSync("src/App.jsx", "utf8");
+// Phase 5 #4 / B12: AmbientAudioRecorder moved to components/audio/AmbientAudioRecorder.jsx.
+const appJsxOnly = readFileSync("src/App.jsx", "utf8");
+const ambientAudioRecorderSrc = readFileSync("src/components/audio/AmbientAudioRecorder.jsx", "utf8");
+const app = `${appJsxOnly}\n${ambientAudioRecorderSrc}`;
 
 describe("remote listen waiting feedback", () => {
   it("shows an actionable parent hint when the child device cannot auto-open remote listen", () => {
