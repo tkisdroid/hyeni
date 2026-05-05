@@ -1,6 +1,8 @@
 /* ==========================================================================
    Wanted Design System — Hyeni App Tokens
-   Source: Figma (Wanted DS) — verified 2026-05-02
+   Source: github.com/wanteddev/montage-web (WDS atomic palette) — aligned 2026-05-04
+   Atomic palette: coolNeutral[5..99], blue[10..99], green[10..99], red[10..99],
+                   orange[10..99], pink[10..99]
    See: WANTED_DS_SPEC.md
    ========================================================================== */
 
@@ -8,42 +10,45 @@
    Light mode (default)
    -------------------------------------------------------------------------- */
 :root {
-  /* Surfaces */
-  --bg-base:     #FFFFFF;     /* Card surface, primary canvas */
-  --bg-subtle:   #F7F7F8;     /* App background, hover state */
-  --bg-muted:    #EFEFF1;     /* Disabled surface, input bg variant */
-  --bg-inverse:  #18181B;
+  /* Surfaces — WDS background.normal */
+  --bg-base:     #FFFFFF;     /* common[100] · card surface, primary canvas */
+  --bg-subtle:   #F7F7F8;     /* coolNeutral[99] · app background, hover */
+  --bg-muted:    #F4F4F5;     /* coolNeutral[98] · disabled surface */
+  --bg-inverse:  #1B1C1E;     /* coolNeutral[15] · inverse background */
 
-  /* Foreground (text) */
-  --fg-primary:    #0F0F12;
-  --fg-secondary:  #46464A;
-  --fg-tertiary:   #71717A;
-  --fg-disabled:   rgba(15, 15, 18, 0.28);
-  --fg-strong:     #000000;
-  --fg-on-primary: #FFFFFF;
+  /* Foreground — WDS label */
+  --fg-primary:    #171719;                   /* coolNeutral[10] · label.normal */
+  --fg-secondary:  rgba(46, 47, 51, 0.88);    /* coolNeutral[22]@88 · label.neutral */
+  --fg-tertiary:   rgba(55, 56, 60, 0.61);    /* coolNeutral[25]@61 · label.alternative */
+  --fg-disabled:   rgba(55, 56, 60, 0.16);    /* coolNeutral[25]@16 · label.disable */
+  --fg-strong:     #000000;                   /* common[0] · label.strong */
+  --fg-on-primary: #FFFFFF;                   /* common[100] */
 
-  /* Lines — cool gray alpha (NOT solid gray) */
-  --line-subtle:   rgba(112, 115, 124, 0.08);
-  --line-soft:     rgba(112, 115, 124, 0.16);   /* card border default */
-  --line-default:  rgba(112, 115, 124, 0.22);   /* hover / strong divider */
+  /* Lines — WDS line.normal (coolNeutral[50] alpha) */
+  --line-subtle:   rgba(112, 115, 124, 0.08);   /* line.normal.alternative */
+  --line-soft:     rgba(112, 115, 124, 0.16);   /* line.normal.neutral · card border */
+  --line-default:  rgba(112, 115, 124, 0.22);   /* line.normal.normal · hover */
   --line-strong:   rgba(112, 115, 124, 0.40);
-  --line-disabled: rgba(15, 15, 18, 0.10);
+  --line-disabled: rgba(55, 56, 60, 0.10);
 
-  /* Brand — Wanted Blue */
-  --primary:       #0066FF;
-  --primary-hover: #005EEB;
-  --primary-press: #0054D1;
+  /* Brand — WDS primary (blue ramp) */
+  --primary:       #0066FF;   /* blue[50] · primary.normal */
+  --primary-hover: #005EEB;   /* blue[45] · primary.strong */
+  --primary-press: #0054D1;   /* blue[40] · primary.heavy */
 
-  /* Status — TODO: verify exact hex with Figma */
-  --status-positive:          #16A34A;
-  --status-positive-subtle:   rgba(22, 163, 74, 0.10);
-  --status-negative:          #DC2626;
-  --status-negative-subtle:   rgba(220, 38, 38, 0.10);
-  --status-cautionary:        #D97706;
-  --status-cautionary-subtle: rgba(217, 119, 6, 0.10);
+  /* Status — WDS status (atomic palette) */
+  --status-positive:          #00BF40;                   /* green[50] · surface */
+  --status-positive-strong:   #009632;                   /* green[40] · text on subtle bg */
+  --status-positive-subtle:   rgba(0, 191, 64, 0.10);
+  --status-negative:          #E52222;                   /* red[40] · surface (safer than red[50]) */
+  --status-negative-strong:   #B00C0C;                   /* red[30] · text on subtle bg */
+  --status-negative-subtle:   rgba(229, 34, 34, 0.10);
+  --status-cautionary:        #FF9200;                   /* orange[50] · surface */
+  --status-cautionary-strong: #D17600;                   /* orange[39] · text on subtle bg */
+  --status-cautionary-subtle: rgba(255, 146, 0, 0.10);
 
-  /* Secondary button press state */
-  --secondary-press-bg: #E9EAEC;
+  /* Secondary button press state — WDS coolNeutral[97] */
+  --secondary-press-bg: #EAEBEC;
 
   /* Radius scale */
   --radius-xs:   4px;
@@ -71,9 +76,9 @@
 
   /* Typography */
   --font-sans:
-    "Pretendard JP", "Pretendard", -apple-system, BlinkMacSystemFont,
-    "Apple SD Gothic Neo", "Helvetica Neue", "Segoe UI", Roboto,
-    "Hiragino Sans", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+    "Pretendard Variable", "Pretendard", system-ui, -apple-system,
+    BlinkMacSystemFont, "Apple SD Gothic Neo", "Helvetica Neue",
+    "Segoe UI", Roboto, sans-serif;
 
   --weight-regular:  400;
   --weight-medium:   500;   /* body default */
@@ -84,7 +89,7 @@
   --leading-normal: 1.5;
   --leading-loose:  1.7;
 
-  --tracking-tight:  -0.01em;
+  --tracking-tight:  0;
   --tracking-normal: 0;
 
   /* Shadows — used sparingly. Stroke-first DS. */
@@ -112,6 +117,155 @@
   --duration-fast:   120ms;
   --duration-base:   200ms;
   --easing-standard: cubic-bezier(0.2, 0.0, 0.2, 1);
+
+  /* ========================================================================
+     Phase 1 — entry screens (splash · role · login · child transition)
+     ======================================================================== */
+  --space-screen-pad: 24px;
+  --space-screen-gap: 48px;
+
+  /* Mode tone — parent (Minimal-Pro) */
+  --mode-parent-card-height: 80px;
+  --mode-parent-card-radius: var(--radius-card);
+  --mode-parent-card-bg:     var(--bg-base);
+  --mode-parent-card-border: 1px solid var(--line-soft);
+  --mode-parent-card-shadow: var(--shadow-none);
+  --mode-parent-icon-size:   32px;
+
+  /* Mode tone — child (Playful-Character) */
+  --mode-child-card-height:  104px;
+  --mode-child-card-radius:  var(--radius-2xl);
+  --mode-child-card-bg:
+    linear-gradient(135deg, var(--theme-accent-soft) 0%, var(--bg-base) 100%);
+  --mode-child-card-border:  1px solid var(--theme-accent-line);
+  --mode-child-card-shadow:  0 4px 12px color-mix(in srgb, var(--theme-accent) 10%, transparent);
+  --mode-child-mascot-size:  56px;
+
+  /* Entry-screen motion */
+  --duration-screen-fade:    280ms;
+  --duration-mascot-bounce:  600ms;
+  --easing-mascot:           cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ========================================================================
+     Phase 2 — parent daily (home · grid · sheet · child detail)
+     ======================================================================== */
+  /* Big-stat header */
+  --t-bigstat-eyebrow-size:    12px;
+  --t-bigstat-eyebrow-tracking: 0.06em;
+  --t-bigstat-date-size:       28px;
+  --t-bigstat-date-weight:     var(--weight-bold);
+  --t-bigstat-next-size:       14px;
+
+  /* Calendar grid (Cron-style) */
+  --cal-cell-min-height:   60px;
+  --cal-cell-padding:      var(--space-2);
+  --cal-cell-radius:       var(--radius-md);
+  --cal-cell-bg:           transparent;
+  --cal-cell-bg-selected:  var(--theme-accent-soft);
+  --cal-today-ring:        1px solid var(--theme-accent);
+  --cal-chip-rail-width:   3px;
+  --cal-chip-height:       16px;
+  --cal-chip-font-size:    10.5px;
+  --cal-chip-radius:       var(--radius-xs);
+  --cal-chip-bg:           var(--bg-base);
+  --cal-chip-bg-overflow:  var(--bg-muted);
+  --cal-weekday-color:     var(--fg-tertiary);
+  --cal-weekday-color-sun: var(--status-negative-strong);
+  --cal-weekday-color-sat: var(--primary);
+
+  /* Bottom sheet */
+  --sheet-bg:               var(--bg-base);
+  --sheet-radius-top:       var(--radius-2xl);
+  --sheet-handle-width:     32px;
+  --sheet-handle-height:    4px;
+  --sheet-handle-color:     var(--line-default);
+  --sheet-padding-x:        var(--space-screen-pad);
+  --sheet-shadow:           var(--shadow-lg);
+  --sheet-backdrop:         rgba(15, 15, 18, 0.32);
+  --sheet-height-default:   80vh;
+  --sheet-height-quick:     32vh;
+  --duration-sheet-open:    320ms;
+  --duration-sheet-close:   240ms;
+  --easing-sheet:           cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Child card density */
+  --child-card-full-height:  80px;
+  --child-card-row-height:   56px;
+  --child-card-mini-size:    72px;
+  --child-card-row-avatar:   36px;
+  --child-card-mini-avatar:  44px;
+
+  /* Control size — large CTA (Phase 1 kakao button) */
+  --control-height-lg:       56px;
+}
+
+/* --------------------------------------------------------------------------
+   Dark mode adjustments for Phase 1+2 tokens
+   -------------------------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mode-child-card-bg:
+      linear-gradient(135deg,
+        color-mix(in srgb, var(--theme-accent) 12%, var(--bg-base)) 0%,
+        var(--bg-base) 100%);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Phase 1+2 typography classes
+   -------------------------------------------------------------------------- */
+.t-screen-title {
+  font-size: 26px;
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  color: var(--fg-primary);
+  margin: 0;
+}
+.t-screen-subtitle {
+  font-size: 14px;
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  color: var(--fg-secondary);
+  margin: 0;
+}
+.t-screen-promise {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--theme-accent-text);
+  margin: 0;
+}
+.t-bigstat-eyebrow {
+  font-size: var(--t-bigstat-eyebrow-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--t-bigstat-eyebrow-tracking);
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+  margin: 0;
+}
+.t-bigstat-date {
+  font-size: var(--t-bigstat-date-size);
+  font-weight: var(--t-bigstat-date-weight);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  color: var(--fg-primary);
+  margin: var(--space-1) 0 0;
+}
+.t-bigstat-next {
+  font-size: var(--t-bigstat-next-size);
+  font-weight: var(--weight-medium);
+  color: var(--theme-accent-text);
+  margin: var(--space-2) 0 0;
+}
+.t-bigstat-next-time { font-weight: var(--weight-bold); }
+.t-section-label {
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+  color: var(--fg-secondary);
+  margin: 0 0 var(--space-3);
+  letter-spacing: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -304,4 +458,158 @@ body {
   padding: 0 var(--space-4);
   font-size: 14px;
   border-radius: var(--radius-md);
+}
+
+/* --------------------------------------------------------------------------
+   Phase 2 — Calendar grid (Cron-style chips)
+   -------------------------------------------------------------------------- */
+.cal-day {
+  min-height: var(--cal-cell-min-height);
+  padding: var(--cal-cell-padding);
+  background: var(--cal-cell-bg);
+  border: 1px solid transparent;
+  border-radius: var(--cal-cell-radius);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard);
+}
+.cal-day:hover { background: var(--bg-muted); }
+.cal-day.is-today { border: var(--cal-today-ring); }
+.cal-day.is-today .cal-day-num {
+  color: var(--theme-accent-text);
+  font-weight: var(--weight-bold);
+}
+.cal-day.is-selected { background: var(--cal-cell-bg-selected); }
+.cal-day-num {
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  color: var(--fg-primary);
+  margin-bottom: var(--space-1);
+  text-align: left;
+}
+.cal-day.is-sun .cal-day-num { color: var(--cal-weekday-color-sun); }
+.cal-day.is-sat .cal-day-num { color: var(--cal-weekday-color-sat); }
+.cal-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  overflow: hidden;
+}
+.cal-chip {
+  height: var(--cal-chip-height);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  background: var(--cal-chip-bg);
+  border-radius: var(--cal-chip-radius);
+  font-size: var(--cal-chip-font-size);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-primary);
+  border-left: var(--cal-chip-rail-width) solid var(--rail, var(--theme-accent));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.cal-chip[data-family="true"] { border-left-style: dashed; }
+.cal-chip-overflow {
+  background: var(--cal-chip-bg-overflow);
+  color: var(--fg-tertiary);
+  border-left: none;
+  text-align: center;
+  padding: 0 var(--space-1);
+  font-size: 9.5px;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   Phase 2 — Bottom sheet
+   -------------------------------------------------------------------------- */
+.event-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--sheet-backdrop);
+  z-index: 600;
+  animation: backdropIn var(--duration-sheet-open) ease-out;
+}
+.event-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--sheet-bg);
+  border-radius: var(--sheet-radius-top) var(--sheet-radius-top) 0 0;
+  box-shadow: var(--sheet-shadow);
+  height: var(--sheet-height-default);
+  z-index: 601;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: sheetIn var(--duration-sheet-open) var(--easing-sheet);
+}
+.event-sheet-handle {
+  width: var(--sheet-handle-width);
+  height: var(--sheet-handle-height);
+  background: var(--sheet-handle-color);
+  border-radius: var(--radius-full);
+  margin: var(--space-3) auto var(--space-2);
+  flex-shrink: 0;
+}
+.event-sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-1) var(--sheet-padding-x) var(--space-3);
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+.event-sheet-header .sheet-title {
+  font-size: 16px;
+  font-weight: var(--weight-bold);
+  color: var(--fg-primary);
+}
+.event-sheet-header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  padding: var(--space-1) var(--space-2);
+}
+.event-sheet-header .sheet-cancel {
+  color: var(--fg-secondary);
+  font-weight: var(--weight-medium);
+}
+.event-sheet-header .sheet-save {
+  color: var(--primary);
+  font-weight: var(--weight-bold);
+}
+.event-sheet-header .sheet-save:disabled {
+  color: var(--fg-disabled);
+  cursor: not-allowed;
+}
+.event-sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) var(--sheet-padding-x) calc(var(--space-12) + env(safe-area-inset-bottom, 0px));
+}
+.event-sheet-quick {
+  height: var(--sheet-height-quick);
+}
+@keyframes sheetIn {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .event-sheet, .event-sheet-backdrop { animation: none; }
 }

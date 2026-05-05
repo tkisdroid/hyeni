@@ -10,8 +10,13 @@ import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { TodayMultiChildView } from "./components/multichild/HomeDashboard/TodayMultiChildView.jsx";
 import { ChildAvatar } from "./components/multichild/HomeDashboard/ChildAvatar.jsx";
 import { ChildPermissionWizard } from "./components/onboarding/ChildPermissionWizard.jsx";
+import { SplashScreen } from "./components/auth/SplashScreen.jsx";
+import { ChildEntryTransition } from "./components/auth/ChildEntryTransition.jsx";
+import { HyeniMascot } from "./components/auth/HyeniMascot.jsx";
 import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
+import { EventSheet } from "./components/multichild/EventModal/EventSheet.jsx";
+import { ChildDetailScreen } from "./components/multichild/ChildDetail/ChildDetailScreen.jsx";
 import { saveEventWithChildren } from "./lib/sync.js";
 import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, requestNativePermission, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
@@ -2136,94 +2141,209 @@ function AppConfirmDialog({ dialog, onCancel, onConfirm }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Role Setup Modal  (first launch)
+// Role Setup Modal — Phase 1 (splash · 역할 선택 · 학부모 로그인 통합 진입)
 // ─────────────────────────────────────────────────────────────────────────────
 function RoleSetupModal({ onSelect, loading }) {
-    const [showParentAuth, setShowParentAuth] = useState(false);
+    const [authView, setAuthView] = useState(null);  // null | "login" | "signup"
     const isReturning = (() => {
         try { return !!localStorage.getItem("hyeni-has-visited"); } catch { return false; }
     })();
+    const lastRole = (() => {
+        try { return localStorage.getItem("hyeni-last-role"); } catch { return null; }
+    })();
 
-    // Mark as visited on first render
     useEffect(() => {
         try { localStorage.setItem("hyeni-has-visited", "1"); } catch { /* intentionally empty */ }
     }, []);
 
-    const handleParent = () => setShowParentAuth(true);
+    const handleParent = () => {
+        try { localStorage.setItem("hyeni-last-role", "parent"); } catch { /* ignore */ }
+        setAuthView("login");
+    };
 
-    const handleChild = () => { onSelect("child"); };
+    const handleChild = () => {
+        try { localStorage.setItem("hyeni-last-role", "child"); } catch { /* ignore */ }
+        onSelect("child");
+    };
 
-    if (showParentAuth) {
-        return <ParentAuthScreen onBack={() => setShowParentAuth(false)} />;
+    const handleLastRole = () => {
+        if (lastRole === "parent") handleParent();
+        else if (lastRole === "child") handleChild();
+    };
+
+    if (authView === "login") {
+        return (
+            <ParentAuthScreen
+                onBack={() => setAuthView(null)}
+                onSignupClick={() => setAuthView("signup")}
+            />
+        );
+    }
+    if (authView === "signup") {
+        return (
+            <ParentSignupScreen
+                onBack={() => setAuthView("login")}
+            />
+        );
+    }
+
+    if (loading) {
+        return <SplashScreen AppBrandLogo={AppBrandLogo} />;
     }
 
     return (
-        <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: "var(--hyeni-product-canvas)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", fontFamily: FF, overflowY: "auto" }}>
-            <div style={{ width: "100%", maxWidth: 344, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <AppBrandLogo size={88} radius={22} />
-                <div style={{ fontSize: 28, fontWeight: 900, color: "var(--theme-accent-text)", marginTop: 18, marginBottom: 4, letterSpacing: 0, textAlign: "center" }}>
-                    혜니캘린더
+        <div
+            className="hyeni-app-shell"
+            style={{
+                position: "fixed", inset: 0, zIndex: 500,
+                background: "var(--bg-subtle)",
+                display: "flex", flexDirection: "column",
+                padding: "calc(env(safe-area-inset-top, 0px) + var(--space-6)) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-6))",
+                fontFamily: FF, overflowY: "auto",
+            }}
+        >
+            <p
+                className="t-screen-promise"
+                style={{ textAlign: "center", marginBottom: "var(--space-8)" }}
+            >
+                한 가족, 두 시점
+            </p>
+            <div style={{ width: "100%", maxWidth: 344, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "var(--space-screen-gap)" }}>
+                    <AppBrandLogo size={72} radius={20} />
+                    <h1 className="t-screen-title" style={{ marginTop: "var(--space-4)", textAlign: "center" }}>혜니캘린더</h1>
+                    <p className="t-screen-subtitle" style={{ marginTop: "var(--space-2)", textAlign: "center" }}>함께 보는 우리 가족 일정</p>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", marginBottom: 18, letterSpacing: 0 }}>HYENI CALENDAR</div>
-                <div style={{ borderRadius: 999, padding: "7px 12px", background: "var(--hyeni-product-surface)", border: "1px solid var(--hyeni-product-border)", color: "var(--theme-accent-text)", fontSize: 12, fontWeight: 800, marginBottom: 22 }}>
-                    {loading ? "로딩 중..." : isReturning ? "다시 오셨군요" : "처음 사용하시나요?"}
-                </div>
-                <div style={{ fontSize: 15, color: "var(--fg-secondary)", marginBottom: 26, textAlign: "center", lineHeight: 1.55, fontWeight: 600 }}>
-                    사용할 역할을 선택해 주세요
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
-                    <button onClick={handleParent}
-                        style={{ padding: "16px", background: "var(--hyeni-product-surface-solid)", color: "var(--theme-accent-text)", border: "1px solid var(--hyeni-product-border)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", gap: 14 }}>
-                        <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, background: "var(--theme-accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>👨‍👩‍👧</span>
-                        <span style={{ flex: 1, minWidth: 0 }}>
-                            <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>학부모</span>
-                            <span style={{ display: "block", fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>ID/PW 또는 카카오로 로그인해요</span>
-                        </span>
-                        <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>›</span>
+
+                {isReturning && lastRole && (
+                    <button
+                        type="button"
+                        onClick={handleLastRole}
+                        style={{
+                            width: "100%",
+                            marginBottom: "var(--space-4)",
+                            padding: "var(--space-3) var(--space-4)",
+                            background: "transparent",
+                            border: "1px dashed var(--line-default)",
+                            borderRadius: "var(--radius-control)",
+                            fontFamily: FF,
+                            color: "var(--fg-secondary)",
+                            fontSize: 13,
+                            fontWeight: "var(--weight-medium)",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "var(--space-2)",
+                            transition: "border-color var(--duration-fast) var(--easing-standard)",
+                        }}
+                    >
+                        지난번엔 <b style={{ color: "var(--theme-accent-text)", fontWeight: "var(--weight-semibold)" }}>{lastRole === "parent" ? "학부모" : "아이"}</b>로 사용하셨어요
+                        <span style={{ color: "var(--theme-accent-text)" }}>· 다시 시작 →</span>
                     </button>
-                    <button onClick={handleChild}
-                        style={{ padding: "16px", background: "var(--hyeni-product-surface-solid)", color: "var(--theme-accent-text)", border: "1px solid var(--hyeni-product-border)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", gap: 14 }}>
-                        <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, background: "var(--theme-accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🐰</span>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", width: "100%" }}>
+                    {/* Parent card — Minimal-Pro tone */}
+                    <button
+                        type="button"
+                        onClick={handleParent}
+                        aria-label="학부모로 시작"
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "var(--space-4)",
+                            width: "100%",
+                            height: "var(--mode-parent-card-height)",
+                            padding: "0 var(--space-5)",
+                            background: "var(--mode-parent-card-bg)",
+                            border: "var(--mode-parent-card-border)",
+                            borderRadius: "var(--mode-parent-card-radius)",
+                            boxShadow: "var(--mode-parent-card-shadow)",
+                            cursor: "pointer",
+                            fontFamily: FF,
+                            textAlign: "left",
+                            transition: "transform var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)",
+                        }}
+                    >
+                        <svg
+                            width="var(--mode-parent-icon-size)"
+                            height="var(--mode-parent-icon-size)"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                            style={{ color: "var(--fg-secondary)", flexShrink: 0, width: 32, height: 32 }}
+                        >
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
                         <span style={{ flex: 1, minWidth: 0 }}>
-                            <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>아이</span>
-                            <span style={{ display: "block", fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, lineHeight: 1.45, fontWeight: 600, wordBreak: "keep-all" }}>부모님 코드로 연결하고 내 일정을 확인해요</span>
+                            <span style={{ display: "block", fontSize: 17, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>학부모</span>
+                            <span style={{ display: "block", fontSize: 13, color: "var(--fg-secondary)", marginTop: 2, fontWeight: "var(--weight-medium)" }}>ID·카카오로 로그인</span>
                         </span>
-                        <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>›</span>
+                        <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 17, fontWeight: "var(--weight-bold)", flexShrink: 0 }}>›</span>
+                    </button>
+
+                    {/* Child card — Playful-Character tone with mascot */}
+                    <button
+                        type="button"
+                        onClick={handleChild}
+                        aria-label="아이로 시작"
+                        className="hyeni-role-card-child"
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "var(--space-4)",
+                            width: "100%",
+                            height: "var(--mode-child-card-height)",
+                            padding: "0 var(--space-5)",
+                            background: "var(--mode-child-card-bg)",
+                            border: "var(--mode-child-card-border)",
+                            borderRadius: "var(--mode-child-card-radius)",
+                            boxShadow: "var(--mode-child-card-shadow)",
+                            cursor: "pointer",
+                            fontFamily: FF,
+                            textAlign: "left",
+                            transition: "transform var(--duration-fast) var(--easing-standard)",
+                        }}
+                    >
+                        <span style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+                            <HyeniMascot size={56} variant="static" />
+                        </span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: "block", fontSize: 18, fontWeight: "var(--weight-bold)", color: "var(--theme-accent-text)" }}>아이</span>
+                            <span style={{ display: "block", fontSize: 13, color: "var(--fg-secondary)", marginTop: 2, fontWeight: "var(--weight-medium)" }}>부모님 코드로 시작</span>
+                        </span>
+                        <span aria-hidden="true" style={{ color: "var(--theme-accent-text)", fontSize: 17, fontWeight: "var(--weight-bold)", flexShrink: 0 }}>›</span>
                     </button>
                 </div>
             </div>
+            <style>{`
+                .hyeni-role-card-child:hover svg { transform: translateY(-3px); }
+                .hyeni-role-card-child svg {
+                    transition: transform var(--duration-mascot-bounce) var(--easing-mascot);
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .hyeni-role-card-child svg { transition: none; }
+                }
+            `}</style>
         </div>
     );
 }
 
-function ParentAuthScreen({ onBack }) {
-    const [mode, setMode] = useState("login");
+// ─────────────────────────────────────────────────────────────────────────────
+// ParentAuthScreen — Phase 1 redesign: 카카오 우선 · ID/PW collapsed · 가입 분리
+// ─────────────────────────────────────────────────────────────────────────────
+function ParentAuthScreen({ onBack, onSignupClick }) {
     const [busy, setBusy] = useState("");
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
     const [login, setLogin] = useState({ loginId: "", password: "" });
-    const [signup, setSignup] = useState({ name: "", loginId: "", password: "", passwordConfirm: "", gender: "", birthdate: "", phone: "" });
-    const [otp, setOtp] = useState("");
-    const [pendingSignup, setPendingSignup] = useState(null);
-    const codeSent = !!pendingSignup && !pendingSignup.session;
-
-    const inputStyle = (hasError = false) => ({
-        width: "100%",
-        minHeight: 48,
-        padding: "12px 14px",
-        border: `1.5px solid ${hasError ? "var(--status-negative)" : "var(--line-default)"}`,
-        borderRadius: 12,
-        fontSize: 15,
-        fontWeight: 600,
-        fontFamily: FF,
-        outline: "none",
-        boxSizing: "border-box",
-        background: "var(--bg-base)",
-        color: "var(--fg-primary)",
-    });
-
-    const fieldWrapStyle = { display: "flex", flexDirection: "column", gap: 7, textAlign: "left" };
-    const labelStyle = { fontSize: 12, fontWeight: 800, color: "var(--fg-secondary)", letterSpacing: 0 };
+    const [showIdPw, setShowIdPw] = useState(false);
 
     const handleKakao = async () => {
         setBusy("kakao");
@@ -2237,9 +2357,6 @@ function ParentAuthScreen({ onBack }) {
             console.error("[kakaoLogin]", err);
             setError(err?.message || "카카오 로그인에 실패했어요");
         } finally {
-            // Browser.open resolves once the OAuth tab is shown — the user may
-            // still cancel and return. Clear busy here so the ID/PW button is
-            // usable on return; success path unmounts this screen anyway.
             setBusy("");
         }
     };
@@ -2260,6 +2377,205 @@ function ParentAuthScreen({ onBack }) {
             setBusy("");
         }
     };
+
+    useBackHandler(() => {
+        if (busy) return true;
+        if (showIdPw) {
+            setShowIdPw(false);
+            return true;
+        }
+        if (onBack) {
+            onBack();
+            return true;
+        }
+        return false;
+    });
+
+    return (
+        <div
+            className="hyeni-app-shell"
+            style={{
+                minHeight: "100dvh",
+                background: "var(--bg-subtle)",
+                display: "flex",
+                flexDirection: "column",
+                fontFamily: FF,
+                padding: "calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-6))",
+            }}
+        >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-5)" }}>
+                <button
+                    type="button"
+                    onClick={onBack}
+                    aria-label="뒤로"
+                    style={{
+                        width: 36, height: 36,
+                        borderRadius: "var(--radius-control)",
+                        border: "1px solid var(--line-soft)",
+                        background: "var(--bg-base)",
+                        cursor: "pointer",
+                        fontSize: 18,
+                        fontWeight: "var(--weight-bold)",
+                        color: "var(--fg-secondary)",
+                        fontFamily: FF,
+                    }}
+                >
+                    ←
+                </button>
+                <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
+                    <AppBrandLogo size={56} radius={16} />
+                </div>
+                <div style={{ width: 36 }} />
+            </div>
+
+            <div style={{ textAlign: "center", marginBottom: "var(--space-8)" }}>
+                <h1 className="t-screen-title">학부모 로그인</h1>
+                <p className="t-screen-subtitle" style={{ marginTop: "var(--space-2)" }}>아이 일정 관리를 시작해 주세요</p>
+            </div>
+
+            <div style={{ maxWidth: 400, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column" }}>
+                {/* Kakao primary CTA */}
+                <button
+                    type="button"
+                    onClick={handleKakao}
+                    disabled={!!busy}
+                    style={{
+                        width: "100%",
+                        height: "var(--control-height-lg)",
+                        background: "#FEE500",
+                        color: "#191919",
+                        border: "none",
+                        borderRadius: "var(--radius-control)",
+                        fontFamily: FF,
+                        fontWeight: "var(--weight-bold)",
+                        fontSize: 16,
+                        cursor: busy ? "wait" : "pointer",
+                        opacity: busy ? 0.65 : 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "var(--space-2)",
+                        transition: "filter var(--duration-fast) var(--easing-standard)",
+                    }}
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#191919" aria-hidden="true">
+                        <path d="M12 3C6.48 3 2 6.62 2 11.1c0 2.93 1.91 5.5 4.78 6.94l-1.22 4.46c-.11.4.34.72.7.5l5.32-3.5c.13.01.27.01.42.01 5.52 0 10-3.62 10-8.41C22 6.62 17.52 3 12 3z"/>
+                    </svg>
+                    {busy === "kakao" ? "카카오 로그인 중..." : "카카오로 시작"}
+                </button>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", margin: "var(--space-4) 0", color: "var(--fg-tertiary)", fontSize: 12, fontWeight: "var(--weight-medium)" }}>
+                    <div style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
+                    <span>또는</span>
+                    <div style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
+                </div>
+
+                {!showIdPw ? (
+                    <button
+                        type="button"
+                        onClick={() => setShowIdPw(true)}
+                        style={{
+                            width: "100%",
+                            padding: "var(--space-3) var(--space-4)",
+                            background: "var(--bg-base)",
+                            border: "1px solid var(--line-soft)",
+                            borderRadius: "var(--radius-control)",
+                            fontFamily: FF,
+                            color: "var(--fg-secondary)",
+                            fontSize: 14,
+                            fontWeight: "var(--weight-semibold)",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            transition: "border-color var(--duration-fast) var(--easing-standard)",
+                        }}
+                    >
+                        <span>ID/PW로 로그인</span>
+                        <span style={{ color: "var(--fg-tertiary)", fontSize: 16 }}>▾</span>
+                    </button>
+                ) : (
+                    <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                            <span style={{ fontSize: 12, fontWeight: "var(--weight-bold)", color: "var(--fg-secondary)" }}>아이디</span>
+                            <input
+                                value={login.loginId}
+                                onChange={(event) => setLogin((prev) => ({ ...prev, loginId: event.target.value }))}
+                                autoComplete="username"
+                                placeholder="parent01"
+                                className="input"
+                            />
+                        </label>
+                        <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                            <span style={{ fontSize: 12, fontWeight: "var(--weight-bold)", color: "var(--fg-secondary)" }}>비밀번호</span>
+                            <input
+                                type="password"
+                                value={login.password}
+                                onChange={(event) => setLogin((prev) => ({ ...prev, password: event.target.value }))}
+                                autoComplete="current-password"
+                                placeholder="비밀번호"
+                                className="input"
+                            />
+                        </label>
+                        <button
+                            type="submit"
+                            disabled={!!busy}
+                            className="btn btn-primary"
+                            style={{ marginTop: "var(--space-2)", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" }}
+                        >
+                            {busy === "login" ? "로그인 중..." : "로그인"}
+                        </button>
+                    </form>
+                )}
+
+                {message && (
+                    <div style={{ marginTop: "var(--space-4)", padding: "var(--space-3)", borderRadius: "var(--radius-md)", background: "var(--status-positive-subtle)", color: "var(--status-positive-strong)", fontSize: 13, fontWeight: "var(--weight-bold)", lineHeight: 1.45 }}>
+                        {message}
+                    </div>
+                )}
+                {error && (
+                    <div style={{ marginTop: "var(--space-4)", padding: "var(--space-3)", borderRadius: "var(--radius-md)", background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", fontSize: 13, fontWeight: "var(--weight-bold)", lineHeight: 1.45 }}>
+                        {error}
+                    </div>
+                )}
+            </div>
+
+            <div style={{ marginTop: "auto", textAlign: "center", paddingTop: "var(--space-6)" }}>
+                <button
+                    type="button"
+                    onClick={onSignupClick}
+                    style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--theme-accent-text)",
+                        fontSize: 14,
+                        fontWeight: "var(--weight-medium)",
+                        cursor: "pointer",
+                        fontFamily: FF,
+                        padding: "var(--space-2)",
+                    }}
+                >
+                    처음 오셨나요? 가입하기 →
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ParentSignupScreen — Phase 1 separation: 별도 화면으로 분리
+// ─────────────────────────────────────────────────────────────────────────────
+function ParentSignupScreen({ onBack }) {
+    const [busy, setBusy] = useState("");
+    const [error, setError] = useState("");
+    const [message, setMessage] = useState("");
+    const [signup, setSignup] = useState({ name: "", loginId: "", password: "", passwordConfirm: "", gender: "", birthdate: "", phone: "" });
+    const [otp, setOtp] = useState("");
+    const [pendingSignup, setPendingSignup] = useState(null);
+    const codeSent = !!pendingSignup && !pendingSignup.session;
+
+    const fieldWrapStyle = { display: "flex", flexDirection: "column", gap: "var(--space-2)" };
+    const labelStyle = { fontSize: 12, fontWeight: "var(--weight-bold)", color: "var(--fg-secondary)" };
 
     const handleRequestCode = async (event) => {
         event.preventDefault();
@@ -2307,17 +2623,6 @@ function ParentAuthScreen({ onBack }) {
         }
     };
 
-    const switchMode = (nextMode) => {
-        setMode(nextMode);
-        setError("");
-        setMessage("");
-        setPendingSignup(null);
-        setOtp("");
-        setBusy("");
-    };
-
-    // Hardware back: codeSent → back to form; signup form → back to login;
-    // login → fall out via onBack (returns to role-selection screen).
     useBackHandler(() => {
         if (busy) return true;
         if (codeSent) {
@@ -2327,233 +2632,149 @@ function ParentAuthScreen({ onBack }) {
             setMessage("");
             return true;
         }
-        if (mode === "signup") {
-            switchMode("login");
-            return true;
-        }
-        if (onBack) {
-            onBack();
-            return true;
-        }
+        if (onBack) { onBack(); return true; }
         return false;
     });
 
     return (
-        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "flex-start", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF, padding: "calc(env(safe-area-inset-top, 0px) + 24px) 20px 32px" }}>
-            <div style={{ padding: "8px 22px 22px", maxWidth: 400, width: "100%" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-                    <button type="button" onClick={onBack} aria-label="뒤로"
-                        style={{ width: 36, height: 36, borderRadius: 12, border: "1.5px solid #E5E7EB", background: "white", cursor: "pointer", fontSize: 18, fontWeight: 900, color: "var(--fg-secondary)", fontFamily: FF }}>
-                        ←
-                    </button>
-                    <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
-                        <AppBrandLogo size={64} radius={18} />
-                    </div>
-                    <div style={{ width: 36 }} />
+        <div
+            className="hyeni-app-shell"
+            style={{
+                minHeight: "100dvh",
+                background: "var(--bg-subtle)",
+                display: "flex",
+                flexDirection: "column",
+                fontFamily: FF,
+                padding: "calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-6))",
+            }}
+        >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-5)" }}>
+                <button
+                    type="button"
+                    onClick={onBack}
+                    aria-label="뒤로"
+                    style={{
+                        width: 36, height: 36,
+                        borderRadius: "var(--radius-control)",
+                        border: "1px solid var(--line-soft)",
+                        background: "var(--bg-base)",
+                        cursor: "pointer",
+                        fontSize: 18,
+                        fontWeight: "var(--weight-bold)",
+                        color: "var(--fg-secondary)",
+                        fontFamily: FF,
+                    }}
+                >
+                    ←
+                </button>
+                <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
+                    <AppBrandLogo size={56} radius={16} />
                 </div>
+                <div style={{ width: 36 }} />
+            </div>
 
-                <div style={{ textAlign: "center", marginBottom: 18 }}>
-                    <div style={{ fontSize: 21, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 6 }}>{mode === "signup" ? "학부모 가입" : "학부모 로그인"}</div>
-                    <div style={{ fontSize: 13, color: "var(--fg-secondary)", fontWeight: 700 }}>{mode === "signup" ? "혜니캘린더에 처음 오셨군요" : "아이 일정 관리를 시작해 주세요"}</div>
-                </div>
+            <div style={{ textAlign: "center", marginBottom: "var(--space-6)" }}>
+                <h1 className="t-screen-title">학부모 가입</h1>
+                <p className="t-screen-subtitle" style={{ marginTop: "var(--space-2)" }}>혜니캘린더에 처음 오셨군요</p>
+            </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-                    <button type="button" onClick={() => switchMode("login")}
-                        style={{ padding: "12px 10px", borderRadius: 12, border: "none", background: mode === "login" ? "var(--theme-accent)" : "var(--bg-subtle)", color: mode === "login" ? "var(--fg-on-primary)" : "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF, transition: "background 0.16s ease, color 0.16s ease" }}>
-                        로그인
-                    </button>
-                    <button type="button" onClick={() => switchMode("signup")}
-                        style={{ padding: "12px 10px", borderRadius: 12, border: "none", background: mode === "signup" ? "var(--theme-accent)" : "var(--bg-subtle)", color: mode === "signup" ? "var(--fg-on-primary)" : "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF, transition: "background 0.16s ease, color 0.16s ease" }}>
-                        회원가입
-                    </button>
-                </div>
-
-                {mode === "login" && (
-                    <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>아이디</span>
-                            <input
-                                value={login.loginId}
-                                onChange={(event) => setLogin((prev) => ({ ...prev, loginId: event.target.value }))}
-                                autoComplete="username"
-                                placeholder="parent01"
-                                style={inputStyle()}
-                            />
-                        </label>
-                        <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>비밀번호</span>
-                            <input
-                                type="password"
-                                value={login.password}
-                                onChange={(event) => setLogin((prev) => ({ ...prev, password: event.target.value }))}
-                                autoComplete="current-password"
-                                placeholder="비밀번호"
-                                style={inputStyle()}
-                            />
-                        </label>
-                        <button type="submit" disabled={!!busy}
-                            style={makePrimaryButtonStyle({ marginTop: 2, opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
-                            {busy === "login" ? "로그인 중..." : "로그인"}
-                        </button>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 4px", color: "var(--fg-tertiary)", fontSize: 11, fontWeight: 600 }}>
-                            <div style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
-                            <span>또는</span>
-                            <div style={{ flex: 1, height: 1, background: "var(--line-soft)" }} />
+            <div style={{ maxWidth: 400, width: "100%", margin: "0 auto" }}>
+                <form onSubmit={codeSent ? handleVerifyCode : handleRequestCode} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>이름</span>
+                        <input value={signup.name} onChange={(e) => setSignup((p) => ({ ...p, name: e.target.value }))} autoComplete="name" placeholder="홍길동" maxLength={30} disabled={codeSent} className="input" />
+                    </label>
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>아이디</span>
+                        <input value={signup.loginId} onChange={(e) => setSignup((p) => ({ ...p, loginId: e.target.value }))} autoComplete="username" placeholder="parent01" disabled={codeSent} className="input" />
+                    </label>
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>비밀번호</span>
+                        <input type="password" value={signup.password} onChange={(e) => setSignup((p) => ({ ...p, password: e.target.value }))} autoComplete="new-password" placeholder="6자 이상" disabled={codeSent} className="input" />
+                    </label>
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>비밀번호 확인</span>
+                        <input type="password" value={signup.passwordConfirm} onChange={(e) => setSignup((p) => ({ ...p, passwordConfirm: e.target.value }))} autoComplete="new-password" placeholder="비밀번호 재입력" disabled={codeSent} className="input" />
+                    </label>
+                    <fieldset disabled={codeSent} style={{ ...fieldWrapStyle, border: "none", padding: 0, margin: 0 }}>
+                        <legend style={labelStyle}>역할</legend>
+                        <div role="radiogroup" aria-label="역할" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
+                            {[
+                                { value: "엄마", emoji: "🤱" },
+                                { value: "아빠", emoji: "👨" },
+                                { value: "보호자", emoji: "👤" },
+                            ].map((option) => {
+                                const selected = signup.gender === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={selected}
+                                        disabled={codeSent}
+                                        onClick={() => setSignup((p) => ({ ...p, gender: option.value }))}
+                                        style={{
+                                            padding: "var(--space-3) var(--space-2)",
+                                            borderRadius: "var(--radius-control)",
+                                            border: `1px solid ${selected ? "var(--theme-accent)" : "var(--line-soft)"}`,
+                                            background: selected ? "var(--theme-accent-soft)" : "var(--bg-base)",
+                                            color: selected ? "var(--theme-accent-text)" : "var(--fg-secondary)",
+                                            fontWeight: "var(--weight-semibold)",
+                                            fontFamily: FF,
+                                            cursor: codeSent ? "not-allowed" : "pointer",
+                                            fontSize: 14,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            gap: "var(--space-1)",
+                                        }}
+                                    >
+                                        <span aria-hidden="true">{option.emoji}</span>
+                                        <span>{option.value}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
-                        <button type="button" onClick={handleKakao} disabled={!!busy}
-                            style={makeSecondaryButtonStyle({ background: "#FEE500", color: "var(--fg-primary)", border: "1.5px solid #FACC15", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
-                            {busy === "kakao" ? "카카오 로그인 중..." : "카카오로 로그인"}
+                    </fieldset>
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>생년월일</span>
+                        <BirthdatePicker
+                            value={signup.birthdate}
+                            onChange={(yyyymmdd) => setSignup((p) => ({ ...p, birthdate: yyyymmdd }))}
+                            max={`${new Date().getFullYear()}-12-31`}
+                            min="1900-01-01"
+                            disabled={codeSent}
+                            placeholder="생년월일 선택"
+                            defaultYearOffset={30}
+                        />
+                    </label>
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>전화번호</span>
+                        <input type="tel" inputMode="tel" value={signup.phone} onChange={(e) => setSignup((p) => ({ ...p, phone: e.target.value }))} autoComplete="tel" placeholder="010-1234-5678" disabled={codeSent} className="input" />
+                    </label>
+                    {codeSent && (
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>인증번호</span>
+                            <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="6자리" className="input" />
+                        </label>
+                    )}
+                    <button type="submit" disabled={!!busy} className="btn btn-primary" style={{ marginTop: "var(--space-2)", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" }}>
+                        {busy === "signup" ? "인증번호 요청 중..." : busy === "verify" ? "확인 중..." : codeSent ? "인증번호 확인 후 가입" : "인증번호 받기"}
+                    </button>
+                    {codeSent && (
+                        <button type="button" disabled={!!busy} onClick={handleRequestCode} className="btn btn-secondary" style={{ opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" }}>
+                            인증번호 다시 받기
                         </button>
-                    </form>
-                )}
-
-                {mode === "signup" && (
-                    <form onSubmit={codeSent ? handleVerifyCode : handleRequestCode} style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-                        <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>이름</span>
-                            <input
-                                value={signup.name}
-                                onChange={(event) => setSignup((prev) => ({ ...prev, name: event.target.value }))}
-                                autoComplete="name"
-                                placeholder="홍길동"
-                                maxLength={30}
-                                disabled={codeSent}
-                                style={inputStyle()}
-                            />
-                        </label>
-                        <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>아이디</span>
-                            <input
-                                value={signup.loginId}
-                                onChange={(event) => setSignup((prev) => ({ ...prev, loginId: event.target.value }))}
-                                autoComplete="username"
-                                placeholder="parent01"
-                                disabled={codeSent}
-                                style={inputStyle()}
-                            />
-                        </label>
-                        <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>비밀번호</span>
-                            <input
-                                type="password"
-                                value={signup.password}
-                                onChange={(event) => setSignup((prev) => ({ ...prev, password: event.target.value }))}
-                                autoComplete="new-password"
-                                placeholder="6자 이상"
-                                disabled={codeSent}
-                                style={inputStyle()}
-                            />
-                        </label>
-                        <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>비밀번호 확인</span>
-                            <input
-                                type="password"
-                                value={signup.passwordConfirm}
-                                onChange={(event) => setSignup((prev) => ({ ...prev, passwordConfirm: event.target.value }))}
-                                autoComplete="new-password"
-                                placeholder="비밀번호 재입력"
-                                disabled={codeSent}
-                                style={inputStyle()}
-                            />
-                        </label>
-                        <fieldset disabled={codeSent} style={{ ...fieldWrapStyle, border: "none", padding: 0, margin: 0 }}>
-                            <legend style={labelStyle}>역할</legend>
-                            <div role="radiogroup" aria-label="역할" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                                {[
-                                    { value: "엄마", emoji: "🤱" },
-                                    { value: "아빠", emoji: "👨" },
-                                    { value: "보호자", emoji: "👤" },
-                                ].map((option) => {
-                                    const selected = signup.gender === option.value;
-                                    return (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            role="radio"
-                                            aria-checked={selected}
-                                            disabled={codeSent}
-                                            onClick={() => setSignup((prev) => ({ ...prev, gender: option.value }))}
-                                            style={{
-                                                padding: "12px 10px",
-                                                borderRadius: 14,
-                                                border: `1.5px solid ${selected ? "var(--theme-accent)" : "#E5E7EB"}`,
-                                                background: selected ? "var(--theme-accent-soft)" : "white",
-                                                color: selected ? "var(--theme-accent-text)" : "#374151",
-                                                fontWeight: 800,
-                                                fontFamily: FF,
-                                                cursor: codeSent ? "not-allowed" : "pointer",
-                                                fontSize: 14,
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                gap: 6,
-                                            }}
-                                        >
-                                            <span aria-hidden="true">{option.emoji}</span>
-                                            <span>{option.value}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </fieldset>
-                        <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>생년월일</span>
-                            <BirthdatePicker
-                                value={signup.birthdate}
-                                onChange={(yyyymmdd) => setSignup((prev) => ({ ...prev, birthdate: yyyymmdd }))}
-                                max={`${new Date().getFullYear()}-12-31`}
-                                min="1900-01-01"
-                                disabled={codeSent}
-                                placeholder="생년월일 선택"
-                                defaultYearOffset={30}
-                            />
-                        </label>
-                        <label style={fieldWrapStyle}>
-                            <span style={labelStyle}>전화번호</span>
-                            <input
-                                type="tel"
-                                inputMode="tel"
-                                value={signup.phone}
-                                onChange={(event) => setSignup((prev) => ({ ...prev, phone: event.target.value }))}
-                                autoComplete="tel"
-                                placeholder="010-1234-5678"
-                                disabled={codeSent}
-                                style={inputStyle()}
-                            />
-                        </label>
-                        {codeSent && (
-                            <label style={fieldWrapStyle}>
-                                <span style={labelStyle}>인증번호</span>
-                                <input
-                                    value={otp}
-                                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                                    inputMode="numeric"
-                                    autoComplete="one-time-code"
-                                    placeholder="6자리"
-                                    style={inputStyle()}
-                                />
-                            </label>
-                        )}
-                        <button type="submit" disabled={!!busy}
-                            style={makePrimaryButtonStyle({ marginTop: 2, opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
-                            {busy === "signup" ? "인증번호 요청 중..." : busy === "verify" ? "확인 중..." : codeSent ? "인증번호 확인 후 가입" : "인증번호 받기"}
-                        </button>
-                        {codeSent && (
-                            <button type="button" disabled={!!busy} onClick={handleRequestCode}
-                                style={makeSecondaryButtonStyle({ opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" })}>
-                                인증번호 다시 받기
-                            </button>
-                        )}
-                    </form>
-                )}
+                    )}
+                </form>
 
                 {message && (
-                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "#ECFDF5", color: "var(--status-positive-strong)", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
+                    <div style={{ marginTop: "var(--space-4)", padding: "var(--space-3)", borderRadius: "var(--radius-md)", background: "var(--status-positive-subtle)", color: "var(--status-positive-strong)", fontSize: 13, fontWeight: "var(--weight-bold)", lineHeight: 1.45 }}>
                         {message}
                     </div>
                 )}
                 {error && (
-                    <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 14, background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", fontSize: 13, fontWeight: 800, lineHeight: 1.45 }}>
+                    <div style={{ marginTop: "var(--space-4)", padding: "var(--space-3)", borderRadius: "var(--radius-md)", background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", fontSize: 13, fontWeight: "var(--weight-bold)", lineHeight: 1.45 }}>
                         {error}
                     </div>
                 )}
@@ -7811,6 +8032,8 @@ export default function KidsScheduler() {
     // within a single selected child's context. For 1-child families, this is
     // auto-set so existing single-child UX is preserved.
     const [selectedChildId, setSelectedChildId] = useState(null);
+    // Phase 2 — 자녀 상세 overlay (Life360식). null이면 닫힘.
+    const [childDetailId, setChildDetailId] = useState(null);
     // Multi-child explanatory banner shown when a parent taps a non-home tab
     // before picking a child. The banner is also raised by the force-redirect
     // useEffect below so deep-link / other entry paths surface the same hint.
@@ -11514,22 +11737,34 @@ export default function KidsScheduler() {
                     const isSun = (firstDay + i) % 7 === 0;
                     const isSat = (firstDay + i) % 7 === 6;
                     const dayEvs = getEvs(day);
-                    const highlightedCell = isSel || isToday;
+                    const visibleEvs = dayEvs.slice(0, 2);
+                    const overflow = dayEvs.length - visibleEvs.length;
                     return (
                         <button
                             key={`${keyPrefix}-${day}`}
                             type="button"
                             onClick={() => setSelectedDate(day)}
-                            className={`hyeni-v5-calendar-day${isToday ? " today" : ""}${isSel ? " selected" : ""}${isSun ? " sun" : ""}${isSat ? " sat" : ""}`}
+                            className={`cal-day${isToday ? " is-today" : ""}${isSel ? " is-selected" : ""}${isSun ? " is-sun" : ""}${isSat ? " is-sat" : ""}`}
                             aria-label={`${currentMonth + 1}월 ${day}일${dayEvs.length ? ` 일정 ${dayEvs.length}개` : ""}`}
                             style={{ fontFamily: FF }}
                         >
-                            <span>{day}</span>
+                            <span className="cal-day-num">{day}</span>
                             {dayEvs.length > 0 && (
-                                <span className="hyeni-v5-calendar-dots">
-                                    {dayEvs.slice(0, 3).map(e => (
-                                        <span key={e.id} style={{ background: highlightedCell ? "rgba(255,255,255,0.9)" : e.color }} />
+                                <span className="cal-chips">
+                                    {visibleEvs.map((e) => (
+                                        <span
+                                            key={e.id}
+                                            className="cal-chip"
+                                            data-family={e.is_family_event ? "true" : undefined}
+                                            style={{ "--rail": e.color || "var(--theme-accent)" }}
+                                            title={e.title}
+                                        >
+                                            {e.title}
+                                        </span>
                                     ))}
+                                    {overflow > 0 && (
+                                        <span className="cal-chip-overflow">+{overflow}</span>
+                                    )}
                                 </span>
                             )}
                         </button>
@@ -13271,10 +13506,7 @@ export default function KidsScheduler() {
                   childLocations={homeChildLocationLabels}
                   childDeviceStatusMap={childDeviceStatusMap}
                   onMapTap={() => setShowChildTracker(true)}
-                  onSelectChild={(childId) => {
-                    setSelectedChildId(childId);
-                    setActiveView("calendar");
-                  }}
+                  onSelectChild={(childId) => setChildDetailId(childId)}
                 />
                 {renderParentBottomTabbar("home", "hyeni-v5-tabbar-fixed")}
               </div>
@@ -13771,11 +14003,16 @@ export default function KidsScheduler() {
                 </div>
             )}
 
-            {/* ── ADD MODAL ── */}
-            {showAddModal && (
-                <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }} onClick={e => { if (e.target === e.currentTarget) { setShowAddModal(false); setEditingEventId(null); } }}>
-                    <div style={makeSheetStyle({ padding: "24px 20px 36px", width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" })}>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: "var(--fg-primary)", marginBottom: 4 }}>{editingEventId ? "✏️ 일정 수정" : "✨ 새 일정 추가"}</div>
+            {/* ── EVENT SHEET (Phase 2) ── */}
+            <EventSheet
+                open={showAddModal}
+                title={editingEventId ? "일정 수정" : "새 일정"}
+                saveLabel={editingEventId ? "수정" : "저장"}
+                onClose={() => { setShowAddModal(false); setEditingEventId(null); setNewTitle(""); setNewEndTime(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }}
+                onSave={addEvent}
+            >
+                {showAddModal && (
+                    <>
                         {isParent && pairedChildren.length > 0 && (() => {
                             // ChildSelector stores family_members.id values in childIds (events_children FK target).
                             const selectedNames = pairedChildren
@@ -13980,11 +14217,29 @@ export default function KidsScheduler() {
                             />
                           </div>
                         )}
-                        <button onClick={addEvent} style={primBtn}>{editingEventId ? "💾 수정 저장하기!" : (weeklyRepeat ? `🐰 앞으로 ${repeatWeeks === 4 ? "1개월" : repeatWeeks === 8 ? "2개월" : "3개월"}간 매주 추가!` : "🐰 일정 추가하기!")}</button>
-                        <button onClick={() => { setShowAddModal(false); setEditingEventId(null); setNewTitle(""); setNewEndTime(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }} style={secBtn}>취소</button>
-                    </div>
-                </div>
-            )}
+                        {weeklyRepeat && !editingEventId && (
+                            <div style={{ fontSize: 12, color: "var(--fg-tertiary)", textAlign: "center", marginTop: "var(--space-2)", fontWeight: "var(--weight-medium)" }}>
+                                저장하면 {repeatWeeks === 4 ? "1개월" : repeatWeeks === 8 ? "2개월" : "3개월"}간 매주 같은 요일에 반복돼요
+                            </div>
+                        )}
+                    </>
+                )}
+            </EventSheet>
+
+            {/* ── CHILD DETAIL SCREEN (Phase 2) ── */}
+            {childDetailId && (() => {
+                const detailChild = pairedChildren.find((c) => c.id === childDetailId || c.user_id === childDetailId);
+                if (!detailChild) return null;
+                return (
+                    <ChildDetailScreen
+                        child={detailChild}
+                        events={todayEvents}
+                        deviceStatus={childDeviceStatusMap[detailChild.user_id]}
+                        locationLabel={homeChildLocationLabels[detailChild.user_id]?.label}
+                        onBack={() => setChildDetailId(null)}
+                    />
+                );
+            })()}
 
             {/* Friend Playdate panels: hero 바로 아래 banner + parent 카드 섹션 / child sticker 아래로 이동 */}
 
