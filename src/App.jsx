@@ -36,6 +36,33 @@ import { sendBroadcastWhenReady } from "./lib/realtime.js";
 import { getChildMemoQuickReplies, getMemoPreview, getParentMemoQuickReplies } from "./lib/memoDisplay.js";
 import { buildHomeRouteEvent, findHomeSavedPlace } from "./lib/navigationTargets.js";
 import { LOCATION_TRAIL_GRADIENT_STOPS, buildLocationDaySummary, getStayDisplayParts } from "./lib/locationTrailDisplay.js";
+import {
+    LOCATION_TRAIL_JITTER_M,
+    LOCATION_TRAIL_DWELL_RADIUS_M,
+    LOCATION_TRAIL_DWELL_MIN_MS,
+    haversineM,
+    toRoutePosition,
+    finiteNumber,
+    compactRoutePoints,
+    sumRouteDistance,
+    normalizeLocationTrailPoint,
+    compactLocationTrailPoints,
+    buildSelectedLocationTrail,
+    formatTrailClock,
+    formatTrailDuration,
+    clampTrailProgress,
+    hexToRgb,
+    rgbToHex,
+    interpolateTrailColor,
+    getTrailTimeBounds,
+    getTrailProgress,
+    getTrailHourKey,
+    getTrailHourLabel,
+    buildTrailHourSegments,
+    buildTrailGradientSegments,
+    averageTrailPoint,
+    buildTrailDwellPlaces,
+} from "./lib/trailMath.js";
 import { buildSelectedChildCommandPayload, filterEventMapForChild, resolveSelectedChildPosition } from "./lib/selectedChildIsolation.js";
 import { formatDeviceDuration } from "./lib/deviceFormat.js";
 import { PRICING } from "./lib/paywallCopy.js";
@@ -1019,296 +1046,10 @@ const DEFAULT_NOTIF = normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-function haversineM(la1, lo1, la2, lo2) {
-    const R = 6371000, p1 = la1 * Math.PI / 180, p2 = la2 * Math.PI / 180;
-    const dp = (la2 - la1) * Math.PI / 180, dl = (lo2 - lo1) * Math.PI / 180;
-    const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function toRoutePosition(position) {
-    if (!position) return null;
-    const lat = Number(position.lat);
-    const lng = Number(position.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-    return { lat, lng };
-}
-
-function finiteNumber(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-}
-
-function compactRoutePoints(points) {
-    const compacted = [];
-    points.forEach((point) => {
-        const normalized = toRoutePosition(point);
-        if (!normalized) return;
-        const prev = compacted[compacted.length - 1];
-        if (prev && Math.abs(prev.lat - normalized.lat) < 0.0000001 && Math.abs(prev.lng - normalized.lng) < 0.0000001) return;
-        compacted.push(normalized);
-    });
-    return compacted;
-}
-
-function sumRouteDistance(points) {
-    let total = 0;
-    for (let i = 1; i < points.length; i += 1) {
-        total += haversineM(points[i - 1].lat, points[i - 1].lng, points[i].lat, points[i].lng);
-    }
-    return total;
-}
-
-const LOCATION_TRAIL_JITTER_M = 8;
 const LOCATION_HISTORY_MIN_DISTANCE_M = 15;
 const LOCATION_HISTORY_MAX_AGE_MS = 5 * 60_000;
-const LOCATION_TRAIL_DWELL_RADIUS_M = 80;
-const LOCATION_TRAIL_DWELL_MIN_MS = 10 * 60_000;
 
-function normalizeLocationTrailPoint(point) {
-    const routePosition = toRoutePosition(point);
-    if (!routePosition) return null;
-    const recordedAt = point?.recorded_at || point?.recordedAt || point?.updated_at || point?.updatedAt || null;
-    const recordedMs = recordedAt ? new Date(recordedAt).getTime() : null;
-    return {
-        ...routePosition,
-        user_id: point?.user_id || point?.userId || null,
-        recorded_at: recordedAt,
-        recordedAt,
-        recordedMs: Number.isFinite(recordedMs) ? recordedMs : null,
-    };
-}
-
-function compactLocationTrailPoints(points) {
-    const compacted = [];
-    points.forEach((point) => {
-        const normalized = normalizeLocationTrailPoint(point);
-        if (!normalized) return;
-        const prev = compacted[compacted.length - 1];
-        if (prev && haversineM(prev.lat, prev.lng, normalized.lat, normalized.lng) < LOCATION_TRAIL_JITTER_M) {
-            compacted[compacted.length - 1] = {
-                ...prev,
-                recorded_at: normalized.recorded_at || prev.recorded_at,
-                recordedAt: normalized.recordedAt || prev.recordedAt,
-                recordedMs: normalized.recordedMs ?? prev.recordedMs,
-            };
-            return;
-        }
-        compacted.push(normalized);
-    });
-    return compacted;
-}
-
-function buildSelectedLocationTrail(locationTrail, selectedChild) {
-    const selectedUserId = selectedChild?.user_id || selectedChild?.userId || null;
-    const rawTrail = Array.isArray(locationTrail) ? locationTrail : [];
-    const filteredTrail = selectedUserId
-        ? rawTrail.filter(point => (point?.user_id || point?.userId) === selectedUserId)
-        : rawTrail;
-    const points = compactLocationTrailPoints(filteredTrail);
-    const currentPoint = selectedChild
-        ? normalizeLocationTrailPoint({
-            ...selectedChild,
-            user_id: selectedUserId,
-            recorded_at: selectedChild.updatedAt || selectedChild.updated_at || null,
-        })
-        : null;
-
-    if (currentPoint) {
-        const last = points[points.length - 1];
-        if (!last || haversineM(last.lat, last.lng, currentPoint.lat, currentPoint.lng) >= LOCATION_TRAIL_JITTER_M) {
-            points.push(currentPoint);
-        } else if (currentPoint.recordedMs && (!last.recordedMs || currentPoint.recordedMs > last.recordedMs)) {
-            points[points.length - 1] = { ...last, ...currentPoint };
-        }
-    }
-
-    return compactLocationTrailPoints(points);
-}
-
-function formatTrailClock(ms) {
-    if (!Number.isFinite(ms)) return "";
-    return new Date(ms).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatTrailDuration(ms) {
-    if (!Number.isFinite(ms) || ms <= 0) return "0분";
-    const totalMinutes = Math.max(1, Math.round(ms / 60_000));
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (hours <= 0) return `${minutes}분`;
-    return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
-}
-
-function clampTrailProgress(value) {
-    if (!Number.isFinite(value)) return 0;
-    return Math.min(1, Math.max(0, value));
-}
-
-function hexToRgb(hex) {
-    const clean = String(hex || "").replace("#", "");
-    if (clean.length !== 6) return { r: 37, g: 99, b: 235 };
-    const value = Number.parseInt(clean, 16);
-    if (!Number.isFinite(value)) return { r: 37, g: 99, b: 235 };
-    return {
-        r: (value >> 16) & 255,
-        g: (value >> 8) & 255,
-        b: value & 255,
-    };
-}
-
-function rgbToHex({ r, g, b }) {
-    const toHex = (value) => Math.round(Math.min(255, Math.max(0, value))).toString(16).padStart(2, "0");
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
-}
-
-function interpolateTrailColor(progress) {
-    const stops = LOCATION_TRAIL_GRADIENT_STOPS;
-    if (stops.length <= 1) return stops[0] || "#2563EB";
-    const scaled = clampTrailProgress(progress) * (stops.length - 1);
-    const index = Math.floor(scaled);
-    const nextIndex = Math.min(stops.length - 1, index + 1);
-    const ratio = scaled - index;
-    const start = hexToRgb(stops[index]);
-    const end = hexToRgb(stops[nextIndex]);
-    return rgbToHex({
-        r: start.r + (end.r - start.r) * ratio,
-        g: start.g + (end.g - start.g) * ratio,
-        b: start.b + (end.b - start.b) * ratio,
-    });
-}
-
-function getTrailTimeBounds(points) {
-    const times = points
-        .map(point => point?.recordedMs)
-        .filter(ms => Number.isFinite(ms));
-    if (!times.length) return { firstMs: null, lastMs: null };
-    return {
-        firstMs: Math.min(...times),
-        lastMs: Math.max(...times),
-    };
-}
-
-function getTrailProgress(point, index, totalCount, firstMs, lastMs) {
-    if (Number.isFinite(point?.recordedMs) && Number.isFinite(firstMs) && Number.isFinite(lastMs) && lastMs > firstMs) {
-        return clampTrailProgress((point.recordedMs - firstMs) / (lastMs - firstMs));
-    }
-    if (totalCount <= 1) return 0;
-    return clampTrailProgress(index / (totalCount - 1));
-}
-
-function getTrailHourKey(point) {
-    if (!Number.isFinite(point?.recordedMs)) return "unknown";
-    const d = new Date(point.recordedMs);
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
-}
-
-function getTrailHourLabel(point) {
-    if (!Number.isFinite(point?.recordedMs)) return "시간 미상";
-    return `${String(new Date(point.recordedMs).getHours()).padStart(2, "0")}시`;
-}
-
-function buildTrailHourSegments(points) {
-    const segments = [];
-    let current = null;
-    let previous = null;
-    const { firstMs, lastMs } = getTrailTimeBounds(points);
-
-    points.forEach((point, index) => {
-        const key = getTrailHourKey(point);
-        if (!current || current.key !== key) {
-            if (current) segments.push(current);
-            current = {
-                key,
-                label: getTrailHourLabel(point),
-                color: interpolateTrailColor(getTrailProgress(point, index, points.length, firstMs, lastMs)),
-                points: previous ? [previous, point] : [point],
-            };
-        } else {
-            current.points.push(point);
-        }
-        previous = point;
-    });
-
-    if (current) segments.push(current);
-    return segments;
-}
-
-function buildTrailGradientSegments(points) {
-    if (!Array.isArray(points) || points.length < 2) return [];
-    const { firstMs, lastMs } = getTrailTimeBounds(points);
-    const segments = [];
-    for (let index = 1; index < points.length; index += 1) {
-        const prev = points[index - 1];
-        const point = points[index];
-        segments.push({
-            key: `trail-gradient-${index}-${point?.recordedMs || index}`,
-            color: interpolateTrailColor(getTrailProgress(point, index, points.length, firstMs, lastMs)),
-            points: [prev, point],
-        });
-    }
-    return segments;
-}
-
-function averageTrailPoint(points) {
-    if (!points.length) return null;
-    const totals = points.reduce((acc, point) => ({
-        lat: acc.lat + point.lat,
-        lng: acc.lng + point.lng,
-    }), { lat: 0, lng: 0 });
-    return { lat: totals.lat / points.length, lng: totals.lng / points.length };
-}
-
-function buildTrailDwellPlaces(points) {
-    const timedPoints = points.filter(point => Number.isFinite(point?.recordedMs));
-    const places = [];
-    let cluster = [];
-
-    const flush = () => {
-        if (cluster.length < 2) {
-            cluster = [];
-            return;
-        }
-        const startMs = cluster[0].recordedMs;
-        const endMs = cluster[cluster.length - 1].recordedMs;
-        const durationMs = endMs - startMs;
-        if (durationMs >= LOCATION_TRAIL_DWELL_MIN_MS) {
-            const center = averageTrailPoint(cluster);
-            if (center) {
-                places.push({
-                    id: `dwell-${places.length}-${startMs}`,
-                    ...center,
-                    startMs,
-                    endMs,
-                    durationMs,
-                    pointCount: cluster.length,
-                    label: `${formatTrailClock(startMs)}-${formatTrailClock(endMs)}`,
-                    timeLabel: `${formatTrailClock(startMs)}-${formatTrailClock(endMs)}`,
-                });
-            }
-        }
-        cluster = [];
-    };
-
-    timedPoints.forEach((point) => {
-        if (!cluster.length) {
-            cluster = [point];
-            return;
-        }
-        const center = averageTrailPoint(cluster);
-        const distanceFromCluster = center ? haversineM(center.lat, center.lng, point.lat, point.lng) : Infinity;
-        if (distanceFromCluster <= LOCATION_TRAIL_DWELL_RADIUS_M) {
-            cluster.push(point);
-            return;
-        }
-        flush();
-        cluster = [point];
-    });
-    flush();
-
-    return places;
-}
+// Trail math helpers moved to ./lib/trailMath.js — imported at top.
 
 function createHttpError(message, status) {
     const error = new Error(message);
