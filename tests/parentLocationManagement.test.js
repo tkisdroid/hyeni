@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 
 const appSrc = readFileSync("src/App.jsx", "utf8");
 const academyManagerSrc = readFileSync("src/components/place-management/AcademyManager.jsx", "utf8");
-const app = `${appSrc}\n${academyManagerSrc}`;
+// Phase 5 #4 / B9: PairingModal moved to components/pairing/PairingModal.jsx — unpair confirm dialog there.
+const pairingModalSrc = readFileSync("src/components/pairing/PairingModal.jsx", "utf8");
+const app = `${appSrc}\n${academyManagerSrc}\n${pairingModalSrc}`;
 const academyCardSrc = readFileSync("src/components/place-management/AcademyCard.jsx", "utf8");
 const dangerCardSrc = readFileSync("src/components/place-management/DangerCard.jsx", "utf8");
 const savedPlacesSrc = readFileSync("src/components/place-management/SavedPlacesSection.jsx", "utf8");
