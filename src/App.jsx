@@ -153,6 +153,8 @@ import { PhoneSettingsModal } from "./components/dialogs/PhoneSettingsModal.jsx"
 import { FeedbackModal } from "./components/dialogs/FeedbackModal.jsx";
 import { getChildSafetySetupSteps, getNativeSetupAction } from "./lib/nativeSetup.js";
 import { effectiveChildLocation, effectiveChildPositions } from "./lib/effectiveLocation.js";
+import { blobToBase64 } from "./lib/blobBase64.js";
+import { PROFILE_THEME_RPC_MISSING_MESSAGE, isMissingNativePluginError, isMissingProfileThemeRpcError } from "./lib/errorChecks.js";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
@@ -190,15 +192,9 @@ const FEEDBACK_RECIPIENT = "tkisdroid@gmail.com";
 const TRIAL_INVITE_SHOWN_KEY = "hyeni-trial-invite-shown";
 // CHILD_TRACKER_* constants moved to ./components/childTracker/ChildTrackerOverlay.jsx (B7).
 // APP_BRAND_LOGO_SRC moved to ./components/auth/AppBrandLogo.jsx
-const PROFILE_THEME_RPC_MISSING_MESSAGE = "테마 색상 저장 서버 함수가 아직 반영되지 않았어요. 서버 migration 적용 후 다시 저장해 주세요.";
+// PROFILE_THEME_RPC_MISSING_MESSAGE / isMissingProfileThemeRpcError moved to ./lib/errorChecks.js — imported at top.
 const AI_SCHEDULE_BUTTON_LABEL = `${String.fromCodePoint(0x1F916)} AI` + "로 일정입력";
 
-function isMissingProfileThemeRpcError(error) {
-    const message = String(error?.message || error?.details || error?.hint || "");
-    return error?.code === "PGRST202"
-        || message.includes("set_family_member_profile_by_id")
-        || message.includes("Could not find the function");
-}
 
 
 // Phase 5 · RL-01 / RL-04: close the current remote_listen_sessions row (if any)
@@ -298,21 +294,7 @@ async function sendFeedbackSuggestion({ content, familyId, user, role }) {
 
 // effectiveChildLocation / effectiveChildPositions moved to ./lib/effectiveLocation.js — imported at top.
 
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const result = typeof reader.result === "string" ? reader.result.split(",")[1] : "";
-            if (!result) {
-                reject(new Error("Failed to encode audio chunk"));
-                return;
-            }
-            resolve(result);
-        };
-        reader.onerror = () => reject(reader.error || new Error("FileReader error"));
-        reader.readAsDataURL(blob);
-    });
-}
+// blobToBase64 moved to ./lib/blobBase64.js — imported at top.
 
 // Moved to ./lib/deviceFormat.js so HomeDashboard's per-child cards can
 // share the exact same label format. Imported at top of file.
@@ -337,12 +319,7 @@ async function waitForRealtimeChannelReady(channel, timeoutMs = 20000) {
     });
 }
 
-function isMissingNativePluginError(error) {
-    const message = String(error?.message || error || "").toLowerCase();
-    return message.includes("not implemented")
-        || message.includes("not available")
-        || message.includes("plugin") && message.includes("ambientlisten");
-}
+// isMissingNativePluginError moved to ./lib/errorChecks.js — imported at top.
 
 async function startNativeRemoteAudioCapture(durationSec, options = {}) {
     try {
@@ -622,16 +599,7 @@ const fmtT = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinu
 // ─────────────────────────────────────────────────────────────────────────────
 // Kakao Static Map (thumbnail)
 // ─────────────────────────────────────────────────────────────────────────────
-function KakaoStaticMap({ lat, lng, width = "100%", height = 120 }) {
-    const ref = useRef();
-    useEffect(() => {
-        if (!window.kakao?.maps || !ref.current) return;
-        new window.kakao.maps.StaticMap(ref.current, {
-            center: new window.kakao.maps.LatLng(lat, lng),
-            level: 3,
-            marker: { position: new window.kakao.maps.LatLng(lat, lng) }
-        });
-    }, [lat, lng]);
+// KakaoStaticMap removed — dead code (no callsites).
     return <div ref={ref} style={{ width, height, borderRadius: 14, overflow: "hidden" }} />;
 }
 

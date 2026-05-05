@@ -2,9 +2,11 @@ import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 
 // Phase 5 #4 / B9: PairingModal (with profile edit surface) moved to components/pairing/PairingModal.jsx.
+// Phase 5 #4 / B24: PROFILE_THEME_RPC_MISSING_MESSAGE + isMissingProfileThemeRpcError moved to lib/errorChecks.js.
 const appJsxOnly = readFileSync("src/App.jsx", "utf8");
 const pairingModalSource = readFileSync("src/components/pairing/PairingModal.jsx", "utf8");
-const appSource = `${appJsxOnly}\n${pairingModalSource}`;
+const errorChecksSource = readFileSync("src/lib/errorChecks.js", "utf8");
+const appSource = `${appJsxOnly}\n${pairingModalSource}\n${errorChecksSource}`;
 const migrationSource = readFileSync("supabase/migrations/20260504000000_set_family_member_profile_by_id.sql", "utf8");
 const downMigrationSource = readFileSync("supabase/migrations/down/20260504000000_set_family_member_profile_by_id.sql", "utf8");
 const pairingWizardSource = readFileSync("src/components/multichild/PairingWizard/PairingWizard.jsx", "utf8");
