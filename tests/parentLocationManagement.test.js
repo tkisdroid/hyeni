@@ -106,11 +106,14 @@ describe("parent location management entry", () => {
   });
 
   test("schedule creation can choose academies and frequent places as location sources", () => {
-    expect(app).toContain("function buildSchedulePlaceOptions");
+    // buildSchedulePlaceOptions moved to lib/placeFormat.js (Phase 5 #4 / A2)
+    const placeFormatSrc = readFileSync("src/lib/placeFormat.js", "utf8");
+    expect(placeFormatSrc).toContain("export function buildSchedulePlaceOptions");
+    expect(placeFormatSrc).toContain('source: "academy"');
+    expect(placeFormatSrc).toContain('source: "saved_place"');
+    expect(app).toContain("buildSchedulePlaceOptions");
     expect(app).toContain("const schedulePlaceOptions = useMemo");
     expect(app).toContain("schedulePlaceOptions.map");
-    expect(app).toContain('source: "academy"');
-    expect(app).toContain('source: "saved_place"');
   });
 
   test("academy schedule reconciliation treats location changes as event changes", () => {
