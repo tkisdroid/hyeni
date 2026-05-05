@@ -149,6 +149,8 @@ import { ChildPairInput } from "./components/childMode/ChildPairInput.jsx";
 import { ParentMemoPage } from "./components/memo/ParentMemoPage.jsx";
 import { ChildCallCard } from "./components/contact/ChildCallCard.jsx";
 import { ChildDeviceCard } from "./components/contact/ChildDeviceCard.jsx";
+import { PhoneSettingsModal } from "./components/dialogs/PhoneSettingsModal.jsx";
+import { FeedbackModal } from "./components/dialogs/FeedbackModal.jsx";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
@@ -836,84 +838,11 @@ function KakaoStaticMap({ lat, lng, width = "100%", height = 120 }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // DangerZoneManager moved to ./components/dangerZone/DangerZoneManager.jsx — imported at top.
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// Phone Settings Modal (parent)
-// ─────────────────────────────────────────────────────────────────────────────
-function PhoneSettingsModal({ phones, onSave, onClose }) {
-    const [mom, setMom] = useState(phones.mom || "");
-    const [dad, setDad] = useState(phones.dad || "");
-    const inputSt = makeInputStyle({ padding: "14px 16px", fontSize: 16, letterSpacing: 1 });
-    return (
-        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
-            <div style={makeCardStyle({ padding: "28px 24px", width: "100%", maxWidth: 360 })} onClick={e => e.stopPropagation()}>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)", textAlign: "center", marginBottom: 20 }}>📞 비상 연락처 설정</div>
-                <div style={{ fontSize: 13, color: "var(--fg-secondary)", textAlign: "center", marginBottom: 20 }}>아이 화면에서 바로 전화할 수 있어요</div>
-
-                <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--theme-accent-text)", marginBottom: 6 }}>👩 엄마 전화번호</div>
-                    <input value={mom} onChange={e => setMom(e.target.value)} placeholder="010-0000-0000" type="tel" style={inputSt}
-                        onFocus={e => { e.target.style.borderColor = "var(--theme-accent)"; }} onBlur={e => { e.target.style.borderColor = "var(--bg-muted)"; }} />
-                </div>
-
-                <div style={{ marginBottom: 24 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#3B82F6", marginBottom: 6 }}>👨 아빠 전화번호</div>
-                    <input value={dad} onChange={e => setDad(e.target.value)} placeholder="010-0000-0000" type="tel" style={inputSt}
-                        onFocus={e => { e.target.style.borderColor = "#3B82F6"; }} onBlur={e => { e.target.style.borderColor = "var(--bg-muted)"; }} />
-                </div>
-
-                <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "var(--bg-muted)", color: "var(--fg-secondary)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>취소</button>
-                    <button onClick={() => onSave({ mom: mom.trim(), dad: dad.trim() })} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: "var(--hyeni-theme-gradient)", color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF, boxShadow: "var(--hyeni-theme-shadow-soft)" }}>저장</button>
-                </div>
-            </div>
-        </div>
-    );
-}
+// PhoneSettingsModal moved to ./components/dialogs/PhoneSettingsModal.jsx — imported at top.
 
 // SavedPlaceManager moved to ./components/place-management/SavedPlaceManager.jsx — imported at top.
 
-function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
-    if (!open) return null;
-
-    return (
-        <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, zIndex: 655, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 16, fontFamily: FF }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-            <div style={makeSheetStyle({ padding: "28px 22px 34px", width: "100%", maxWidth: 420 })}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-                    <div>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)" }}>💌 피드백 보내기</div>
-                        <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 6, lineHeight: 1.6 }}>필요한 기능이 있으면 제안해 주세요</div>
-                    </div>
-                    <button onClick={onClose} style={{ padding: "8px 12px", borderRadius: 12, border: "none", background: "var(--bg-muted)", color: "var(--fg-secondary)", fontWeight: 700, cursor: "pointer", fontFamily: FF }}>닫기</button>
-                </div>
-
-                <textarea
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
-                    placeholder="예) 형제자매별 위치 알림 시간을 따로 설정하고 싶어요"
-                    style={{ width: "100%", minHeight: 170, resize: "vertical", padding: "16px 18px", borderRadius: 20, border: "2px solid var(--theme-accent-line)", outline: "none", fontSize: 15, lineHeight: 1.6, fontFamily: FF, color: "var(--fg-primary)", background: "var(--hyeni-surface-warm)", boxSizing: "border-box" }}
-                />
-                <div style={{ marginTop: 12, fontSize: 11, color: "var(--fg-tertiary)", lineHeight: 1.6 }}>
-                    제안은 {FEEDBACK_RECIPIENT}으로 전달됩니다.
-                </div>
-
-                <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-                    <button
-                        type="button"
-                        onClick={onSend}
-                        disabled={busy || !value.trim()}
-                        style={{ flex: 1, padding: "15px", borderRadius: 16, border: "none", background: busy || !value.trim() ? "var(--theme-accent-soft)" : "var(--hyeni-theme-gradient)", color: busy || !value.trim() ? "var(--theme-accent-text)" : "white", fontWeight: 800, fontSize: 14, cursor: busy || !value.trim() ? "not-allowed" : "pointer", fontFamily: FF, boxShadow: busy || !value.trim() ? "none" : "var(--hyeni-theme-shadow-soft)" }}
-                    >
-                        {busy ? "보내는 중..." : "제안 보내기"}
-                    </button>
-                    <button type="button" onClick={onClose} style={{ padding: "15px 16px", borderRadius: 16, border: "1px solid #E5E7EB", background: "var(--bg-subtle)", color: "var(--fg-secondary)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FF }}>
-                        취소
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
+// FeedbackModal moved to ./components/dialogs/FeedbackModal.jsx — imported at top.
 
 // ChildCallCard moved to ./components/contact/ChildCallCard.jsx — imported at top.
 
@@ -7710,6 +7639,7 @@ export default function KidsScheduler() {
                 busy={feedbackBusy}
                 onSend={handleSendFeedback}
                 onClose={() => setShowFeedbackModal(false)}
+                recipient={FEEDBACK_RECIPIENT}
             />
 
             {/* ── Sticker Book Modal ── */}
