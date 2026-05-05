@@ -15,7 +15,9 @@ const mapZoomControlsSource = readFileSync("src/components/map/MapZoomControls.j
 const mapPickerSource = readFileSync("src/components/map/MapPicker.jsx", "utf8");
 const academyManagerSource = readFileSync("src/components/place-management/AcademyManager.jsx", "utf8");
 const scheduleCategoriesSource = readFileSync("src/lib/scheduleCategories.js", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}`;
+const locationMapViewSource = readFileSync("src/components/map/LocationMapView.jsx", "utf8");
+const htmlEscapeSource = readFileSync("src/lib/htmlEscape.js", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -401,9 +403,8 @@ describe("Soft Brand visual system", () => {
   });
 
   test("location map saved-place accents follow the selected theme variables", () => {
-    const locationMapStart = appSource.indexOf("function LocationMapView");
-    const locationMapEnd = appSource.indexOf("function AiScheduleModal", locationMapStart);
-    const locationMapSource = appSource.slice(locationMapStart, locationMapEnd);
+    // LocationMapView moved to src/components/map/LocationMapView.jsx (Phase 5 #4 / B6).
+    const locationMapSource = locationMapViewSource;
 
     expect(locationMapSource).toContain("var(--theme-accent)");
     expect(locationMapSource).toContain("var(--theme-accent-soft)");
