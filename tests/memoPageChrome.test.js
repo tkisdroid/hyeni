@@ -5,7 +5,8 @@ const app = readFileSync("src/App.jsx", "utf8");
 
 function getParentMemoPageSource() {
   const start = app.indexOf("function ParentMemoPage(");
-  const end = app.indexOf("function DayTimetable(", start);
+  // Phase 5 #4 / B13: DayTimetable extracted — boundary now uses moved-comment marker.
+  const end = app.indexOf("// DayTimetable moved to", start);
   return start >= 0 && end > start ? app.slice(start, end) : "";
 }
 
