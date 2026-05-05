@@ -17,7 +17,8 @@ const academyManagerSource = readFileSync("src/components/place-management/Acade
 const scheduleCategoriesSource = readFileSync("src/lib/scheduleCategories.js", "utf8");
 const locationMapViewSource = readFileSync("src/components/map/LocationMapView.jsx", "utf8");
 const htmlEscapeSource = readFileSync("src/lib/htmlEscape.js", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}`;
+const childTrackerOverlaySource = readFileSync("src/components/childTracker/ChildTrackerOverlay.jsx", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -461,7 +462,8 @@ describe("Soft Brand visual system", () => {
     const feedbackEnd = appSource.indexOf("function ChildCallCard", feedbackStart);
     const feedbackSource = appSource.slice(feedbackStart, feedbackEnd);
     const childCallStart = appSource.indexOf("function ChildCallCard");
-    const childCallEnd = appSource.indexOf("function ChildTrackerOverlay", childCallStart);
+    // ChildTrackerOverlay extracted in B7 — boundary now uses the moved-comment marker.
+    const childCallEnd = appSource.indexOf("// ChildTrackerOverlay moved to", childCallStart);
     const childCallSource = appSource.slice(childCallStart, childCallEnd);
 
     for (const source of [routeSource, timetableSource, phoneSource, feedbackSource, childCallSource]) {
