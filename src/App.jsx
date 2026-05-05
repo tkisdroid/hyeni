@@ -8,11 +8,12 @@ import { PairingWizard } from "./components/multichild/PairingWizard/PairingWiza
 import { ColorPicker } from "./components/multichild/PairingWizard/ColorPicker.jsx";
 import { HomeTab } from "./components/multichild/HomeDashboard/HomeTab.jsx";
 import { TodayMultiChildView } from "./components/multichild/HomeDashboard/TodayMultiChildView.jsx";
+import { ChildAvatar } from "./components/multichild/HomeDashboard/ChildAvatar.jsx";
 import { ChildPermissionWizard } from "./components/onboarding/ChildPermissionWizard.jsx";
 import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { saveEventWithChildren } from "./lib/sync.js";
-import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, sendMemo, markMemoReplyRead } from "./lib/sync.js";
+import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, requestNativePermission, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { applyThemeColor, initThemeFromCache } from "./lib/theme.js";
@@ -22,7 +23,8 @@ import { identify as identifySubscriptionUser, purchase as purchaseSubscription 
 import { sendBroadcastWhenReady } from "./lib/realtime.js";
 import { getChildMemoQuickReplies, getMemoPreview, getParentMemoQuickReplies } from "./lib/memoDisplay.js";
 import { buildHomeRouteEvent, findHomeSavedPlace } from "./lib/navigationTargets.js";
-import { LOCATION_TRAIL_GRADIENT_STOPS, getStayDisplayParts } from "./lib/locationTrailDisplay.js";
+import { LOCATION_TRAIL_GRADIENT_STOPS, buildLocationDaySummary, getStayDisplayParts } from "./lib/locationTrailDisplay.js";
+import { buildSelectedChildCommandPayload, filterEventMapForChild, resolveSelectedChildPosition } from "./lib/selectedChildIsolation.js";
 import { formatDeviceDuration } from "./lib/deviceFormat.js";
 import { PRICING } from "./lib/paywallCopy.js";
 import { TrialInvitePrompt } from "./components/paywall/TrialInvitePrompt.jsx";
@@ -35,6 +37,9 @@ import FriendPlaydateChildPanel from "./components/friendPlaydate/FriendPlaydate
 import ActivePlaydateBanner from "./components/friendPlaydate/ActivePlaydateBanner.jsx";
 import { upsertPublicPlace } from "./lib/friendPlaydate.js";
 import { ForceRingPanel } from "./components/forceRing/ForceRingPanel.jsx";
+import AcademyCard from "./components/place-management/AcademyCard.jsx";
+import DangerCard from "./components/place-management/DangerCard.jsx";
+import SavedPlacesSection from "./components/place-management/SavedPlacesSection.jsx";
 import { getDeviceLabelFromUA } from "./lib/deviceInfo.js";
 import "./App.css";
 
@@ -55,6 +60,7 @@ const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse
 const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
 const FEEDBACK_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/feedback-email` : "";
 const FEEDBACK_RECIPIENT = "tkisdroid@gmail.com";
+const REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
 
 function normalizePairCodeInput(rawValue) {
     const raw = String(rawValue || "").trim();
@@ -85,7 +91,7 @@ function getNativeSetupAction(health) {
         return { target: "notifications", label: "알림 권한 열기" };
     }
     if (health.remoteListenChannelEnabled === false) {
-        return { target: "remoteListenChannel", label: "연결 알림 켜기", channelId: "hyeni_remote_listen" };
+        return { target: "remoteListenChannel", label: "연결 알림 켜기", channelId: REMOTE_LISTEN_CHANNEL_ID };
     }
     if (!health.fullScreenIntentAllowed) {
         return { target: "fullScreen", label: "전체화면 알림 허용" };
@@ -121,7 +127,7 @@ const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
         title: "연결 알림",
         description: "자동 실행이 막혀도 아이 기기에 연결 알림이 남아요.",
         target: "remoteListenChannel",
-        channelId: "hyeni_remote_listen",
+        channelId: REMOTE_LISTEN_CHANNEL_ID,
         actionLabel: "채널 열기",
         isReady: (health) => health?.remoteListenChannelEnabled !== false,
     },
@@ -246,6 +252,7 @@ const CHILD_TRACKER_WALK_RADIUS_M = 30;
 const CHILD_TRACKER_DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
 const APP_BRAND_LOGO_SRC = "/icon-192.png";
 const PROFILE_THEME_RPC_MISSING_MESSAGE = "테마 색상 저장 서버 함수가 아직 반영되지 않았어요. 서버 migration 적용 후 다시 저장해 주세요.";
+const AI_SCHEDULE_BUTTON_LABEL = `${String.fromCodePoint(0x1F916)} AI` + "로 일정입력";
 
 function isMissingProfileThemeRpcError(error) {
     const message = String(error?.message || error?.details || error?.hint || "");
@@ -2166,7 +2173,7 @@ function RoleSetupModal({ onSelect, loading }) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
                     <button onClick={handleParent}
-                        style={{ padding: "16px", background: "var(--hyeni-product-surface-solid)", color: "var(--theme-accent-text)", border: "1px solid var(--hyeni-product-border)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "none", display: "flex", alignItems: "center", gap: 14 }}>
+                        style={{ padding: "16px", background: "var(--hyeni-product-surface-solid)", color: "var(--theme-accent-text)", border: "1px solid var(--hyeni-product-border)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", gap: 14 }}>
                         <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, background: "var(--theme-accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>👨‍👩‍👧</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>학부모</span>
@@ -2175,7 +2182,7 @@ function RoleSetupModal({ onSelect, loading }) {
                         <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>›</span>
                     </button>
                     <button onClick={handleChild}
-                        style={{ padding: "16px", background: "var(--hyeni-product-surface-solid)", color: "var(--theme-accent-text)", border: "1px solid var(--hyeni-product-border)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "none", display: "flex", alignItems: "center", gap: 14 }}>
+                        style={{ padding: "16px", background: "var(--hyeni-product-surface-solid)", color: "var(--theme-accent-text)", border: "1px solid var(--hyeni-product-border)", borderRadius: 14, cursor: "pointer", fontFamily: FF, textAlign: "left", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", gap: 14 }}>
                         <span aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 12, background: "var(--theme-accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🐰</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 18, fontWeight: 900 }}>아이</span>
@@ -2677,20 +2684,44 @@ function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage =
 // list use the same priority for "the missing one".
 // ─────────────────────────────────────────────────────────────────────────────
 const REMOTE_LISTEN_HEALTH_STEPS = Object.freeze([
-    { key: "recordAudio", label: "마이크 권한" },
-    { key: "postNotif", label: "알림 권한" },
-    { key: "channelOk", label: "연결 알림 채널" },
-    { key: "fullScreen", label: "전체화면 알림" },
-    { key: "battery", label: "배터리 예외" },
-    { key: "locationOk", label: "위치 항상 허용" },
+    { key: "recordAudio", severity: "blocker", label: "마이크 권한 필요", detail: "아이 기기에서 마이크 권한을 허용해야 캡처를 시작할 수 있어요.", missing: (health) => health?.recordAudio !== true },
+    { key: "postNotif", severity: "blocker", label: "알림 권한 꺼짐", detail: "앱이 닫혀 있거나 잠금 화면일 때 연결 요청을 받을 수 없어요.", missing: (health) => health?.postNotif !== true },
+    { key: "channelOk", severity: "blocker", label: "연결 알림 채널 꺼짐", detail: "자동 실행이 막히면 연결 알림 fallback도 보이지 않을 수 있어요.", missing: (health) => health?.channelOk !== true || health?.remoteListenChannelBlocked === true },
+    { key: "networkConnected", severity: "blocker", label: "네트워크 끊김", detail: "아이 기기가 오프라인이면 요청 수신과 오디오 전송이 실패해요.", missing: (health) => health?.networkConnected === false || health?.networkValidated === false },
+    { key: "fullScreen", severity: "advisory", label: "전체화면 알림 제한", detail: "잠금 화면에서는 알림 fallback으로 연결을 이어가요.", missing: (health) => health?.fullScreen !== true },
+    { key: "battery", severity: "advisory", label: "배터리 최적화 제한", detail: "절전 정책이 FCM 수신이나 foreground service 시작을 늦출 수 있지만 연결은 계속 시도해요.", missing: (health) => health?.battery !== true },
+    { key: "powerSaveMode", severity: "advisory", label: "절전 모드 켜짐", detail: "절전 모드는 백그라운드 네트워크와 foreground service 시작을 지연시킬 수 있어요.", missing: (health) => health?.powerSaveMode === true },
+    { key: "backgroundRestricted", severity: "advisory", label: "백그라운드 제한", detail: "Android 백그라운드 제한이 켜져 있어도 foreground 연결 화면과 알림 fallback을 시도해요.", missing: (health) => health?.backgroundRestricted === true },
+    { key: "locationOk", severity: "advisory", label: "위치 항상 허용 필요", detail: "위치와 상태 보고가 제한될 수 있지만 원격청취 연결 자체는 계속 시도해요.", missing: (health) => health?.locationOk !== true },
+    { key: "dndMode", severity: "advisory", label: "방해 금지 모드 영향", detail: "마이크 캡처 자체를 막지는 않지만 알림/화면 깨우기가 제한될 수 있어요.", missing: (health) => !!health?.dndMode && !["all", "unknown"].includes(health.dndMode) },
+    { key: "ringerMode", severity: "advisory", label: "무음 모드", detail: "마이크 캡처 자체를 막지는 않지만 알림음 안내가 들리지 않을 수 있어요.", missing: (health) => ["silent", "vibrate"].includes(health?.ringerMode) },
+    { key: "screenInteractive", severity: "advisory", label: "화면 꺼짐/잠금", detail: "foreground service와 연결 화면으로 유지하되, OS가 표시를 지연할 수 있어요.", missing: (health) => health?.screenInteractive === false || health?.keyguardLocked === true },
+    { key: "foldState", severity: "advisory", label: "폴더블 접힘 상태 확인", detail: "접힌 화면에서는 전체화면 알림과 사용자의 즉시 확인이 늦어질 수 있어요.", missing: (health) => health?.foldState === "possibly_folded" },
 ]);
 
 function summarizeRemoteListenHealth(health) {
     if (!health || typeof health !== "object") {
-        return { ready: false, missing: REMOTE_LISTEN_HEALTH_STEPS, hasReport: false };
+        return { ready: false, missing: [], blockers: [], advisory: [], hasReport: false };
     }
-    const missing = REMOTE_LISTEN_HEALTH_STEPS.filter((s) => health[s.key] !== true);
-    return { ready: missing.length === 0, missing, hasReport: true };
+    const missing = REMOTE_LISTEN_HEALTH_STEPS.filter((s) => s.missing(health));
+    const blockers = missing.filter((s) => s.severity === "blocker");
+    const advisory = missing.filter((s) => s.severity !== "blocker");
+    return { ready: blockers.length === 0, missing, blockers, advisory, hasReport: true };
+}
+
+function resolveChildRemoteListenHealth(child, childDeviceStatusMap = {}) {
+    const storedHealth = child?.device_health && typeof child.device_health === "object"
+        ? child.device_health
+        : null;
+    const liveStatus = child?.user_id ? childDeviceStatusMap?.[child.user_id] : null;
+    const liveHealth = liveStatus?.device_health && typeof liveStatus.device_health === "object"
+        ? liveStatus.device_health
+        : (liveStatus && typeof liveStatus === "object" ? liveStatus : null);
+    if (!storedHealth && !liveHealth) return null;
+    return {
+        ...(storedHealth || {}),
+        ...(liveHealth || {}),
+    };
 }
 
 function ChildRemoteListenReadiness({ health }) {
@@ -2702,17 +2733,25 @@ function ChildRemoteListenReadiness({ health }) {
             </div>
         );
     }
-    if (summary.ready) {
+    if (summary.ready && summary.advisory.length === 0) {
         return (
             <div style={{ marginTop: 4, fontSize: 10, color: "var(--status-positive-strong)", fontWeight: 700, fontFamily: FF }}>
-                ✅ 원격 청취 준비 완료
+                ✅ 원격 청취 연결 가능
             </div>
         );
     }
-    const missingLabels = summary.missing.map((s) => s.label).join(" · ");
+    if (summary.ready) {
+        const advisoryLabels = summary.advisory.slice(0, 3).map((s) => s.label).join(" · ");
+        return (
+            <div style={{ marginTop: 4, fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, fontFamily: FF }}>
+                ℹ️ 원격 청취 연결 가능 — 확인: {advisoryLabels}
+            </div>
+        );
+    }
+    const missingLabels = summary.blockers.map((s) => s.label).join(" · ");
     return (
         <div style={{ marginTop: 4, fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, fontFamily: FF }}>
-            ⚠️ 원격 청취 준비 부족 — {missingLabels}
+            ⚠️ 원격 청취 설정 필요 — {missingLabels}
         </div>
     );
 }
@@ -2728,12 +2767,15 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
     const [editName, setEditName] = useState("");
     const [editColor, setEditColor] = useState("");
     const [photoUploadingId, setPhotoUploadingId] = useState(null);
+    const [profileSavingId, setProfileSavingId] = useState(null);
+    const [profileSaveError, setProfileSaveError] = useState("");
     const usedChildColors = children.map((child) => child.color_hex).filter(Boolean);
 
     const stopProfileEditing = () => {
         setEditingId(null);
         setEditName("");
         setEditColor("");
+        setProfileSaveError("");
         applyThemeColor(activeThemeColor || null);
     };
 
@@ -2748,21 +2790,33 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
         setEditingId(child.id);
         setEditName(child.name || "");
         setEditColor(child.color_hex || "#F779A8");
+        setProfileSaveError("");
     };
 
     const saveProfileEditing = async (child) => {
-        if (!canManageFamily || !child?.id) return;
+        if (!canManageFamily || !child?.id || profileSavingId) return;
         const nextName = editName.trim();
         const nextColor = editColor || child.color_hex || "#F779A8";
         if (!nextName) return;
 
-        const saved = onProfileChange
-            ? await onProfileChange(child.id, { name: nextName, colorHex: nextColor })
-            : await onRename?.(child.id, nextName);
-        if (saved !== false) {
-            setEditingId(null);
-            setEditName("");
-            setEditColor("");
+        setProfileSavingId(child.id);
+        setProfileSaveError("");
+        try {
+            const saved = onProfileChange
+                ? await onProfileChange(child.id, { name: nextName, colorHex: nextColor })
+                : await onRename?.(child.id, nextName);
+            if (saved !== false) {
+                setEditingId(null);
+                setEditName("");
+                setEditColor("");
+                return;
+            }
+            setProfileSaveError("프로필 저장에 실패했어요. 변경 내용을 확인하고 다시 시도해 주세요.");
+        } catch (err) {
+            console.error("[PairingModal profile save]", err);
+            setProfileSaveError("프로필 저장에 실패했어요. 네트워크 연결 후 다시 시도해 주세요.");
+        } finally {
+            setProfileSavingId(null);
         }
     };
 
@@ -2779,8 +2833,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
             const bucket = supabase.storage.from("child-photos");
             const { error: upErr } = await bucket.upload(path, file, { upsert: true });
             if (upErr) throw upErr;
-            const { data } = bucket.getPublicUrl(path);
-            await onPhotoChange?.(child.id, data.publicUrl);
+            await onPhotoChange?.(child.id, path);
         } catch (err) {
             console.error("[PairingModal photo upload]", err);
             if (typeof window !== "undefined") {
@@ -2830,30 +2883,12 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                             const childTone = editingId === child.id
                                 ? (editColor || child.color_hex || "#F779A8")
                                 : (child.color_hex || "#F779A8");
+                            const isSavingProfile = profileSavingId === child.id;
+                            const childProfileError = editingId === child.id ? profileSaveError : "";
                             return (
                             <div key={child.id || child.user_id || i} style={{ background: "color-mix(in srgb, var(--theme-accent-soft) 64%, white)", borderRadius: 16, padding: "14px 16px", marginBottom: 8, border: "1.5px solid var(--theme-accent-line)" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                    {child.photo_url ? (
-                                        <div
-                                            aria-hidden="true"
-                                            style={{
-                                                width: 44, height: 44, borderRadius: "50%",
-                                                backgroundImage: `url(${child.photo_url})`,
-                                                backgroundSize: "cover", backgroundPosition: "center",
-                                                border: `2px solid ${childTone}`, flexShrink: 0,
-                                            }}
-                                        />
-                                    ) : (
-                                        <div style={{
-                                            width: 44, height: 44, borderRadius: "50%",
-                                            background: childTone, border: `2px solid ${childTone}`,
-                                            display: "flex", alignItems: "center", justifyContent: "center",
-                                            fontSize: child.emoji ? 24 : 18, fontWeight: 800,
-                                            color: "white", flexShrink: 0,
-                                        }}>
-                                            {child.emoji || (child.name ? child.name.trim()[0] : "👶")}
-                                        </div>
-                                    )}
+                                    <ChildAvatar child={child} size={44} color={childTone} radius="50%" fontSize={child.emoji ? 24 : 18} />
                                     <div style={{ flex: 1 }}>
                                         {/* Track editing by family_member.id (always present) — using user_id
                                             previously caused unpaired placeholders (user_id=null) to match a
@@ -2864,10 +2899,22 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                     <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus
                                                         style={{ width: 110, minWidth: 0, padding: "6px 8px", border: "2px solid var(--theme-accent)", borderRadius: 10, fontSize: 14, fontWeight: 800, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
                                                         maxLength={10} />
-                                                    <button onClick={() => saveProfileEditing(child)}
-                                                        style={{ padding: "6px 10px", borderRadius: 10, background: "var(--hyeni-theme-gradient)", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>저장</button>
-                                                    <button onClick={stopProfileEditing}
-                                                        style={{ padding: "6px 8px", borderRadius: 10, background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}>취소</button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => saveProfileEditing(child)}
+                                                        disabled={isSavingProfile || !editName.trim()}
+                                                        style={{ padding: "6px 10px", borderRadius: 10, background: "var(--hyeni-theme-gradient)", color: "white", border: "none", fontSize: 12, fontWeight: 800, cursor: isSavingProfile ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0, opacity: isSavingProfile || !editName.trim() ? 0.62 : 1 }}
+                                                    >
+                                                        {isSavingProfile ? "저장 중" : "저장"}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={stopProfileEditing}
+                                                        disabled={isSavingProfile}
+                                                        style={{ padding: "6px 8px", borderRadius: 10, background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", fontSize: 12, fontWeight: 800, cursor: isSavingProfile ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0, opacity: isSavingProfile ? 0.62 : 1 }}
+                                                    >
+                                                        취소
+                                                    </button>
                                                     <label
                                                         htmlFor={`pmodal-photo-${child.id}`}
                                                         style={{ padding: "6px 10px", borderRadius: 10, background: photoUploadingId === child.id ? "var(--status-cautionary-subtle)" : "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", border: "1px solid #FED7AA", fontSize: 12, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
@@ -2897,6 +2944,16 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                                     <div style={{ fontSize: 10, color: "var(--fg-tertiary)", marginTop: 6, fontWeight: 700 }}>
                                                         저장하면 앱 전체 테마에 반영돼요
                                                     </div>
+                                                    {isSavingProfile && (
+                                                        <div role="status" aria-live="polite" style={{ fontSize: 11, color: "var(--theme-accent-text)", marginTop: 6, fontWeight: 800 }}>
+                                                            저장 중이에요. 잠시만 기다려 주세요.
+                                                        </div>
+                                                    )}
+                                                    {childProfileError && (
+                                                        <div role="alert" style={{ fontSize: 11, color: "var(--status-cautionary-strong)", marginTop: 6, fontWeight: 800, lineHeight: 1.45 }}>
+                                                            {childProfileError}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ) : (
@@ -2914,7 +2971,7 @@ function PairingModal({ myRole, pairCode, pairedMembers, familyId: _familyId, on
                                             </div>
                                         )}
                                         <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>📱 {childDeviceStatusMap?.[child.user_id]?.deviceLabel || child.device_label || `기기 ${i + 1}`}</div>
-                                        <ChildRemoteListenReadiness health={child.device_health} />
+                                        <ChildRemoteListenReadiness health={resolveChildRemoteListenHealth(child, childDeviceStatusMap)} />
                                     </div>
                                     {canManageFamily && (
                                         <button onClick={() => {
@@ -3182,9 +3239,24 @@ function ChildPairInput({ userId, onPaired }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Academy Manager
 // ─────────────────────────────────────────────────────────────────────────────
-function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false, onSave, onSavedPlacesSave, onSavedPlacesLocked, onClose, currentPos }) {
+function AcademyManager({
+    academies,
+    savedPlaces = [],
+    dangerZones = [],
+    savedPlacesLocked = false,
+    dangerZonesLocked = false,
+    onSave,
+    onSavedPlacesSave,
+    onSavedPlacesLocked,
+    onDangerZoneAdd,
+    onDangerZoneDelete,
+    onDangerZonesLocked,
+    onClose,
+    currentPos
+}) {
     const [list, setList] = useState(academies);
     const [savedList, setSavedList] = useState(savedPlaces);
+    const [dangerList, setDangerList] = useState(dangerZones);
     const [showForm, setShowForm] = useState(false);
     const [showMap, setShowMap] = useState(false);
     const [editIdx, setEditIdx] = useState(null);
@@ -3193,9 +3265,24 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
     const [showSavedMap, setShowSavedMap] = useState(false);
     const [savedEditIdx, setSavedEditIdx] = useState(null);
     const [savedForm, setSavedForm] = useState({ name: "", location: null, is_playdate_safe: false, public_place_id: null });
+    const [showDangerForm, setShowDangerForm] = useState(false);
+    const [showDangerMap, setShowDangerMap] = useState(false);
+    const [dangerSaving, setDangerSaving] = useState(false);
+    const [managerSaving, setManagerSaving] = useState(false);
+    const [dangerForm, setDangerForm] = useState({ name: "", location: null, radius_m: 200, zone_type: "custom" });
     const DAYS_LABEL = ["일", "월", "화", "수", "목", "금", "토"];
+    const DANGER_TYPES = [
+        { id: "construction", label: "공사장", emoji: "🚧", color: "var(--status-cautionary)" },
+        { id: "entertainment", label: "유흥가", emoji: "🎰", color: "var(--status-negative)" },
+        { id: "water", label: "수변지역", emoji: "🌊", color: "#3B82F6" },
+        { id: "custom", label: "직접 설정", emoji: "⚠️", color: "var(--status-negative)" },
+    ];
     const academyListChanged = JSON.stringify(list) !== JSON.stringify(academies);
     const savedPlacesChanged = JSON.stringify(savedList) !== JSON.stringify(savedPlaces);
+
+    useEffect(() => {
+        setDangerList(dangerZones);
+    }, [dangerZones]);
 
     const openNew = (preset = null) => {
         setForm(preset ? { name: preset.label, category: preset.category, emoji: preset.emoji, location: null, schedule: null } : { name: "", category: "school", emoji: "📚", location: null, schedule: null });
@@ -3268,6 +3355,76 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
         if (!canEditSavedPlaces()) return;
         setSavedList(prev => prev.filter((_, index) => index !== idx));
     };
+    const canEditDangerZones = () => {
+        if (!dangerZonesLocked) return true;
+        if (typeof onDangerZonesLocked === "function") onDangerZonesLocked();
+        return false;
+    };
+    const openNewDangerPlace = () => {
+        if (!canEditDangerZones()) return;
+        setDangerForm({ name: "", location: null, radius_m: 200, zone_type: "custom" });
+        setShowDangerForm(true);
+        setShowForm(false);
+        setShowSavedForm(false);
+    };
+    const saveDangerPlaceForm = async () => {
+        const lat = Number(dangerForm.location?.lat);
+        const lng = Number(dangerForm.location?.lng);
+        if (!dangerForm.name.trim() || !Number.isFinite(lat) || !Number.isFinite(lng) || dangerSaving) return;
+        setDangerSaving(true);
+        try {
+            const saved = await onDangerZoneAdd?.({
+                name: dangerForm.name.trim(),
+                lat,
+                lng,
+                radius_m: Math.max(50, Number(dangerForm.radius_m || 200)),
+                zone_type: dangerForm.zone_type || "custom",
+            });
+            setDangerList(prev => [...prev, saved || {
+                id: generateUUID(),
+                name: dangerForm.name.trim(),
+                lat,
+                lng,
+                radius_m: Math.max(50, Number(dangerForm.radius_m || 200)),
+                zone_type: dangerForm.zone_type || "custom",
+            }]);
+            setShowDangerForm(false);
+            setDangerForm({ name: "", location: null, radius_m: 200, zone_type: "custom" });
+        } catch (error) {
+            console.error("[AcademyManager] danger zone save failed:", error);
+        } finally {
+            setDangerSaving(false);
+        }
+    };
+    const removeDangerPlace = async (zone) => {
+        if (!canEditDangerZones() || !zone?.id) return;
+        if (typeof window !== "undefined" && window.confirm && !window.confirm(`"${zone.name}" 조심할 곳을 삭제할까요?`)) return;
+        try {
+            await onDangerZoneDelete?.(zone.id);
+            setDangerList(prev => prev.filter(item => item.id !== zone.id));
+        } catch (error) {
+            console.error("[AcademyManager] danger zone delete failed:", error);
+        }
+    };
+    const handleSaveAndClose = async () => {
+        if (managerSaving) return;
+        setManagerSaving(true);
+        try {
+            if (academyListChanged) {
+                const saved = await onSave(list);
+                if (saved === false) return;
+            }
+            if (savedPlacesChanged && typeof onSavedPlacesSave === "function") {
+                const savedPlacesResult = await onSavedPlacesSave(savedList);
+                if (savedPlacesResult === false) return;
+            }
+            onClose();
+        } catch (error) {
+            console.error("[AcademyManager] save failed:", error);
+        } finally {
+            setManagerSaving(false);
+        }
+    };
 
     if (showMap) return (
         <MapPicker initial={form.location} currentPos={currentPos} title="📍 학원 위치 설정"
@@ -3293,59 +3450,37 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
         />
     );
 
+    if (showDangerMap) return (
+        <MapPicker
+            initial={dangerForm.location}
+            currentPos={currentPos}
+            title="⚠️ 조심할 곳 설정"
+            onClose={() => setShowDangerMap(false)}
+            onConfirm={loc => {
+                setDangerForm(prev => ({
+                    ...prev,
+                    location: loc,
+                    name: prev.name.trim() ? prev.name : (loc.address || "").split(" ").slice(-1)[0] || "조심할 곳",
+                }));
+                setShowDangerMap(false);
+            }}
+        />
+    );
+
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "white", display: "flex", flexDirection: "column", fontFamily: FF }}>
             <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid var(--bg-muted)", display: "flex", alignItems: "center", gap: 12 }}>
                 <button
-                    onClick={async () => {
-                        try {
-                            if (academyListChanged) {
-                                const saved = await onSave(list);
-                                if (saved === false) return;
-                            }
-                            if (savedPlacesChanged && typeof onSavedPlacesSave === "function") {
-                                const savedPlacesResult = await onSavedPlacesSave(savedList);
-                                if (savedPlacesResult === false) return;
-                            }
-                            onClose();
-                        } catch (error) {
-                            console.error("[AcademyManager] save failed:", error);
-                        }
-                    }}
+                    type="button"
+                    aria-label="장소관리 닫기"
+                    onClick={onClose}
                     style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}
                 >
-                    ← 저장
+                    ← 뒤로
                 </button>
-                <div style={{ fontWeight: 800, fontSize: 17, color: "var(--fg-primary)" }}>🏫 학원/장소 관리</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "var(--fg-primary)" }}>📍 장소관리</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
-
-                {/* Quick presets */}
-                {!showForm && (
-                    <>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>빠른 추가</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-                            {ACADEMY_PRESETS.filter(p => !list.some(a => a.name === p.label)).map(p => (
-                                <button key={p.label} onClick={() => openNew(p)}
-                                    style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #E5E7EB", background: "#FAFAFA", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "var(--fg-secondary)" }}>
-                                    {p.emoji} {p.label}
-                                </button>
-                            ))}
-                            <button onClick={() => openNew()}
-                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed var(--theme-accent-line)", background: "var(--theme-accent-soft)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "var(--theme-accent-text)" }}>
-                                + 학원 입력
-                            </button>
-                            <button onClick={openNewSavedPlace}
-                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed var(--theme-accent-line)", background: savedPlacesLocked ? "var(--bg-muted)" : "var(--theme-accent-soft)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: savedPlacesLocked ? "#9CA3AF" : "var(--theme-accent-text)" }}>
-                                + 자주 가는 장소
-                            </button>
-                            <button onClick={openNewSafePlace}
-                                style={{ padding: "8px 14px", borderRadius: 16, border: "2px dashed #86EFAC", background: savedPlacesLocked ? "var(--bg-muted)" : "#F0FDF4", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: savedPlacesLocked ? "#9CA3AF" : "var(--status-positive-strong)" }}>
-                                + 안전장소
-                            </button>
-                        </div>
-                    </>
-                )}
 
                 {/* Form */}
                 {showForm && (
@@ -3404,10 +3539,10 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                             </div>
                             {form.schedule?.days?.length > 0 && (
                                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                    <input type="time" value={form.schedule?.startTime || "15:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, startTime: e.target.value } }))}
+                                    <input type="time" className="hyeni-time-input" value={form.schedule?.startTime || "15:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, startTime: e.target.value } }))}
                                         style={{ flex: 1, padding: "10px 12px", border: "2px solid var(--bg-muted)", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: "var(--theme-accent)", colorScheme: "light" }} />
                                     <span style={{ fontSize: 14, fontWeight: 700, color: "var(--fg-tertiary)" }}>~</span>
-                                    <input type="time" value={form.schedule?.endTime || "16:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, endTime: e.target.value } }))}
+                                    <input type="time" className="hyeni-time-input" value={form.schedule?.endTime || "16:00"} onChange={e => setForm(p => ({ ...p, schedule: { ...p.schedule, endTime: e.target.value } }))}
                                         style={{ flex: 1, padding: "10px 12px", border: "2px solid var(--bg-muted)", borderRadius: 12, fontSize: 15, fontFamily: FF, outline: "none", accentColor: "var(--theme-accent)", colorScheme: "light" }} />
                                 </div>
                             )}
@@ -3468,83 +3603,112 @@ function AcademyManager({ academies, savedPlaces = [], savedPlacesLocked = false
                     </div>
                 )}
 
-                {/* Registered academies list */}
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>등록된 학원 ({list.length})</div>
-                {list.length === 0 && (
-                    <div style={{ textAlign: "center", padding: "32px 0", color: "#D1D5DB" }}>
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>🏫</div>
-                        <div style={{ fontSize: 14 }}>등록된 학원이 없어요</div>
-                        <div style={{ fontSize: 12, marginTop: 4 }}>위에서 추가해 보세요!</div>
-                    </div>
-                )}
-                {list.map((a, i) => (
-                    <div key={i} style={{ background: a.bg || "var(--bg-subtle)", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: `4px solid ${a.color || "#E5E7EB"}` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ fontSize: 26 }}>{a.emoji}</div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)" }}>{a.name}</div>
-                                <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>{CATEGORIES.find(c => c.id === a.category)?.label}</div>
-                                {a.location && <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>📍 {a.location.address?.split(" ").slice(0, 3).join(" ")}</div>}
-                                {!a.location && <div style={{ fontSize: 11, color: "var(--status-cautionary)", marginTop: 2 }}>📍 위치 미등록</div>}
-                                {a.schedule?.days?.length > 0 && <div style={{ fontSize: 11, color: "var(--theme-accent-text)", fontWeight: 700, marginTop: 3 }}>📅 {a.schedule.days.map(d => DAYS_LABEL[d]).join(", ")} {a.schedule.startTime}~{a.schedule.endTime} · {Math.max(1, Number(a.schedule.repeatWeeks || 4))}주 반복</div>}
-                            </div>
-                            <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={() => openEdit(i)} style={{ background: "rgba(255,255,255,0.8)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
-                                <button onClick={() => removeItem(i)} style={{ background: "rgba(255,255,255,0.8)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "var(--status-negative)", fontFamily: FF }}>✕</button>
+                {showDangerForm && (
+                    <div style={{ background: "var(--status-negative-subtle)", borderRadius: 20, padding: "18px", marginBottom: 16, border: "1px solid rgba(220,38,38,0.22)" }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: "var(--status-negative-strong)", marginBottom: 14 }}>➕ 조심할 곳 추가</div>
+                        <div style={{ marginBottom: 12 }}>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>장소 이름</label>
+                            <input
+                                value={dangerForm.name}
+                                onChange={e => setDangerForm(prev => ({ ...prev, name: e.target.value }))}
+                                placeholder="예) 공사장 앞, 큰길 건널목"
+                                style={{ width: "100%", padding: "12px 14px", border: "2px solid rgba(220,38,38,0.22)", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", boxSizing: "border-box" }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: 12 }}>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>종류</label>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {DANGER_TYPES.map(type => {
+                                    const active = dangerForm.zone_type === type.id;
+                                    return (
+                                        <button
+                                            key={type.id}
+                                            type="button"
+                                            onClick={() => setDangerForm(prev => ({ ...prev, zone_type: type.id }))}
+                                            style={{ padding: "7px 12px", borderRadius: 14, border: active ? `2px solid ${type.color}` : "2px solid rgba(220,38,38,0.16)", background: active ? "white" : "rgba(255,255,255,0.72)", color: active ? type.color : "var(--fg-secondary)", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: FF }}
+                                        >
+                                            {type.emoji} {type.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
-                    </div>
-                ))}
-
-                <div style={{ height: 1, background: "var(--bg-muted)", margin: "18px 0" }} />
-
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-                    <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)" }}>자주 가는 장소 ({savedList.length})</div>
-                        <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 2 }}>집, 도서관처럼 일정과 길찾기에 자주 쓰는 장소</div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={openNewSavedPlace}
-                        style={{ border: "none", borderRadius: 14, padding: "8px 12px", background: savedPlacesLocked ? "var(--bg-muted)" : "var(--theme-accent-soft)", color: savedPlacesLocked ? "#9CA3AF" : "var(--theme-accent-text)", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
-                    >
-                        + 장소
-                    </button>
-                </div>
-                {savedPlacesLocked && (
-                    <div style={{ background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", borderRadius: 14, padding: "10px 12px", fontSize: 12, fontWeight: 700, marginBottom: 10, fontFamily: FF }}>
-                        유료계정은 자주가는 장소를 무제한 등록할 수 있어요
-                    </div>
-                )}
-                {savedList.length === 0 && (
-                    <div style={{ textAlign: "center", padding: "24px 0", color: "#D1D5DB" }}>
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>📍</div>
-                        <div style={{ fontSize: 14 }}>자주 가는 장소가 없어요</div>
-                        <div style={{ fontSize: 12, marginTop: 4 }}>집을 저장해 두면 아이 모드의 집으로 가기도 바로 연결돼요</div>
-                    </div>
-                )}
-                {savedList.map((place, index) => (
-                    <div key={place.id || index} style={{ background: "var(--hyeni-surface-warm)", borderRadius: 18, padding: "14px 16px", marginBottom: 10, borderLeft: "4px solid var(--theme-accent)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ fontSize: 24 }}>{place.is_playdate_safe ? "🛡️" : "📍"}</div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                    <div style={{ fontWeight: 800, fontSize: 15, color: "var(--fg-primary)" }}>{place.name}</div>
-                                    {place.is_playdate_safe && (
-                                        <span style={{ borderRadius: 999, background: "var(--status-positive-subtle)", color: "var(--status-positive-strong)", padding: "2px 7px", fontSize: 10, fontWeight: 900 }}>
-                                            안전장소
-                                        </span>
-                                    )}
+                        <div style={{ marginBottom: 12 }}>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>반경: {dangerForm.radius_m}m</label>
+                            <input
+                                type="range"
+                                min={50}
+                                max={500}
+                                step={50}
+                                value={dangerForm.radius_m}
+                                onChange={e => setDangerForm(prev => ({ ...prev, radius_m: Number(e.target.value) }))}
+                                style={{ width: "100%", accentColor: "var(--status-negative)" }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-secondary)", marginBottom: 6, display: "block" }}>📍 위치</label>
+                            {dangerForm.location ? (
+                                <div style={{ background: "white", borderRadius: 14, padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                    <div style={{ fontSize: 13, color: "var(--fg-primary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>⚠️ {dangerForm.location.address || `${Number(dangerForm.location.lat).toFixed(5)}, ${Number(dangerForm.location.lng).toFixed(5)}`}</div>
+                                    <button onClick={() => setShowDangerMap(true)} style={{ fontSize: 12, padding: "4px 10px", borderRadius: 10, background: "white", border: "1.5px solid var(--status-negative)", color: "var(--status-negative-strong)", cursor: "pointer", fontWeight: 700, fontFamily: FF, flexShrink: 0 }}>변경</button>
                                 </div>
-                                <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.location?.address || "위치 미등록"}</div>
-                            </div>
-                            <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={() => openSavedPlaceEdit(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontFamily: FF }}>✏️</button>
-                                <button onClick={() => removeSavedPlace(index)} style={{ background: "rgba(255,255,255,0.85)", border: "none", borderRadius: 10, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "var(--status-negative)", fontFamily: FF }}>✕</button>
-                            </div>
+                            ) : (
+                                <button onClick={() => setShowDangerMap(true)}
+                                    style={{ width: "100%", padding: "12px", border: "2px dashed rgba(220,38,38,0.32)", borderRadius: 14, background: "white", color: "var(--status-negative-strong)", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>
+                                    🗺️ 지도에서 조심할 곳 선택
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={saveDangerPlaceForm} disabled={dangerSaving || !dangerForm.name.trim() || !dangerForm.location}
+                                style={{ flex: 1, padding: "13px", background: dangerSaving || !dangerForm.name.trim() || !dangerForm.location ? "#D1D5DB" : "var(--status-negative)", color: "white", border: "none", borderRadius: 16, fontWeight: 800, cursor: dangerSaving || !dangerForm.name.trim() || !dangerForm.location ? "default" : "pointer", fontFamily: FF }}>
+                                {dangerSaving ? "저장 중..." : "조심할 곳 저장"}
+                            </button>
+                            <button onClick={() => setShowDangerForm(false)} style={{ flex: 1, padding: "13px", background: "white", color: "var(--fg-secondary)", border: "none", borderRadius: 16, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>취소</button>
                         </div>
                     </div>
-                ))}
+                )}
+
+                {!showForm && !showSavedForm && !showDangerForm && (
+                    <>
+                        <AcademyCard
+                            list={list}
+                            presets={ACADEMY_PRESETS}
+                            categories={CATEGORIES}
+                            daysLabel={DAYS_LABEL}
+                            onAddNew={() => openNew()}
+                            onAddPreset={(preset) => openNew(preset)}
+                            onEdit={openEdit}
+                            onRemove={removeItem}
+                        />
+                        <DangerCard
+                            list={dangerList}
+                            locked={dangerZonesLocked}
+                            dangerTypes={DANGER_TYPES}
+                            onAddNew={openNewDangerPlace}
+                            onRemove={removeDangerPlace}
+                        />
+                        <SavedPlacesSection
+                            list={savedList}
+                            locked={savedPlacesLocked}
+                            onAddNew={openNewSavedPlace}
+                            onAddSafe={openNewSafePlace}
+                            onEdit={openSavedPlaceEdit}
+                            onRemove={removeSavedPlace}
+                        />
+                    </>
+                )}
+            </div>
+            <div style={{ padding: "12px 16px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: "1px solid var(--bg-muted)", background: "rgba(255,255,255,0.96)", boxShadow: "0 -10px 24px rgba(31,26,34,0.06)" }}>
+                <button
+                    type="button"
+                    aria-label="장소관리 저장"
+                    onClick={handleSaveAndClose}
+                    disabled={managerSaving}
+                    style={{ width: "100%", padding: "14px", border: "none", borderRadius: 16, background: managerSaving ? "#D1D5DB" : "var(--hyeni-theme-gradient)", color: "white", fontSize: 15, fontWeight: 900, cursor: managerSaving ? "default" : "pointer", fontFamily: FF, boxShadow: managerSaving ? "none" : "var(--hyeni-theme-shadow-soft)" }}
+                >
+                    {managerSaving ? "저장 중..." : "저장하고 닫기"}
+                </button>
             </div>
         </div>
     );
@@ -4297,6 +4461,17 @@ function writeMemoRepliesCache(familyId, dateKey, replies) {
     }
 }
 
+function memoDateKeyFromParts(year, month, day) {
+    const date = new Date(year, month, day);
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function buildMemoThreadDateKeys(year, month, day) {
+    const previous = memoDateKeyFromParts(year, month, day - 1);
+    const current = memoDateKeyFromParts(year, month, day);
+    return previous === current ? [current] : [previous, current];
+}
+
 function buildMessageItems(replies) {
     if (!replies || replies.length === 0) return [];
     const items = [];
@@ -4727,7 +4902,10 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
     const [inputText, setInputText] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [sendError, setSendError] = useState("");
+    const [lastFailedText, setLastFailedText] = useState("");
+    const [showOnboardingToast, setShowOnboardingToast] = useState(false);
     const threadRef = useRef(null);
+    const onboardingTimerRef = useRef(null);
     const today = new Date();
     const dateLabel = `오늘 · ${DAYS_KO[today.getDay()]}요일`;
     const title = "오늘의 메모";
@@ -4738,24 +4916,34 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
     const quickItems = Array.isArray(quickReplies) && quickReplies.length > 0
         ? quickReplies
         : getParentMemoQuickReplies();
-    const emptyTitle = emptyCopy?.title || "오늘 남긴 메모가 없어요";
+    const emptyTitle = emptyCopy?.title || "아이에게 첫 메시지를 남겨보세요";
     const emptyDescription = emptyCopy?.description || "아이와 공유할 준비물, 칭찬, 확인할 일을 남겨보세요.";
     const stickerTitle = stickerCopy?.title || "스티커 칭찬을 남겨보세요!";
     const stickerDescription = stickerCopy?.description || "짧은 응원도 아이에게 바로 보여요.";
+    const messageItems = buildMessageItems(messages);
 
-    const handleSend = () => {
-        const text = inputText.trim();
+    const handleSend = (textOverride) => {
+        const text = typeof textOverride === "string" ? textOverride.trim() : inputText.trim();
         if (!text || isSending) return;
         setIsSending(true);
         setSendError("");
         const result = onReplySubmit ? onReplySubmit(text) : null;
         Promise.resolve(result)
-            .then(() => setInputText(""))
+            .then(() => {
+                setInputText("");
+                setLastFailedText("");
+            })
             .catch(err => {
                 console.error("[ParentMemoPage] send failed", err);
-                setSendError("전송에 실패했어요. 다시 시도해 주세요.");
+                setLastFailedText(text);
+                setSendError("메시지 전송에 실패했어요. 다시 시도해 주세요.");
             })
             .finally(() => setIsSending(false));
+    };
+
+    const handleRetry = () => {
+        if (!lastFailedText) return;
+        handleSend(lastFailedText);
     };
 
     const setPreset = (text) => {
@@ -4774,6 +4962,18 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
         return () => window.cancelAnimationFrame(id);
     }, [messages.length]);
 
+    useEffect(() => {
+        if (typeof window === "undefined") return undefined;
+        if (!window.localStorage.getItem("memoOnboardingV2Seen")) {
+            setShowOnboardingToast(true);
+            window.localStorage.setItem("memoOnboardingV2Seen", "1");
+            onboardingTimerRef.current = window.setTimeout(() => setShowOnboardingToast(false), 6000);
+        }
+        return () => {
+            if (onboardingTimerRef.current) window.clearTimeout(onboardingTimerRef.current);
+        };
+    }, []);
+
     return (
         <main className="hyeni-memo-page" aria-label="오늘의 메모 페이지">
             <div className="hyeni-memo-phone">
@@ -4786,20 +4986,30 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
                 </header>
 
                 <section className="hyeni-memo-thread" aria-label="오늘의 메모 대화" ref={threadRef}>
-                    <div className="hyeni-memo-date-row">
+                    {messages.length === 0 && <div className="hyeni-memo-date-row" role="separator" aria-label={dateLabel}>
                         <span />
                         <strong>{dateLabel}</strong>
                         <span />
-                    </div>
+                    </div>}
 
                     {messages.length === 0 ? (
                         <div className="hyeni-memo-empty">
-                            <div>💌</div>
+                            <div>💗</div>
                             <strong>{emptyTitle}</strong>
                             <p>{emptyDescription}</p>
                         </div>
                     ) : (
-                        messages.map((message) => {
+                        messageItems.map((item) => {
+                            if (item.type === "separator") {
+                                return (
+                                    <div className="hyeni-memo-date-row" role="separator" aria-label={item.label} key={item.key}>
+                                        <span />
+                                        <strong>{item.label}</strong>
+                                        <span />
+                                    </div>
+                                );
+                            }
+                            const message = item.r;
                             const isMine = message.user_id === myUserId;
                             const sender = message.user_role === "parent"
                                 ? (mode === "child" ? (partnerName || "부모님") : "엄마")
@@ -4847,7 +5057,14 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
                 </section>
 
                 <footer className="hyeni-memo-composer">
-                    {sendError && <div className="hyeni-memo-error" role="alert">{sendError}</div>}
+                    {sendError && (
+                        <div className="hyeni-memo-error" role="alert">
+                            {sendError}
+                            <button type="button" onClick={handleRetry} disabled={isSending}>
+                                다시 시도
+                            </button>
+                        </div>
+                    )}
                     <div className="hyeni-memo-input-shell">
                         <input
                             type="text"
@@ -4876,6 +5093,26 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
                     </div>
                 </footer>
             </div>
+            {showOnboardingToast && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    aria-label="메모 화면이 새로워졌어요"
+                    className="hyeni-memo-onboarding-toast"
+                >
+                    메모 화면이 새로워졌어요 ✨
+                    <button
+                        type="button"
+                        aria-label="메모 안내 숨김"
+                        onClick={() => {
+                            setShowOnboardingToast(false);
+                            if (onboardingTimerRef.current) window.clearTimeout(onboardingTimerRef.current);
+                        }}
+                    >
+                        ×
+                    </button>
+                </div>
+            )}
         </main>
     );
 }
@@ -5168,7 +5405,7 @@ function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode,
 // Audio Recorder (ambient sound for safety)
 // ─────────────────────────────────────────────────────────────────────────────
 // Remote Ambient Audio Listener (Parent sends command → Child records → streams back)
-function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, onClose, pairedChildren = [], targetChildUserId = null }) {
+function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, onClose, pairedChildren = [], targetChildUserId = null, childDeviceStatusMap = {} }) {
     const [status, setStatus] = useState("idle"); // idle, pushing, auto_waking_child, waiting_for_child_notification, listening, failed
     const [duration, setDuration] = useState(0);
     const [errorMessage, setErrorMessage] = useState("");
@@ -5178,12 +5415,38 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
     const audioContextRef = useRef(null);
     const nextPlayAtRef = useRef(0);
     const remoteAudioCurrentRequestIdRef = useRef(null);
+    const remoteAudioCurrentTargetUserIdRef = useRef(null);
     const remoteAudioSeenChunksRef = useRef(new Set());
     const startInFlightRef = useRef(false);
     const playbackGenerationRef = useRef(0);
     const activeSourcesRef = useRef(new Set());
     const activeAudioElementsRef = useRef(new Set());
     const remoteAudioWaitingHintTimerRef = useRef(null);
+    const remoteListenDiagnostics = useMemo(() => {
+        const children = (Array.isArray(pairedChildren) ? pairedChildren : [])
+            .filter((c) => c?.role === "child" && c?.user_id);
+        const targets = targetChildUserId
+            ? children.filter((c) => c.user_id === targetChildUserId)
+            : children;
+        return targets.flatMap((child) => {
+            const summary = summarizeRemoteListenHealth(resolveChildRemoteListenHealth(child, childDeviceStatusMap));
+            if (summary.ready && summary.advisory.length === 0) return [];
+            if (!summary.hasReport) {
+                return [{
+                    childName: child.name || "아이",
+                    severity: "advisory",
+                    label: "아이 기기 상태 미보고",
+                    detail: "자녀 앱이 아직 권한/기기 상태를 보고하지 않았지만 연결은 시도할 수 있어요.",
+                }];
+            }
+            return [...summary.blockers, ...summary.advisory].map((item) => ({
+                childName: child.name || "아이",
+                severity: item.severity || "advisory",
+                label: item.label,
+                detail: item.detail,
+            }));
+        });
+    }, [pairedChildren, targetChildUserId, childDeviceStatusMap]);
 
     const clearRemoteAudioWaitingHint = useCallback(() => {
         if (remoteAudioWaitingHintTimerRef.current) {
@@ -5230,27 +5493,26 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
         if (targetCandidates.length > 0) {
             const blockedNames = [];
             for (const c of targetCandidates) {
-                const summary = summarizeRemoteListenHealth(c.device_health);
-                if (!summary.ready) {
-                    const detail = summary.hasReport
-                        ? summary.missing.map((s) => s.label).join(", ")
-                        : "자녀 앱이 아직 보고하지 않음";
+                const summary = summarizeRemoteListenHealth(resolveChildRemoteListenHealth(c, childDeviceStatusMap));
+                if (summary.blockers.length > 0) {
+                    const detail = summary.blockers.map((s) => s.label).join(", ");
                     blockedNames.push(`${c.name || "아이"} (${detail})`);
                 }
             }
             if (blockedNames.length > 0) {
-                const proceed = window.confirm(
-                    "다음 아이의 기기 설정이 부족해요:\n\n" + blockedNames.join("\n") +
-                    "\n\n이 상태에서는 화면이 꺼져 있을 때 연결이 안 될 수 있어요. 그래도 시도할까요?"
+                setErrorMessage(
+                    "아이 기기 설정 확인 필요: " + blockedNames.join(" / ") +
+                    ". 권한이나 네트워크가 복구되면 다시 연결을 시도할 수 있어요."
                 );
-                if (!proceed) return;
             }
         }
         startInFlightRef.current = true;
         stopActivePlayback();
         const durationSec = REMOTE_AUDIO_DEFAULT_DURATION_SEC;
         const requestId = generateUUID();
+        const targetPayload = buildSelectedChildCommandPayload({ selectedChild: { user_id: targetChildUserId } });
         remoteAudioCurrentRequestIdRef.current = requestId;
+        remoteAudioCurrentTargetUserIdRef.current = targetPayload.targetUserId || null;
         remoteAudioSeenChunksRef.current.clear();
         try {
             const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -5278,6 +5540,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
             initiator_user_id: senderUserId,
             requestId,
             targetRole: "child",
+            ...targetPayload,
         };
         // 2. FCM push to wake up child app if closed
         let pushPromise = Promise.resolve();
@@ -5291,6 +5554,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                 durationSec,
                 requestId,
                 targetRole: "child",
+                ...targetPayload,
                 idempotencyKey: requestId,
             });
             setStatus("auto_waking_child");
@@ -5324,7 +5588,11 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
         startInFlightRef.current = false;
         clearRemoteAudioWaitingHint();
         const requestId = remoteAudioCurrentRequestIdRef.current;
-        if (channel) channel.send({ type: "broadcast", event: "remote_listen_stop", payload: { requestId } });
+        const stopTargetPayload = buildSelectedChildCommandPayload({
+            selectedChild: { user_id: remoteAudioCurrentTargetUserIdRef.current || targetChildUserId || null },
+        });
+        const targetUserId = remoteAudioCurrentTargetUserIdRef.current || targetChildUserId || null;
+        if (channel) channel.send({ type: "broadcast", event: "remote_listen_stop", payload: { requestId, ...stopTargetPayload } });
         if (recFamilyId && senderUserId && requestId) {
             void sendInstantPush({
                 action: "remote_listen_stop",
@@ -5334,6 +5602,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                 message: "",
                 requestId,
                 targetRole: "child",
+                targetUserId,
                 idempotencyKey: `${requestId}:stop`,
             });
         }
@@ -5341,6 +5610,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
         setStatus("idle");
         stopActivePlayback();
         remoteAudioCurrentRequestIdRef.current = null;
+        remoteAudioCurrentTargetUserIdRef.current = null;
         remoteAudioSeenChunksRef.current.clear();
         if (audioContextRef.current) {
             try { audioContextRef.current.close(); } catch { /* ignore */ }
@@ -5461,6 +5731,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
 
     const isConnecting = status === "pushing" || status === "auto_waking_child" || status === "waiting_for_child_notification";
     const canStartListening = status === "idle" || status === "failed";
+    const showRemoteListenDiagnostics = status !== "listening" && remoteListenDiagnostics.length > 0;
     const statusCopy = {
         idle: { icon: "🎤", title: "주변 소리 듣기", description: "프리미엄 회원은 아이 기기의 마이크를 1분간 원격으로 켜서 주변 소리를 들을 수 있어요", hint: "" },
         pushing: { icon: "📡", title: "연결 요청 전송 중", description: "아이 기기에 FCM 요청을 보내고 있어요", hint: "잠시만 기다려 주세요." },
@@ -5496,6 +5767,31 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
                         {errorMessage}
                     </div>
                 )}
+                {showRemoteListenDiagnostics && (
+                    <div
+                        aria-label="아이 기기 원격 듣기 진단"
+                        style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 7, textAlign: "left" }}
+                    >
+                        {remoteListenDiagnostics.map((item, idx) => (
+                            <div
+                                key={`${item.childName}-${item.label}-${idx}`}
+                                style={{
+                                    borderRadius: 12,
+                                    background: item.severity === "blocker" ? "var(--status-cautionary-subtle)" : "var(--bg-muted)",
+                                    border: item.severity === "blocker" ? "1px solid #FCD34D" : "1px solid var(--line-soft)",
+                                    padding: "8px 10px",
+                                }}
+                            >
+                                <div style={{ fontSize: 12, fontWeight: 900, color: item.severity === "blocker" ? "var(--status-cautionary-strong)" : "var(--fg-primary)" }}>
+                                    {item.childName} · {item.severity === "blocker" ? "설정 필요" : "참고"} · {item.label}
+                                </div>
+                                <div style={{ marginTop: 2, fontSize: 11, fontWeight: 700, color: item.severity === "blocker" ? "#8A5A00" : "var(--fg-secondary)", lineHeight: 1.35 }}>
+                                    {item.detail}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
                 <div style={{ display: "flex", gap: 10 }}>
                     {canStartListening && (
                         <button onClick={startListening}
@@ -5524,7 +5820,7 @@ function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, on
 // Location Map View (interactive map + card list)
 // ─────────────────────────────────────────────────────────────────────────────
 function hasPlaceLocation(location) {
-    return !!(location?.lat && location?.lng);
+    return Number.isFinite(Number(location?.lat)) && Number.isFinite(Number(location?.lng));
 }
 
 function getPlaceLocationKey(location) {
@@ -5547,6 +5843,41 @@ function buildSavedPlaceItems(savedPlaces) {
         const key = getPlaceLocationKey(place.location) || `saved:${place.id}`;
         if (!key || byKey.has(key)) return;
         byKey.set(key, place);
+    });
+
+    return Array.from(byKey.values());
+}
+
+function buildSchedulePlaceOptions(academies = [], savedPlaces = []) {
+    const byKey = new Map();
+    const pushOption = (option) => {
+        if (!hasPlaceLocation(option?.location)) return;
+        const key = getPlaceLocationKey(option.location) || `${option.source}:${option.id}`;
+        if (!key || byKey.has(key)) return;
+        byKey.set(key, { ...option, key });
+    };
+
+    (academies || []).forEach((academy) => {
+        pushOption({
+            id: academy.id || academy.name,
+            source: "academy",
+            name: academy.name,
+            category: academy.category || "school",
+            emoji: academy.emoji || "🏫",
+            location: academy.location,
+            badge: "학원",
+        });
+    });
+
+    (savedPlaces || []).forEach((place) => {
+        pushOption({
+            id: place.id || place.name,
+            source: "saved_place",
+            name: place.name,
+            emoji: place.is_playdate_safe ? "🛡️" : "📍",
+            location: place.location,
+            badge: place.is_playdate_safe ? "안전장소" : "자주가는 장소",
+        });
     });
 
     return Array.from(byKey.values());
@@ -6012,7 +6343,7 @@ function LocationMapView({
 // ─────────────────────────────────────────────────────────────────────────────
 // AI Schedule Modal — 음성/이미지/텍스트로 일정 자동 등록
 // ─────────────────────────────────────────────────────────────────────────────
-function AiScheduleModal({ academies, currentDate, familyId, authUser, events, onSave, onClose, startVoiceFn, onNavigateDate }) {
+function AiScheduleModal({ academies, currentDate, familyId, authUser, events, eventSelection, onSave, onClose, startVoiceFn, onNavigateDate }) {
     const [inputText, setInputText] = useState("");
     const [imageData, setImageData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -6113,17 +6444,30 @@ function AiScheduleModal({ academies, currentDate, familyId, authUser, events, o
         const matchedAcademy = ev.academyName ? academies.find(a => a.name === ev.academyName) : null;
         const safeTime = (ev.time && ev.time !== "null") ? ev.time : "09:00";
         const safeMemo = (ev.memo && ev.memo !== "null") ? ev.memo : "";
+        const normalizedSelection = {
+            familyAll: !!eventSelection?.familyAll,
+            childIds: Array.isArray(eventSelection?.childIds) ? eventSelection.childIds.filter(Boolean) : [],
+        };
+        const scopedEventFields = {
+            is_family_event: !!normalizedSelection.familyAll,
+            child_ids: normalizedSelection.familyAll ? [] : [...normalizedSelection.childIds],
+        };
         const newEv = {
             id: generateUUID(), title: ev.title, time: safeTime,
             category: ev.category || "other", emoji: matchedAcademy?.emoji || cat.emoji,
             color: cat.color, bg: cat.bg, memo: safeMemo,
             location: matchedAcademy?.location || null, notifOverride: null,
+            ...scopedEventFields,
         };
         const dk = `${ev.year ?? currentDate.year}-${ev.month ?? currentDate.month}-${ev.day ?? currentDate.day}`;
         onSave(newEv, dk);
         if (familyId && authUser) {
             try {
-                await insertEvent(newEv, familyId, dk, authUser.id);
+                if (normalizedSelection.familyAll || normalizedSelection.childIds.length > 0) {
+                    await saveEventWithChildren({ ...newEv, dateKey: dk, familyId, userId: authUser.id }, normalizedSelection);
+                } else {
+                    await insertEvent(newEv, familyId, dk, authUser.id);
+                }
                 const m = (ev.month ?? currentDate.month) + 1;
                 const d = ev.day ?? currentDate.day;
                 sendInstantPush({
@@ -6683,7 +7027,7 @@ function ChildCallCard({ phones = {} }) {
     );
 }
 
-function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren = [], events, academies = [], childLocationLabels = {}, mapReady, arrivedSet, onClose, locationTrail = [], locationHint = "", refreshRequestedAt = null, onRefreshLocation }) {
+function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren = [], events, academies = [], childLocationLabels = {}, selectedChildUserId = null, mapReady, arrivedSet, onClose, locationTrail = [], locationHint = "", refreshRequestedAt = null, onRefreshLocation }) {
     const mapRef = useRef();
     const mapObj = useRef();
     const myMarkerRef = useRef();
@@ -6697,7 +7041,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
     const eventMarkersRef = useRef([]);
     const initialFocusDoneRef = useRef(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const [selectedChildId, setSelectedChildId] = useState(null);
+    const [selectedChildId, setSelectedChildId] = useState(selectedChildUserId || null);
     const [selectedTrailSegmentKey, setSelectedTrailSegmentKey] = useState("");
     const [dwellLocationLabels, setDwellLocationLabels] = useState({});
     // Resizable bottom panel — drag handle to expand the map upward
@@ -6707,6 +7051,10 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
     const PANEL_COLLAPSED_PX = 110;
     const PANEL_EXPANDED_RATIO = 0.62;
     const getPanelMaxPx = () => Math.round((typeof window !== "undefined" ? window.innerHeight : 800) * PANEL_EXPANDED_RATIO);
+
+    useEffect(() => {
+        if (selectedChildUserId) setSelectedChildId(selectedChildUserId);
+    }, [selectedChildUserId]);
 
     const startPanelDrag = useCallback((clientY) => {
         const max = getPanelMaxPx();
@@ -7212,14 +7560,7 @@ function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren 
                                     }}
                                     style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", background: isActive ? `${color}18` : `${color}10`, borderRadius: 14, border: isActive ? `2px solid ${color}` : "2px solid transparent", cursor: "pointer", textAlign: "left", fontFamily: FF, boxShadow: isActive ? `0 4px 14px ${color}22` : "none" }}
                                 >
-                                    {child.photo_url ? (
-                                        <div
-                                            aria-hidden="true"
-                                            style={{ width: 36, height: 36, borderRadius: 12, backgroundImage: `url(${child.photo_url})`, backgroundSize: "cover", backgroundPosition: "center", border: `2px solid ${color}`, flexShrink: 0 }}
-                                        />
-                                    ) : (
-                                        <div style={{ width: 36, height: 36, borderRadius: 12, background: color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "white", flexShrink: 0 }}>{child.emoji || (child.name ? child.name.trim()[0] : "👶")}</div>
-                                    )}
+                                    <ChildAvatar child={child} size={36} color={color} radius={12} fontSize={18} />
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontSize: 13, fontWeight: 800, color: "var(--fg-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{child.name}</div>
                                         <div style={{ fontSize: 10, color: "var(--fg-tertiary)", marginTop: 1 }}>
@@ -7437,6 +7778,7 @@ export default function KidsScheduler() {
     const [events, setEvents] = useState(() => getCachedEvents());
     const [memos, setMemos] = useState(() => getCachedMemos());
     const [memoReplies, setMemoReplies] = useState([]);
+    const [memoThreadReplies, setMemoThreadReplies] = useState([]);
     const [memoReadBy, setMemoReadBy] = useState([]);
     const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
     const [showPhoneSettings, setShowPhoneSettings] = useState(false);
@@ -7546,6 +7888,9 @@ export default function KidsScheduler() {
     const [childLocationLabels, setChildLocationLabels] = useState({});
     const [allChildPositions, setAllChildPositions] = useState([]); // [{user_id, name, emoji, lat, lng, updatedAt}]
     const [locationTrail, setLocationTrail] = useState([]); // 오늘 아이 이동경로
+    const [selectedDateLocationTrail, setSelectedDateLocationTrail] = useState([]);
+    const [selectedDateTrailLoading, setSelectedDateTrailLoading] = useState(false);
+    const [selectedDateTrailError, setSelectedDateTrailError] = useState("");
     const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
     const [pushDeniedDismissed, setPushDeniedDismissed] = useState(() => {
         try { return sessionStorage.getItem("hyeni-push-denied-dismissed") === "1"; } catch (e) { return false; }
@@ -7621,8 +7966,15 @@ export default function KidsScheduler() {
         [displayChildPositions]
     );
     const displayChildPos = useMemo(
-        () => effectiveChildLocation(childPos, entitlement) || (displayChildPositions.length > 0 ? displayChildPositions[0] : null),
-        [childPos, displayChildPositions, entitlement]
+        () => {
+            const effectiveCurrent = effectiveChildLocation(childPos, entitlement);
+            return resolveSelectedChildPosition({
+                childPos: effectiveCurrent,
+                allChildPositions: displayChildPositions,
+                selectedChild,
+            });
+        },
+        [childPos, displayChildPositions, entitlement, selectedChild]
     );
     const routeChildProfile = selectedChild
         || (displayChildPos?.user_id ? pairedChildren.find(child => child.user_id === displayChildPos.user_id) : null)
@@ -7638,7 +7990,9 @@ export default function KidsScheduler() {
         return pairedChildren.find((c) => c.user_id === authUser?.id)?.id ?? null;
     }, [pairedChildren, isParent, authUser?.id]);
     const visibleEvents = useMemo(() => {
-        if (isParent) return events;
+        if (isParent) {
+            return selectedChild?.id ? filterEventMapForChild(events, selectedChild.id) : events;
+        }
         const myId = myFamilyMemberId;
         if (!events || typeof events !== "object") return events;
         if (Array.isArray(events)) {
@@ -7650,7 +8004,7 @@ export default function KidsScheduler() {
             filtered[dk] = list.filter((e) => e?.is_family_event || (myId && (e?.child_ids || []).includes(myId)));
         }
         return filtered;
-    }, [events, isParent, myFamilyMemberId]);
+    }, [events, isParent, myFamilyMemberId, selectedChild?.id]);
     const ownPosition = useMemo(() => {
         if (isParent) return null;
         const myId = authUser?.id;
@@ -7753,6 +8107,10 @@ export default function KidsScheduler() {
     const kkukSentFromPressRef = useRef(false);
     const dateKey = `${currentYear}-${currentMonth}-${selectedDate}`;
     dateKeyRef.current = dateKey;
+    const memoThreadDateKeys = useMemo(
+        () => buildMemoThreadDateKeys(currentYear, currentMonth, selectedDate),
+        [currentYear, currentMonth, selectedDate]
+    );
 
     // ── Load memo replies when viewing a date ────────────────────────────────
     // Phase 4 · MEMO-02: auto-read-on-view REMOVED. The user had to glance at
@@ -7783,6 +8141,40 @@ export default function KidsScheduler() {
         if (!familyId || !dateKey) return;
         writeMemoRepliesCache(familyId, dateKey, memoReplies || []);
     }, [familyId, dateKey, memoReplies]);
+
+    useEffect(() => {
+        const memoPageOpen = showParentMemoPage || showChildMemoPage;
+        if (!memoPageOpen) {
+            setMemoThreadReplies([]);
+            return;
+        }
+        if (!familyId || !dateKey) return;
+
+        let cancelled = false;
+        const reconcileMemoReplies = () => {
+            fetchMemoRepliesForDateKeys(familyId, memoThreadDateKeys)
+                .then((rows) => {
+                    if (cancelled || dateKeyRef.current !== dateKey) return;
+                    const dbRows = Array.isArray(rows) ? rows : [];
+                    setMemoThreadReplies(prev => {
+                        const pending = (prev || []).filter(reply => {
+                            const id = String(reply?.id || "");
+                            if (!id.startsWith("temp-")) return false;
+                            return !dbRows.some(row => row.user_id === reply.user_id && row.content === reply.content);
+                        });
+                        return pending.length > 0 ? [...dbRows, ...pending] : dbRows;
+                    });
+                })
+                .catch((err) => console.warn("[memo] realtime reconcile failed:", err));
+        };
+
+        reconcileMemoReplies();
+        const timer = window.setInterval(reconcileMemoReplies, 1000);
+        return () => {
+            cancelled = true;
+            window.clearInterval(timer);
+        };
+    }, [familyId, dateKey, memoThreadDateKeys, showParentMemoPage, showChildMemoPage]);
 
     // ── MEMO-02: 3-second viewport read observer ─────────────────────────────
     // One observer instance, module-lifetime. Each reply bubble passes its
@@ -8163,10 +8555,12 @@ export default function KidsScheduler() {
     const authUserRef = useRef(null);
     const myRoleRef = useRef(myRole);
     const familyInfoRef = useRef(familyInfo);
+    const selectedChildUserIdRef = useRef(selectedChild?.user_id || null);
     // Keep refs in sync with state (avoids stale closure in visibility handler)
     useEffect(() => { authUserRef.current = authUser; }, [authUser]);
     useEffect(() => { myRoleRef.current = myRole; }, [myRole]);
     useEffect(() => { familyInfoRef.current = familyInfo; }, [familyInfo]);
+    useEffect(() => { selectedChildUserIdRef.current = selectedChild?.user_id || null; }, [selectedChild?.user_id]);
 
     useEffect(() => {
         const init = async () => {
@@ -8383,12 +8777,15 @@ export default function KidsScheduler() {
                     ...payload,
                     updatedAt,
                 };
-                setChildPos(nextPosition);
+                const childUserId = payload?.user_id || payload?.userId;
+                const selectedChildUserId = selectedChildUserIdRef.current;
+                if (!isParent || !selectedChildUserId || (childUserId && childUserId === selectedChildUserId)) {
+                    setChildPos(nextPosition);
+                }
                 const updatedMs = new Date(updatedAt).getTime();
                 if (Number.isFinite(updatedMs)) {
                     setLocationRefreshRequestedAt(prev => (prev && updatedMs >= prev ? null : prev));
                 }
-                const childUserId = payload?.user_id || payload?.userId;
                 if (childUserId) {
                     setAllChildPositions(prev => {
                         const member = familyInfoRef.current?.members?.find(m => m.user_id === childUserId);
@@ -8526,6 +8923,8 @@ export default function KidsScheduler() {
             // Child: remote listen - parent requests mic recording
             onRemoteListenStart: async (payload) => {
                 if (isParent) return; // only child responds
+                const targetUserId = payload?.targetUserId || payload?.target_user_id || null;
+                if (targetUserId && targetUserId !== authUser?.id) return;
                 console.log("[Audio] Remote listen request received");
                 // Phase 5 RL-02: show persistent child-side indicator + vibrate
                 // immediately so the child knows the mic is active even if
@@ -8549,7 +8948,9 @@ export default function KidsScheduler() {
                     setListeningSession(null);
                 }
             },
-            onRemoteListenStop: () => {
+            onRemoteListenStop: (payload) => {
+                const targetUserId = payload?.targetUserId || payload?.target_user_id || null;
+                if (targetUserId && targetUserId !== authUser?.id) return;
                 setListeningSession(null);
                 stopRemoteAudioCapture("user_stopped");
             },
@@ -8662,8 +9063,21 @@ export default function KidsScheduler() {
             postNotif: nativeNotifHealth.postPermissionGranted === true && nativeNotifHealth.notificationsEnabled === true,
             fullScreen: nativeNotifHealth.fullScreenIntentAllowed === true,
             battery: nativeNotifHealth.batteryOptimizationsIgnored === true,
+            powerSaveMode: nativeNotifHealth.powerSaveMode === true,
+            backgroundRestricted: nativeNotifHealth.backgroundRestricted === true,
             channelOk: nativeNotifHealth.remoteListenChannelEnabled !== false,
             locationOk: bgLocationGranted === true,
+            dndMode: nativeNotifHealth.dndMode || "unknown",
+            dndAccess: nativeNotifHealth.dndAccess === true,
+            ringerMode: nativeNotifHealth.ringerMode || "unknown",
+            networkConnected: nativeNotifHealth.networkConnected !== false,
+            networkValidated: nativeNotifHealth.networkValidated !== false,
+            screenInteractive: typeof nativeNotifHealth.screenInteractive === "boolean" ? nativeNotifHealth.screenInteractive : null,
+            keyguardLocked: nativeNotifHealth.keyguardLocked === true,
+            foldState: nativeNotifHealth.foldState || "not_foldable_or_unknown",
+            screenWidthDp: nativeNotifHealth.screenWidthDp ?? null,
+            screenHeightDp: nativeNotifHealth.screenHeightDp ?? null,
+            smallestScreenWidthDp: nativeNotifHealth.smallestScreenWidthDp ?? null,
             lastReportedAt: new Date().toISOString(),
         };
         let cancelled = false;
@@ -8729,6 +9143,37 @@ export default function KidsScheduler() {
             }
             const { batteryLevel, isCharging, recentAppPackage, usagePermission, screenInteractive } = await getBatterySnapshot();
             const netInfo = navigator?.connection || navigator?.mozConnection || navigator?.webkitConnection;
+            const nativeRemoteListenHealth = nativeNotifHealth ? {
+                recordAudio: nativeNotifHealth.recordAudioGranted === true,
+                postNotif: nativeNotifHealth.postPermissionGranted === true && nativeNotifHealth.notificationsEnabled === true,
+                fullScreen: nativeNotifHealth.fullScreenIntentAllowed === true,
+                battery: nativeNotifHealth.batteryOptimizationsIgnored === true,
+                powerSaveMode: nativeNotifHealth.powerSaveMode === true,
+                backgroundRestricted: nativeNotifHealth.backgroundRestricted === true,
+                channelOk: nativeNotifHealth.remoteListenChannelEnabled !== false,
+                locationOk: bgLocationGranted === true,
+                recordAudioGranted: nativeNotifHealth.recordAudioGranted === true,
+                postPermissionGranted: nativeNotifHealth.postPermissionGranted === true,
+                notificationsEnabled: nativeNotifHealth.notificationsEnabled === true,
+                fullScreenIntentAllowed: nativeNotifHealth.fullScreenIntentAllowed === true,
+                batteryOptimizationsIgnored: nativeNotifHealth.batteryOptimizationsIgnored === true,
+                exactAlarmAllowed: nativeNotifHealth.exactAlarmAllowed === true,
+                remoteListenChannelEnabled: nativeNotifHealth.remoteListenChannelEnabled !== false,
+                locationServiceRunning: nativeNotifHealth.locationServiceRunning === true,
+                dndMode: nativeNotifHealth.dndMode || "unknown",
+                dndAccess: nativeNotifHealth.dndAccess === true,
+                ringerMode: nativeNotifHealth.ringerMode || "unknown",
+                networkConnected: nativeNotifHealth.networkConnected !== false,
+                networkValidated: nativeNotifHealth.networkValidated !== false,
+                keyguardLocked: nativeNotifHealth.keyguardLocked === true,
+                foldState: nativeNotifHealth.foldState || "not_foldable_or_unknown",
+                screenWidthDp: nativeNotifHealth.screenWidthDp ?? null,
+                screenHeightDp: nativeNotifHealth.screenHeightDp ?? null,
+                smallestScreenWidthDp: nativeNotifHealth.smallestScreenWidthDp ?? null,
+                sdkInt: nativeNotifHealth.sdkInt ?? null,
+                manufacturer: nativeNotifHealth.manufacturer || "",
+                model: nativeNotifHealth.model || "",
+            } : {};
             return {
                 family_id: familyId,
                 user_id: authUser.id,
@@ -8742,6 +9187,7 @@ export default function KidsScheduler() {
                 sessionStartedAt: new Date(screenSessionStartedAtRef.current).toISOString(),
                 recentApp: recentAppPackage || "혜니캘린더 (앱 외 사용기록은 OS 권한 필요)",
                 usagePermission,
+                ...nativeRemoteListenHealth,
                 deviceLabel: getDeviceLabelFromUA(),
                 source: "webview-session",
             };
@@ -8782,7 +9228,7 @@ export default function KidsScheduler() {
             }
             publishChildDeviceStatusRef.current = async () => {};
         };
-    }, [isParent, familyId, authUser?.id]);
+    }, [isParent, familyId, authUser?.id, nativeNotifHealth, bgLocationGranted]);
 
     // ── Phase 5 RL-04: cleanup on unload / backgrounding ───────────────────────
     // If the child tab/page closes while a remote listen session is active, we
@@ -8880,6 +9326,8 @@ export default function KidsScheduler() {
         setLocationRefreshRequestedAt(requestedAt);
 
         const requestId = generateUUID();
+        const targetPayload = buildSelectedChildCommandPayload({ selectedChild });
+        const targetUserId = targetPayload.targetUserId || null;
         const payload = {
             requestId,
             familyId,
@@ -8887,6 +9335,7 @@ export default function KidsScheduler() {
             targetRole: "child",
             reason,
             requestedAt: new Date(requestedAt).toISOString(),
+            ...targetPayload,
         };
 
         const pushPromise = sendInstantPush({
@@ -8902,7 +9351,7 @@ export default function KidsScheduler() {
         const refreshLocationTrail = async () => {
             if (!showChildTracker) return;
             try {
-                const rows = await fetchTodayLocationHistory(familyId);
+                const rows = await fetchTodayLocationHistory(familyId, targetUserId);
                 setLocationTrail(Array.isArray(rows) ? rows : []);
             } catch (err) {
                 console.warn("[GPS] location trail refresh failed:", err);
@@ -8911,7 +9360,11 @@ export default function KidsScheduler() {
 
         const applyFetchedLocations = (locs) => {
             if (!locs?.length) return false;
-                const latest = locs.slice().sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
+                const scopedLocations = targetUserId
+                    ? locs.filter((loc) => loc?.user_id === targetUserId)
+                    : locs;
+                if (!scopedLocations.length) return false;
+                const latest = scopedLocations.slice().sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0];
                 setChildPos({ user_id: latest.user_id, userId: latest.user_id, lat: latest.lat, lng: latest.lng, updatedAt: latest.updated_at, updated_at: latest.updated_at });
                 const members = familyInfoRef.current?.members?.filter((m) => m.role === "child") || [];
                 const positions = locs.map((loc) => {
@@ -8975,7 +9428,7 @@ export default function KidsScheduler() {
             void pollFreshLocation();
             return false;
         }
-    }, [authUser?.id, familyId, myRole, showChildTracker, parentCapabilities.canRequestChildLocation, showNotif]);
+    }, [authUser?.id, familyId, myRole, selectedChild, showChildTracker, parentCapabilities.canRequestChildLocation, showNotif]);
 
     useEffect(() => {
         if (myRole !== "parent" || !familyId || !showChildTracker) return;
@@ -9580,6 +10033,37 @@ export default function KidsScheduler() {
         return () => { cancelled = true; clearInterval(iv); };
     }, [myRole, familyId, showChildTracker]);
 
+    // ── Parent: selected calendar date movement summary ───────────────────────
+    useEffect(() => {
+        const targetUserId = selectedChild?.user_id || null;
+        if (myRole !== "parent" || !familyId || !targetUserId) {
+            setSelectedDateLocationTrail([]);
+            setSelectedDateTrailLoading(false);
+            setSelectedDateTrailError("");
+            return undefined;
+        }
+
+        let cancelled = false;
+        setSelectedDateTrailLoading(true);
+        setSelectedDateTrailError("");
+        fetchLocationHistoryForDate(familyId, targetUserId, { year: currentYear, month: currentMonth, day: selectedDate })
+            .then(rows => {
+                if (cancelled) return;
+                setSelectedDateLocationTrail(Array.isArray(rows) ? rows : []);
+            })
+            .catch(err => {
+                if (cancelled) return;
+                console.error("[fetchLocationHistoryForDate] failed:", err);
+                setSelectedDateLocationTrail([]);
+                setSelectedDateTrailError("이동기록을 불러오지 못했어요. 잠시 후 다시 확인해 주세요.");
+            })
+            .finally(() => {
+                if (!cancelled) setSelectedDateTrailLoading(false);
+            });
+
+        return () => { cancelled = true; };
+    }, [myRole, familyId, selectedChild?.user_id, currentYear, currentMonth, selectedDate]);
+
     // ── Load stickers for selected date ─────────────────────────────────────────
     useEffect(() => {
         if (!familyId) return;
@@ -9603,7 +10087,7 @@ export default function KidsScheduler() {
             if (isInside && !wasFired) {
                 // 진입 → 알림
                 setFiredDangerAlerts(prev => new Set([...prev, zone.id]));
-                const childName = familyInfo?.members?.find(m => m.role === "child")?.name || "아이";
+                const childName = selectedChild?.name || familyInfo?.members?.find(m => m.role === "child")?.name || "아이";
                 addAlert(`⚠️ ${childName}님이 위험지역 '${zone.name}' 근처에 있어요! (${Math.round(dist)}m)`, "parent");
                 sendInstantPush({
                     action: "parent_alert", familyId, senderUserId: authUser?.id,
@@ -9617,20 +10101,21 @@ export default function KidsScheduler() {
                 setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(zone.id); return n; });
             }
         });
-    }, [childPos, dangerZones, firedDangerAlerts, isParent, familyInfo, familyId, authUser, addAlert]);
+    }, [childPos, dangerZones, firedDangerAlerts, isParent, familyInfo, familyId, authUser, addAlert, selectedChild?.name]);
 
     // ── Academy focus guard mode (parent) ─────────────────────────────────────
     useEffect(() => {
         if (!isParent) return;
-        const childId = pairedChildren[0]?.user_id;
+        const focusChild = selectedChild || pairedChildren[0] || null;
+        const childId = focusChild?.user_id;
         if (!childId) return;
         const status = childDeviceStatusMap[childId];
         if (!status) return;
 
         const now = new Date();
-        const key = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+        const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
         const nowMin = now.getHours() * 60 + now.getMinutes();
-        const todaySchoolEvents = (events[key] || []).filter(ev => {
+        const todaySchoolEvents = (visibleEvents[key] || []).filter(ev => {
             if (ev.category !== "school") return false;
             const [sh, sm] = String(ev.time || "00:00").split(":").map(Number);
             const [eh, em] = String(ev.endTime || ev.time || "00:00").split(":").map(Number);
@@ -9647,7 +10132,7 @@ export default function KidsScheduler() {
             const guardKey = `${childId}:${key}:${ev.id || ev.title}`;
             if (academyFocusAlertedRef.current.has(guardKey)) return;
             academyFocusAlertedRef.current.add(guardKey);
-            const childName = pairedChildren[0]?.name || "아이";
+            const childName = focusChild?.name || "아이";
             addAlert(`📵 ${childName}의 ${ev.title} 시간대에 화면 사용이 길어요. 집중모드를 확인해 주세요.`, "parent");
             sendInstantPush({
                 action: "parent_alert",
@@ -9659,7 +10144,7 @@ export default function KidsScheduler() {
                 message: `${childName}의 ${ev.title} 시간대 화면 사용이 길어요.`,
             });
         });
-    }, [isParent, pairedChildren, childDeviceStatusMap, events, familyId, authUser?.id, addAlert]);
+    }, [isParent, pairedChildren, selectedChild, childDeviceStatusMap, visibleEvents, familyId, authUser?.id, addAlert]);
 
     // ── Geofencing: arrival + departure detection ───────────────────────────────
     useEffect(() => {
@@ -10033,6 +10518,28 @@ export default function KidsScheduler() {
         try { localStorage.setItem("hyeni-ai-enabled", val ? "true" : "false"); } catch { /* ignored */ }
     };
 
+    const getDefaultEventChildSelection = () => {
+        const childId = isParent
+            ? (selectedChildId || (pairedChildren.length === 1 ? pairedChildren[0]?.id : null))
+            : myFamilyMemberId;
+        return childId ? { childIds: [childId], familyAll: false } : { childIds: [], familyAll: false };
+    };
+
+    const getEffectiveEventChildSelection = (selection = eventChildSelection) => {
+        if (selection?.familyAll || (Array.isArray(selection?.childIds) && selection.childIds.length > 0)) {
+            return {
+                childIds: Array.isArray(selection.childIds) ? selection.childIds.filter(Boolean) : [],
+                familyAll: !!selection.familyAll,
+            };
+        }
+        return getDefaultEventChildSelection();
+    };
+
+    const getEventScopeFromSelection = (selection) => ({
+        is_family_event: !!selection?.familyAll,
+        child_ids: selection?.familyAll ? [] : [...(selection?.childIds || [])],
+    });
+
     const openAiSchedule = () => {
         if (isParent && !parentCapabilities.canWriteSchedule) {
             showNotif("보조 보호자는 일정을 확인만 할 수 있어요.", "error");
@@ -10042,6 +10549,12 @@ export default function KidsScheduler() {
             openFeatureLock(FEATURES.AI_ANALYSIS);
             return;
         }
+        const nextSelection = getEffectiveEventChildSelection();
+        if (isParent && !nextSelection.familyAll && nextSelection.childIds.length === 0) {
+            showNotif("일정을 받을 아이를 먼저 선택해 주세요.", "error");
+            return;
+        }
+        setEventChildSelection(nextSelection);
         setShowAiSchedule(true);
     };
 
@@ -10126,12 +10639,19 @@ export default function KidsScheduler() {
         const evDay = parsed.day ?? selectedDate;
         const dk = `${evYear}-${evMonth}-${evDay}`;
         const timeStr = parsed.time || fmtT(new Date());
+        const voiceEventSelection = getEffectiveEventChildSelection();
+        if (isParent && !voiceEventSelection.familyAll && voiceEventSelection.childIds.length === 0) {
+            showNotif("일정을 받을 아이를 먼저 선택해 주세요.", "error");
+            return;
+        }
+        const voiceEventScope = getEventScopeFromSelection(voiceEventSelection);
 
         const ev = {
             id: generateUUID(), title: parsed.title, time: timeStr,
             category: catId, emoji: matchedAcademy?.emoji || cat.emoji,
             color: cat.color, bg: cat.bg, memo: parsed.memo || "",
             location: matchedAcademy?.location || null, notifOverride: null,
+            ...voiceEventScope,
         };
 
         setEvents(prev => ({ ...prev, [dk]: [...(prev[dk] || []), ev].sort((a, b) => a.time.localeCompare(b.time)) }));
@@ -10144,7 +10664,11 @@ export default function KidsScheduler() {
 
         if (familyId && authUser) {
             try {
-                await insertEvent(ev, familyId, dk, authUser.id);
+                if (voiceEventSelection.familyAll || voiceEventSelection.childIds.length > 0) {
+                    await saveEventWithChildren({ ...ev, dateKey: dk, familyId, userId: authUser.id }, voiceEventSelection);
+                } else {
+                    await insertEvent(ev, familyId, dk, authUser.id);
+                }
                 maybeOpenTrialInvite();
                 sendInstantPush({
                     action: "new_event", familyId, senderUserId: authUser.id,
@@ -10341,9 +10865,13 @@ export default function KidsScheduler() {
 
         const totalWeeks = weeklyRepeat ? repeatWeeks : 1;
         const allEvents = [];
+        const optimisticEventScope = {
+            is_family_event: !!eventChildSelection.familyAll,
+            child_ids: eventChildSelection.familyAll ? [] : [...(eventChildSelection.childIds || [])],
+        };
         for (let w = 0; w < totalWeeks; w++) {
             const dk = w === 0 ? dateKey : addDaysToDateKey(dateKey, w * 7);
-            allEvents.push({ ev: { id: generateUUID(), title, time: newTime, endTime: newEndTime || null, category: newCategory, emoji, color: cat.color, bg: cat.bg, memo: newMemo.trim(), location: newLocation, notifOverride: null }, dateKey: dk });
+            allEvents.push({ ev: { id: generateUUID(), title, time: newTime, endTime: newEndTime || null, category: newCategory, emoji, color: cat.color, bg: cat.bg, memo: newMemo.trim(), location: newLocation, notifOverride: null, ...optimisticEventScope }, dateKey: dk });
         }
 
         // Optimistic local update
@@ -10418,8 +10946,8 @@ export default function KidsScheduler() {
     const nextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); } else setCurrentMonth(m => m + 1); };
     const getDays = getDIM(currentYear, currentMonth);
     const firstDay = getFD(currentYear, currentMonth);
-    const getEvs = (d) => events[`${currentYear}-${currentMonth}-${d}`] || [];
-    const selectedEvs = events[dateKey] || [];
+    const getEvs = (d) => visibleEvents[`${currentYear}-${currentMonth}-${d}`] || [];
+    const selectedEvs = visibleEvents[dateKey] || [];
 
     // CSS helpers
     const contentMaxWidth = isParent ? 720 : 460;
@@ -10429,7 +10957,7 @@ export default function KidsScheduler() {
     const primBtn = makePrimaryButtonStyle({ marginTop: 16 });
     const secBtn = makeSecondaryButtonStyle({ marginTop: 8, background: "var(--bg-subtle)" });
     const todayDateKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-    const todayEvents = events[todayDateKey] || [];
+    const todayEvents = visibleEvents[todayDateKey] || [];
     const todayDateLabel = today.toLocaleDateString("ko-KR", { weekday: "long", month: "long", day: "numeric" });
     const nowMinutes = today.getHours() * 60 + today.getMinutes();
     const nextTodayEvent = todayEvents.find((event) => {
@@ -10458,10 +10986,15 @@ export default function KidsScheduler() {
         : "다음 일정 없음";
     const homeSavedPlace = findHomeSavedPlace(savedPlaces);
     const homeRouteEvent = buildHomeRouteEvent(homeSavedPlace);
-    const heroChildrenText = pairedChildren.length > 0
+    const selectedChildDisplayName = isParent && selectedChild?.name ? selectedChild.name : "";
+    const heroChildrenText = selectedChildDisplayName
+        ? selectedChildDisplayName
+        : pairedChildren.length > 0
         ? pairedChildren.map(child => child.name || "아이").join(" · ")
         : (familyInfo?.myName || "가족");
-    const parentHeroChildrenText = pairedChildren.length > 2
+    const parentHeroChildrenText = selectedChildDisplayName
+        ? selectedChildDisplayName
+        : pairedChildren.length > 2
         ? `${pairedChildren[0]?.name || "아이"} 외 ${pairedChildren.length - 1}명`
         : pairedChildren.length === 2
             ? `${pairedChildren[0]?.name || "아이"}와 ${pairedChildren[1]?.name || "아이"}`
@@ -10545,6 +11078,10 @@ export default function KidsScheduler() {
         }
         setRouteEvent(homeRouteEvent);
     };
+    const schedulePlaceOptions = useMemo(
+        () => buildSchedulePlaceOptions(academies, savedPlaces),
+        [academies, savedPlaces]
+    );
     const closeParentManagementPanels = useCallback(() => {
         setShowAcademyMgr(false);
         setShowSavedPlaceMgr(false);
@@ -10872,6 +11409,85 @@ export default function KidsScheduler() {
     const selectedEventsSorted = [...selectedEvs].sort((left, right) => getEventStartMinutes(left) - getEventStartMinutes(right));
     const selectedCalendarDate = new Date(currentYear, currentMonth, selectedDate);
     const selectedCalendarDateLabel = `${currentMonth + 1}월 ${selectedDate}일 ${DAYS_KO[selectedCalendarDate.getDay()]}요일`;
+    const selectedDateMovementSummary = useMemo(
+        () => buildLocationDaySummary(selectedDateLocationTrail, {
+            childUserId: selectedChild?.user_id || null,
+            child: selectedChild,
+            savedPlaces,
+            academies,
+        }),
+        [academies, savedPlaces, selectedChild, selectedDateLocationTrail]
+    );
+    const renderSelectedDateMovementSummary = () => {
+        const childName = selectedChild?.name || "선택한 아이";
+        const hasEnoughRoute = selectedDateMovementSummary.pointCount >= 2;
+        return (
+            <section
+                className="hyeni-v5-movement-summary"
+                aria-label="선택한 날짜 이동경로 요약"
+            >
+                <div className="hyeni-v5-movement-summary__head">
+                    <div>
+                        <span className="hyeni-v5-movement-summary__kicker">{selectedCalendarDateLabel}</span>
+                        <h3>{childName} 하루 이동경로</h3>
+                    </div>
+                    <span className="hyeni-v5-movement-summary__count">
+                        이동 기록 {selectedDateMovementSummary.pointCount}개
+                    </span>
+                </div>
+
+                {selectedDateTrailLoading ? (
+                    <div className="hyeni-v5-movement-summary__empty">이동기록을 불러오는 중이에요.</div>
+                ) : selectedDateTrailError ? (
+                    <div className="hyeni-v5-movement-summary__empty is-error">{selectedDateTrailError}</div>
+                ) : !selectedDateMovementSummary.hasData ? (
+                    <div className="hyeni-v5-movement-summary__empty">
+                        선택한 날짜에 {childName} 위치 기록이 없어요. 아이 기기의 위치 권한, 네트워크, 배터리 제한 상태를 확인해 주세요.
+                    </div>
+                ) : (
+                    <>
+                        <div className="hyeni-v5-movement-summary__stats">
+                            <div>
+                                <span>첫 기록</span>
+                                <strong>{selectedDateMovementSummary.firstTimeLabel || "시간 미상"}</strong>
+                            </div>
+                            <div>
+                                <span>마지막 기록</span>
+                                <strong>{selectedDateMovementSummary.lastTimeLabel || "시간 미상"}</strong>
+                            </div>
+                            <div>
+                                <span>이동 거리</span>
+                                <strong>{hasEnoughRoute ? selectedDateMovementSummary.distanceLabel : "데이터 부족"}</strong>
+                            </div>
+                            <div>
+                                <span>기록 시간</span>
+                                <strong>{hasEnoughRoute ? selectedDateMovementSummary.durationLabel : "데이터 부족"}</strong>
+                            </div>
+                        </div>
+
+                        {selectedDateMovementSummary.dwellPlaces.length > 0 && (
+                            <div className="hyeni-v5-movement-summary__dwells" aria-label="오래 머문 위치">
+                                {selectedDateMovementSummary.dwellPlaces.slice(0, 3).map((place) => (
+                                    <span key={place.id}>
+                                        {place.placeLabel || "머문 위치"} · {place.durationLabel} · {place.timeLabel}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        <ol className="hyeni-v5-movement-summary__timeline">
+                            {selectedDateMovementSummary.timeline.slice(0, 6).map((point) => (
+                                <li key={point.id}>
+                                    <span>{point.timeLabel || "시간 미상"}</span>
+                                    <strong>{point.placeLabel || `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`}</strong>
+                                </li>
+                            ))}
+                        </ol>
+                    </>
+                )}
+            </section>
+        );
+    };
     const renderParentCalendarGrid = (keyPrefix = "parent") => (
         <div className="hyeni-v5-calendar-card">
             <div className="hyeni-v5-calendar-card-head">
@@ -10932,7 +11548,7 @@ export default function KidsScheduler() {
                 : status.tone === "done"
                     ? { background: "var(--bg-muted)", color: DESIGN.colors.muted }
                     : null;
-        const whoLabel = pairedChildren[0]?.name || "아이";
+        const whoLabel = selectedChild?.name || pairedChildren[0]?.name || "아이";
         return (
             <div
                 key={event.id}
@@ -11018,6 +11634,8 @@ export default function KidsScheduler() {
         const optimisticId = "temp-" + Date.now();
         const optimisticReply = {
             id: optimisticId,
+            family_id: familyId,
+            date_key: dateKey,
             user_id: authUser.id,
             user_role: myRole,
             content,
@@ -11025,16 +11643,57 @@ export default function KidsScheduler() {
             origin,
             read_by: [],
         };
+        const memoPageOpen = showParentMemoPage || showChildMemoPage;
         setMemoReplies(prev => [...(prev || []), optimisticReply]);
+        if (memoPageOpen) {
+            setMemoThreadReplies(prev => [...(prev || []), optimisticReply]);
+        }
         const sendPromise = sendMemo(familyId, dateKey, content, authUser.id, myRole, origin)
-            .then(() => {
-                if (myRole === "child" && aiEnabled) {
-                    try { analyzeMemoSentiment(content, ""); } catch (_) { /* ignore */ }
+            .then((insertedReply) => {
+                const channel = realtimeChannel.current;
+                if (insertedReply && channel?.send) {
+                    const broadcastReply = () => {
+                        try {
+                            return Promise.resolve(channel.send({
+                                type: "broadcast",
+                                event: "memo_reply",
+                                payload: insertedReply,
+                            })).catch((error) => {
+                                console.warn("[memo_reply broadcast]", error?.message || error);
+                            });
+                        } catch (error) {
+                            console.warn("[memo_reply broadcast]", error?.message || error);
+                            return Promise.resolve();
+                        }
+                    };
+                    broadcastReply();
+                    if (channel.state !== "joined") {
+                        window.setTimeout(broadcastReply, 500);
+                    }
                 }
-                return fetchMemoReplies(familyId, dateKey).then(setMemoReplies);
+                if (myRole === "child" && aiEnabled) {
+                    try {
+                        analyzeMemoSentiment(content, "");
+                    } catch (_) { /* ignore */ }
+                }
+                return fetchMemoReplies(familyId, dateKey)
+                    .then((rows) => {
+                        setMemoReplies(rows);
+                        if (!memoPageOpen) return rows;
+                        return fetchMemoRepliesForDateKeys(familyId, memoThreadDateKeys)
+                            .then((threadRows) => {
+                                setMemoThreadReplies(threadRows);
+                                return rows;
+                            })
+                            .catch((err) => {
+                                console.warn("[memo] thread refresh after send failed:", err);
+                                return rows;
+                            });
+                    });
             })
             .catch(err => {
                 setMemoReplies(prev => (prev || []).filter(r => r.id !== optimisticId));
+                setMemoThreadReplies(prev => (prev || []).filter(r => r.id !== optimisticId));
                 console.error("[reply]", err);
                 throw err;
             });
@@ -11047,10 +11706,10 @@ export default function KidsScheduler() {
             message: content.length > 50 ? content.substring(0, 50) + "..." : content,
         });
         return sendPromise;
-    }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName]);
+    }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName, memoThreadDateKeys, showParentMemoPage, showChildMemoPage]);
 
     const TABS = isParent
-        ? [["calendar", "○ 달력"], ["maplist", "□ 학원관리"]]
+        ? [["calendar", "○ 달력"], ["maplist", "□ 장소관리"]]
         : [["calendar", "○ 달력"], ["maplist", "⌖ 장소"]];
     const quickPanelTone = { bg: "rgba(255,255,255,0.88)", border: "var(--theme-accent-line)", color: "var(--theme-accent-text)" };
     const quickThemePalette = { bg: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", color: "var(--theme-accent-text)", shadow: "var(--hyeni-theme-shadow-soft)" };
@@ -11061,7 +11720,7 @@ export default function KidsScheduler() {
             key: view,
             icon,
             label: text,
-            ariaLabel: label,
+            ariaLabel: view === "calendar" ? "📅 달력" : "📍 장소",
             active: activeView === view,
             onClick: () => {
                 if (isParent && view === "maplist") {
@@ -11085,23 +11744,23 @@ export default function KidsScheduler() {
             key: "child-tracker",
             icon: "⌖",
             label: "우리아이",
-            ariaLabel: "우리아이",
+            ariaLabel: "📍 우리아이",
             palette: quickThemePalette,
             onClick: () => setShowChildTracker(true),
         } : null,
         isParent && parentCapabilities.canManagePlaces ? {
             key: "academy",
             icon: "□",
-            label: "학원관리",
-            ariaLabel: "학원관리",
+            label: "장소관리",
+            ariaLabel: "📍 장소관리",
             palette: quickThemePalette,
             onClick: openAcademyManagement,
         } : null,
         isParent && parentCapabilities.canManageFamily ? {
             key: "friend-playdate",
             icon: "◇",
-            label: "친구 만남",
-            ariaLabel: "친구 만남 관리",
+            label: "친구놀이",
+            ariaLabel: "친구놀이 관리",
             palette: quickThemePalette,
             onClick: () => {
                 setShowParentMemoPage(false);
@@ -11129,7 +11788,7 @@ export default function KidsScheduler() {
             key: "stickers",
             icon: "★",
             label: isParent ? "스티커" : "스티커북",
-            ariaLabel: isParent ? "스티커" : "스티커북",
+            ariaLabel: isParent ? "🏆 스티커" : "스티커북",
             description: isParent ? "" : "오늘 받은 칭찬 보기",
             palette: quickThemePalette,
             onClick: () => {
@@ -11144,7 +11803,7 @@ export default function KidsScheduler() {
             key: "subscription",
             icon: "◆",
             label: "구독",
-            ariaLabel: "구독",
+            ariaLabel: "💎 구독",
             palette: quickThemePalette,
             onClick: () => setShowSubscriptionSettings(true),
         } : null,
@@ -11152,7 +11811,7 @@ export default function KidsScheduler() {
             key: "contacts",
             icon: "☎",
             label: "연락처",
-            ariaLabel: "연락처",
+            ariaLabel: "📞 연락처",
             palette: quickThemePalette,
             onClick: () => setShowPhoneSettings(true),
         } : null,
@@ -11160,7 +11819,7 @@ export default function KidsScheduler() {
             key: "remote-audio",
             icon: "◉",
             label: "주변소리",
-            ariaLabel: "주변소리",
+            ariaLabel: "🎙️ 주변소리",
             palette: quickThemePalette,
             onClick: () => {
                 if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
@@ -11174,19 +11833,11 @@ export default function KidsScheduler() {
                 setShowRemoteAudio(true);
             },
         } : null,
-        isParent && parentCapabilities.canManagePlaces ? {
-            key: "danger-zones",
-            icon: "!",
-            label: "위험지역",
-            ariaLabel: "위험지역",
-            palette: quickDangerPalette,
-            onClick: () => setShowDangerZones(true),
-        } : null,
         isParent ? {
             key: "feedback",
             icon: "✉",
             label: "피드백",
-            ariaLabel: "피드백 보내기",
+            ariaLabel: "💌 피드백 보내기",
             palette: quickThemePalette,
             onClick: () => setShowFeedbackModal(true),
         } : null,
@@ -11387,8 +12038,13 @@ export default function KidsScheduler() {
     );
 
     if (showAcademyMgr) return (
-        <>
-        <AcademyManager academies={academies} savedPlaces={savedPlaces} savedPlacesLocked={!parentCapabilities.canManagePlaces || !entitlement.canUse(FEATURES.SAVED_PLACES)} currentPos={childPos}
+        <AcademyManager
+            academies={academies}
+            savedPlaces={savedPlaces}
+            dangerZones={dangerZones}
+            savedPlacesLocked={!parentCapabilities.canManagePlaces || !entitlement.canUse(FEATURES.SAVED_PLACES)}
+            dangerZonesLocked={!parentCapabilities.canManagePlaces}
+            currentPos={childPos}
             onSave={async (newList) => {
                 if (!parentCapabilities.canManagePlaces) {
                     showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
@@ -11465,7 +12121,11 @@ export default function KidsScheduler() {
                     for (const oldAc of oldAcademies) {
                         const nextAc = oldAc?.id ? finalList.find(item => item.id === oldAc.id) : null;
                         const scheduleChanged = !nextAc || JSON.stringify(oldAc.schedule || null) !== JSON.stringify(nextAc.schedule || null);
-                        const coreChanged = !nextAc || oldAc.name !== nextAc.name || oldAc.category !== nextAc.category;
+                        const coreChanged = !nextAc
+                            || oldAc.name !== nextAc.name
+                            || oldAc.category !== nextAc.category
+                            || oldAc.emoji !== nextAc.emoji
+                            || JSON.stringify(oldAc.location || null) !== JSON.stringify(nextAc.location || null);
                         if (!scheduleChanged && !coreChanged) continue;
                         for (const { ev } of futureEventEntries) {
                             if (isManagedAcademyEvent(ev, oldAc)) academyOpsDeleteIds.add(ev.id);
@@ -11644,15 +12304,34 @@ export default function KidsScheduler() {
                     return false;
                 }
             }}
+            onDangerZonesLocked={() => {
+                showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
+            }}
+            onDangerZoneAdd={async (zone) => {
+                if (!parentCapabilities.canManagePlaces) {
+                    showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
+                    throw new Error("co-parent danger zone blocked");
+                }
+                if (dangerZones.length >= 1 && !entitlement.canUse(FEATURES.MULTI_GEOFENCE)) {
+                    openFeatureLock(FEATURES.MULTI_GEOFENCE);
+                    throw new Error("프리미엄 구독이 필요합니다");
+                }
+                const saved = await saveDangerZone(familyId, zone);
+                setDangerZones(prev => [...prev, saved]);
+                showNotif(`⚠️ 조심할 곳 '${zone.name}' 등록 완료`);
+                return saved;
+            }}
+            onDangerZoneDelete={async (id) => {
+                if (!parentCapabilities.canManagePlaces) {
+                    showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
+                    return;
+                }
+                await deleteDangerZone(id);
+                setDangerZones(prev => prev.filter(z => z.id !== id));
+                setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(id); return n; });
+                showNotif("조심할 곳이 삭제됐어요");
+            }}
             onClose={() => setShowAcademyMgr(false)} />
-            {isParent && (
-                <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 260, pointerEvents: "none" }}>
-                    <div style={{ pointerEvents: "auto" }}>
-                        {renderParentBottomTabbar("maplist", "hyeni-v5-tabbar-fixed")}
-                    </div>
-                </div>
-            )}
-        </>
     );
 
     if (showSavedPlaceMgr) return (
@@ -11741,16 +12420,16 @@ export default function KidsScheduler() {
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
                     background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
                     color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
-                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none"
                 }}>
                     {notification.msg}
                 </div>
             )}
             <ParentMemoPage
-                replies={memoReplies}
+                replies={memoThreadReplies}
                 onReplySubmit={handleMemoReplySubmit}
                 myUserId={authUser?.id}
-                partnerName={pairedChildren[0]?.name || "아이"}
+                partnerName={selectedChild?.name || pairedChildren[0]?.name || "아이"}
                 onClose={() => setShowParentMemoPage(false)}
                 onReplyRef={registerMemoReplyNode}
             />
@@ -11765,13 +12444,13 @@ export default function KidsScheduler() {
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
                     background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
                     color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
-                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none"
                 }}>
                     {notification.msg}
                 </div>
             )}
             <ParentMemoPage
-                replies={memoReplies}
+                replies={memoThreadReplies}
                 onReplySubmit={handleMemoReplySubmit}
                 myUserId={authUser?.id}
                 partnerName="부모님"
@@ -11820,7 +12499,7 @@ export default function KidsScheduler() {
                     position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
                     background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
                     color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
-                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none"
                 }}>
                     {notification.msg}
                 </div>
@@ -12182,9 +12861,7 @@ export default function KidsScheduler() {
             {/* Multi-child quick switch — sits directly under the top
                 parent header so the chip rail is always reachable from
                 any tab. Only renders for parents with 2+ paired children.
-                Active chip is filled with the child's theme color; the
-                home button only appears when a child is currently
-                selected (so it disappears on the home tab). */}
+                Active chip is filled with the child's theme color. */}
             {isParent && pairedChildren.length >= 2 && (
               <div
                 role="group"
@@ -12240,18 +12917,16 @@ export default function KidsScheduler() {
                           transition: "background 0.16s ease, border-color 0.16s ease, color 0.16s ease",
                         }}
                       >
-                        <span
-                          aria-hidden="true"
+                        <ChildAvatar
+                          child={child}
+                          size={24}
+                          color={isActive ? "white" : tint}
+                          radius="var(--radius-full)"
+                          fontSize={11}
+                          decorative
                           style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "var(--radius-full)",
-                            background: child.photo_url
-                              ? `url(${child.photo_url}) center/cover`
-                              : tint,
                             border: `2px solid ${isActive ? "white" : tint}`,
-                            display: "inline-block",
-                            flexShrink: 0,
+                            color: isActive ? tint : "white",
                           }}
                         />
                         <span style={{ whiteSpace: "nowrap" }}>{child.name || "아이"}</span>
@@ -12259,17 +12934,6 @@ export default function KidsScheduler() {
                     );
                   })}
                 </div>
-                {selectedChild && (
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedChildId(null); setActiveView("home"); }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontFamily: FF, flexShrink: 0 }}
-                    aria-label="가족 홈으로 돌아가기"
-                  >
-                    🏡 홈
-                  </button>
-                )}
               </div>
             )}
 
@@ -12626,6 +13290,7 @@ export default function KidsScheduler() {
                         children={pairedChildren}
                         todayEvents={todayEvents}
                         onSelectChild={(childId) => setSelectedChildId(childId)}
+                        onRefreshDevices={requestChildDeviceStatusRefresh}
                     />
                     {renderParentBottomTabbar("today", "hyeni-v5-tabbar-fixed")}
                 </>
@@ -12644,7 +13309,7 @@ export default function KidsScheduler() {
                             const childLocationLabel = getDashboardChildLocationLabel(child, index);
                             const childIsLive = !!getDashboardChildPosition(child, index);
                             const nextLabel = nextTodayEvent
-                                ? `다음 일정 · ${nextTodayEvent.time || ""}${nextTodayEvent.time && nextTodayEvent.title ? " " : ""}${nextTodayEvent.title || ""}`.trim()
+                                ? `다음 일정 · ${nextTodayEvent.time || "시간 미정"}`
                                 : "오늘 일정 없음";
                             return (
                                 <button
@@ -12657,9 +13322,8 @@ export default function KidsScheduler() {
                                 >
                                     <span
                                         className={`hyeni-v5-kid-avatar ${index % 2 === 1 ? "blue" : ""}`}
-                                        style={child.photo_url ? { backgroundImage: `url(${child.photo_url})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" } : undefined}
                                     >
-                                        {child.photo_url ? "" : (child.emoji || (child.name ? child.name.trim()[0] : "👶"))}
+                                        <ChildAvatar child={child} size={36} radius={12} fontSize={20} />
                                         {childIsLive && <span className="live" />}
                                     </span>
                                     <span className="hyeni-v5-kid-info">
@@ -12810,23 +13474,15 @@ export default function KidsScheduler() {
                         {renderParentCalendarGrid("parent-main")}
                     </section>
 
+                    {renderSelectedDateMovementSummary()}
+
                      {parentCapabilities.canWriteSchedule && (
                      <div className="hyeni-v5-add-row">
-                         <button type="button" className="hyeni-v5-ai-button" onClick={openAiSchedule} style={{ fontFamily: FF }}>
+                         <button type="button" className="hyeni-v5-ai-button" aria-label={AI_SCHEDULE_BUTTON_LABEL} onClick={openAiSchedule} style={{ fontFamily: FF }}>
                              빠른 일정입력
                          </button>
                          <button type="button" className="hyeni-v5-plus-button" onClick={() => {
-                            // Default the recipient to the active child context: the
-                            // selected child (multi-child mode) or the lone paired
-                            // child (single-child mode). Falls back to empty when no
-                            // valid context exists yet.
-                            const defaultChildId = selectedChildId
-                              || (pairedChildren.length === 1 ? pairedChildren[0].id : null);
-                            if (defaultChildId) {
-                              setEventChildSelection({ childIds: [defaultChildId], familyAll: false });
-                            } else {
-                              setEventChildSelection({ childIds: [], familyAll: false });
-                            }
+                            setEventChildSelection(getDefaultEventChildSelection());
                             setShowAddModal(true);
                           }} style={{ fontFamily: FF }} aria-label="+" title="일정 추가">
                             +
@@ -12946,7 +13602,7 @@ export default function KidsScheduler() {
                 {/* 빠른 일정입력 + 수동 추가 */}
                 {(!isParent || parentCapabilities.canWriteSchedule) && (
                 <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", gap: 8, marginBottom: 14 }}>
-                    <button onClick={openAiSchedule}
+                    <button type="button" aria-label={AI_SCHEDULE_BUTTON_LABEL} onClick={openAiSchedule}
                         style={{
                             flex: 1, padding: "10px 16px", height: 44, color: "white", border: "none", borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: FF,
                             background: DESIGN.gradients.parent, boxShadow: "0 3px 12px rgba(37,99,235,0.22)"
@@ -13006,6 +13662,8 @@ export default function KidsScheduler() {
 
                     {renderParentCalendarGrid("parent-page")}
 
+                    {renderSelectedDateMovementSummary()}
+
                     <div className="hyeni-v5-calendar-list-head">
                         <div>
                             <span>일정 리스트</span>
@@ -13032,11 +13690,11 @@ export default function KidsScheduler() {
 
             {/* ── FRIEND PLAYDATE SETTINGS PAGE ── */}
             {activeView === "friendPlaydateSettings" && isParent && (
-                <section className="hyeni-v5-calendar-page" aria-label="친구 만남 관리">
+                <section className="hyeni-v5-calendar-page" aria-label="친구놀이 관리">
                     <div className="hyeni-v5-page-head">
                         <div>
                             <div className="hyeni-v5-page-kicker">안전장소 매칭 설정</div>
-                            <h2>친구 만남</h2>
+                            <h2>친구놀이</h2>
                         </div>
                         <button
                             type="button"
@@ -13097,7 +13755,7 @@ export default function KidsScheduler() {
             {activeView === "maplist" && (
                 <div className={isParent ? "hyeni-v5-maplist-with-tabbar" : undefined}>
                     <LocationMapView
-                        events={isParent ? events : visibleEvents}
+                        events={visibleEvents}
                         childPos={isParent ? displayChildPos : (ownPosition || displayChildPos)}
                         mapReady={mapReady}
                         arrivedSet={arrivedSet}
@@ -13161,7 +13819,7 @@ export default function KidsScheduler() {
                         <div style={{ marginBottom: 14 }}>
                             <label style={labelSt}>⏰ 시간 {selectedPreset && findLastEventByTitle(selectedPreset.label) && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(지난번 시간)</span>}</label>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                                <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} style={{ padding: "12px 14px", border: "2px solid var(--bg-muted)", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: "var(--theme-accent)", colorScheme: "light" }} />
+                                <input type="time" className="hyeni-time-input" value={newTime} onChange={e => setNewTime(e.target.value)} style={{ padding: "12px 14px", border: "2px solid var(--bg-muted)", borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: "var(--theme-accent)", colorScheme: "light" }} />
                                 <div style={{ display: "flex", gap: 4 }}>
                                     <button onClick={() => { const [h, m] = newTime.split(":").map(Number); const nh = m > 0 ? h : Math.max(0, h - 1); const nm = m > 0 ? 0 : 30; setNewTime(`${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`); }}
                                         style={{ width: 36, height: 36, borderRadius: 10, border: "2px solid var(--bg-muted)", background: "#FAFAFA", cursor: "pointer", fontWeight: 800, fontSize: 16, fontFamily: FF, color: "var(--fg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
@@ -13181,7 +13839,7 @@ export default function KidsScheduler() {
                         <div style={{ marginBottom: 14 }}>
                             <label style={labelSt}>🏁 종료시간 <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(선택)</span></label>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                <input type="time" value={newEndTime} onChange={e => setNewEndTime(e.target.value)}
+                                <input type="time" className="hyeni-time-input" value={newEndTime} onChange={e => setNewEndTime(e.target.value)}
                                     style={{ padding: "12px 14px", border: `2px solid ${newEndTime ? "var(--theme-accent)" : "var(--bg-muted)"}`, borderRadius: 14, fontSize: 15, fontFamily: FF, outline: "none", flex: 1, accentColor: "var(--theme-accent)", colorScheme: "light" }} />
                                 {newEndTime && (
                                     <button onClick={() => setNewEndTime("")}
@@ -13203,16 +13861,16 @@ export default function KidsScheduler() {
                                 })}
                             </div>
                         </div>
-                        {(isParent || savedPlaces.length > 0 || newLocation) && (
+                        {(isParent || schedulePlaceOptions.length > 0 || newLocation) && (
                             <div style={{ marginBottom: 14 }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
                                     <label style={{ ...labelSt, marginBottom: 0 }}>
-                                        📍 학원/장소 위치 {newLocation && <span style={{ fontSize: 11, color: "#059669", fontWeight: 500 }}>(다음에도 자동 적용)</span>}
+                                        📍 학원/자주가는 장소 {newLocation && <span style={{ fontSize: 11, color: "#059669", fontWeight: 500 }}>(일정 위치로 적용)</span>}
                                     </label>
                                     {isParent && (
                                         <button
                                             type="button"
-                                            aria-label="📍 자주 가는 장소 추가"
+                                            aria-label="📍 장소관리"
                                             onClick={handleOpenSavedPlaceMgr}
                                             style={{
                                                 border: "none",
@@ -13227,7 +13885,7 @@ export default function KidsScheduler() {
                                                 flexShrink: 0,
                                             }}
                                         >
-                                            + 자주 가는 장소
+                                            + 장소관리
                                         </button>
                                     )}
                                 </div>
@@ -13236,15 +13894,22 @@ export default function KidsScheduler() {
                                         유료계정은 자주가는 장소를 무제한 등록할 수 있어요
                                     </div>
                                 )}
-                                {savedPlaces.length > 0 && (
+                                {schedulePlaceOptions.length > 0 && (
                                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                                        {savedPlaces.map((place) => {
-                                            const active = newLocation?.address === place.location?.address;
+                                        {schedulePlaceOptions.map((place) => {
+                                            const active = getPlaceLocationKey(newLocation) === getPlaceLocationKey(place.location);
                                             return (
                                                 <button
-                                                    key={place.id}
+                                                    key={place.key}
                                                     type="button"
-                                                    onClick={() => setNewLocation(place.location)}
+                                                    onClick={() => {
+                                                        setNewLocation(place.location);
+                                                        if (place.source === "academy") {
+                                                            if (!newTitle.trim()) setNewTitle(place.name || "");
+                                                            if (place.category) setNewCategory(place.category);
+                                                            setSelectedPreset(null);
+                                                        }
+                                                    }}
                                                     style={{
                                                         padding: "8px 12px",
                                                         borderRadius: 16,
@@ -13257,7 +13922,8 @@ export default function KidsScheduler() {
                                                         fontFamily: FF,
                                                     }}
                                                 >
-                                                    📍 {place.name}
+                                                    {place.emoji} {place.name}
+                                                    <span style={{ marginLeft: 5, fontSize: 10, fontWeight: 900, opacity: 0.72 }}>{place.badge}</span>
                                                 </button>
                                             );
                                         })}
@@ -13519,6 +14185,7 @@ export default function KidsScheduler() {
                     senderUserId={authUser?.id}
                     pairedChildren={pairedChildren}
                     targetChildUserId={selectedChild?.user_id || null}
+                    childDeviceStatusMap={childDeviceStatusMap}
                     onClose={() => setShowRemoteAudio(false)}
                 />
             )}
@@ -13580,12 +14247,13 @@ export default function KidsScheduler() {
             )}
 
             {/* ── Child Tracker (학부모 전용) ── */}
-            {showChildTracker && <ChildTrackerOverlay
-                childPos={displayChildPos} allChildPositions={displayChildPositions}
-                pairedChildren={pairedChildren}
-                events={events} academies={academies} childLocationLabels={childLocationLabels}
-                mapReady={mapReady}
-                arrivedSet={arrivedSet} onClose={() => setShowChildTracker(false)}
+             {showChildTracker && <ChildTrackerOverlay
+                 childPos={displayChildPos} allChildPositions={displayChildPositions}
+                 pairedChildren={pairedChildren}
+                 events={visibleEvents} academies={academies} childLocationLabels={childLocationLabels}
+                 selectedChildUserId={selectedChild?.user_id || null}
+                 mapReady={mapReady}
+                 arrivedSet={arrivedSet} onClose={() => setShowChildTracker(false)}
                 locationTrail={locationTrail}
                 locationHint={locationGateHint}
                 refreshRequestedAt={locationRefreshRequestedAt}
@@ -13652,6 +14320,7 @@ export default function KidsScheduler() {
                 familyId={familyId}
                 authUser={authUser}
                 events={events[dateKey] || []}
+                eventSelection={getEffectiveEventChildSelection()}
                 startVoiceFn={startVoice}
                 onSave={(newEv, dk) => {
                     if (!parentCapabilities.canWriteSchedule) {
