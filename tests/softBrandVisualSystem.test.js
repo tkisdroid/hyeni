@@ -27,7 +27,8 @@ const remoteAudioSource = readFileSync("src/lib/remoteAudio.js", "utf8");
 const dayTimetableSource = readFileSync("src/components/timetable/DayTimetable.jsx", "utf8");
 const dangerZoneManagerSource = readFileSync("src/components/dangerZone/DangerZoneManager.jsx", "utf8");
 const routeOverlaySource = readFileSync("src/components/route/RouteOverlay.jsx", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}`;
+const stickerBookModalSource = readFileSync("src/components/sticker/StickerBookModal.jsx", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -499,9 +500,8 @@ describe("Soft Brand visual system", () => {
   });
 
   test("sticker book and kkuk receiver avoid legacy mascot chrome", () => {
-    const stickerStart = appSource.indexOf("function StickerBookModal");
-    const stickerEnd = appSource.indexOf("// Audio Recorder", stickerStart);
-    const stickerSource = appSource.slice(stickerStart, stickerEnd);
+    // Phase 5 #4 / B16: StickerBookModal moved to src/components/sticker/StickerBookModal.jsx.
+    const stickerSource = stickerBookModalSource;
     const kkukStart = appSource.indexOf("{/* ── 꾹 수신 전체화면 오버레이 ── */}");
     const kkukSource = appSource.slice(kkukStart, kkukStart + 2400);
 
