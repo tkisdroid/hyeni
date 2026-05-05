@@ -152,6 +152,7 @@ import { ChildDeviceCard } from "./components/contact/ChildDeviceCard.jsx";
 import { PhoneSettingsModal } from "./components/dialogs/PhoneSettingsModal.jsx";
 import { FeedbackModal } from "./components/dialogs/FeedbackModal.jsx";
 import { getChildSafetySetupSteps, getNativeSetupAction } from "./lib/nativeSetup.js";
+import { effectiveChildLocation, effectiveChildPositions } from "./lib/effectiveLocation.js";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
@@ -295,36 +296,7 @@ async function sendFeedbackSuggestion({ content, familyId, user, role }) {
     throw new Error("제안 전송 경로가 준비되지 않았어요");
 }
 
-// Freemium location gate.
-//   premium (REALTIME_LOCATION): always show, isDelayed=false.
-//   free: show the most recent fix tagged isDelayed=true so the UI can
-//         render a "5분 지연" badge / fuzzed marker. The previous logic
-//         returned null whenever the fix was less than 5 min old, which
-//         meant a free parent whose child's GPS updates every 30s
-//         **never** saw a position at all (each fresh fix reset the gate).
-//         The honest gate is "free users see a delayed/marked position",
-//         not "free users see nothing while fixes are continuous".
-function effectiveChildLocation(location, entitlement) {
-    if (!location) return null;
-    if (entitlement?.canUse?.(FEATURES.REALTIME_LOCATION)) {
-        return { ...location, isDelayed: false };
-    }
-    const updatedAtMs = new Date(location.updatedAt || location.updated_at || 0).getTime();
-    if (!updatedAtMs || Number.isNaN(updatedAtMs)) return null;
-    return {
-        ...location,
-        updatedAt: location.updatedAt || location.updated_at,
-        updated_at: location.updated_at || location.updatedAt,
-        isDelayed: true,
-    };
-}
-
-function effectiveChildPositions(positions, entitlement) {
-    if (!Array.isArray(positions)) return [];
-    return positions
-        .map((position) => effectiveChildLocation(position, entitlement))
-        .filter(Boolean);
-}
+// effectiveChildLocation / effectiveChildPositions moved to ./lib/effectiveLocation.js — imported at top.
 
 function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
