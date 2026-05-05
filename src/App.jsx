@@ -2727,11 +2727,28 @@ function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName
                             const theirAvatar = mode === "child" && message.user_role === "parent" ? "💗" : "👧";
                             const myAvatar = mode === "child" ? "🌈" : "🐰";
                             const time = getMemoTime(message.created_at);
+                            const replyRefAttach = el => { if (el && onReplyRef && message.id && !String(message.id).startsWith("temp-")) onReplyRef(el, message.id); };
+
+                            // Phase 3 §4.4 — 자녀 메모 페이지는 iMessage 풍 좌/우 bubble 사용.
+                            if (mode === "child") {
+                                const from = message.user_role === "parent" ? "parent" : "child";
+                                const stamp = isMine ? `${time} · 읽음 ✓` : `${sender} · ${time}`;
+                                return (
+                                    <div
+                                        key={message.id}
+                                        ref={replyRefAttach}
+                                        aria-label={`${sender} ${time} 메모: ${message.content}`}
+                                    >
+                                        <MemoBubble from={from} stamp={stamp}>{message.content}</MemoBubble>
+                                    </div>
+                                );
+                            }
+
                             return (
                                 <article
                                     key={message.id}
                                     className={`hyeni-memo-message ${isMine ? "mine" : "theirs"}`}
-                                    ref={el => { if (el && onReplyRef && message.id && !String(message.id).startsWith("temp-")) onReplyRef(el, message.id); }}
+                                    ref={replyRefAttach}
                                     aria-label={`${sender} ${time} 메모: ${message.content}`}
                                 >
                                     {!isMine && <div className="hyeni-memo-avatar" aria-hidden="true">{theirAvatar}</div>}
