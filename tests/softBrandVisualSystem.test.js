@@ -25,7 +25,9 @@ const aiScheduleModalSource = readFileSync("src/components/aiSchedule/AiSchedule
 const ambientAudioRecorderSource = readFileSync("src/components/audio/AmbientAudioRecorder.jsx", "utf8");
 const remoteAudioSource = readFileSync("src/lib/remoteAudio.js", "utf8");
 const dayTimetableSource = readFileSync("src/components/timetable/DayTimetable.jsx", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}`;
+const dangerZoneManagerSource = readFileSync("src/components/dangerZone/DangerZoneManager.jsx", "utf8");
+const routeOverlaySource = readFileSync("src/components/route/RouteOverlay.jsx", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -391,7 +393,8 @@ describe("Soft Brand visual system", () => {
     const mapPickerEnd = appSource.indexOf("// ─────────────────────────────────────────────────────────────────────────────\n// Alert Banner", mapPickerStart);
     const mapPickerSource = appSource.slice(mapPickerStart, mapPickerEnd);
     const academyStart = appSource.indexOf("function AcademyManager");
-    const academyEnd = appSource.indexOf("function RouteOverlay", academyStart);
+    // Phase 5 #4 / B15: RouteOverlay extracted — boundary now uses moved-comment marker.
+    const academyEnd = appSource.indexOf("// RouteOverlay moved to", academyStart);
     const academySource = appSource.slice(academyStart, academyEnd);
     const savedPlaceStart = appSource.indexOf("function SavedPlaceManager");
     const savedPlaceEnd = appSource.indexOf("function FeedbackModal", savedPlaceStart);
@@ -456,9 +459,8 @@ describe("Soft Brand visual system", () => {
   });
 
   test("route, timetable, contact, and feedback surfaces use shared theme accents", () => {
-    const routeStart = appSource.indexOf("function RouteOverlay");
-    const routeEnd = appSource.indexOf("function getMemoTime", routeStart);
-    const routeSource = appSource.slice(routeStart, routeEnd);
+    // Phase 5 #4 / B15: RouteOverlay moved to src/components/route/RouteOverlay.jsx.
+    const routeSource = routeOverlaySource;
     // Phase 5 #4 / B13: DayTimetable moved to src/components/timetable/DayTimetable.jsx.
     const timetableSource = dayTimetableSource;
     const phoneStart = appSource.indexOf("function PhoneSettingsModal");
