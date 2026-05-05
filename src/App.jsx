@@ -5307,6 +5307,7 @@ export default function KidsScheduler() {
     const [myRole, setMyRole] = useState(() => {
         try { return roleStorage?.getItem("hyeni-my-role") || null; } catch { return null; }
     });           // "parent" | "child" | null (role selection)
+    const [showChildEntry, setShowChildEntry] = useState(false);  // Phase 1 §3.4 자녀 첫 인사 transition
     const [showPairing, setShowPairing] = useState(false);
     const [showTrialInvite, setShowTrialInvite] = useState(false);
     const [featureLock, setFeatureLock] = useState({ open: false, feature: null, title: "", body: "" });
@@ -9590,18 +9591,19 @@ export default function KidsScheduler() {
     }, [familyInfo]);
 
     // ── Render ─────────────────────────────────────────────────────────────────
-    if (authLoading) return (
-        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF }}>
-            <div style={{ textAlign: "center" }}>
-                <AppBrandLogo size={84} radius={26} />
-                <div style={{ fontSize: 20, fontWeight: 900, color: "var(--theme-accent-text)", marginTop: 16 }}>혜니캘린더</div>
-                <div style={{ fontSize: 13, color: "var(--fg-tertiary)", marginTop: 8 }}>로딩 중...</div>
-            </div>
-        </div>
+    // Phase 1 §3.4 — 자녀 카드 클릭 시 800ms 인사 transition 우선 표시
+    if (showChildEntry) return (
+        <ChildEntryTransition onComplete={() => {
+            setShowChildEntry(false);
+            handleChildSelect();
+        }} />
     );
 
+    // Phase 1 §3.1 — Splash + 세션 복원 로딩
+    if (authLoading) return <SplashScreen AppBrandLogo={AppBrandLogo} />;
+
     // Auth guard: if role exists but no session, force re-login
-    if (!myRole || (!authUser && !authLoading)) return <RoleSetupModal onSelect={r => { if (r === "child") handleChildSelect(); }} loading={authLoading} />;
+    if (!myRole || (!authUser && !authLoading)) return <RoleSetupModal onSelect={r => { if (r === "child") setShowChildEntry(true); }} />;
 
     // ── Parent first login: choose "새 가족 만들기" or "기존 가족 합류" ────────
     // "새 가족 만들기" → PairingWizard (multi-child setup wizard)
