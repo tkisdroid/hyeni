@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedLegacyFamily, loginAsExistingParent, selectChildOnHomeIfMulti } from "./_helpers.js";
+import { seedLegacyFamily, loginAsExistingParent, selectChildOnHomeIfMulti, openSubscriptionSettings } from "./_helpers.js";
 
 test.describe("multichild — add/remove child updates total price", () => {
   test.skip(
@@ -37,8 +37,7 @@ test.describe("multichild — add/remove child updates total price", () => {
     await page.goto("/");
     await page.waitForTimeout(1500);
 
-    await page.click("button[aria-label='💎 구독']");
-    await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
+    await openSubscriptionSettings(page, { timeoutMs: 8000 });
     await expect(page.locator("text=₩1,500").first()).toBeVisible({ timeout: 8000 });
 
     // Add child2 + activate its subscription
@@ -70,8 +69,11 @@ test.describe("multichild — add/remove child updates total price", () => {
     // child selection. Helper is no-op for single-child flows.
     await selectChildOnHomeIfMulti(page, "혜니");
     await page.waitForTimeout(500);
-    await page.click("button[aria-label='💎 구독']");
-    await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
+    await openSubscriptionSettings(page, { timeoutMs: 8000 });
+    // PriceSummary renders the SELECTED plan's total. Default selectedPlan
+    // is "annual" → ₩3,000 (monthly total) only appears after switching to
+    // 월 플랜 (SubscriptionManagement.jsx).
+    await page.click('button.plan-card:has-text("월 플랜")');
     await expect(page.locator("text=₩3,000").first()).toBeVisible({ timeout: 8000 });
 
     // Remove child2 — FK ON DELETE CASCADE removes its subscriptions row too.
@@ -82,8 +84,7 @@ test.describe("multichild — add/remove child updates total price", () => {
     await page.waitForTimeout(2000);
     await page.reload();
     await page.waitForTimeout(2000);
-    await page.click("button[aria-label='💎 구독']");
-    await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
+    await openSubscriptionSettings(page, { timeoutMs: 8000 });
     await expect(page.locator("text=₩1,500").first()).toBeVisible({ timeout: 8000 });
   });
 });

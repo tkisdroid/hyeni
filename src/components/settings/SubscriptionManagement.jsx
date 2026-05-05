@@ -98,6 +98,7 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
                                 key={c.id}
                                 type="button"
                                 className="avatar-stepper-slot"
+                                data-child-id={c.id}
                                 data-filled={subscribed ? "true" : "false"}
                                 style={{ "--child-color": color, opacity: busy ? 0.6 : 1 }}
                                 onClick={() => handleToggleChild(c)}

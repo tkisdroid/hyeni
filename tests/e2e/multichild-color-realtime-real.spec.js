@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent, selectChildOnHomeIfMulti } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, selectChildOnHomeIfMulti, openSubscriptionSettings } from "./_helpers.js";
 
 test.describe("multichild — color change reflects in realtime UI", () => {
   test.skip(
@@ -15,28 +15,28 @@ test.describe("multichild — color change reflects in realtime UI", () => {
     await selectChildOnHomeIfMulti(page, "혜니");
     await page.waitForTimeout(500);
 
-    // Navigate to subscription screen — that's where PerChildToggle renders
-    // a wrapper [data-child-id] with an inner avatar div whose border-color
-    // tracks child.color_hex (see PerChildToggle.jsx:14,20). The dashboard
-    // ChildSummaryCard does not currently expose a data-child-id selector.
-    await page.click("button[aria-label='💎 구독']");
-    await page.waitForSelector(`[data-child-id='${child1_id}']`, { timeout: 10000 });
+    // Navigate to subscription screen — SubscriptionManagement renders the
+    // avatar-stepper button per child with data-child-id and an inline
+    // --child-color CSS variable that tracks family_members.color_hex
+    // (SubscriptionManagement.jsx avatar-stepper-slot).
+    await openSubscriptionSettings(page, { timeoutMs: 10000 });
+    await page.waitForSelector(`button[data-child-id='${child1_id}']`, { timeout: 10000 });
 
-    // Read border-color on the avatar (first inner div) — that uses color_hex.
-    const readAvatarBorder = () =>
-      page
-        .locator(`[data-child-id='${child1_id}'] > div`)
-        .first()
-        .evaluate((el) => getComputedStyle(el).borderColor)
+    // Read the inline --child-color custom property (hex) directly so we don't
+    // depend on whatever the CSS uses it for (background vs border vs glow).
+    const avatar = page.locator(`button[data-child-id='${child1_id}']`).first();
+    const readAvatarColor = () =>
+      avatar
+        .evaluate((el) => el.style.getPropertyValue("--child-color").trim().toLowerCase() || null)
         .catch(() => null);
 
-    const before = await readAvatarBorder();
+    const before = await readAvatarColor();
 
     // Trigger color change via REST (service role)
     const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
     const SR = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const newColor = "#10B981"; // CHILD_PALETTE green (PerChildToggle renders into border)
-    await fetch(`${SUPABASE_URL}/rest/v1/family_members?id=eq.${child1_id}`, {
+    const patch = await fetch(`${SUPABASE_URL}/rest/v1/family_members?id=eq.${child1_id}`, {
       method: "PATCH",
       headers: {
         apikey: SR, Authorization: `Bearer ${SR}`,
@@ -44,6 +44,7 @@ test.describe("multichild — color change reflects in realtime UI", () => {
       },
       body: JSON.stringify({ color_hex: newColor }),
     });
+    expect(patch.ok, `color PATCH failed: ${patch.status} ${await patch.text()}`).toBe(true);
 
     // Allow Realtime postgres_changes to propagate. The chromium WebView in
     // headless mode occasionally drops the family_members postgres_changes
@@ -54,12 +55,13 @@ test.describe("multichild — color change reflects in realtime UI", () => {
     await page.waitForTimeout(2000);
     await selectChildOnHomeIfMulti(page, "혜니");
     await page.waitForTimeout(500);
-    await page.click("button[aria-label='💎 구독']");
-    await page.waitForSelector(`[data-child-id='${child1_id}']`, { timeout: 10000 });
+    await openSubscriptionSettings(page, { timeoutMs: 10000 });
+    await page.waitForSelector(`button[data-child-id='${child1_id}']`, { timeout: 10000 });
 
-    const after = await readAvatarBorder();
+    const after = await readAvatarColor();
 
     expect(after).toBeTruthy();
+    expect(after).toBe(newColor.toLowerCase());
     if (before && after) expect(after).not.toBe(before);
   });
 });

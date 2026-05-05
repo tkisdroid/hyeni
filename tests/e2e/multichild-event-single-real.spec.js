@@ -41,10 +41,9 @@ test.describe("multichild — single-child event creates 1 events_children row",
     await expect(childCheck).toBeChecked();
     // Settle React batched setState for eventChildSelection before save click.
     await page.waitForTimeout(500);
-    // Save button label is "🐰 일정 추가하기!" (App.jsx:11973). Match the full
-    // emoji+label form so we don't accidentally hit a different button that
-    // happens to contain "일정 추가" substring.
-    await page.click("button:has-text('🐰 일정 추가하기!')");
+    // EventSheet save button — class "sheet-save" with label "저장"
+    // (EventSheet.jsx:112). The previous "🐰 일정 추가하기!" label was removed.
+    await page.click("button.sheet-save");
 
     // Wait for INSERT events + INSERT events_children to settle.
     await page.waitForTimeout(5000);

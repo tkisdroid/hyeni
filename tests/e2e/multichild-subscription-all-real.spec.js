@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, openSubscriptionSettings } from "./_helpers.js";
 
 test.describe("multichild — both children subscribed shows ₩3,000 total", () => {
   test.skip(
@@ -38,10 +38,18 @@ test.describe("multichild — both children subscribed shows ₩3,000 total", ()
     await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
 
-    await page.click("button[aria-label='💎 구독']");
-    await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
-    await page.waitForSelector(`[data-child-id='${child1_id}'] [role='switch']`, { timeout: 8000 });
+    await openSubscriptionSettings(page, { timeoutMs: 8000 });
+    // avatar-stepper button (data-child-id) replaced PerChildToggle's
+    // nested [role='switch'] in the SubscriptionManagement refactor.
+    await page.waitForSelector(`button[data-child-id='${child1_id}']`, { timeout: 8000 });
+    await expect(page.locator(`button[data-child-id='${child1_id}']`)).toHaveAttribute("data-filled", "true");
+    await expect(page.locator(`button[data-child-id='${child2_id}']`)).toHaveAttribute("data-filled", "true");
 
+    // PriceSummary renders the SELECTED plan's total ("/월" suffix). The
+    // default plan is "annual" → annualPriceForCount, so click the monthly
+    // plan card to surface the ₩3,000 monthly total
+    // (SubscriptionManagement.jsx PriceSummary call).
+    await page.click('button.plan-card:has-text("월 플랜")');
     await expect(page.locator("text=₩3,000").first()).toBeVisible({ timeout: 8000 });
   });
 });

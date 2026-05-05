@@ -343,19 +343,46 @@ export async function getDbRowCount(table, filter = "") {
   return Number.parseInt(cnt || "0", 10);
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // Multi-child mode (>=2 children) lands the parent on the home tab. Tap the
 // matching child card to enter that child's context and unlock the rest of
 // the bottom-tab UI. Single-child families skip the home tab so this is a
 // no-op when the card is absent within the timeout.
 export async function selectChildOnHomeIfMulti(page, childName, { timeoutMs = 4000 } = {}) {
-  const card = page.locator(`button[aria-label='${childName} 보기']`).first();
-  try {
-    await card.waitFor({ state: "visible", timeout: timeoutMs });
-  } catch {
-    return false;
+  const childNamePattern = escapeRegExp(childName);
+  const candidates = [
+    page.locator(`button[aria-label='${childName} 보기']`).first(),
+    page.getByRole("button", { name: new RegExp(`^${childNamePattern} 오늘 일정`) }).first(),
+    page.getByRole("group", { name: "자녀 빠른 전환" }).getByRole("button", { name: childName, exact: true }).first(),
+  ];
+
+  for (const card of candidates) {
+    try {
+      await card.waitFor({ state: "visible", timeout: timeoutMs });
+      await card.click();
+      return true;
+    } catch {
+      // Try the next supported multi-child selector.
+    }
   }
-  await card.click();
-  return true;
+  return false;
+}
+
+export async function openSubscriptionSettings(page, { timeoutMs = 10000 } = {}) {
+  const directButton = page.locator("button[aria-label='💎 구독']").first();
+  try {
+    await directButton.click({ timeout: Math.min(timeoutMs, 3000) });
+  } catch {
+    // Global header settings button is the only one with title="설정"; the
+   // "오늘의 가족" region exposes a second aria-label="설정" button, so the
+   // strict aria-label match resolves to two elements. Disambiguate via title.
+    await page.getByTitle("설정", { exact: true }).first().click({ timeout: timeoutMs });
+    await page.getByRole("button", { name: /구독 관리/ }).click({ timeout: timeoutMs });
+  }
+  await page.waitForSelector("text=혜니 프리미엄", { timeout: timeoutMs });
 }
 
 // Internal: fresh email parent signup (returns auth body + email/password)

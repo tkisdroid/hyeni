@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedLegacyFamilyWithSubscription, loginAsExistingParent } from "./_helpers.js";
+import { seedLegacyFamilyWithSubscription, loginAsExistingParent, openSubscriptionSettings } from "./_helpers.js";
 
 test.describe("multichild — legacy 1-child grandfather", () => {
   test.skip(
@@ -12,8 +12,11 @@ test.describe("multichild — legacy 1-child grandfather", () => {
     await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
 
-    await page.click("button[aria-label='💎 구독']");
+    await openSubscriptionSettings(page);
     await expect(page.locator("text=프리미엄")).toBeVisible();
-    await expect(page.locator(`[data-child-id='${child_id}'] [role='switch']`)).toBeChecked();
+    // SubscriptionManagement now exposes per-child state via the avatar-stepper
+    // button's data-filled attribute ("true" when subscribed) instead of an
+    // inner role="switch" toggle (legacy PerChildToggle layout).
+    await expect(page.locator(`button[data-child-id='${child_id}']`)).toHaveAttribute("data-filled", "true");
   });
 });

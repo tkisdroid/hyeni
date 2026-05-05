@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedLegacy2ChildFamilyWithSubscription, loginAsExistingParent } from "./_helpers.js";
+import { seedLegacy2ChildFamilyWithSubscription, loginAsExistingParent, openSubscriptionSettings } from "./_helpers.js";
 
 test.describe("multichild — legacy 2-child grandfather (first only)", () => {
   test.skip(
@@ -13,11 +13,13 @@ test.describe("multichild — legacy 2-child grandfather (first only)", () => {
     await loginAsExistingParent(page, parent_email, parent_password);
     await page.goto("/");
 
-    await page.click("button[aria-label='💎 구독']");
-    await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
-    await page.waitForSelector(`[data-child-id='${child1_id}'] [role='switch']`, { timeout: 8000 });
-    await expect(page.locator(`[data-child-id='${child1_id}'] [role='switch']`)).toBeChecked();
-    await expect(page.locator(`[data-child-id='${child2_id}'] [role='switch']`)).not.toBeChecked();
-    await expect(page.locator("text=₩1,500/월").first()).toBeVisible();
+    await openSubscriptionSettings(page, { timeoutMs: 8000 });
+    // SubscriptionManagement now uses avatar-stepper buttons with data-child-id
+    // and data-filled="true|false" instead of nested role="switch" toggles
+    // (legacy PerChildToggle layout was removed in the avatar-stepper refactor).
+    await page.waitForSelector(`button[data-child-id='${child1_id}']`, { timeout: 8000 });
+    await expect(page.locator(`button[data-child-id='${child1_id}']`)).toHaveAttribute("data-filled", "true");
+    await expect(page.locator(`button[data-child-id='${child2_id}']`)).toHaveAttribute("data-filled", "false");
+    await expect(page.locator("text=₩1,500").first()).toBeVisible();
   });
 });

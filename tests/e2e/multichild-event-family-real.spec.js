@@ -20,8 +20,10 @@ test.describe("multichild — family-all event sets is_family_event=true", () =>
     await page.click("button[title='일정 추가']");
     await page.fill("input[placeholder*='학원']", "가족 외식");
     await page.click("button:has-text('가족 전체')");
-    // Save button label is "🐰 일정 추가하기!" (App.jsx:11973), not "저장".
-    await page.click("button:has-text('일정 추가하기')");
+    // EventSheet save button uses class "sheet-save" with default label "저장"
+    // (EventSheet.jsx:112). Older specs targeted "🐰 일정 추가하기!" / partial
+    // text — both are now obsolete. Use the class anchor for stability.
+    await page.click("button.sheet-save");
     await page.waitForTimeout(2000);
 
     // family event → no rows added in events_children
