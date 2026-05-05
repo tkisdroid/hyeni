@@ -18,7 +18,8 @@ const scheduleCategoriesSource = readFileSync("src/lib/scheduleCategories.js", "
 const locationMapViewSource = readFileSync("src/components/map/LocationMapView.jsx", "utf8");
 const htmlEscapeSource = readFileSync("src/lib/htmlEscape.js", "utf8");
 const childTrackerOverlaySource = readFileSync("src/components/childTracker/ChildTrackerOverlay.jsx", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}`;
+const memoSectionSource = readFileSync("src/components/memo/MemoSection.jsx", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -513,9 +514,8 @@ describe("Soft Brand visual system", () => {
   });
 
   test("inline memo section follows the selected theme variables", () => {
-    const memoStart = appSource.indexOf("function MemoSection");
-    const memoEnd = appSource.indexOf("function ParentMemoPage", memoStart);
-    const memoSource = appSource.slice(memoStart, memoEnd);
+    // MemoSection moved to src/components/memo/MemoSection.jsx (Phase 5 #4 / B8).
+    const memoSource = memoSectionSource;
 
     expect(memoSource).toContain("var(--theme-accent)");
     expect(memoSource).toContain("var(--theme-accent-soft)");
