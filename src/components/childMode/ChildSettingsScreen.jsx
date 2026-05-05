@@ -34,7 +34,7 @@ function Toggle({ value, onChange, ariaLabel }) {
                     top: 3, left: value ? 25 : 3,
                     width: 24, height: 24,
                     borderRadius: "var(--radius-full)",
-                    background: "#FFFFFF",
+                    background: "var(--bg-base)",
                     boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
                     transition: "left var(--duration-fast) var(--easing-cheer)",
                 }}
