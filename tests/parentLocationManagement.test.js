@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 
-const app = readFileSync("src/App.jsx", "utf8");
+const appSrc = readFileSync("src/App.jsx", "utf8");
+const academyManagerSrc = readFileSync("src/components/place-management/AcademyManager.jsx", "utf8");
+const app = `${appSrc}\n${academyManagerSrc}`;
 const academyCardSrc = readFileSync("src/components/place-management/AcademyCard.jsx", "utf8");
 const dangerCardSrc = readFileSync("src/components/place-management/DangerCard.jsx", "utf8");
 const savedPlacesSrc = readFileSync("src/components/place-management/SavedPlacesSection.jsx", "utf8");
