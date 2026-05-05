@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 
 // Phase 5 #4 / B12: AmbientAudioRecorder + remoteAudio constants moved out of App.jsx.
+// Phase 5 #4 / B26: startRemoteAudioCapture / stopRemoteAudioCapture / native helpers moved to lib/remoteAudioCapture.js.
 const appJsxOnly = readFileSync("src/App.jsx", "utf8");
 const ambientAudioRecorderSrc = readFileSync("src/components/audio/AmbientAudioRecorder.jsx", "utf8");
 const remoteAudioSrc = readFileSync("src/lib/remoteAudio.js", "utf8");
-const app = `${appJsxOnly}\n${ambientAudioRecorderSrc}\n${remoteAudioSrc}`;
+const remoteAudioCaptureSrc = readFileSync("src/lib/remoteAudioCapture.js", "utf8");
+const app = `${appJsxOnly}\n${ambientAudioRecorderSrc}\n${remoteAudioSrc}\n${remoteAudioCaptureSrc}`;
 const pushNotify = readFileSync("supabase/functions/push-notify/index.ts", "utf8");
 const fcmService = readFileSync(
   "android/app/src/main/java/com/hyeni/calendar/MyFirebaseMessagingService.java",
