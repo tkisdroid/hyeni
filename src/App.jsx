@@ -127,13 +127,9 @@ import AcademyCard from "./components/place-management/AcademyCard.jsx";
 import DangerCard from "./components/place-management/DangerCard.jsx";
 import SavedPlacesSection from "./components/place-management/SavedPlacesSection.jsx";
 import { getDeviceLabelFromUA } from "./lib/deviceInfo.js";
+import { normalizeKakaoAppKey, KAKAO_APP_KEY, loadKakaoMap } from "./lib/kakaoMap.js";
 import "./App.css";
 
-function normalizeKakaoAppKey(value) {
-    return String(value || "").trim().replace(/^['"]|['"]$/g, "");
-}
-
-const KAKAO_APP_KEY = normalizeKakaoAppKey(import.meta.env.VITE_KAKAO_APP_KEY);
 const KAKAO_REST_KEY = normalizeKakaoAppKey(import.meta.env.VITE_KAKAO_REST_KEY);
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -879,57 +875,6 @@ async function fetchWalkingRoute(start, destination, signal) {
 const getDIM = (y, m) => new Date(y, m + 1, 0).getDate();
 const getFD = (y, m) => new Date(y, m, 1).getDay();
 const fmtT = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-
-// Kakao Maps
-let kakaoReady = null; // shared promise
-function loadKakaoMap(appKey) {
-    const normalizedKey = normalizeKakaoAppKey(appKey);
-    if (kakaoReady) return kakaoReady;
-    kakaoReady = new Promise((res, rej) => {
-        if (window.kakao?.maps?.LatLng) { res(); return; }
-        if (!normalizedKey) {
-            kakaoReady = null;
-            rej(new Error("missing Kakao app key"));
-            return;
-        }
-        const s = document.createElement("script");
-        let settled = false;
-        const finish = (callback) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            callback();
-        };
-        const timer = setTimeout(() => {
-            s.remove();
-            kakaoReady = null;
-            finish(() => rej(new Error("Kakao 지도 SDK 로딩 시간이 초과됐어요")));
-        }, 10000);
-        s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(normalizedKey)}&autoload=false&libraries=services`;
-        s.onload = () => {
-            if (!window.kakao?.maps?.load) {
-                kakaoReady = null;
-                finish(() => rej(new Error("Kakao 지도 SDK가 초기화되지 않았어요")));
-                return;
-            }
-            try {
-                window.kakao.maps.load(() => {
-                    console.log("[KakaoMap] SDK ready");
-                    finish(res);
-                });
-            } catch (error) {
-                kakaoReady = null;
-                finish(() => rej(error));
-            }
-        };
-        s.onerror = () => {
-            kakaoReady = null;
-            finish(() => rej(new Error("Kakao 지도 SDK 스크립트를 불러오지 못했어요")));
-        };
-        document.head.appendChild(s);
-    });
-    return kakaoReady;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Kakao Static Map (thumbnail)
