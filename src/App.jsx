@@ -139,6 +139,7 @@ import { ChildTrackerOverlay } from "./components/childTracker/ChildTrackerOverl
 import { MemoSection } from "./components/memo/MemoSection.jsx";
 import { PairingModal } from "./components/pairing/PairingModal.jsx";
 import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "./lib/remoteListenHealth.js";
+import { sendInstantPush } from "./lib/instantPush.js";
 import { escHtml } from "./lib/htmlEscape.js";
 import "./App.css";
 
@@ -259,57 +260,8 @@ function getChildSafetySetupSteps(health, bgLocationGranted) {
 //   3. On 2xx → done. On network error / 5xx → single retry after 800ms with
 //      the SAME UUID so the server dedups it via push_idempotency. On final
 //      failure log once; no fallback chain.
-function createPushIdempotencyKey(preferredKey = "") {
-    const key = typeof preferredKey === "string" ? preferredKey.trim() : "";
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?::[a-z0-9_-]+)?$/i.test(key)) {
-        return key;
-    }
-    return crypto.randomUUID();
-}
+// createPushIdempotencyKey / sendInstantPush moved to ./lib/instantPush.js — imported at top.
 
-async function sendInstantPush({ action, familyId, senderUserId, title, message, idempotencyKey: preferredIdempotencyKey, ...extraData }) {
-    if (!familyId) return;
-    const url = PUSH_FUNCTION_URL;
-    if (!url) return;
-    const idempotencyKey = createPushIdempotencyKey(preferredIdempotencyKey);
-    const payload = JSON.stringify({
-        action, familyId, senderUserId, title, message,
-        ...extraData,
-        idempotency_key: idempotencyKey,
-    });
-    const session = await getSession().catch(() => null);
-    const token = session?.access_token || "";
-
-    const attempt = async () => {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Idempotency-Key": idempotencyKey,
-                ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-            },
-            body: payload,
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        return response;
-    };
-
-    try {
-        await attempt();
-        return;
-    } catch (err) {
-        // One retry, 800ms delay, same UUID — server dedup handles it.
-        try {
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            await attempt();
-            return;
-        } catch (err2) {
-            console.warn(`[Push] send ${idempotencyKey} failed: ${err2.message || err.message}`);
-        }
-    }
-}
 
 const REMOTE_AUDIO_CHUNK_MS = 1000;
 const REMOTE_AUDIO_DEFAULT_DURATION_SEC = 60;
