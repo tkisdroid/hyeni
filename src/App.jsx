@@ -151,6 +151,7 @@ import { ChildCallCard } from "./components/contact/ChildCallCard.jsx";
 import { ChildDeviceCard } from "./components/contact/ChildDeviceCard.jsx";
 import { PhoneSettingsModal } from "./components/dialogs/PhoneSettingsModal.jsx";
 import { FeedbackModal } from "./components/dialogs/FeedbackModal.jsx";
+import { getChildSafetySetupSteps, getNativeSetupAction } from "./lib/nativeSetup.js";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
@@ -168,99 +169,7 @@ const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse
 const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
 const FEEDBACK_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/feedback-email` : "";
 const FEEDBACK_RECIPIENT = "tkisdroid@gmail.com";
-const REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
-
-// normalizePairCodeInput moved to ./lib/pairCode.js — imported at top.
-
-function getNativeSetupAction(health) {
-    if (!health) return null;
-    if (!health.recordAudioGranted) {
-        return { target: "appDetails", label: "마이크 권한 허용" };
-    }
-    if (!health.postPermissionGranted || !health.notificationsEnabled || !health.channelsEnabled) {
-        return { target: "notifications", label: "알림 권한 열기" };
-    }
-    if (health.remoteListenChannelEnabled === false) {
-        return { target: "remoteListenChannel", label: "연결 알림 켜기", channelId: REMOTE_LISTEN_CHANNEL_ID };
-    }
-    if (!health.fullScreenIntentAllowed) {
-        return { target: "fullScreen", label: "전체화면 알림 허용" };
-    }
-    if (!health.batteryOptimizationsIgnored) {
-        return { target: "battery", label: "배터리 예외 허용" };
-    }
-    if (!health.exactAlarmAllowed) {
-        return { target: "exactAlarm", label: "정확한 알림 허용" };
-    }
-    return null;
-}
-
-const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
-    {
-        id: "microphone",
-        title: "마이크 권한",
-        description: "부모님이 요청했을 때 주변 소리 연결을 시작할 수 있어요.",
-        target: "appDetails",
-        actionLabel: "권한 열기",
-        isReady: (health) => health?.recordAudioGranted === true,
-    },
-    {
-        id: "notifications",
-        title: "알림 권한",
-        description: "앱이 닫혀 있어도 연결 요청을 받을 수 있어요.",
-        target: "notifications",
-        actionLabel: "알림 켜기",
-        isReady: (health) => !!health && health.postPermissionGranted === true && health.notificationsEnabled === true && health.channelsEnabled === true,
-    },
-    {
-        id: "remoteListenChannel",
-        title: "연결 알림",
-        description: "자동 실행이 막혀도 아이 기기에 연결 알림이 남아요.",
-        target: "remoteListenChannel",
-        channelId: REMOTE_LISTEN_CHANNEL_ID,
-        actionLabel: "채널 열기",
-        isReady: (health) => health?.remoteListenChannelEnabled !== false,
-    },
-    {
-        id: "fullScreen",
-        title: "전체화면 알림",
-        description: "잠금 화면에서도 연결 화면을 자동으로 띄울 확률을 높여요.",
-        target: "fullScreen",
-        actionLabel: "허용하기",
-        isReady: (health) => health?.fullScreenIntentAllowed === true,
-    },
-    {
-        id: "battery",
-        title: "배터리 예외",
-        description: "절전 모드가 위치 서비스와 연결 요청을 끊지 않게 해요.",
-        target: "battery",
-        actionLabel: "예외 허용",
-        isReady: (health) => health?.batteryOptimizationsIgnored === true,
-    },
-    {
-        id: "backgroundLocation",
-        title: "위치 항상 허용",
-        description: "앱이 화면 밖에 있어도 위치와 안전 상태를 계속 보낼 수 있어요.",
-        target: "appLocation",
-        actionLabel: "위치 권한",
-        isReady: (_health, bgLocationGranted) => bgLocationGranted === true,
-    },
-    {
-        id: "locationService",
-        title: "위치 서비스",
-        description: "백그라운드 유지와 FCM fallback을 담당하는 서비스예요.",
-        target: "locationService",
-        actionLabel: "다시 시작",
-        isReady: (health) => health?.locationServiceRunning === true,
-    },
-]);
-
-function getChildSafetySetupSteps(health, bgLocationGranted) {
-    return CHILD_SAFETY_SETUP_STEPS.map((step) => ({
-        ...step,
-        ready: step.isReady(health, bgLocationGranted),
-    }));
-}
+// REMOTE_LISTEN_CHANNEL_ID / getNativeSetupAction / CHILD_SAFETY_SETUP_STEPS / getChildSafetySetupSteps moved to ./lib/nativeSetup.js — imported at top.
 
 // Send instant push notification via Edge Function (Phase 3 P1-4, D-A01/A02).
 //

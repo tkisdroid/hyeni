@@ -1,15 +1,21 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const app = readFileSync("src/App.jsx", "utf8");
+const appJsx = readFileSync("src/App.jsx", "utf8");
+// Phase 5 #4 / B22: native setup helpers moved to lib/nativeSetup.js — concatenate for string-presence checks.
+const nativeSetup = readFileSync("src/lib/nativeSetup.js", "utf8");
+const app = `${appJsx}\n${nativeSetup}`;
+const wizard = readFileSync("src/components/onboarding/ChildPermissionWizard.jsx", "utf8");
 
 describe("child safety setup gate", () => {
   it("blocks child mode behind the one-time safety connection checklist", () => {
     expect(app).toContain("CHILD_SAFETY_SETUP_STEPS");
     expect(app).toContain("getChildSafetySetupSteps");
     expect(app).toContain("childSafetySetupBlocked");
-    expect(app).toContain("안전 연결 준비");
-    expect(app).toContain("안전 기능을 먼저 준비해요");
+    expect(app).toContain("childSafetySetupBlocked && !permissionWizardDismissed");
+    expect(app).toContain("ChildPermissionWizard");
+    expect(wizard).toContain("안전 사용을 위해");
+    expect(wizard).toContain("한 번에 모두 허용");
   });
 
   it("covers microphone, notifications, full-screen alerts, battery, location, and service readiness", () => {
