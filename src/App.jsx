@@ -157,6 +157,7 @@ import { blobToBase64 } from "./lib/blobBase64.js";
 import { PROFILE_THEME_RPC_MISSING_MESSAGE, isMissingNativePluginError, isMissingProfileThemeRpcError } from "./lib/errorChecks.js";
 import { FEEDBACK_RECIPIENT, sendFeedbackSuggestion } from "./lib/feedback.js";
 import { closeRemoteListenSessionRow, startRemoteAudioCapture, stopRemoteAudioCapture } from "./lib/remoteAudioCapture.js";
+import { requestNativeCurrentLocation, startNativeLocationService, stopNativeLocationService } from "./lib/nativeLocationService.js";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
@@ -212,60 +213,7 @@ const AI_SCHEDULE_BUTTON_LABEL = `${String.fromCodePoint(0x1F916)} AI` + "로 �
 // isMissingNativePluginError moved to ./lib/errorChecks.js — imported at top.
 
 
-// Native background location (Capacitor plugin)
-async function startNativeLocationService(userId, familyId, accessToken, role) {
-    try {
-        const { Capacitor } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-            const { registerPlugin } = await import("@capacitor/core");
-            const BackgroundLocation = registerPlugin("BackgroundLocation");
-            await BackgroundLocation.startService({
-                userId, familyId,
-                supabaseUrl: SUPABASE_URL,
-                supabaseKey: SUPABASE_KEY,
-                accessToken: accessToken || "",
-                role: role || "child"
-            });
-            console.log("[Native] Background location service started");
-            return true;
-        }
-    } catch (e) {
-        console.log("[Native] Not available (web mode):", e.message);
-    }
-    return false;
-}
-
-async function requestNativeCurrentLocation(userId, familyId, accessToken, role) {
-    try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-            const BackgroundLocation = registerPlugin("BackgroundLocation");
-            await BackgroundLocation.requestCurrentLocation({
-                userId, familyId,
-                supabaseUrl: SUPABASE_URL,
-                supabaseKey: SUPABASE_KEY,
-                accessToken: accessToken || "",
-                role: role || "child"
-            });
-            console.log("[Native] Immediate child location refresh requested");
-            return true;
-        }
-    } catch (e) {
-        console.log("[Native] Immediate location refresh unavailable:", e.message);
-    }
-    return false;
-}
-
-async function stopNativeLocationService() {
-    try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-            const BackgroundLocation = registerPlugin("BackgroundLocation");
-            await BackgroundLocation.stopService();
-            console.log("[Native] Background location service stopped");
-        }
-    } catch { /* web mode */ }
-}
+// startNativeLocationService / requestNativeCurrentLocation / stopNativeLocationService moved to ./lib/nativeLocationService.js — imported at top.
 
 // rememberParentPairingIntent / clearParentPairingIntent moved to ./lib/parentPairingIntent.js — imported at top.
 
