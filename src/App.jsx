@@ -155,6 +155,7 @@ import { getChildSafetySetupSteps, getNativeSetupAction } from "./lib/nativeSetu
 import { effectiveChildLocation, effectiveChildPositions } from "./lib/effectiveLocation.js";
 import { blobToBase64 } from "./lib/blobBase64.js";
 import { PROFILE_THEME_RPC_MISSING_MESSAGE, isMissingNativePluginError, isMissingProfileThemeRpcError } from "./lib/errorChecks.js";
+import { FEEDBACK_RECIPIENT, sendFeedbackSuggestion } from "./lib/feedback.js";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
@@ -170,8 +171,6 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const PUSH_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/push-notify` : "";
 const AI_PARSE_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-voice-parse` : "";
 const AI_MONITOR_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/ai-child-monitor` : "";
-const FEEDBACK_FUNCTION_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/feedback-email` : "";
-const FEEDBACK_RECIPIENT = "tkisdroid@gmail.com";
 // REMOTE_LISTEN_CHANNEL_ID / getNativeSetupAction / CHILD_SAFETY_SETUP_STEPS / getChildSafetySetupSteps moved to ./lib/nativeSetup.js — imported at top.
 
 // Send instant push notification via Edge Function (Phase 3 P1-4, D-A01/A02).
@@ -240,57 +239,7 @@ function stopRemoteAudioCapture(endReason, options = {}) {
     void closeRemoteListenSessionRow(endReason);
 }
 
-async function sendFeedbackSuggestion({ content, familyId, user, role }) {
-    const trimmed = content.trim();
-    if (!trimmed) throw new Error("제안 내용을 입력해 주세요");
-
-    const payload = {
-        familyId: familyId || null,
-        senderUserId: user?.id || null,
-        senderRole: role || null,
-        senderName: user?.user_metadata?.name || user?.email || "익명 사용자",
-        senderEmail: user?.email || "",
-        content: trimmed,
-        appOrigin: typeof window !== "undefined" ? window.location.origin : "",
-    };
-
-    if (FEEDBACK_FUNCTION_URL) {
-        const session = await getSession().catch(() => null);
-        const token = session?.access_token || "";
-        const response = await fetch(FEEDBACK_FUNCTION_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify(payload),
-        });
-
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(body?.error || "제안 전송에 실패했어요");
-        }
-        return { mode: body?.mock ? "mock" : "edge" };
-    }
-
-    if (typeof window !== "undefined") {
-        const params = new URLSearchParams({
-            subject: "[혜니캘린더] 기능 제안",
-            body: [
-                trimmed,
-                "",
-                `role: ${role || "unknown"}`,
-                `familyId: ${familyId || "none"}`,
-                `sender: ${user?.user_metadata?.name || user?.email || "anonymous"}`,
-                `origin: ${window.location.origin}`,
-            ].join("\n"),
-        });
-        window.location.assign(`mailto:${FEEDBACK_RECIPIENT}?${params.toString()}`);
-        return { mode: "mailto" };
-    }
-
-    throw new Error("제안 전송 경로가 준비되지 않았어요");
-}
+// sendFeedbackSuggestion / FEEDBACK_FUNCTION_URL / FEEDBACK_RECIPIENT moved to ./lib/feedback.js — imported at top.
 
 // effectiveChildLocation / effectiveChildPositions moved to ./lib/effectiveLocation.js — imported at top.
 
