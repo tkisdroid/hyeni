@@ -9,7 +9,10 @@ const tokenCss = readFileSync("src/styles/tokens.css", "utf8");
 // string-presence checks (component behavior is unchanged).
 const appJsxSource = readFileSync("src/App.jsx", "utf8");
 const styleHelpersSource = readFileSync("src/lib/styleHelpers.js", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}`;
+const markerColorsSource = readFileSync("src/lib/markerColors.js", "utf8");
+const fallbackMapCanvasSource = readFileSync("src/components/map/FallbackMapCanvas.jsx", "utf8");
+const mapZoomControlsSource = readFileSync("src/components/map/MapZoomControls.jsx", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
