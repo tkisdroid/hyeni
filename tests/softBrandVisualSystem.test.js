@@ -28,7 +28,8 @@ const dayTimetableSource = readFileSync("src/components/timetable/DayTimetable.j
 const dangerZoneManagerSource = readFileSync("src/components/dangerZone/DangerZoneManager.jsx", "utf8");
 const routeOverlaySource = readFileSync("src/components/route/RouteOverlay.jsx", "utf8");
 const stickerBookModalSource = readFileSync("src/components/sticker/StickerBookModal.jsx", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}`;
+const savedPlaceManagerSource = readFileSync("src/components/place-management/SavedPlaceManager.jsx", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}\n${savedPlaceManagerSource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -397,9 +398,8 @@ describe("Soft Brand visual system", () => {
     // Phase 5 #4 / B15: RouteOverlay extracted — boundary now uses moved-comment marker.
     const academyEnd = appSource.indexOf("// RouteOverlay moved to", academyStart);
     const academySource = appSource.slice(academyStart, academyEnd);
-    const savedPlaceStart = appSource.indexOf("function SavedPlaceManager");
-    const savedPlaceEnd = appSource.indexOf("function FeedbackModal", savedPlaceStart);
-    const savedPlaceSource = appSource.slice(savedPlaceStart, savedPlaceEnd);
+    // Phase 5 #4 / B17: SavedPlaceManager moved to src/components/place-management/SavedPlaceManager.jsx.
+    const savedPlaceSource = savedPlaceManagerSource;
 
     for (const source of [mapPickerSource, academySource, savedPlaceSource]) {
       expect(source).toContain("var(--theme-accent");
@@ -465,7 +465,8 @@ describe("Soft Brand visual system", () => {
     // Phase 5 #4 / B13: DayTimetable moved to src/components/timetable/DayTimetable.jsx.
     const timetableSource = dayTimetableSource;
     const phoneStart = appSource.indexOf("function PhoneSettingsModal");
-    const phoneEnd = appSource.indexOf("function SavedPlaceManager", phoneStart);
+    // Phase 5 #4 / B17: SavedPlaceManager extracted — boundary now uses moved-comment marker.
+    const phoneEnd = appSource.indexOf("// SavedPlaceManager moved to", phoneStart);
     const phoneSource = appSource.slice(phoneStart, phoneEnd);
     const feedbackStart = appSource.indexOf("function FeedbackModal");
     const feedbackEnd = appSource.indexOf("function ChildCallCard", feedbackStart);
