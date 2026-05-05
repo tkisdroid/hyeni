@@ -147,6 +147,8 @@ import { StickerBookModal } from "./components/sticker/StickerBookModal.jsx";
 import { SavedPlaceManager } from "./components/place-management/SavedPlaceManager.jsx";
 import { ChildPairInput } from "./components/childMode/ChildPairInput.jsx";
 import { ParentMemoPage } from "./components/memo/ParentMemoPage.jsx";
+import { ChildCallCard } from "./components/contact/ChildCallCard.jsx";
+import { ChildDeviceCard } from "./components/contact/ChildDeviceCard.jsx";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
@@ -913,134 +915,12 @@ function FeedbackModal({ open, value, onChange, busy, onSend, onClose }) {
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Child Call Card (child view quick action)
-// ─────────────────────────────────────────────────────────────────────────────
-function ChildCallCard({ phones = {} }) {
-    const cleanNumber = (num) => (num || "").replace(/[^0-9+]/g, "");
-    const targets = [
-        phones.mom && phones.mom.length >= 8 ? { key: "mom", label: "엄마", emoji: "👩", number: cleanNumber(phones.mom), color: "var(--theme-accent-text)", bg: "var(--theme-accent-soft)" } : null,
-        phones.dad && phones.dad.length >= 8 ? { key: "dad", label: "아빠", emoji: "👨", number: cleanNumber(phones.dad), color: "var(--theme-accent-text)", bg: "var(--theme-accent-soft)" } : null,
-    ].filter(Boolean);
-    const hasTargets = targets.length > 0;
-
-    return (
-        <div
-            aria-label={hasTargets ? "전화연결" : "등록된 전화번호 없음"}
-            style={{
-                minHeight: 132,
-                padding: "14px",
-                borderRadius: DESIGN.radius.xl,
-                border: "1px solid var(--theme-accent-line)",
-                background: hasTargets ? "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))" : "var(--bg-subtle)",
-                color: hasTargets ? "var(--theme-accent-text)" : "#9CA3AF",
-                boxShadow: hasTargets ? "var(--hyeni-theme-shadow-soft)" : "none",
-                fontFamily: FF,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                gap: 12,
-            }}
-        >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 14, background: "rgba(255,255,255,0.86)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.7)" }}>☎</div>
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15, color: hasTargets ? "var(--theme-accent-text)" : "#9CA3AF" }}>전화연결</div>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: hasTargets ? "var(--fg-secondary)" : "#9CA3AF", marginTop: 3 }}>
-                            {hasTargets ? "엄마 · 아빠" : "연락처 없음"}
-                        </div>
-                    </div>
-                </div>
-                {hasTargets && (
-                    <div style={{ padding: "5px 9px", borderRadius: 999, background: "rgba(255,255,255,0.72)", color: "var(--theme-accent-text)", fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>
-                        바로 연결
-                    </div>
-                )}
-            </div>
-            {hasTargets ? (
-                <div style={{ display: "grid", gridTemplateColumns: targets.length === 1 ? "1fr" : "repeat(2, minmax(0, 1fr))", gap: 10, width: "100%" }}>
-                    {targets.map(target => (
-                        <a
-                            key={target.key}
-                            href={`tel:${target.number}`}
-                            aria-label={`${target.label}에게 전화`}
-                            style={{
-                                minHeight: 58,
-                                padding: "10px 12px",
-                                borderRadius: 18,
-                                background: target.bg,
-                                color: target.color,
-                                textDecoration: "none",
-                                fontSize: 15,
-                                fontWeight: 900,
-                                boxShadow: "0 8px 18px rgba(15,23,42,0.08), inset 0 0 0 1px rgba(255,255,255,0.9)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 7,
-                                minWidth: 0,
-                                boxSizing: "border-box",
-                            }}
-                        >
-                            <span aria-hidden="true" style={{ fontSize: 21, lineHeight: 1 }}>{target.emoji}</span>
-                            <span style={{ lineHeight: 1.1, wordBreak: "keep-all" }}>{target.label}</span>
-                        </a>
-                    ))}
-                </div>
-            ) : (
-                <div style={{ minHeight: 58, borderRadius: 18, background: "var(--bg-muted)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-tertiary)", fontSize: 13, fontWeight: 900 }}>
-                    연락처 없음
-                </div>
-            )}
-        </div>
-    );
-}
+// ChildCallCard moved to ./components/contact/ChildCallCard.jsx — imported at top.
 
 // ChildTrackerOverlay moved to ./components/childTracker/ChildTrackerOverlay.jsx — imported at top.
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 다중 자녀: 자녀별 기기 안전 카드 (배터리 / 마지막 접속)
-// ─────────────────────────────────────────────────────────────────────────────
-function ChildDeviceCard({ child, status }) {
-    const color = child?.color_hex || "#9CA3AF";
-    const battery = Number.isFinite(Number(status?.batteryLevel))
-        ? Math.max(0, Math.min(100, Number(status.batteryLevel)))
-        : null;
-    const updatedAt = status?.updatedAt || status?.updated_at || null;
-    const minutesAgo = updatedAt
-        ? Math.max(0, Math.round((Date.now() - new Date(updatedAt).getTime()) / 60000))
-        : null;
-    const screenLabel = formatDeviceDuration(Number(status?.screenOnMs || 0));
-    const recentApp = status?.recentApp || "사용기록 권한 필요";
-    return (
-        <div style={{
-            padding: 14,
-            borderRadius: 14,
-            background: "white",
-            border: `1.5px solid ${color}30`,
-        }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
-                <div style={{ fontSize: 14, fontWeight: 800 }}>{child?.name || "아이"}</div>
-            </div>
-            <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 8 }}>
-                배터리: {battery == null ? "—" : `${battery}%`} · 마지막 접속: {minutesAgo == null ? "—" : `${minutesAgo}분 전`}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
-                <div style={{ background: "var(--bg-subtle)", borderRadius: 10, padding: "6px 8px" }}>
-                    <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 켜짐 시간</div>
-                    <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>⏱️ {screenLabel}</div>
-                </div>
-                <div style={{ background: "var(--bg-subtle)", borderRadius: 10, padding: "6px 8px", minWidth: 0 }}>
-                    <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 700 }}>가장 많이 실행한 앱</div>
-                    <div style={{ fontSize: 12.5, color: "var(--fg-primary)", fontWeight: 800, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>📱 {recentApp}</div>
-                </div>
-            </div>
-        </div>
-    );
-}
+// ChildDeviceCard moved to ./components/contact/ChildDeviceCard.jsx — imported at top.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main App

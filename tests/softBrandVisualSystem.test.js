@@ -29,7 +29,8 @@ const dangerZoneManagerSource = readFileSync("src/components/dangerZone/DangerZo
 const routeOverlaySource = readFileSync("src/components/route/RouteOverlay.jsx", "utf8");
 const stickerBookModalSource = readFileSync("src/components/sticker/StickerBookModal.jsx", "utf8");
 const savedPlaceManagerSource = readFileSync("src/components/place-management/SavedPlaceManager.jsx", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}\n${savedPlaceManagerSource}`;
+const childCallCardSource = readFileSync("src/components/contact/ChildCallCard.jsx", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}\n${savedPlaceManagerSource}\n${childCallCardSource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -469,12 +470,11 @@ describe("Soft Brand visual system", () => {
     const phoneEnd = appSource.indexOf("// SavedPlaceManager moved to", phoneStart);
     const phoneSource = appSource.slice(phoneStart, phoneEnd);
     const feedbackStart = appSource.indexOf("function FeedbackModal");
-    const feedbackEnd = appSource.indexOf("function ChildCallCard", feedbackStart);
+    // Phase 5 #4 / B20: ChildCallCard extracted — boundary now uses moved-comment marker.
+    const feedbackEnd = appSource.indexOf("// ChildCallCard moved to", feedbackStart);
     const feedbackSource = appSource.slice(feedbackStart, feedbackEnd);
-    const childCallStart = appSource.indexOf("function ChildCallCard");
-    // ChildTrackerOverlay extracted in B7 — boundary now uses the moved-comment marker.
-    const childCallEnd = appSource.indexOf("// ChildTrackerOverlay moved to", childCallStart);
-    const childCallSource = appSource.slice(childCallStart, childCallEnd);
+    // Phase 5 #4 / B20: ChildCallCard moved to src/components/contact/ChildCallCard.jsx.
+    const childCallSource = childCallCardSource;
 
     for (const source of [routeSource, timetableSource, phoneSource, feedbackSource, childCallSource]) {
       expect(source).toContain("var(--theme-accent");
