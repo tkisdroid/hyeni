@@ -6827,6 +6827,7 @@ export default function KidsScheduler() {
                         <ForceRingPanel
                             familyId={familyId}
                             hasChild={(familyInfo?.members ?? []).some(m => m.role === "child")}
+                            childList={(familyInfo?.members ?? []).filter(m => m.role === "child")}
                         />
                     </div>
                     {renderParentBottomTabbar("tools", "hyeni-v5-tabbar-fixed")}

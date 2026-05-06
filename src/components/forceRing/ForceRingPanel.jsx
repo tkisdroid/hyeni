@@ -6,12 +6,24 @@ import { ForceRingHistory } from './ForceRingHistory.jsx';
 import { triggerForceRing, fetchActiveForceRing } from '../../lib/forceRing.js';
 import { supabase } from '../../lib/supabase.js';
 
-export function ForceRingPanel({ familyId, hasChild = true, compact = false }) {
+export function ForceRingPanel({ familyId, hasChild = true, compact = false, childList = [] }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [activeEvent, setActiveEvent] = useState(null);
   const [quotaInfo, setQuotaInfo] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Phase 3 Case 2: 다자녀 가족에서 SOS 대상 명시 선택. 자녀 1명이면 자동 매칭.
+  const childCandidates = (childList || []).filter((c) => c?.user_id);
+  const [selectedChildUserId, setSelectedChildUserId] = useState(
+    childCandidates.length === 1 ? childCandidates[0].user_id : null
+  );
+
+  // childList 가 비동기 갱신될 수 있어 1명 가족은 자동 선택 유지.
+  useEffect(() => {
+    if (childCandidates.length === 1 && !selectedChildUserId) {
+      setSelectedChildUserId(childCandidates[0].user_id);
+    }
+  }, [childCandidates, selectedChildUserId]);
 
   const refresh = useCallback(async () => {
     if (!familyId) return;
@@ -31,7 +43,11 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false }) {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await triggerForceRing({ familyId, message });
+      const result = await triggerForceRing({
+        familyId,
+        targetChildUserId: selectedChildUserId,
+        message,
+      });
       if (result.error === 'force_ring_quota_exceeded') {
         setError('quota_exceeded');
       } else if (result.error === 'force_ring_already_active') {
@@ -55,6 +71,41 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false }) {
     }
   };
 
+  // 다자녀 (2+) 가족 자녀 선택 칩 — confirm 모달 띄우기 전에 명시 선택 강제.
+  const renderChildPicker = () => {
+    if (childCandidates.length < 2) return null;
+    return (
+      <div className="hyeni-tool-child-picker" role="group" aria-label="알람 받을 자녀 선택"
+           style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-3)" }}>
+        {childCandidates.map((c) => {
+          const active = selectedChildUserId === c.user_id;
+          return (
+            <button
+              key={c.user_id}
+              type="button"
+              onClick={() => setSelectedChildUserId(c.user_id)}
+              aria-pressed={active}
+              style={{
+                padding: "8px 14px",
+                borderRadius: "var(--radius-pill)",
+                border: active ? "2px solid var(--theme-accent)" : "1px solid var(--line-soft)",
+                background: active ? "var(--theme-accent-soft)" : "var(--bg-base)",
+                color: active ? "var(--theme-accent-text)" : "var(--fg-primary)",
+                fontWeight: active ? 700 : 500,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {c.name || "자녀"}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const triggerDisabled = childCandidates.length >= 2 && !selectedChildUserId;
+
   if (!hasChild) {
     return (
       <section className="hyeni-tool hyeni-tool--emergency" aria-label="응급 강제 알람">
@@ -72,6 +123,7 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false }) {
   const isDisabled =
     submitting ||
     !!activeEvent ||
+    triggerDisabled ||
     (quotaRemaining !== null && quotaRemaining <= 0);
 
   if (compact) {
@@ -100,6 +152,7 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false }) {
             </div>
           )}
         </div>
+        {renderChildPicker()}
 
         {activeEvent ? (
           <ForceRingActiveStatus
@@ -194,10 +247,13 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false }) {
           </div>
         </div>
       ) : (
-        <ForceRingTriggerButton
-          disabled={isDisabled}
-          onConfirm={() => setModalOpen(true)}
-        />
+        <>
+          {renderChildPicker()}
+          <ForceRingTriggerButton
+            disabled={isDisabled}
+            onConfirm={() => setModalOpen(true)}
+          />
+        </>
       )}
 
       <ForceRingConfirmModal

@@ -24,6 +24,7 @@ function withTimeout(promise, ms, label = 'timeout') {
 
 export async function triggerForceRing({
   familyId,
+  targetChildUserId = null,
   message = '',
   timeoutMs = DEFAULT_TIMEOUT_MS,
 } = {}) {
@@ -32,14 +33,17 @@ export async function triggerForceRing({
   const truncated = String(message || '').slice(0, MAX_MESSAGE_LENGTH);
   const clientRequestHash = generateRequestHash();
 
-  const invocation = supabase.functions.invoke('push-notify', {
-    body: {
-      action: 'force_ring',
-      family_id: familyId,
-      message: truncated,
-      client_request_hash: clientRequestHash,
-    },
-  });
+  // Phase 3 Case 2: 다자녀 가족에서 정확한 자녀에게만 SOS 보내려면 target_user_id 명시.
+  // 미지정 시 Edge Function 이 children[0] 으로 fallback (단일 자녀 가족 호환).
+  const body = {
+    action: 'force_ring',
+    family_id: familyId,
+    message: truncated,
+    client_request_hash: clientRequestHash,
+  };
+  if (targetChildUserId) body.target_user_id = targetChildUserId;
+
+  const invocation = supabase.functions.invoke('push-notify', { body });
 
   const { data, error } = await withTimeout(invocation, timeoutMs, 'force_ring timeout');
 

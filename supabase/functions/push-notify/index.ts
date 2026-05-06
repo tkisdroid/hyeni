@@ -546,19 +546,39 @@ async function handleForceRing(
     }, 429);
   }
 
-  // 4. target child 결정 (가장 먼저 가입한 child)
-  const { data: children } = await supabase
-    .from("family_members")
-    .select("user_id, name")
-    .eq("family_id", familyId)
-    .eq("role", "child")
-    .order("created_at", { ascending: true })
-    .limit(1);
-  if (!children?.length) {
-    return jsonResponse({ error: "no_child_in_family" }, 404);
+  // 4. target child 결정 — body.target_user_id 우선, 없으면 가장 먼저 가입한 child fallback.
+  // Phase 3 Case 2: 다자녀 가족에서 정확한 자녀에게만 SOS 가도록 target_user_id 명시 지원.
+  // RLS 우회 방지를 위해 target_user_id 가 동일 family_id 의 child 인지 검증.
+  const requestedTargetUserId = (body.target_user_id as string | undefined) || null;
+  let targetUserId: string;
+  let childName: string;
+  if (requestedTargetUserId) {
+    const { data: requestedChild } = await supabase
+      .from("family_members")
+      .select("user_id, name")
+      .eq("family_id", familyId)
+      .eq("role", "child")
+      .eq("user_id", requestedTargetUserId)
+      .maybeSingle();
+    if (!requestedChild) {
+      return jsonResponse({ error: "target_child_not_in_family" }, 404);
+    }
+    targetUserId = requestedChild.user_id as string;
+    childName = (requestedChild.name as string) || "우리 아이";
+  } else {
+    const { data: children } = await supabase
+      .from("family_members")
+      .select("user_id, name")
+      .eq("family_id", familyId)
+      .eq("role", "child")
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (!children?.length) {
+      return jsonResponse({ error: "no_child_in_family" }, 404);
+    }
+    targetUserId = children[0].user_id as string;
+    childName = (children[0].name as string) || "우리 아이";
   }
-  const targetUserId = children[0].user_id as string;
-  const childName = (children[0].name as string) || "우리 아이";
 
   // 4-b. 부모 성별 조회 — 친근한 문구 "{엄마|아빠}가 {child_name}을 찾고 있어요"
   // user_profiles.gender 는 'mom' | 'dad' | null (Kakao 가입자는 null)
