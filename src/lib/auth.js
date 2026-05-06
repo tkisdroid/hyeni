@@ -113,6 +113,37 @@ export async function kakaoLogin() {
   }
 }
 
+// ── Google OAuth login (parent) ─────────────────────────────────────────────
+// Supabase 빌트인 google provider 사용. kakaoLogin 과 동일 패턴.
+// 운영 설정: Supabase 대시보드 → Auth → Providers → Google enable + GCP
+// OAuth Client ID/Secret 등록 + redirectTo URL 화이트리스트.
+export async function googleLogin() {
+  const native = isNative();
+  const redirectTo = native ? NATIVE_OAUTH_REDIRECT_URL : window.location.origin;
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo,
+      scopes: "openid email profile",
+      skipBrowserRedirect: native,
+    },
+  });
+  if (error) throw error;
+
+  if (native) {
+    if (!data?.url) {
+      throw new Error("구글 로그인 URL을 만들지 못했어요. 잠시 후 다시 시도해 주세요.");
+    }
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.open({
+      url: data.url,
+      windowName: "_self",
+      presentationStyle: "popover",
+    });
+  }
+}
+
 // ── Anonymous login (child) ─────────────────────────────────────────────────
 export async function anonymousLogin() {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
