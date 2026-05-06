@@ -1463,6 +1463,12 @@ public class LocationService extends Service {
                 JSONArray events = new JSONArray(respBody);
                 if (events.length() == 0) return;
 
+                boolean isChildDevice;
+                {
+                    SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                    isChildDevice = "child".equalsIgnoreCase(prefs.getString("role", ""));
+                }
+
                 // Track whether we're still at the silenced event's location
                 boolean stillAtSilentLocation = false;
 
@@ -1488,52 +1494,96 @@ public class LocationService extends Service {
 
                     int diffToStart = evTotalMin - nowTotalMin;
 
+                    // Cron 의존을 못 믿으므로 자녀 디바이스에서 자체 15min/5min/start 로컬 알림.
+                    // notificationId가 push-notify cron의 pushId 와 동일 포맷이라 중복 시 교체됨.
+                    if (isChildDevice) {
+                        fireLocalEventReminders(eventId, title, time, emoji, evTotalMin, nowTotalMin, dateKey);
+                    }
+
                     // ── Geo-fence checks: auto-silent + parent alerts ────────────
-                    if (location != null && !Double.isNaN(lastUploadedLat)) {
-                        double evLat = location.optDouble("lat", Double.NaN);
-                        double evLng = location.optDouble("lng", Double.NaN);
+                    if (location == null) continue;
+                    double evLat = location.optDouble("lat", Double.NaN);
+                    double evLng = location.optDouble("lng", Double.NaN);
+                    if (Double.isNaN(evLat) || Double.isNaN(evLng)) continue;
 
-                        if (!Double.isNaN(evLat) && !Double.isNaN(evLng)) {
-                            float distToEvent = distanceBetween(
-                                lastUploadedLat, lastUploadedLng, evLat, evLng);
-                            boolean inTimeWindow = nowTotalMin >= (evTotalMin - SILENT_WINDOW_BEFORE_MIN)
-                                && nowTotalMin <= (evTotalMin + SILENT_WINDOW_AFTER_MIN);
-                            boolean atLocation = distToEvent <= GEOFENCE_RADIUS_M;
+                    boolean inTimeWindow = nowTotalMin >= (evTotalMin - SILENT_WINDOW_BEFORE_MIN)
+                        && nowTotalMin <= (evTotalMin + SILENT_WINDOW_AFTER_MIN);
 
-                            // Currently silenced for this event — check if still there
-                            if (eventId.equals(silentForEventId)) {
-                                if (atLocation) {
-                                    stillAtSilentLocation = true;
-                                }
-                            }
+                    // GPS 미확보 시 도착/미도착 판정 보류 — 즉시 fix 요청 후 다음 tick에 재평가.
+                    if (Double.isNaN(lastUploadedLat)) {
+                        if (inTimeWindow) {
+                            Log.i(TAG, "GPS not yet acquired for event " + title + " in window, requesting fix");
+                            requestImmediateLocationFix();
+                        }
+                        continue;
+                    }
 
-                            // Activate silent: in time window + at location + not already silent
-                            if (inTimeWindow && atLocation && silentForEventId == null) {
-                                activateSilentMode(eventId, title, evLat, evLng);
-                                stillAtSilentLocation = true;
-                            }
+                    float distToEvent = distanceBetween(
+                        lastUploadedLat, lastUploadedLng, evLat, evLng);
+                    boolean atLocation = distToEvent <= GEOFENCE_RADIUS_M;
 
-                            // ── Parent status alert: only once during the scheduled minute ──
-                            String keyStatus = eventId + "-status-" + dateKey;
-                            if (diffToStart == 0 && !shownEventNotifs.contains(keyStatus)) {
-                                shownEventNotifs.add(keyStatus);
-                                if (atLocation) {
-                                    sendParentAlert(
-                                        "arrived",
-                                        "✅ 도착 확인",
-                                        emoji + " " + title + "에 잘 도착했어요! (" + time + ")",
-                                        "info", eventId
-                                    );
-                                    Log.i(TAG, "Parent exact-time arrival alert for " + title);
-                                } else {
-                                    sendParentAlert(
-                                        "not_arrived",
-                                        "🚨 미도착 긴급 알림",
-                                        emoji + " " + title + " 시작 시간인데 아직 도착하지 않았어요 (" + time + ")",
-                                        "emergency", eventId
-                                    );
-                                    Log.i(TAG, "Parent exact-time emergency alert for " + title);
-                                }
+                    if (eventId.equals(silentForEventId) && atLocation) {
+                        stillAtSilentLocation = true;
+                    }
+
+                    if (inTimeWindow && atLocation && silentForEventId == null) {
+                        activateSilentMode(eventId, title, evLat, evLng);
+                        stillAtSilentLocation = true;
+                    }
+
+                    // ── 시작 시각 ±1분 윈도우에서 도착/미도착 1회 알림 ──
+                    String keyStatus = eventId + "-status-" + dateKey;
+                    String keyNotArrived = eventId + "-not_arrived-" + dateKey;
+                    if (diffToStart >= -1 && diffToStart <= 1 && !shownEventNotifs.contains(keyStatus)) {
+                        shownEventNotifs.add(keyStatus);
+                        if (atLocation) {
+                            sendParentAlert(
+                                "arrived",
+                                "✅ 도착 확인",
+                                emoji + " " + title + "에 잘 도착했어요! (" + time + ")",
+                                "info", eventId
+                            );
+                            Log.i(TAG, "Parent arrival alert for " + title);
+                        } else {
+                            shownEventNotifs.add(keyNotArrived);
+                            sendParentAlert(
+                                "not_arrived",
+                                "🚨 미도착 알림",
+                                emoji + " " + title + " 시작 시간인데 아직 도착하지 않았어요 (" + time + ")",
+                                "emergency", eventId
+                            );
+                            Log.i(TAG, "Parent miss alert for " + title);
+                        }
+                    }
+
+                    // ── 미도착이었던 일정에 한해 5/10/15분 후 재평가 (지각 도착 또는 15분 경과) ──
+                    if (shownEventNotifs.contains(keyNotArrived)) {
+                        int[] lateMarks = {5, 10, 15};
+                        for (int lateMin : lateMarks) {
+                            int sinceStart = nowTotalMin - (evTotalMin + lateMin);
+                            if (sinceStart < -1 || sinceStart > 1) continue;
+                            String lateKey = eventId + "-late" + lateMin + "-" + dateKey;
+                            if (shownEventNotifs.contains(lateKey)) continue;
+
+                            if (atLocation) {
+                                shownEventNotifs.add(lateKey);
+                                sendParentAlert(
+                                    "late_arrived",
+                                    "✅ 지각 도착",
+                                    emoji + " " + title + "에 " + lateMin + "분 늦게 도착했어요",
+                                    "info", eventId
+                                );
+                                Log.i(TAG, "Late arrival alert for " + title + " (+" + lateMin + "min)");
+                                break;
+                            } else if (lateMin == 15) {
+                                shownEventNotifs.add(lateKey);
+                                sendParentAlert(
+                                    "missed_arrival",
+                                    "🚨 15분 경과 — 미도착",
+                                    emoji + " " + title + " 시작 후 15분이 지났는데 아직 도착하지 않았어요",
+                                    "emergency", eventId
+                                );
+                                Log.i(TAG, "Missed arrival critical alert for " + title);
                             }
                         }
                     }
@@ -1613,6 +1663,49 @@ public class LocationService extends Service {
                 Log.e(TAG, "Send parent alert error", e);
             }
         }).start();
+    }
+
+    // ── Local event reminder fallback (자녀 디바이스, cron 미동작 시 보호) ────
+    // notificationId 포맷이 push-notify cron의 pushId(`<eventId>-<window>-<dateKey>`)
+    // 와 동일하므로, cron이 정상 동작한 경우 동일 알림이 native side에서 다시 와도
+    // OS가 같은 ID로 교체 — 사용자에게 중복으로 보이지 않는다.
+    private void fireLocalEventReminders(String eventId, String title, String time, String emoji,
+                                         int evTotalMin, int nowTotalMin, String dateKey) {
+        int[] minsBefore = {15, 5, 0};
+        String[] keys = {"15min", "5min", "start"};
+        String[] notifTitles = {"🐰 준비 시간!", "🏃 출발!", "⏰ 시작!"};
+        String[] bodyTail = {
+            " 가기 15분 전이야! 준비물 챙겼니? 🎒",
+            " 곧 시작이야! 출발~ 화이팅! 💪",
+            " 시작 시간이야! 화이팅! 💪"
+        };
+
+        for (int r = 0; r < minsBefore.length; r++) {
+            int diff = (evTotalMin - minsBefore[r]) - nowTotalMin;
+            if (diff < -1 || diff > 1) continue;
+
+            String reminderKey = eventId + "-" + keys[r] + "-" + dateKey;
+            if (shownEventNotifs.contains(reminderKey)) continue;
+            shownEventNotifs.add(reminderKey);
+
+            String body = emoji + " " + title + bodyTail[r] + " (" + time + ")";
+            int notifId = NotificationHelper.stableRequestCode(reminderKey);
+
+            try {
+                NotificationHelper.showNotification(
+                    this,
+                    notifTitles[r],
+                    body,
+                    "schedule",
+                    false,
+                    false,
+                    notifId
+                );
+                Log.i(TAG, "Local event reminder fired: " + keys[r] + " for " + title);
+            } catch (Exception e) {
+                Log.w(TAG, "Local event reminder failed: " + e.getMessage());
+            }
+        }
     }
 
     // ── Auto-Silent Mode Control ───────────────────────────────────────────────
