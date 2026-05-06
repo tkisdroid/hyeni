@@ -549,7 +549,7 @@ async function handleForceRing(
   // 4. target child 결정 (가장 먼저 가입한 child)
   const { data: children } = await supabase
     .from("family_members")
-    .select("user_id")
+    .select("user_id, name")
     .eq("family_id", familyId)
     .eq("role", "child")
     .order("created_at", { ascending: true })
@@ -558,6 +558,20 @@ async function handleForceRing(
     return jsonResponse({ error: "no_child_in_family" }, 404);
   }
   const targetUserId = children[0].user_id as string;
+  const childName = (children[0].name as string) || "우리 아이";
+
+  // 4-b. 부모 성별 조회 — 친근한 문구 "{엄마|아빠}가 {child_name}을 찾고 있어요"
+  // user_profiles.gender 는 'mom' | 'dad' | null (Kakao 가입자는 null)
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("gender")
+    .eq("user_id", callerUserId)
+    .maybeSingle();
+  const parentRole = profile?.gender === "mom"
+    ? "엄마"
+    : profile?.gender === "dad"
+    ? "아빠"
+    : "부모님";
 
   // 5. event INSERT (UNIQUE partial idx가 동시 active 방지)
   const message = ((body.message as string) || "").slice(0, 80);
@@ -619,6 +633,8 @@ async function handleForceRing(
       event_id: event.id,
       message,
       initiator_name: initiatorName,
+      parent_role: parentRole,
+      child_name: childName,
     },
     android: { ttl: "600s" },
   };

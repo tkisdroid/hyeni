@@ -91,14 +91,19 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             // instead — the system launches ForceRingActivity, which then
             // starts ForceRingService for sound/vibration in foreground context.
             // Pre-UDC keeps the direct FGS start (works on those API levels).
+            String parentRole = data.get("parent_role");
+            String childName = data.get("child_name");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 postForceRingFullScreenNotification(eventId,
-                        data.get("message"), data.get("initiator_name"));
+                        data.get("message"), data.get("initiator_name"),
+                        parentRole, childName);
             } else {
                 Intent svc = new Intent(this, ForceRingService.class);
                 svc.putExtra(ForceRingService.EXTRA_EVENT_ID, eventId);
                 svc.putExtra(ForceRingService.EXTRA_MESSAGE, data.get("message"));
                 svc.putExtra(ForceRingService.EXTRA_INITIATOR, data.get("initiator_name"));
+                svc.putExtra(ForceRingService.EXTRA_PARENT_ROLE, parentRole);
+                svc.putExtra(ForceRingService.EXTRA_CHILD_NAME, childName);
                 ContextCompat.startForegroundService(this, svc);
             }
             return;
@@ -468,13 +473,16 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     // starting ForceRingService directly. The system permits the system-driven
     // activity launch under FGS background-start restrictions; ForceRingActivity
     // onCreate then starts ForceRingService from foreground context for sound.
-    private void postForceRingFullScreenNotification(String eventId, String message, String initiator) {
+    private void postForceRingFullScreenNotification(String eventId, String message,
+            String initiator, String parentRole, String childName) {
         NotificationHelper.ensureForceRingChannel(this);
 
         Intent activityIntent = new Intent(this, ForceRingActivity.class);
         activityIntent.putExtra(ForceRingService.EXTRA_EVENT_ID, eventId);
         activityIntent.putExtra(ForceRingService.EXTRA_MESSAGE, message);
         activityIntent.putExtra(ForceRingService.EXTRA_INITIATOR, initiator);
+        activityIntent.putExtra(ForceRingService.EXTRA_PARENT_ROLE, parentRole);
+        activityIntent.putExtra(ForceRingService.EXTRA_CHILD_NAME, childName);
         activityIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_NO_HISTORY);
@@ -485,10 +493,21 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 activityIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String title = "응급 강제 알람";
-        String body = (initiator != null && !initiator.isEmpty())
-                ? initiator + "이(가) 너를 찾고 있어요"
-                : "부모님이 너를 찾고 있어요";
+        // 친근한 문구: "{엄마|아빠|부모님}가 {아이이름}을 찾고 있어요"
+        // parent_role/child_name 누락 시 initiator_name 으로 폴백 (legacy 호환)
+        String role = (parentRole != null && !parentRole.isEmpty()) ? parentRole : null;
+        String name = (childName != null && !childName.isEmpty()) ? childName : null;
+        String title = "응급 신호";
+        String body;
+        if (role != null && name != null) {
+            body = role + "가 " + name + "(이)를 찾고 있어요";
+        } else if (role != null) {
+            body = role + "가 너를 찾고 있어요";
+        } else if (initiator != null && !initiator.isEmpty()) {
+            body = initiator + "이(가) 너를 찾고 있어요";
+        } else {
+            body = "부모님이 너를 찾고 있어요";
+        }
 
         Notification notif = new NotificationCompat.Builder(this, NotificationHelper.FORCE_RING_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_hyeni_notification)

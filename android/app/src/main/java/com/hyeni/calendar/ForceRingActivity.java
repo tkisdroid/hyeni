@@ -79,6 +79,8 @@ public class ForceRingActivity extends AppCompatActivity {
         String eventId = intent.getStringExtra(ForceRingService.EXTRA_EVENT_ID);
         String message = intent.getStringExtra(ForceRingService.EXTRA_MESSAGE);
         String initiator = intent.getStringExtra(ForceRingService.EXTRA_INITIATOR);
+        String parentRole = intent.getStringExtra(ForceRingService.EXTRA_PARENT_ROLE);
+        String childName = intent.getStringExtra(ForceRingService.EXTRA_CHILD_NAME);
 
         // UDC+ flow: MyFirebaseMessagingService posted a fullScreenIntent
         // notification instead of starting the FGS directly (background FGS
@@ -91,6 +93,8 @@ public class ForceRingActivity extends AppCompatActivity {
             svc.putExtra(ForceRingService.EXTRA_EVENT_ID, eventId);
             svc.putExtra(ForceRingService.EXTRA_MESSAGE, message);
             svc.putExtra(ForceRingService.EXTRA_INITIATOR, initiator);
+            svc.putExtra(ForceRingService.EXTRA_PARENT_ROLE, parentRole);
+            svc.putExtra(ForceRingService.EXTRA_CHILD_NAME, childName);
             try {
                 ContextCompat.startForegroundService(this, svc);
             } catch (Exception ignored) {
@@ -98,8 +102,20 @@ public class ForceRingActivity extends AppCompatActivity {
             }
         }
 
-        ((TextView) findViewById(R.id.initiator_text)).setText(
-                initiator != null ? initiator : "부모님이 지금 너를 찾고 있어요");
+        // 친근한 문구: "{엄마|아빠}가 {아이이름}을 지금 찾고 있어요" — fallback 포함
+        String role = (parentRole != null && !parentRole.isEmpty()) ? parentRole : null;
+        String name = (childName != null && !childName.isEmpty()) ? childName : null;
+        String initiatorText;
+        if (role != null && name != null) {
+            initiatorText = role + "가 " + name + "(이)를 지금 찾고 있어요";
+        } else if (role != null) {
+            initiatorText = role + "가 지금 너를 찾고 있어요";
+        } else if (initiator != null && !initiator.isEmpty()) {
+            initiatorText = initiator + "이(가) 지금 너를 찾고 있어요";
+        } else {
+            initiatorText = "부모님이 지금 너를 찾고 있어요";
+        }
+        ((TextView) findViewById(R.id.initiator_text)).setText(initiatorText);
         ((TextView) findViewById(R.id.time_text)).setText(
                 new SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(new Date()));
 
@@ -118,9 +134,10 @@ public class ForceRingActivity extends AppCompatActivity {
         countdownText = findViewById(R.id.countdown_text);
         startCountdown();
 
+        final String roleLabel = (role != null) ? role : "부모님";
         Button btnAck = findViewById(R.id.btn_ack);
         btnAck.setOnClickListener(v -> {
-            Toast.makeText(this, "부모님에게 확인 알림이 갔어요", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, roleLabel + "에게 알림을 보냈어요!", Toast.LENGTH_SHORT).show();
             stopService(new Intent(this, ForceRingService.class));
             sendAck(eventId);
             new Handler(Looper.getMainLooper()).postDelayed(this::finish, 1500);
@@ -130,7 +147,7 @@ public class ForceRingActivity extends AppCompatActivity {
             @Override
             public void onReceive(Context ctx, Intent i) {
                 Toast.makeText(ForceRingActivity.this,
-                        "부모님이 알람을 종료했어요", Toast.LENGTH_SHORT).show();
+                        roleLabel + "이(가) 알람을 꺼주셨어요", Toast.LENGTH_SHORT).show();
                 new Handler(Looper.getMainLooper()).postDelayed(
                         ForceRingActivity.this::finish, 1500);
             }
