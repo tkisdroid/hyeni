@@ -15,10 +15,10 @@ function formatDuration(start, end) {
 
 export default function PlaydateHistory({ history }) {
   if (!history || history.length === 0) {
-    return <div className="hyeni-tool-empty">친구놀이 이력이 없어요.</div>;
+    return <div className="hyeni-tool-empty">친구 만남 이력이 없어요.</div>;
   }
   return (
-    <ul className="hyeni-tool-list" aria-label="친구놀이 이력">
+    <ul className="hyeni-tool-list" aria-label="친구 만남 이력">
       {history.map((h) => (
         <li key={h.id} className="hyeni-tool-list__row">
           <div>

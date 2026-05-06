@@ -12,6 +12,17 @@ const THEME_OPTIONS = Object.entries(THEME_DICT).map(([hex, t]) => ({
     label: t.label || hex,
 }));
 
+const ANIMAL_CHARACTER_OPTIONS = [
+    { emoji: "🐰", label: "토끼" },
+    { emoji: "🐱", label: "고양이" },
+    { emoji: "🐶", label: "강아지" },
+    { emoji: "🦊", label: "여우" },
+    { emoji: "🐥", label: "병아리" },
+    { emoji: "🐻", label: "곰" },
+    { emoji: "🐼", label: "판다" },
+    { emoji: "🐯", label: "호랑이" },
+];
+
 function Toggle({ value, onChange, ariaLabel }) {
     return (
         <button
@@ -93,6 +104,9 @@ export function ChildSettingsScreen({
     onChangeSound,
     showMascot = true,
     onChangeShowMascot,
+    currentCharacter = "🐰",
+    onChangeCharacter,
+    characterSaving = false,
     childName = "",
     parentNames = "",
     onRequestParentChange,
@@ -172,6 +186,57 @@ export function ChildSettingsScreen({
                                             padding: 0,
                                         }}
                                     />
+                                );
+                            })}
+                        </div>
+                    </div>
+                </Section>
+
+                <Section title="동물 캐릭터">
+                    <div style={{ padding: "var(--space-4)" }}>
+                        <p style={{ margin: 0, fontSize: 12, color: "var(--fg-secondary)", marginBottom: "var(--space-3)", fontWeight: "var(--weight-medium)" }}>
+                            내 화면에 보일 동물 캐릭터를 골라봐
+                        </p>
+                        <div
+                            role="radiogroup"
+                            aria-label="동물 캐릭터 선택"
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                                gap: "var(--space-2)",
+                            }}
+                        >
+                            {ANIMAL_CHARACTER_OPTIONS.map((option) => {
+                                const active = option.emoji === currentCharacter;
+                                return (
+                                    <button
+                                        key={option.emoji}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={active}
+                                        aria-label={`${option.label} 캐릭터${active ? " (선택됨)" : ""}`}
+                                        disabled={characterSaving}
+                                        onClick={() => onChangeCharacter?.(option.emoji)}
+                                        style={{
+                                            minHeight: 72,
+                                            borderRadius: "var(--radius-lg)",
+                                            border: active ? "2px solid var(--theme-accent)" : "1px solid var(--line-soft)",
+                                            background: active ? "var(--theme-accent-soft)" : "var(--bg-base)",
+                                            color: active ? "var(--theme-accent-text)" : "var(--fg-primary)",
+                                            cursor: characterSaving ? "wait" : "pointer",
+                                            opacity: characterSaving ? 0.72 : 1,
+                                            fontFamily: "inherit",
+                                            fontWeight: "var(--weight-bold)",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            gap: 4,
+                                        }}
+                                    >
+                                        <span aria-hidden="true" style={{ fontSize: 28, lineHeight: 1 }}>{option.emoji}</span>
+                                        <span style={{ fontSize: 11 }}>{option.label}</span>
+                                    </button>
                                 );
                             })}
                         </div>

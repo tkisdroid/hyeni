@@ -4,6 +4,7 @@
 import { supabase } from "./supabase.js";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+const REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
 export const DEFAULT_NOTIFICATION_SETTINGS = Object.freeze({
   childEnabled: true,
   parentEnabled: true,
@@ -202,6 +203,24 @@ export async function getNativeNotificationHealth() {
   }
 }
 
+export async function requestNativePermission(kind) {
+  const native = getNativeNotifPlugin();
+  if (!native) return { granted: false, supported: false };
+  try {
+    if (kind === "microphone" && typeof native.requestRecordAudio === "function") {
+      const res = await native.requestRecordAudio();
+      return { granted: !!res?.granted, requested: !!res?.requested, supported: true };
+    }
+    if (kind === "notifications" && typeof native.requestPostNotifications === "function") {
+      const res = await native.requestPostNotifications();
+      return { granted: !!res?.granted, requested: !!res?.requested, supported: true };
+    }
+  } catch (err) {
+    console.warn("[Push] requestNativePermission failed:", err?.message || err);
+  }
+  return { granted: false, supported: false };
+}
+
 export async function openNativeNotificationSettings(settingsTarget = "notifications", options = {}) {
   const native = getNativeNotifPlugin();
   if (!native) return false;
@@ -221,7 +240,7 @@ export async function openNativeNotificationSettings(settingsTarget = "notificat
     } else if (target === "appDetails" && native.openAppDetailsSettings) {
       await native.openAppDetailsSettings();
     } else if (target === "remoteListenChannel" && native.openNotificationChannelSettings) {
-      const channelRequest = { channelId: "hyeni_remote_listen" };
+      const channelRequest = { channelId: REMOTE_LISTEN_CHANNEL_ID };
       if (request.channelId) channelRequest.channelId = request.channelId;
       await native.openNotificationChannelSettings(channelRequest);
     } else if (native.openSettings) {

@@ -107,6 +107,8 @@ public class RemoteListenActivity extends AppCompatActivity {
         }
 
         pendingIntent = new Intent(intent);
+        String requestId = pendingIntent.getStringExtra("requestId");
+        RemoteListenRequestStore.markLauncherShown(this, requestId);
         cancelLauncherNotification(pendingIntent);
         handler.postDelayed(() -> cancelLauncherNotification(pendingIntent), 800);
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
@@ -150,13 +152,26 @@ public class RemoteListenActivity extends AppCompatActivity {
         }
 
         String userId = prefs.getString("userId", "");
-        String familyId = firstNonBlank(
-            sourceIntent != null ? sourceIntent.getStringExtra("familyId") : null,
-            prefs.getString("familyId", "")
-        );
+        String requestedFamilyId = sourceIntent != null ? sourceIntent.getStringExtra("familyId") : null;
+        String prefsFamilyId = prefs.getString("familyId", "");
+        String familyId = firstNonBlank(requestedFamilyId, prefsFamilyId);
         String supabaseUrl = prefs.getString("supabaseUrl", "");
         String supabaseKey = prefs.getString("supabaseKey", "");
         String accessToken = prefs.getString("accessToken", "");
+        if (!isBlank(requestedFamilyId) && !isBlank(prefsFamilyId) && !requestedFamilyId.equals(prefsFamilyId)) {
+            Log.i(TAG, "Remote listen foreground start skipped: family mismatch");
+            updateStatus("다른 가족 요청이에요.");
+            finishSoon(900);
+            return;
+        }
+
+        String targetUserId = sourceIntent != null ? sourceIntent.getStringExtra("targetUserId") : null;
+        if (!isBlank(targetUserId) && !targetUserId.equals(userId)) {
+            Log.i(TAG, "Remote listen foreground start skipped: target user mismatch");
+            updateStatus("다른 아이 기기에 보낸 요청이에요.");
+            finishSoon(900);
+            return;
+        }
 
         if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey)) {
             Log.w(TAG, "Remote listen foreground start skipped: push context missing");
@@ -210,6 +225,7 @@ public class RemoteListenActivity extends AppCompatActivity {
             copyIfPresent(pendingIntent, intent, "senderUserId");
             copyIfPresent(pendingIntent, intent, "durationSec");
             copyIfPresent(pendingIntent, intent, "requestId");
+            copyIfPresent(pendingIntent, intent, "targetUserId");
             startActivity(intent);
             finish();
         }, delayMs);

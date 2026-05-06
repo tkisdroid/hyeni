@@ -16,14 +16,17 @@ export function TodayEventsList({ events, children }) {
           .map((id) => children.find((c) => c.id === id))
           .filter(Boolean);
         const isFamily = event.is_family_event;
-        const firstColor = eventChildren[0]?.color_hex || "#9CA3AF";
+        const firstColor = eventChildren[0]?.color_hex || "var(--theme-accent)";
+        const familyColor = "var(--theme-accent)";
 
         return (
           <div
             key={event.id} data-event-id={event.id}
             style={{
               padding: "10px 14px",
-              borderLeft: `4px ${isFamily ? "dashed" : "solid"} ${isFamily ? "#9CA3AF" : firstColor}`,
+              borderLeftWidth: 4,
+              borderLeftStyle: isFamily ? "dashed" : "solid",
+              borderLeftColor: isFamily ? familyColor : firstColor,
               background: "white", borderRadius: 8,
             }}
           >

@@ -51,7 +51,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String PREFS_NAME = "hyeni_location_prefs";
     private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
     private static final String SCHEDULE_CHANNEL_ID = NotificationHelper.CHANNEL_SCHEDULE;
-    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen";
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
     private static final int DEFAULT_REMOTE_LISTEN_DURATION_SEC = 60;
     private static final AtomicInteger notifId = new AtomicInteger(5000);
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
@@ -180,12 +180,15 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 Log.i(TAG, "Remote listen skipped: this device is not child mode");
                 return;
             }
+            if (!isTargetedToThisUser(prefs, data, "Remote listen")) {
+                return;
+            }
             String requestId = resolveRemoteListenRequestId(data);
             Log.i(TAG, "Remote listen request - launching app requestId=" + requestId);
+            publishDeviceStatusFromFcm(data, prefs);
             wakeScreen();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 int launcherNotificationId = showRemoteListenLauncher(data);
-                RemoteListenRequestStore.markLauncherShown(this, requestId);
                 launchRemoteListenActivity(data, launcherNotificationId);
                 return;
             }
@@ -196,7 +199,6 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             if (!launchRemoteListenActivity(data, 0)) {
                 Log.w(TAG, "Remote listen launch fallback notification required");
                 showRemoteListenLauncher(data);
-                RemoteListenRequestStore.markLauncherShown(this, requestId);
             }
             return;
         }
@@ -205,6 +207,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             if (!shouldHandleChildCommand(prefs)) {
                 Log.i(TAG, "Remote listen stop skipped: this device is not child mode");
+                return;
+            }
+            if (!isTargetedToThisUser(prefs, data, "Remote listen")) {
                 return;
             }
             stopAmbientListenService(data);
@@ -315,6 +320,23 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         return isBlank(role) || "child".equalsIgnoreCase(role);
     }
 
+    private boolean isTargetedToThisUser(SharedPreferences prefs, Map<String, String> data, String commandLabel) {
+        String pushFamilyId = data != null ? data.get("familyId") : null;
+        String prefsFamilyId = prefs != null ? prefs.getString("familyId", "") : "";
+        if (!isBlank(pushFamilyId) && !isBlank(prefsFamilyId) && !pushFamilyId.equals(prefsFamilyId)) {
+            Log.i(TAG, commandLabel + " skipped: family mismatch");
+            return false;
+        }
+
+        String targetUserId = data != null ? firstNonBlank(data.get("targetUserId"), data.get("target_user_id")) : "";
+        String userId = prefs != null ? prefs.getString("userId", "") : "";
+        if (!isBlank(targetUserId) && !targetUserId.equals(userId)) {
+            Log.i(TAG, commandLabel + " skipped: target user mismatch");
+            return false;
+        }
+        return true;
+    }
+
     private boolean startLocationRefreshService(Map<String, String> data) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -386,6 +408,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         String familyId = firstNonBlank(pushFamilyId, prefsFamilyId);
         String supabaseUrl = prefs.getString("supabaseUrl", "");
         String supabaseKey = prefs.getString("supabaseKey", "");
+        String accessToken = prefs.getString("accessToken", "");
         if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey)) {
             Log.w(TAG, "Device status refresh skipped: push context missing");
             return false;
@@ -398,6 +421,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             supabaseKey,
             familyId,
             userId,
+            accessToken,
             data != null ? data.get("requestId") : null,
             data != null ? data.get("requesterUserId") : null
         );
@@ -406,7 +430,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private int showRemoteListenLauncher(Map<String, String> data) {
         String channelId = REMOTE_LISTEN_CHANNEL_ID;
         int currentNotifId = notifId.getAndIncrement();
-        ensureSilentChannel(channelId);
+        ensureRemoteListenChannel(channelId);
 
         Intent launchIntent = createRemoteListenIntent(data, currentNotifId);
         PendingIntent launchPendingIntent = createRemoteListenPendingIntent(
@@ -420,14 +444,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         // setAutoCancel so the user can swipe it away after the session ends).
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("안전 확인 연결 중")
-            .setContentText("주변 소리 연결을 시작합니다.")
-            .setStyle(new NotificationCompat.BigTextStyle().bigText("주변 소리 연결을 시작합니다."))
-            .setAutoCancel(true)
+            .setContentTitle("주변 소리 연결 요청")
+            .setContentText("탭해서 아이 기기에서 연결을 시작하세요.")
+            .setStyle(new NotificationCompat.BigTextStyle().bigText("탭하면 아이 기기에서 마이크 연결 화면이 열립니다."))
+            .setAutoCancel(false)
             .setContentIntent(launchPendingIntent)
-            .setSilent(true)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
@@ -643,6 +666,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         putIfPresent(intent, "senderUserId", data.get("senderUserId"));
         putIfPresent(intent, "durationSec", data.get("durationSec"));
         putIfPresent(intent, "requestId", resolveRemoteListenRequestId(data));
+        putIfPresent(intent, "targetUserId", data.get("targetUserId"));
     }
 
     private void putIfPresent(Intent intent, String key, String value) {
@@ -687,31 +711,24 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         return value == null || value.trim().isEmpty();
     }
 
-    private void ensureSilentChannel(String channelId) {
+    private void ensureRemoteListenChannel(String channelId) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm == null) return;
 
-        // Recreate every push so OEM-tweaked overrides don't accidentally
-        // demote the channel and silently kill remote-listen wake-up. The
-        // user-facing channel name in Settings stays stable so the user can
-        // still revoke if desired.
         NotificationChannel existing = nm.getNotificationChannel(channelId);
-        if (existing != null) nm.deleteNotificationChannel(channelId);
+        if (existing != null) return;
 
         // Channel must be IMPORTANCE_HIGH (or above) for setFullScreenIntent
         // to actually launch the activity instead of shrinking to a heads-up.
         NotificationChannel channel = new NotificationChannel(
             channelId, "원격 듣기 연결", NotificationManager.IMPORTANCE_HIGH);
-        channel.enableVibration(false);
-        // bypassDnd=true + USAGE_ALARM + CATEGORY_ALARM is what carries the
-        // notification through 방해금지 모드 (Samsung/OneUI honours all three).
-        // On the first install the user must grant "Do Not Disturb access"
-        // for this app from Settings → Sound → DND → Apps; that is surfaced
-        // by the child-device setup screen, not here.
-        channel.setBypassDnd(true);
-        channel.setSound(null, new android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+        channel.setDescription("아이 기기에서 주변 소리 연결을 시작해야 할 때 표시되는 알림");
+        channel.enableVibration(true);
+        channel.setVibrationPattern(new long[]{0, 180, 100, 180});
+        channel.setBypassDnd(false);
+        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), new android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build());
         channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);

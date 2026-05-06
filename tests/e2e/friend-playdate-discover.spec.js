@@ -55,35 +55,8 @@ async function bootChildFamily(page) {
   });
 }
 
-// FIXME (Task 7.3 — discover spec authoring blocker, 2026-04-27):
-// Both tests are quarantined via test.fixme until the worktree boot path is
-// solved. Two compounding mock/timing issues prevent the FriendPlaydateChildPanel
-// from rendering at `/`:
-//
-//   1. App boot dies in src/lib/supabase.js:23 because no .env.local exists in
-//      this worktree (only .env.example). `import.meta.env.VITE_SUPABASE_URL`
-//      is undefined → supabase client throws → React tree never hydrates →
-//      page is a blank pastel splash. Confirmed via test-failed-1.png.
-//
-//   2. Even with env in place, App.jsx:9624 short-circuits child sessions to
-//      <ChildPairInput> whenever `familyInfo` is null. Populating familyInfo
-//      requires the auth init path (App.jsx:7049-7071) to resolve getMyFamily()
-//      against the family_members + families REST endpoints. The committed
-//      _friend-playdate-fixtures.js (commit d6a1e4d) returns `[]` from the
-//      `**/rest/v1/**` catch-all (line 238-244) and does not seed a child
-//      membership row keyed on the localStorage CHILD_ID, so familyInfo never
-//      hydrates. Per-spec page.route() overrides (attempted iterations 1-2)
-//      partially help but the auth-init useEffect race + `.maybeSingle()`
-//      content-negotiation make this brittle without expanding the fixtures
-//      helper itself, which is out of scope for Task 7.3.
-//
-// Resolution (follow-up plan): broaden _friend-playdate-fixtures.js to seed a
-// child membership row when role==='child' (mirroring critical-flows.spec.js
-// lines 392-421), and add a worktree .env.local provisioning step to
-// scripts/dev-playwright.mjs. Then drop the .fixme markers and re-verify.
-
 test.describe('Friend Playdate — discover candidates', () => {
-  test.fixme('candidates 0명 → 친구랑 놀래요 버튼 disabled (not_in_safe_place)', async ({ page }) => {
+  test('candidates 0명 → 친구랑 놀래요 버튼 disabled (not_in_safe_place)', async ({ page }) => {
     await installFriendPlaydateMocks(page, { role: 'child', candidates: [] });
     await bootChildFamily(page);
     await page.goto('/');
@@ -93,7 +66,7 @@ test.describe('Friend Playdate — discover candidates', () => {
     await expect(startBtn).toBeDisabled();
   });
 
-  test.fixme('candidates N명 → Radio 선택 + 시작 버튼 활성화', async ({ page }) => {
+  test('candidates N명 → Radio 선택 + 시작 버튼 활성화', async ({ page }) => {
     await installFriendPlaydateMocks(page, {
       role: 'child',
       candidates: [

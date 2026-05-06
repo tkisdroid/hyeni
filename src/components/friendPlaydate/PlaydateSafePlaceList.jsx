@@ -8,7 +8,7 @@ export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
     return (
       <div className="hyeni-tool-empty" style={{ display: 'grid', gap: 10 }}>
         <div>
-          친구놀이 안전장소를 먼저 등록하세요.
+          친구 만남 안전 장소를 먼저 등록하세요.
           <br />
           학교·공원·학원 같은 곳을 지정할 수 있어요.
         </div>
@@ -34,7 +34,7 @@ export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
   const handleToggle = async (place) => {
     if (busyId) return;
     if (!place.is_playdate_safe && !isPlaydateEligible(place)) {
-      alert('카카오 장소 검색으로 등록된 곳만 친구놀이 장소로 지정할 수 있어요');
+      alert('카카오 장소 검색으로 등록된 곳만 친구 만남 장소로 지정할 수 있어요');
       return;
     }
     setBusyId(place.id);
@@ -61,7 +61,7 @@ export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
-      <ul className="hyeni-tool-list" aria-label="친구놀이 안전장소">
+      <ul className="hyeni-tool-list" aria-label="친구 만남 안전 장소">
         {places.map((place) => {
           const eligible = isPlaydateEligible(place);
           const lockedOff = !eligible && !place.is_playdate_safe;
@@ -79,7 +79,7 @@ export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
                 type="button"
                 role="switch"
                 aria-checked={place.is_playdate_safe}
-                aria-label={`${place.name} 친구놀이 토글`}
+                aria-label={`${place.name} 친구 만남 토글`}
                 disabled={busyId === place.id || lockedOff}
                 onClick={() => handleToggle(place)}
                 className="hyeni-tool-toggle__switch"

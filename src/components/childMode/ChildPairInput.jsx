@@ -9,6 +9,74 @@ import { normalizePairCodeInput } from "../../lib/pairCode.js";
 import { DESIGN, FF, makePrimaryButtonStyle, makeSecondaryButtonStyle } from "../../lib/styleHelpers.js";
 import { AppBrandLogo } from "../auth/AppBrandLogo.jsx";
 
+const QR_CAMERA_PERMISSION_MESSAGE = "카메라 권한이 필요해요. 권한을 허용한 뒤 다시 시도해 주세요.";
+
+async function getNativeCameraPermissionPlugin() {
+    if (typeof window === "undefined") return null;
+    try {
+        const { Capacitor, registerPlugin } = await import("@capacitor/core");
+        const isNative = typeof Capacitor?.isNativePlatform === "function"
+            ? Capacitor.isNativePlatform()
+            : !!window.Capacitor?.isNativePlatform?.();
+        if (!isNative || typeof registerPlugin !== "function") return null;
+        return registerPlugin("CameraPermission");
+    } catch (err) {
+        console.warn("[qr-scan] native camera permission plugin unavailable:", err);
+        return null;
+    }
+}
+
+export async function ensureQrCameraPermission() {
+    const nativeCameraPermission = await getNativeCameraPermissionPlugin();
+    if (nativeCameraPermission?.checkPermission && nativeCameraPermission?.requestPermission) {
+        try {
+            const checked = await nativeCameraPermission.checkPermission();
+            if (checked?.granted) return { granted: true, source: "native" };
+
+            const requested = await nativeCameraPermission.requestPermission();
+            return {
+                granted: !!requested?.granted,
+                denied: !requested?.granted,
+                source: "native",
+            };
+        } catch (err) {
+            console.warn("[qr-scan] native camera permission request failed:", err);
+            return { granted: false, denied: true, source: "native" };
+        }
+    }
+
+    try {
+        const permissionApi = navigator.permissions;
+        if (permissionApi?.query) {
+            const cameraStatus = await permissionApi.query({ name: "camera" });
+            if (cameraStatus?.state === "denied") {
+                return { granted: false, denied: true, source: "browser" };
+            }
+        }
+    } catch {
+        // Browser permission probing is best-effort; getUserMedia will still
+        // surface the real runtime prompt/error.
+    }
+
+    return { granted: true, source: "browser" };
+}
+
+export async function openQrCameraPermissionSettings() {
+    const nativeCameraPermission = await getNativeCameraPermissionPlugin();
+    if (nativeCameraPermission?.openAppSettings) {
+        await nativeCameraPermission.openAppSettings();
+    }
+}
+
+function isCameraPermissionDeniedError(err) {
+    const name = String(err?.name || "");
+    const message = String(err?.message || "");
+    return name === "NotAllowedError"
+        || name === "PermissionDeniedError"
+        || name === "SecurityError"
+        || /permission|denied|not allowed/i.test(message);
+}
+
 function QrPairScanner({ onDetected, onClose }) {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
@@ -17,6 +85,9 @@ function QrPairScanner({ onDetected, onClose }) {
     const handledRef = useRef(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
+    const [loadingLabel, setLoadingLabel] = useState("카메라 권한 확인 중...");
+    const [permissionDenied, setPermissionDenied] = useState(false);
+    const [retryKey, setRetryKey] = useState(0);
 
     useEffect(() => {
         let active = true;
@@ -31,6 +102,14 @@ function QrPairScanner({ onDetected, onClose }) {
                 streamRef.current.getTracks().forEach((track) => track.stop());
                 streamRef.current = null;
             }
+        };
+
+        const handleNativeCameraDenied = () => {
+            stopScanner();
+            if (!active) return;
+            setPermissionDenied(true);
+            setError(QR_CAMERA_PERMISSION_MESSAGE);
+            setLoading(false);
         };
 
         const scanFrame = async () => {
@@ -51,6 +130,22 @@ function QrPairScanner({ onDetected, onClose }) {
         };
 
         const startScanner = async () => {
+            handledRef.current = false;
+            setError("");
+            setPermissionDenied(false);
+            setLoading(true);
+            setLoadingLabel("카메라 권한 확인 중...");
+
+            const permission = await ensureQrCameraPermission();
+            if (!active) return;
+            if (!permission.granted) {
+                setPermissionDenied(true);
+                setError(QR_CAMERA_PERMISSION_MESSAGE);
+                setLoading(false);
+                return;
+            }
+
+            setLoadingLabel("카메라 기능 확인 중...");
             if (!navigator.mediaDevices?.getUserMedia) {
                 setError("이 기기에서는 카메라를 사용할 수 없어요. 코드를 직접 입력해 주세요.");
                 setLoading(false);
@@ -64,7 +159,9 @@ function QrPairScanner({ onDetected, onClose }) {
             }
 
             try {
+                setLoadingLabel("QR 스캔 준비 중...");
                 detectorRef.current = new window.BarcodeDetector({ formats: ["qr_code"] });
+                setLoadingLabel("카메라 여는 중...");
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: { ideal: "environment" },
@@ -86,18 +183,22 @@ function QrPairScanner({ onDetected, onClose }) {
                 frameRef.current = requestAnimationFrame(scanFrame);
             } catch (scannerError) {
                 console.error("[qr-scan] start failed:", scannerError);
-                setError("카메라를 열 수 없어요. 권한을 확인한 뒤 다시 시도해 주세요.");
+                const denied = isCameraPermissionDeniedError(scannerError);
+                setPermissionDenied(denied);
+                setError(denied ? QR_CAMERA_PERMISSION_MESSAGE : "카메라를 열 수 없어요. 잠시 후 다시 시도해 주세요.");
                 setLoading(false);
             }
         };
 
+        window.addEventListener("camera-permission-denied", handleNativeCameraDenied);
         startScanner();
 
         return () => {
             active = false;
+            window.removeEventListener("camera-permission-denied", handleNativeCameraDenied);
             stopScanner();
         };
-    }, [onDetected]);
+    }, [onDetected, retryKey]);
 
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 650, background: "rgba(15,23,42,0.92)", display: "flex", flexDirection: "column", fontFamily: FF }}>
@@ -112,7 +213,7 @@ function QrPairScanner({ onDetected, onClose }) {
                     <div style={{ position: "absolute", inset: "18% 12%", borderRadius: 24, border: "3px solid rgba(255,255,255,0.92)", boxShadow: "0 0 0 999px rgba(15,23,42,0.35)" }} />
                     {loading && (
                         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(15,23,42,0.72)", color: "white", fontWeight: 700 }}>
-                            카메라 준비 중...
+                            {loadingLabel}
                         </div>
                     )}
                 </div>
@@ -122,6 +223,24 @@ function QrPairScanner({ onDetected, onClose }) {
                         QR을 인식하면 코드 입력 없이 바로 연동을 시작해요
                     </div>
                     {error && <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--status-cautionary-strong)" }}>{error}</div>}
+                    {permissionDenied && (
+                        <div style={{ marginTop: 14, display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+                            <button
+                                type="button"
+                                onClick={() => setRetryKey((value) => value + 1)}
+                                style={{ border: "none", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "white", background: "rgba(255,255,255,0.18)", cursor: "pointer", fontFamily: FF }}
+                            >
+                                권한 다시 확인
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { void openQrCameraPermissionSettings(); }}
+                                style={{ border: "1px solid rgba(255,255,255,0.32)", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "white", background: "rgba(255,255,255,0.08)", cursor: "pointer", fontFamily: FF }}
+                            >
+                                앱 설정 열기
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

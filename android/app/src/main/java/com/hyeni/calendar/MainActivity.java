@@ -30,6 +30,12 @@ public class MainActivity extends BridgeActivity {
     private Intent pendingRemoteListenIntent = null;
     private boolean suppressNotificationPermissionPrompt = false;
 
+    private enum RemoteListenStartResult {
+        STARTED,
+        FALLBACK_ALLOWED,
+        BLOCKED
+    }
+
     static boolean isAppForegroundForMicrophone() {
         return appForegroundForMicrophone;
     }
@@ -41,6 +47,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NotificationPlugin.class);
         registerPlugin(AmbientListenPlugin.class);
         registerPlugin(KakaoMapLauncherPlugin.class);
+        registerPlugin(CameraPermissionPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Phase 5 RL-03: WebView WebChromeClient no longer auto-grants the
@@ -224,8 +231,12 @@ public class MainActivity extends BridgeActivity {
                     MICROPHONE_PERMISSION_CODE);
             return;
         }
-        if (!startNativeAmbientListen(remoteListenIntent)) {
+        RemoteListenStartResult result = startNativeAmbientListen(remoteListenIntent);
+        if (result == RemoteListenStartResult.FALLBACK_ALLOWED) {
             queueRemoteListenFlagInjection();
+        } else {
+            pendingRemoteListen = false;
+            pendingRemoteListenIntent = null;
         }
     }
 
@@ -311,8 +322,12 @@ public class MainActivity extends BridgeActivity {
             && grantResults[0] == PackageManager.PERMISSION_GRANTED;
 
         if (granted && pendingRemoteListen) {
-            if (!startNativeAmbientListen(pendingRemoteListenIntent)) {
+            RemoteListenStartResult result = startNativeAmbientListen(pendingRemoteListenIntent);
+            if (result == RemoteListenStartResult.FALLBACK_ALLOWED) {
                 queueRemoteListenFlagInjection();
+            } else {
+                pendingRemoteListen = false;
+                pendingRemoteListenIntent = null;
             }
             return;
         }
@@ -345,26 +360,36 @@ public class MainActivity extends BridgeActivity {
             == PackageManager.PERMISSION_GRANTED;
     }
 
-    private boolean startNativeAmbientListen(Intent sourceIntent) {
+    private RemoteListenStartResult startNativeAmbientListen(Intent sourceIntent) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String userId = prefs.getString("userId", "");
-        String familyId = firstNonBlank(
-            sourceIntent != null ? sourceIntent.getStringExtra("familyId") : null,
-            prefs.getString("familyId", "")
-        );
+        String requestedFamilyId = sourceIntent != null ? sourceIntent.getStringExtra("familyId") : null;
+        String prefsFamilyId = prefs.getString("familyId", "");
+        String familyId = firstNonBlank(requestedFamilyId, prefsFamilyId);
         String supabaseUrl = prefs.getString("supabaseUrl", "");
         String supabaseKey = prefs.getString("supabaseKey", "");
         String accessToken = prefs.getString("accessToken", "");
         String role = prefs.getString("role", "");
+        String targetUserId = sourceIntent != null ? sourceIntent.getStringExtra("targetUserId") : null;
 
         if (!isBlank(role) && !"child".equalsIgnoreCase(role)) {
             Log.i("MainActivity", "Remote listen native start skipped: this device is not child mode");
-            return false;
+            return RemoteListenStartResult.BLOCKED;
+        }
+
+        if (!isBlank(requestedFamilyId) && !isBlank(prefsFamilyId) && !requestedFamilyId.equals(prefsFamilyId)) {
+            Log.i("MainActivity", "Remote listen native start skipped: family mismatch");
+            return RemoteListenStartResult.BLOCKED;
+        }
+
+        if (!isBlank(targetUserId) && !targetUserId.equals(userId)) {
+            Log.i("MainActivity", "Remote listen native start skipped: target user mismatch");
+            return RemoteListenStartResult.BLOCKED;
         }
 
         if (isBlank(userId) || isBlank(familyId) || isBlank(supabaseUrl) || isBlank(supabaseKey)) {
             Log.w("MainActivity", "Remote listen native start skipped: push context missing");
-            return false;
+            return RemoteListenStartResult.FALLBACK_ALLOWED;
         }
 
         Intent serviceIntent = new Intent(this, AmbientListenService.class);
@@ -394,10 +419,10 @@ public class MainActivity extends BridgeActivity {
             pendingRemoteListen = false;
             pendingRemoteListenIntent = null;
             Log.i("MainActivity", "Remote listen native foreground service started");
-            return true;
+            return RemoteListenStartResult.STARTED;
         } catch (Exception error) {
             Log.w("MainActivity", "Remote listen native service start failed", error);
-            return false;
+            return RemoteListenStartResult.FALLBACK_ALLOWED;
         }
     }
 

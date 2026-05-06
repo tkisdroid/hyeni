@@ -23,7 +23,7 @@ export function FeatureLockOverlay({
         position: "fixed",
         inset: 0,
         zIndex: 720,
-        background: "rgba(31,41,55,0.38)",
+        background: "color-mix(in srgb, var(--fg-primary) 38%, transparent)",
         backdropFilter: "blur(12px)",
         display: "flex",
         alignItems: "center",
@@ -50,10 +50,11 @@ export function FeatureLockOverlay({
           style={{
             marginTop: 16,
             borderRadius: 18,
-            background: "#F8FAFC",
+            background: "var(--theme-accent-soft)",
+            border: "1px solid var(--theme-accent-line)",
             padding: "12px 14px",
             fontSize: 13,
-            color: "var(--fg-secondary)",
+            color: "var(--theme-accent-text)",
           }}
         >
           7일 무료 체험 후 {PRICING.monthlyLabel}부터 시작할 수 있어요.
@@ -67,10 +68,14 @@ export function FeatureLockOverlay({
               padding: "13px 14px",
               borderRadius: 16,
               border: "none",
-              background: "linear-gradient(135deg,#E879A0,#BE185D)",
+              background: "var(--hyeni-theme-gradient)",
               color: "white",
               fontWeight: 800,
               cursor: "pointer",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+              touchAction: "manipulation",
             }}
           >
             7일 무료 체험 시작
@@ -81,11 +86,15 @@ export function FeatureLockOverlay({
             style={{
               padding: "13px 14px",
               borderRadius: 16,
-              border: "1px solid #E5E7EB",
-              background: "#F9FAFB",
+              border: "1px solid var(--line-soft)",
+              background: "var(--bg-subtle)",
               color: "var(--fg-secondary)",
               fontWeight: 700,
               cursor: "pointer",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+              touchAction: "manipulation",
             }}
           >
             닫기

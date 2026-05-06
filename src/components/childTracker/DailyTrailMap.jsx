@@ -6,13 +6,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
     buildSelectedLocationTrail,
-    buildSignificantMovementSegments,
+    buildTrailGradientSegments,
     buildTrailDwellPlaces,
     getTrailTimeBounds,
     formatTrailClock,
     haversineM,
     sumRouteDistance,
-    LOCATION_TRAIL_SIGNIFICANT_MOVE_M,
 } from "../../lib/trailMath.js";
 import { KAKAO_APP_KEY, loadKakaoMap } from "../../lib/kakaoMap.js";
 import { escHtml } from "../../lib/htmlEscape.js";
@@ -35,7 +34,7 @@ export function DailyTrailMap({ trail = [], child = null, height = 220 }) {
         [trail, child]
     );
     const segments = useMemo(
-        () => buildSignificantMovementSegments(points, LOCATION_TRAIL_SIGNIFICANT_MOVE_M),
+        () => buildTrailGradientSegments(points),
         [points]
     );
     const dwellPlaces = useMemo(() => buildTrailDwellPlaces(points), [points]);

@@ -50,10 +50,14 @@ export function ChildSelector({ children, value, onChange }) {
         type="button" onClick={pickFamily}
         style={{
           marginTop: 12, width: "100%", padding: "12px 14px",
-          borderRadius: 12, border: `2px dashed ${familyAll ? "#1F2937" : "var(--fg-tertiary)"}`,
-          background: familyAll ? "#F3F4F6" : "white",
-          fontSize: 14, fontWeight: 700, color: "var(--fg-primary)",
+          borderRadius: 12, border: `2px dashed ${familyAll ? "var(--theme-accent)" : "var(--fg-tertiary)"}`,
+          background: familyAll ? "var(--theme-accent-soft)" : "white",
+          fontSize: 14, fontWeight: 700, color: familyAll ? "var(--theme-accent-text)" : "var(--fg-primary)",
           cursor: "pointer",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+          touchAction: "manipulation",
         }}
       >가족 전체</button>
     </div>

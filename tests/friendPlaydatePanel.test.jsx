@@ -6,7 +6,7 @@ import {
   cleanup,
 } from "@testing-library/react";
 
-// 모든 친구놀이 RPC/Realtime을 mock — orchestrator는 합성만 검증한다.
+// 모든 친구 만남 RPC/Realtime을 mock — orchestrator는 합성만 검증한다.
 vi.mock("../src/lib/friendPlaydate.js", () => ({
   fetchActiveSession: vi.fn(),
   fetchHistory: vi.fn(),
@@ -66,7 +66,7 @@ describe("FriendPlaydatePanel", () => {
     render(<FriendPlaydatePanel familyId="fam-1" currentUserId="u-1" />);
     await waitFor(() => {
       expect(
-        screen.getByRole("heading", { name: "친구놀이" }),
+        screen.getByRole("heading", { name: "친구 만남" }),
       ).toBeInTheDocument();
     });
   });
@@ -92,10 +92,10 @@ describe("FriendPlaydatePanel", () => {
     render(<FriendPlaydatePanel familyId="fam-1" currentUserId="u-1" />);
     await waitFor(() => {
       expect(
-        screen.getByRole("heading", { name: "친구놀이" }),
+        screen.getByRole("heading", { name: "친구 만남" }),
       ).toBeInTheDocument();
     });
-    expect(screen.getByText(/친구놀이 안전장소/)).toBeInTheDocument();
+    expect(screen.getByText(/친구 만남 안전 장소/)).toBeInTheDocument();
   });
 
   it("playdate_enabled 값이 없으면 기본 허용으로 표시", async () => {
@@ -105,9 +105,9 @@ describe("FriendPlaydatePanel", () => {
     });
     render(<FriendPlaydatePanel familyId="fam-1" currentUserId="u-1" />);
     await waitFor(() => {
-      expect(screen.getByRole("switch", { name: /친구놀이 기능/ })).toHaveAttribute("aria-checked", "true");
+      expect(screen.getByRole("switch", { name: /친구 만남 기능/ })).toHaveAttribute("aria-checked", "true");
     });
-    expect(screen.getByText(/친구놀이 안전장소/)).toBeInTheDocument();
+    expect(screen.getByText(/친구 만남 안전 장소/)).toBeInTheDocument();
   });
 
   it("loading 상태 표시 후 ready 전환", async () => {

@@ -9,8 +9,24 @@ import { haversineM } from "../../lib/trailMath.js";
 import { DESIGN, FF } from "../../lib/styleHelpers.js";
 import { KAKAO_APP_KEY } from "../../lib/kakaoMap.js";
 import { escHtml } from "../../lib/htmlEscape.js";
+import { CHILD_MARKER_COLORS } from "../../lib/markerColors.js";
+import {
+    HYENI_DEFAULT_CHILD_IMAGE_CROP,
+    HYENI_DEFAULT_CHILD_IMAGE_STYLE_HTML,
+    HYENI_DEFAULT_CHILD_IMAGE_URL,
+} from "../../lib/childDefaultImage.js";
 import { FallbackMapCanvas } from "./FallbackMapCanvas.jsx";
 import { MapZoomControls } from "./MapZoomControls.jsx";
+
+function childMarkerImageHtml(child) {
+    const photoUrl = typeof child?.photo_url === "string" && child.photo_url.trim() ? child.photo_url : "";
+    const src = photoUrl || HYENI_DEFAULT_CHILD_IMAGE_URL;
+    const style = photoUrl
+        ? "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"
+        : HYENI_DEFAULT_CHILD_IMAGE_STYLE_HTML;
+    const cropAttrs = photoUrl ? "" : ` data-hyeni-default-child-image data-hyeni-default-child-image-crop="${HYENI_DEFAULT_CHILD_IMAGE_CROP}"`;
+    return `<img src="${escHtml(src)}" alt="" aria-hidden="true"${cropAttrs} style="${style}" />`;
+}
 
 export function LocationMapView({
     events,
@@ -70,12 +86,11 @@ export function LocationMapView({
                 const child = pairedChildren.find((c) => c.user_id === pos.user_id);
                 const color = child?.color_hex || "#3B82F6";
                 const name = child?.name || "아이";
-                const emoji = child?.emoji || "🐰";
-                // Labeled pin: emoji + 이름 badge with colored border + dot under
+                // Labeled pin: default Hyeni image + 이름 badge with colored border + dot under
                 const content = `
                     <div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif">
                         <div style="background:#FFFFFF;color:#171719;padding:5px 10px 5px 6px;border-radius:999px;border:2px solid ${color};box-shadow:0 2px 10px rgba(15,15,18,0.16);display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;white-space:nowrap;letter-spacing:0;max-width:140px">
-                            <span style="font-size:13px;line-height:1">${escHtml(emoji)}</span>
+                            <span style="width:22px;height:22px;border-radius:9px;overflow:hidden;position:relative;display:inline-flex;flex-shrink:0;background:#fff;border:1px solid ${color}33">${childMarkerImageHtml(child)}</span>
                             <span style="overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</span>
                         </div>
                         <div style="width:14px;height:14px;background:${color};border:2.5px solid #FFFFFF;border-radius:50%;box-shadow:0 2px 6px ${color}66;margin-top:-3px"></div>
@@ -177,6 +192,19 @@ export function LocationMapView({
 
     const selectedEventPlace = selected?.startsWith("event:") ? eventPlaceItems.find((place) => `event:${place.key}` === selected) : null;
     const selectedPlace = selected?.startsWith("saved:") ? savedPlaceItems.find(place => `saved:${place.id}` === selected) : null;
+    const fallbackChildren = (isParentMode && Array.isArray(displayChildPositions) && displayChildPositions.length > 0)
+        ? displayChildPositions
+            .map((pos, index) => {
+                const child = pairedChildren.find((c) => c.user_id === pos.user_id) || {};
+                return {
+                    ...pos,
+                    key: child.id || pos.user_id || `child-${index}`,
+                    name: child.name || pos.name || "아이",
+                    color: child.color_hex || pos.color || CHILD_MARKER_COLORS[index % CHILD_MARKER_COLORS.length],
+                    photo_url: child.photo_url || pos.photo_url || null,
+                };
+            })
+        : (childPos ? [{ ...childPos, name: "내 위치", color: DESIGN.colors.pink, photo_url: pairedChildren?.[0]?.photo_url || null }] : []);
     const focusLocation = (key, location) => {
         setSelected(key);
         if (mapObj.current && location?.lat && location?.lng) {
@@ -193,7 +221,7 @@ export function LocationMapView({
                 {!mapReady && (
                     <FallbackMapCanvas
                         center={center}
-                        children={childPos ? [{ ...childPos, name: "내 위치", emoji: "🐰", color: DESIGN.colors.pink }] : []}
+                        children={fallbackChildren}
                         eventPlaces={eventPlaceItems.map(place => ({ ...place, key: `event:${place.key}` }))}
                         savedPlaces={savedPlaceItems.map(place => ({ ...place, key: `saved:${place.id}` }))}
                         selectedKey={selected || ""}

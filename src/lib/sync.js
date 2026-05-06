@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { getLocationHistoryDayBounds } from "./locationTrailDisplay.js";
 
 // ── localStorage cache keys ─────────────────────────────────────────────────
 const LS_EVENTS = "hyeni-events";
@@ -482,9 +483,22 @@ export async function upsertDailySupplies(familyId, dateKey, content, userId) {
 export async function fetchMemoReplies(familyId, dateKey) {
   const { data, error } = await supabase
     .from("memo_replies")
-    .select("id, user_id, user_role, content, created_at, origin, read_by")
+    .select("id, family_id, date_key, user_id, user_role, content, created_at, origin, read_by")
     .eq("family_id", familyId)
     .eq("date_key", dateKey)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchMemoRepliesForDateKeys(familyId, dateKeys) {
+  const keys = [...new Set((dateKeys || []).filter(Boolean))];
+  if (!familyId || keys.length === 0) return [];
+  const { data, error } = await supabase
+    .from("memo_replies")
+    .select("id, family_id, date_key, user_id, user_role, content, created_at, origin, read_by")
+    .eq("family_id", familyId)
+    .in("date_key", keys)
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data || [];
@@ -497,10 +511,13 @@ export async function fetchMemoReplies(familyId, dateKey) {
 export async function insertMemoReply(familyId, dateKey, userId, userRole, content, origin) {
   const row = { family_id: familyId, date_key: dateKey, user_id: userId, user_role: userRole, content };
   if (origin) row.origin = origin;
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("memo_replies")
-    .insert(row);
+    .insert(row)
+    .select("id, family_id, date_key, user_id, user_role, content, created_at, origin, read_by")
+    .single();
   if (error) throw error;
+  return data;
 }
 
 // sendMemo — the Phase 4 unified send path. Writes go ONLY to memo_replies
@@ -579,14 +596,38 @@ export async function saveChildLocation(userId, familyId, lat, lng) {
   if (error) console.error("[saveChildLocation]", error);
 }
 
-export async function saveLocationHistory(userId, familyId, lat, lng) {
+export async function saveLocationHistory(userId, familyId, lat, lng, options = {}) {
+  const row = { user_id: userId, family_id: familyId, lat, lng };
+  const recordedAt = options?.recordedAt || options?.recorded_at || null;
+  if (recordedAt) row.recorded_at = recordedAt;
   const { error } = await supabase
     .from("location_history")
-    .insert({ user_id: userId, family_id: familyId, lat, lng });
+    .insert(row);
   if (error) console.error("[saveLocationHistory]", error);
 }
 
+export async function saveLocationHistoryRows(rows) {
+  const safeRows = Array.isArray(rows)
+    ? rows.filter((row) => row?.user_id && row?.family_id && Number.isFinite(Number(row?.lat)) && Number.isFinite(Number(row?.lng)))
+    : [];
+  if (safeRows.length === 0) return;
+  const { error } = await supabase
+    .from("location_history")
+    .insert(safeRows.map((row) => ({
+      user_id: row.user_id,
+      family_id: row.family_id,
+      lat: Number(row.lat),
+      lng: Number(row.lng),
+      recorded_at: row.recorded_at || row.recordedAt || new Date().toISOString(),
+    })));
+  if (error) console.error("[saveLocationHistoryRows]", error);
+}
+
 export async function fetchTodayLocationHistory(familyId, childUserId = null) {
+  return fetchLocationHistoryForDate(familyId, childUserId, new Date());
+}
+
+export async function fetchLocationHistoryForDate(familyId, childUserId = null, dateLike = new Date()) {
   const { data: members } = await supabase
     .from("family_members")
     .select("user_id")
@@ -599,18 +640,18 @@ export async function fetchTodayLocationHistory(familyId, childUserId = null) {
     : memberChildUserIds;
   if (!childUserIds.length) return [];
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const { start, end } = getLocationHistoryDayBounds(dateLike);
 
   const { data, error } = await supabase
     .from("location_history")
     .select("user_id, lat, lng, recorded_at")
     .eq("family_id", familyId)
     .in("user_id", childUserIds)
-    .gte("recorded_at", todayStart.toISOString())
+    .gte("recorded_at", start.toISOString())
+    .lt("recorded_at", end.toISOString())
     .order("recorded_at", { ascending: true });
 
-  if (error) { console.error("[fetchTodayLocationHistory]", error); return []; }
+  if (error) { console.error("[fetchLocationHistoryForDate]", error); return []; }
   return data || [];
 }
 
@@ -840,6 +881,9 @@ export function subscribeFamily(familyId, callbacks) {
     })
     .on("broadcast", { event: "kkuk" }, (payload) => {
       if (onKkuk) onKkuk(payload.payload);
+    })
+    .on("broadcast", { event: "memo_reply" }, (payload) => {
+      if (onMemoRepliesChange) onMemoRepliesChange(payload.payload, "INSERT", null);
     })
     .on("broadcast", { event: "remote_listen_start" }, (payload) => {
       if (onRemoteListenStart) onRemoteListenStart(payload.payload);

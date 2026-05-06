@@ -24,7 +24,8 @@ export function AcademyManager({
     onDangerZoneDelete,
     onDangerZonesLocked,
     onClose,
-    currentPos
+    currentPos,
+    bottomNavigation = null
 }) {
     const [list, setList] = useState(academies);
     const [savedList, setSavedList] = useState(savedPlaces);
@@ -51,6 +52,7 @@ export function AcademyManager({
     ];
     const academyListChanged = JSON.stringify(list) !== JSON.stringify(academies);
     const savedPlacesChanged = JSON.stringify(savedList) !== JSON.stringify(savedPlaces);
+    const hasBottomNavigation = !!bottomNavigation;
 
     useEffect(() => {
         setDangerList(dangerZones);
@@ -252,7 +254,7 @@ export function AcademyManager({
                 </button>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "var(--fg-primary)" }}>📍 장소관리</div>
             </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px", paddingBottom: hasBottomNavigation ? 16 : "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
 
                 {/* Form */}
                 {showForm && (
@@ -471,7 +473,7 @@ export function AcademyManager({
                     </>
                 )}
             </div>
-            <div style={{ padding: "12px 16px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: "1px solid var(--bg-muted)", background: "rgba(255,255,255,0.96)", boxShadow: "0 -10px 24px rgba(31,26,34,0.06)" }}>
+            <div style={{ padding: "12px 16px", paddingBottom: hasBottomNavigation ? 10 : "calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: "1px solid var(--bg-muted)", background: "rgba(255,255,255,0.96)", boxShadow: "0 -10px 24px rgba(31,26,34,0.06)" }}>
                 <button
                     type="button"
                     aria-label="장소관리 저장"
@@ -482,6 +484,11 @@ export function AcademyManager({
                     {managerSaving ? "저장 중..." : "저장하고 닫기"}
                 </button>
             </div>
+            {bottomNavigation && (
+                <div className="hyeni-manager-bottom-nav" aria-label="장소관리 하단 바로가기">
+                    {bottomNavigation}
+                </div>
+            )}
         </div>
     );
 }

@@ -14,7 +14,7 @@ export default function ActivePlaydateCard({ session, onEnd }) {
 
   const handleStop = async () => {
     if (busy) return;
-    if (!confirm(`${friendChild}와의 친구놀이를 정지하시겠어요?`)) return;
+    if (!confirm(`${friendChild}와의 친구 만남을 정지하시겠어요?`)) return;
     setBusy(true);
     try {
       await endPlaydate(session.id, 'parent_end');
@@ -67,7 +67,7 @@ export default function ActivePlaydateCard({ session, onEnd }) {
         type="button"
         onClick={handleStop}
         disabled={busy}
-        aria-label="친구놀이 정지"
+        aria-label="정지 - 친구 만남 종료"
         className="hyeni-tool-button hyeni-tool-button--small"
       >
         <span className="hyeni-tool-button__label">정지</span>

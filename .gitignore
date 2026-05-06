@@ -18,6 +18,7 @@ dist-ssr
 .android/
 .playwright-mcp/
 .tmp-design-examples/
+.tmp-montage-web/
 .superpowers/
 
 # Android/Gradle generated files
@@ -95,3 +96,15 @@ final-*.png
 # Imported design specs zip + extraction (local only)
 files/
 files.zip
+.gstack/
+
+# Lazyweb design research artifacts
+.lazyweb/
+
+# Test/QA artifacts (screenshots, smoke output, playwright traces)
+.e2e-screens/
+output/
+hyeni-*.png
+
+# External design vendor (own git repo, do not embed)
+open-design/

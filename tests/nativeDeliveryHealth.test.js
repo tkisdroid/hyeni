@@ -9,6 +9,11 @@ const deviceStatusReporter = readFileSync(
   "android/app/src/main/java/com/hyeni/calendar/DeviceStatusReporter.java",
   "utf8",
 );
+const locationService = readFileSync(
+  "android/app/src/main/java/com/hyeni/calendar/LocationService.java",
+  "utf8",
+);
+const nativeLocationService = readFileSync("src/lib/nativeLocationService.js", "utf8");
 const pushNotifications = readFileSync("src/lib/pushNotifications.js", "utf8");
 const appJsx = readFileSync("src/App.jsx", "utf8");
 // Phase 5 #4 / B9: REMOTE_LISTEN_HEALTH_STEPS + summarize/resolve moved to lib/remoteListenHealth.js,
@@ -81,5 +86,14 @@ describe("native delivery health contract", () => {
     expect(pushNotifications).toContain('target === "remoteListenChannel"');
     expect(pushNotifications).toContain('const REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2"');
     expect(pushNotifications).toContain("channelId: REMOTE_LISTEN_CHANNEL_ID");
+  });
+
+  it("stores native child movement history as detailed walking-route points when available", () => {
+    expect(nativeLocationService).toContain("kakaoRestKey");
+    expect(locationService).toContain("kakaoRestKey");
+    expect(locationService).toContain("fetchWalkingRoutePoints");
+    expect(locationService).toContain("uploadLocationHistoryRows");
+    expect(locationService).toContain("interpolateRecordedAt");
+    expect(locationService).toContain("apis-navi.kakaomobility.com/affiliate/walking/v1/directions");
   });
 });

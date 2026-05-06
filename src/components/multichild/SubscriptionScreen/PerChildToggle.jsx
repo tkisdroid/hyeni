@@ -1,4 +1,6 @@
 // src/components/multichild/SubscriptionScreen/PerChildToggle.jsx
+import { ChildAvatar } from "../HomeDashboard/ChildAvatar.jsx";
+
 function birthYear(birthdate) {
   if (!birthdate) return null;
   return new Date(birthdate).getFullYear();
@@ -10,22 +12,17 @@ export function PerChildToggle({ child, subscribed, onToggle, busy = false }) {
     <div data-child-id={child.id} data-user-id={child.user_id} style={{
       display: "flex", alignItems: "center", gap: 14,
       padding: 16, borderRadius: 14,
-      background: subscribed ? "white" : "#F9FAFB",
-      border: subscribed ? "1.5px solid #FBCFE8" : "1.5px solid #E5E7EB",
+      background: subscribed ? "white" : "var(--bg-subtle)",
+      border: subscribed ? "1.5px solid var(--theme-accent-line)" : "1.5px solid var(--line-soft)",
       opacity: subscribed ? 1 : 0.85,
     }}>
-      <div style={{
-        width: 44, height: 44, borderRadius: "50%",
-        background: child.photo_url ? `url(${child.photo_url}) center/cover` : child.color_hex,
-        border: `2px solid ${child.color_hex}`,
-        flexShrink: 0,
-      }} />
+      <ChildAvatar child={child} size={44} radius="50%" fontSize={16} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: "var(--fg-primary)" }}>
           {child.name}
           {year && <span style={{ fontSize: 12, color: "var(--fg-secondary)", marginLeft: 8, fontWeight: 600 }}>({year}년생)</span>}
         </div>
-        <div style={{ fontSize: 12, color: subscribed ? "#BE185D" : "var(--fg-secondary)", marginTop: 2, fontWeight: 700 }}>
+        <div style={{ fontSize: 12, color: subscribed ? "var(--theme-accent-text)" : "var(--fg-secondary)", marginTop: 2, fontWeight: 700 }}>
           {subscribed ? "₩1,500/월" : "무료"}
         </div>
       </div>
@@ -36,9 +33,13 @@ export function PerChildToggle({ child, subscribed, onToggle, busy = false }) {
         disabled={busy}
         style={{
           width: 48, height: 28, borderRadius: 14,
-          background: subscribed ? "#F779A8" : "#D1D5DB",
+          background: subscribed ? "var(--theme-accent)" : "var(--line-default)",
           border: "none", position: "relative",
           cursor: busy ? "wait" : "pointer", flexShrink: 0,
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+          touchAction: "manipulation",
         }}
       >
         <span style={{

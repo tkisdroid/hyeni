@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 /**
  * Real-services E2E: Qonversion (subscription) web-layer test.
@@ -49,11 +50,9 @@ test.describe("qonversion web fallback", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    // Vite serves sources in dev. Fetch the qonversion module source to
-    // verify the Google Play subscription management URL is still present.
-    const srcResp = await page.request.get("/src/lib/qonversion.js");
-    expect(srcResp.ok(), "qonversion.js is served by dev server").toBe(true);
-    const src = await srcResp.text();
+    // The real suite runs production preview assets, so dev-only /src module
+    // URLs are unavailable. Read the checked-in module source directly.
+    const src = readFileSync("src/lib/qonversion.js", "utf8");
     expect(
       src,
       "subscription management URL still referenced in qonversion.js",

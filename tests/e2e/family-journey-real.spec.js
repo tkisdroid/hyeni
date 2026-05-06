@@ -132,7 +132,7 @@ test.describe("full family journey with real Supabase data", () => {
       token: parent.access_token,
       method: "POST",
       prefer: "return=representation",
-      body: { parent_id: parent.user.id, pair_code: "PROBE001", parent_name: "RLS Probe" },
+      body: { parent_id: parent.user.id, pair_code: pairCode(), name: "RLS Probe" },
     });
     expect(insertFamily.ok, "email session should be blocked by RLS").toBe(false);
     expect(insertFamily.status, "RLS returns 403 or 401 or 42501").toBeGreaterThanOrEqual(400);

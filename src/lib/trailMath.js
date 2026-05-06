@@ -289,6 +289,56 @@ export function buildSignificantMovementSegments(points, minMoveM = LOCATION_TRA
     return segments;
 }
 
+export function buildDetailedLocationHistoryRows({
+    userId,
+    familyId,
+    previousPoint = null,
+    currentPoint,
+    routePoints = [],
+} = {}) {
+    const current = normalizeLocationTrailPoint({
+        ...(currentPoint || {}),
+        recorded_at: currentPoint?.recorded_at || currentPoint?.recordedAt || currentPoint?.updated_at || currentPoint?.updatedAt || new Date().toISOString(),
+    });
+    if (!userId || !familyId || !current) return [];
+
+    const previous = previousPoint
+        ? normalizeLocationTrailPoint(previousPoint)
+        : null;
+    const compactedRoute = compactRoutePoints(routePoints);
+    let points = compactedRoute.length >= 2 ? compactedRoute : [current];
+
+    if (compactedRoute.length >= 2) {
+        if (previous) {
+            points = points.filter((point) => haversineM(previous.lat, previous.lng, point.lat, point.lng) >= LOCATION_TRAIL_JITTER_M);
+        }
+        const last = points[points.length - 1];
+        if (!last || haversineM(last.lat, last.lng, current.lat, current.lng) >= LOCATION_TRAIL_JITTER_M) {
+            points.push(current);
+        }
+    }
+
+    if (points.length === 0) points = [current];
+
+    const startMs = previous?.recordedMs ?? null;
+    const endMs = current.recordedMs ?? Date.now();
+    const hasInterval = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs;
+
+    return points.map((point, index) => {
+        const ratio = points.length <= 1 ? 1 : (index + 1) / points.length;
+        const recordedAt = hasInterval
+            ? new Date(startMs + Math.round((endMs - startMs) * ratio)).toISOString()
+            : current.recordedAt;
+        return {
+            user_id: userId,
+            family_id: familyId,
+            lat: point.lat,
+            lng: point.lng,
+            recorded_at: recordedAt || new Date().toISOString(),
+        };
+    });
+}
+
 export function averageTrailPoint(points) {
     if (!points.length) return null;
     const totals = points.reduce((acc, point) => ({
@@ -321,8 +371,9 @@ export function buildTrailDwellPlaces(points) {
                     endMs,
                     durationMs,
                     pointCount: cluster.length,
-                    label: `${formatTrailClock(startMs)}-${formatTrailClock(endMs)}`,
-                    timeLabel: `${formatTrailClock(startMs)}-${formatTrailClock(endMs)}`,
+                    label: `${formatTrailDuration(durationMs)} 머무름`,
+                    timeLabel: `${formatTrailDuration(durationMs)} 머무름`,
+                    timeRangeLabel: `${formatTrailClock(startMs)}-${formatTrailClock(endMs)}`,
                 });
             }
         }

@@ -561,6 +561,7 @@ body {
   border-radius: var(--radius-full);
   margin: var(--space-3) auto var(--space-2);
   flex-shrink: 0;
+  touch-action: none;
 }
 .event-sheet-header {
   display: flex;
@@ -569,6 +570,7 @@ body {
   padding: var(--space-1) var(--sheet-padding-x) var(--space-3);
   border-bottom: 1px solid var(--line-soft);
   flex-shrink: 0;
+  touch-action: none;
 }
 .event-sheet-header .sheet-title {
   font-size: 16px;

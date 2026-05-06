@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react";
+import {
+  HYENI_DEFAULT_CHILD_IMAGE_CROP,
+  HYENI_DEFAULT_CHILD_IMAGE_STYLE,
+  HYENI_DEFAULT_CHILD_IMAGE_URL,
+} from "../../../lib/childDefaultImage.js";
 
 function getFallbackGlyph(child) {
   if (child?.emoji) return child.emoji;
@@ -21,9 +26,11 @@ export function ChildAvatar({
   const accent = color || child?.color_hex || "var(--theme-accent)";
   const name = child?.name || "자녀";
   const [imageState, setImageState] = useState(photoUrl ? "loading" : "fallback");
+  const [defaultImageFailed, setDefaultImageFailed] = useState(false);
 
   useEffect(() => {
     setImageState(photoUrl ? "loading" : "fallback");
+    setDefaultImageFailed(false);
   }, [photoUrl]);
 
   const showImage = Boolean(photoUrl) && imageState !== "fallback";
@@ -60,15 +67,35 @@ export function ChildAvatar({
         ...style,
       }}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          opacity: fallbackVisible ? 1 : 0,
-          transition: "opacity 120ms ease",
-        }}
-      >
-        {getFallbackGlyph(child)}
-      </span>
+      {fallbackVisible && (
+        defaultImageFailed ? (
+          <span
+            aria-hidden="true"
+            style={{
+              opacity: 1,
+              transition: "opacity 120ms ease",
+            }}
+          >
+            {getFallbackGlyph(child)}
+          </span>
+        ) : (
+          <img
+            src={HYENI_DEFAULT_CHILD_IMAGE_URL}
+            alt=""
+            aria-hidden="true"
+            data-hyeni-default-child-image
+            data-hyeni-default-child-image-crop={HYENI_DEFAULT_CHILD_IMAGE_CROP}
+            loading={loading}
+            decoding="async"
+            onError={() => setDefaultImageFailed(true)}
+            style={{
+              ...HYENI_DEFAULT_CHILD_IMAGE_STYLE,
+              opacity: 1,
+              transition: "opacity 120ms ease",
+            }}
+          />
+        )
+      )}
       {showImage && (
         <img
           src={photoUrl}

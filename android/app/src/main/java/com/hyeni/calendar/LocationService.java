@@ -41,8 +41,10 @@ import com.google.android.gms.tasks.CancellationTokenSource;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import okhttp3.MediaType;
+import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
 import okhttp3.Request;
@@ -61,7 +64,7 @@ public class LocationService extends Service {
     private static final String TAG = "LocationService";
     private static final String CHANNEL_ID = "hyeni_location_v4";
     private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
-    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen";
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
     public static final String ACTION_REFRESH_NOW = "REFRESH_NOW";
     private static final int NOTIFICATION_ID = 9001;
     private static final int ALERT_NOTIFICATION_BASE = 10000;
@@ -144,6 +147,17 @@ public class LocationService extends Service {
     private String userId;
     private String familyId;
     private String accessToken;
+    private String kakaoRestKey;
+
+    private static class RoutePoint {
+        final double lat;
+        final double lng;
+
+        RoutePoint(double lat, double lng) {
+            this.lat = lat;
+            this.lng = lng;
+        }
+    }
 
     @Override
     public void onCreate() {
@@ -175,6 +189,7 @@ public class LocationService extends Service {
                 supabaseUrl = intent.getStringExtra("supabaseUrl");
                 supabaseKey = intent.getStringExtra("supabaseKey");
                 accessToken = intent.getStringExtra("accessToken");
+                kakaoRestKey = intent.getStringExtra("kakaoRestKey");
                 String role = intent.getStringExtra("role");
 
                 SharedPreferences.Editor editor = prefs.edit()
@@ -184,6 +199,7 @@ public class LocationService extends Service {
                     .putString("supabaseKey", supabaseKey)
                     .putString("accessToken", accessToken)
                     .putBoolean("serviceEnabled", true);
+                if (kakaoRestKey != null) editor.putString("kakaoRestKey", kakaoRestKey);
                 if (role != null) editor.putString("role", role);
                 editor.apply();
             }
@@ -205,6 +221,9 @@ public class LocationService extends Service {
             supabaseUrl = prefs.getString("supabaseUrl", null);
             supabaseKey = prefs.getString("supabaseKey", null);
             accessToken = prefs.getString("accessToken", null);
+            kakaoRestKey = prefs.getString("kakaoRestKey", null);
+        } else if (isBlank(kakaoRestKey)) {
+            kakaoRestKey = prefs.getString("kakaoRestKey", null);
         }
 
         if (userId == null || familyId == null || supabaseUrl == null) {
@@ -703,12 +722,54 @@ public class LocationService extends Service {
             return false;
         }
         try {
-            JSONObject body = new JSONObject();
-            body.put("user_id", userId);
-            body.put("family_id", familyId);
-            body.put("lat", lat);
-            body.put("lng", lng);
-            body.put("recorded_at", formatIsoUtc(capturedAtMs));
+            JSONArray body = buildLocationHistoryRows(lat, lng, capturedAtMs);
+            return uploadLocationHistoryRows(body, bearerToken);
+        } catch (Exception e) {
+            Log.w(TAG, "Location history insert error", e);
+            return false;
+        }
+    }
+
+    private JSONArray buildLocationHistoryRows(double lat, double lng, long capturedAtMs) throws Exception {
+        List<RoutePoint> points = new ArrayList<>();
+        boolean hasPrevious = !Double.isNaN(lastHistoryLat) && !Double.isNaN(lastHistoryLng) && lastHistoryAtMs > 0L;
+        if (hasPrevious) {
+            points.addAll(fetchWalkingRoutePoints(lastHistoryLat, lastHistoryLng, lat, lng));
+        }
+
+        if (points.size() >= 2 && hasPrevious) {
+            List<RoutePoint> filtered = new ArrayList<>();
+            for (RoutePoint point : points) {
+                if (distanceBetween(lastHistoryLat, lastHistoryLng, point.lat, point.lng) >= 8f) {
+                    filtered.add(point);
+                }
+            }
+            points = filtered;
+        } else {
+            points.clear();
+        }
+
+        if (points.isEmpty() || distanceBetween(points.get(points.size() - 1).lat, points.get(points.size() - 1).lng, lat, lng) >= 8f) {
+            points.add(new RoutePoint(lat, lng));
+        }
+
+        JSONArray rows = new JSONArray();
+        for (int i = 0; i < points.size(); i++) {
+            RoutePoint point = points.get(i);
+            JSONObject row = new JSONObject();
+            row.put("user_id", userId);
+            row.put("family_id", familyId);
+            row.put("lat", point.lat);
+            row.put("lng", point.lng);
+            row.put("recorded_at", interpolateRecordedAt(lastHistoryAtMs, capturedAtMs, i, points.size()));
+            rows.put(row);
+        }
+        return rows;
+    }
+
+    private boolean uploadLocationHistoryRows(JSONArray rows, String bearerToken) {
+        if (rows == null || rows.length() == 0) return false;
+        try {
 
             Response response = httpClient.newCall(new Request.Builder()
                 .url(supabaseUrl.replaceAll("/+$", "") + "/rest/v1/location_history")
@@ -716,7 +777,7 @@ public class LocationService extends Service {
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + bearerToken)
                 .header("Prefer", "return=minimal")
-                .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
+                .post(RequestBody.create(rows.toString(), MediaType.get("application/json")))
                 .build()).execute();
             boolean success = response.isSuccessful();
             if (!success) {
@@ -728,6 +789,75 @@ public class LocationService extends Service {
             Log.w(TAG, "Location history insert error", e);
             return false;
         }
+    }
+
+    private String interpolateRecordedAt(long startMs, long endMs, int index, int total) {
+        if (startMs <= 0L || endMs <= startMs || total <= 1) {
+            return formatIsoUtc(endMs);
+        }
+        double ratio = (double) (index + 1) / (double) total;
+        long value = startMs + Math.round((endMs - startMs) * ratio);
+        return formatIsoUtc(value);
+    }
+
+    private List<RoutePoint> fetchWalkingRoutePoints(double startLat, double startLng, double endLat, double endLng) {
+        List<RoutePoint> points = new ArrayList<>();
+        if (isBlank(kakaoRestKey)) return points;
+        try {
+            HttpUrl baseUrl = HttpUrl.parse("https://apis-navi.kakaomobility.com/affiliate/walking/v1/directions");
+            if (baseUrl == null) return points;
+            HttpUrl url = baseUrl.newBuilder()
+                .addQueryParameter("origin", startLng + "," + startLat)
+                .addQueryParameter("destination", endLng + "," + endLat)
+                .addQueryParameter("waypoints", "")
+                .addQueryParameter("radius", "5000")
+                .addQueryParameter("priority", "MAIN_STREET")
+                .addQueryParameter("summary", "false")
+                .build();
+            Response response = httpClient.newCall(new Request.Builder()
+                .url(url)
+                .header("accept", "application/json")
+                .header("service", "hyeni-calendar")
+                .header("Authorization", "KakaoAK " + kakaoRestKey)
+                .get()
+                .build()).execute();
+            if (!response.isSuccessful()) {
+                Log.w(TAG, "Walking route request failed: " + response.code());
+                response.close();
+                return points;
+            }
+            String responseBody = response.body() != null ? response.body().string() : "";
+            response.close();
+            JSONObject data = new JSONObject(responseBody);
+            JSONObject route = data.optJSONArray("routes") != null ? data.optJSONArray("routes").optJSONObject(0) : null;
+            if (route == null || route.optInt("result_code", -1) != 0) return points;
+            JSONArray sections = route.optJSONArray("sections");
+            if (sections == null) return points;
+            for (int s = 0; s < sections.length(); s++) {
+                JSONObject section = sections.optJSONObject(s);
+                JSONArray roads = section != null ? section.optJSONArray("roads") : null;
+                if (roads == null) continue;
+                for (int r = 0; r < roads.length(); r++) {
+                    JSONObject road = roads.optJSONObject(r);
+                    JSONArray vertexes = road != null ? road.optJSONArray("vertexes") : null;
+                    if (vertexes == null) continue;
+                    for (int i = 0; i + 1 < vertexes.length(); i += 2) {
+                        double lng = vertexes.optDouble(i, Double.NaN);
+                        double lat = vertexes.optDouble(i + 1, Double.NaN);
+                        if (!Double.isNaN(lat) && !Double.isNaN(lng)) {
+                            RoutePoint previous = points.isEmpty() ? null : points.get(points.size() - 1);
+                            if (previous == null || distanceBetween(previous.lat, previous.lng, lat, lng) >= 1f) {
+                                points.add(new RoutePoint(lat, lng));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Walking route parse failed", e);
+            points.clear();
+        }
+        return points;
     }
 
     private void broadcastLocation(double lat, double lng, float accuracy, long capturedAtMs) {
@@ -873,9 +1003,9 @@ public class LocationService extends Service {
                             deliveredIds.put(id);
                             continue;
                         }
+                        publishDeviceStatusFromPending(data);
                         if (!startAmbientListenFromPending(data)) {
                             showRemoteListenLauncher(data, stableId);
-                            RemoteListenRequestStore.markLauncherShown(this, requestId);
                         }
                         deliveredIds.put(id);
                         continue;
@@ -935,6 +1065,12 @@ public class LocationService extends Service {
 
     private boolean isPendingTargetedToThisDevice(@Nullable JSONObject data) {
         if (data == null) return true;
+        String requestFamilyId = data.optString("familyId", "");
+        if (!isBlank(requestFamilyId) && !isBlank(familyId) && !requestFamilyId.equals(familyId)) {
+            Log.d(TAG, "Skipping pending notification for another family");
+            return false;
+        }
+
         String targetRole = data.optString("targetRole", "");
         if (!isBlank(targetRole)) {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -964,6 +1100,7 @@ public class LocationService extends Service {
             supabaseKey,
             familyId,
             userId,
+            accessToken,
             data != null ? data.optString("requestId", null) : null,
             data != null ? data.optString("requesterUserId", null) : null
         );
@@ -1097,6 +1234,7 @@ public class LocationService extends Service {
             putIfNotBlank(launchIntent, "senderUserId", data.optString("senderUserId", ""));
             putIfNotBlank(launchIntent, "durationSec", data.optString("durationSec", ""));
             putIfNotBlank(launchIntent, "requestId", readRemoteListenRequestId(data));
+            putIfNotBlank(launchIntent, "targetUserId", data.optString("targetUserId", ""));
         } else {
             putIfNotBlank(launchIntent, "familyId", familyId);
         }
@@ -1109,16 +1247,16 @@ public class LocationService extends Service {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, REMOTE_LISTEN_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_hyeni_notification)
             .setColor(0xFFFF6B9D)
-            .setContentTitle("안전 확인 연결 중")
-            .setContentText("주변 소리 연결을 시작합니다.")
-            .setStyle(new NotificationCompat.BigTextStyle().bigText("주변 소리 연결을 시작합니다."))
-            .setAutoCancel(true)
+            .setContentTitle("주변 소리 연결 요청")
+            .setContentText("탭해서 아이 기기에서 연결을 시작하세요.")
+            .setStyle(new NotificationCompat.BigTextStyle().bigText("탭하면 아이 기기에서 마이크 연결 화면이 열립니다."))
+            .setAutoCancel(false)
             .setContentIntent(launchPendingIntent)
-            .setSilent(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true)
             .setFullScreenIntent(launchPendingIntent, true)
             .setWhen(System.currentTimeMillis());
 
@@ -1179,8 +1317,13 @@ public class LocationService extends Service {
             "원격 듣기 연결",
             NotificationManager.IMPORTANCE_HIGH
         );
-        channel.enableVibration(false);
-        channel.setSound(null, null);
+        channel.setDescription("아이 기기에서 주변 소리 연결을 시작해야 할 때 표시되는 알림");
+        channel.enableVibration(true);
+        channel.setVibrationPattern(new long[]{0, 180, 100, 180});
+        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build());
         channel.setBypassDnd(false);
         channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         channel.setShowBadge(false);

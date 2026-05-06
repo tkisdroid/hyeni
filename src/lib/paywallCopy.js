@@ -12,7 +12,7 @@ export const PRICING = Object.freeze({
 
 export const TRIAL_INVITE = Object.freeze({
   title: "7일 무료 체험으로 프리미엄 기능을 열어보세요",
-  body: "실시간 위치, 주변 소리 듣기, AI 분석, 학원 일정, 다자녀 연동까지 모두 바로 사용할 수 있어요.",
+  body: "실시간 위치, 주변 소리 듣기, 빠른 일정 정리, 학원 일정, 다자녀 연동까지 모두 바로 사용할 수 있어요.",
   highlight: "첫 일정 등록을 시작하셨네요. 지금 체험을 켜두면 이후 기능 잠금 없이 바로 이어서 사용할 수 있어요.",
   ctaPrimary: "7일 무료 체험 시작",
   ctaSecondary: "나중에",
@@ -61,9 +61,9 @@ export const FEATURE_LOCK = Object.freeze({
     body: "유료계정은 자주가는 장소를 무제한 등록할 수 있어요.",
   },
   [FEATURES.AI_ANALYSIS]: {
-    emoji: "🤖",
-    title: "AI 일정 분석은 프리미엄 전용이에요",
-    body: "AI 음성 일정 추가와 메모 감정 분석은 프리미엄에서 사용할 수 있어요.",
+    emoji: "✨",
+    title: "빠른 일정 정리는 프리미엄 전용이에요",
+    body: "말하기로 일정 추가하기와 메모 살펴보기 기능은 프리미엄에서 사용할 수 있어요.",
   },
   [FEATURES.REMOTE_AUDIO]: {
     emoji: "🎙️",

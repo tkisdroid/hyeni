@@ -1,17 +1,25 @@
 package com.hyeni.calendar;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.app.AlarmManager;
+import android.app.KeyguardManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.media.AudioManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
 
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSArray;
@@ -21,13 +29,14 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @CapacitorPlugin(name = "NativeNotification")
 public class NotificationPlugin extends Plugin {
 
     private static final String PREFS_NAME = "hyeni_location_prefs";
-    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen";
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
 
     private final AtomicInteger notifId = new AtomicInteger(1000);
 
@@ -84,7 +93,12 @@ public class NotificationPlugin extends Plugin {
         NotificationManager nm = (NotificationManager) ctx
                 .getSystemService(Context.NOTIFICATION_SERVICE);
         PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+        ActivityManager activityManager = (ActivityManager) ctx.getSystemService(Context.ACTIVITY_SERVICE);
         AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+        AudioManager audio = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+        KeyguardManager keyguard = (KeyguardManager) ctx.getSystemService(Context.KEYGUARD_SERVICE);
+        ConnectivityHealth connectivity = readConnectivity(ctx);
+        Configuration config = ctx.getResources().getConfiguration();
 
         boolean notificationsEnabled = nm == null || nm.areNotificationsEnabled();
         boolean postPermissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
@@ -93,6 +107,12 @@ public class NotificationPlugin extends Plugin {
         boolean batteryOptimizationsIgnored = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
                 || pm == null
                 || pm.isIgnoringBatteryOptimizations(ctx.getPackageName());
+        boolean powerSaveMode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+                && pm != null
+                && pm.isPowerSaveMode();
+        boolean backgroundRestricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                && activityManager != null
+                && activityManager.isBackgroundRestricted();
         boolean fullScreenIntentAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE
                 || nm == null
                 || nm.canUseFullScreenIntent();
@@ -105,6 +125,18 @@ public class NotificationPlugin extends Plugin {
                 .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .getBoolean("serviceEnabled", false);
         boolean remoteListenChannelEnabled = isChannelEnabled(nm, REMOTE_LISTEN_CHANNEL_ID);
+        int remoteListenChannelImportance = getChannelImportance(nm, REMOTE_LISTEN_CHANNEL_ID);
+        boolean remoteListenChannelBlocked = remoteListenChannelImportance == NotificationManager.IMPORTANCE_NONE;
+        String ringerMode = describeRingerMode(audio);
+        String dndMode = describeDndMode(nm);
+        boolean dndAccess = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                || nm == null
+                || nm.isNotificationPolicyAccessGranted();
+        boolean screenInteractive = pm == null || pm.isInteractive();
+        boolean keyguardLocked = keyguard != null && keyguard.isKeyguardLocked();
+        String foldState = inferFoldState(config);
+        boolean networkConnected = connectivity.connected;
+        boolean networkValidated = connectivity.validated;
 
         boolean channelsEnabled = true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && nm != null) {
@@ -126,11 +158,26 @@ public class NotificationPlugin extends Plugin {
         result.put("notificationsEnabled", notificationsEnabled);
         result.put("postPermissionGranted", postPermissionGranted);
         result.put("batteryOptimizationsIgnored", batteryOptimizationsIgnored);
+        result.put("powerSaveMode", powerSaveMode);
+        result.put("backgroundRestricted", backgroundRestricted);
         result.put("fullScreenIntentAllowed", fullScreenIntentAllowed);
         result.put("exactAlarmAllowed", exactAlarmAllowed);
         result.put("channelsEnabled", channelsEnabled);
         result.put("recordAudioGranted", recordAudioGranted);
         result.put("remoteListenChannelEnabled", remoteListenChannelEnabled);
+        result.put("remoteListenChannelImportance", remoteListenChannelImportance);
+        result.put("remoteListenChannelBlocked", remoteListenChannelBlocked);
+        result.put("ringerMode", ringerMode);
+        result.put("dndMode", dndMode);
+        result.put("dndAccess", dndAccess);
+        result.put("networkConnected", networkConnected);
+        result.put("networkValidated", networkValidated);
+        result.put("screenInteractive", screenInteractive);
+        result.put("keyguardLocked", keyguardLocked);
+        result.put("screenWidthDp", config.screenWidthDp);
+        result.put("screenHeightDp", config.screenHeightDp);
+        result.put("smallestScreenWidthDp", config.smallestScreenWidthDp);
+        result.put("foldState", foldState);
         result.put("locationServiceRunning", locationServiceRunning);
         result.put("sdkInt", Build.VERSION.SDK_INT);
         result.put("manufacturer", Build.MANUFACTURER);
@@ -138,11 +185,14 @@ public class NotificationPlugin extends Plugin {
         result.put("ready", notificationsEnabled
                 && postPermissionGranted
                 && batteryOptimizationsIgnored
+                && !powerSaveMode
+                && !backgroundRestricted
                 && fullScreenIntentAllowed
                 && exactAlarmAllowed
                 && channelsEnabled
                 && recordAudioGranted
                 && remoteListenChannelEnabled
+                && networkConnected
                 && locationServiceRunning);
         call.resolve(result);
     }
@@ -252,6 +302,52 @@ public class NotificationPlugin extends Plugin {
     }
 
     @PluginMethod()
+    public void requestRecordAudio(PluginCall call) {
+        Context ctx = getContext();
+        boolean alreadyGranted = ContextCompat.checkSelfPermission(
+                ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        if (alreadyGranted) {
+            call.resolve(new JSObject().put("granted", true));
+            return;
+        }
+        if (getActivity() == null) {
+            call.resolve(new JSObject().put("granted", false));
+            return;
+        }
+        ActivityCompat.requestPermissions(
+                getActivity(),
+                new String[]{ Manifest.permission.RECORD_AUDIO },
+                4101
+        );
+        call.resolve(new JSObject().put("granted", false).put("requested", true));
+    }
+
+    @PluginMethod()
+    public void requestPostNotifications(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            call.resolve(new JSObject().put("granted", true).put("notRequired", true));
+            return;
+        }
+        Context ctx = getContext();
+        boolean alreadyGranted = ContextCompat.checkSelfPermission(
+                ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+        if (alreadyGranted) {
+            call.resolve(new JSObject().put("granted", true));
+            return;
+        }
+        if (getActivity() == null) {
+            call.resolve(new JSObject().put("granted", false));
+            return;
+        }
+        ActivityCompat.requestPermissions(
+                getActivity(),
+                new String[]{ Manifest.permission.POST_NOTIFICATIONS },
+                4102
+        );
+        call.resolve(new JSObject().put("granted", false).put("requested", true));
+    }
+
+    @PluginMethod()
     public void openNotificationChannelSettings(PluginCall call) {
         Context ctx = getContext();
         String channelId = call.getString("channelId", REMOTE_LISTEN_CHANNEL_ID);
@@ -275,5 +371,68 @@ public class NotificationPlugin extends Plugin {
         }
         NotificationChannel channel = nm.getNotificationChannel(channelId);
         return channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
+    }
+
+    private int getChannelImportance(NotificationManager nm, String channelId) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || nm == null) {
+            return NotificationManager.IMPORTANCE_DEFAULT;
+        }
+        NotificationChannel channel = nm.getNotificationChannel(channelId);
+        return channel == null ? NotificationManager.IMPORTANCE_DEFAULT : channel.getImportance();
+    }
+
+    private String describeRingerMode(AudioManager audio) {
+        if (audio == null) return "unknown";
+        int mode = audio.getRingerMode();
+        if (mode == AudioManager.RINGER_MODE_NORMAL) return "normal";
+        if (mode == AudioManager.RINGER_MODE_VIBRATE) return "vibrate";
+        if (mode == AudioManager.RINGER_MODE_SILENT) return "silent";
+        return "unknown";
+    }
+
+    private String describeDndMode(NotificationManager nm) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || nm == null) return "all";
+        int filter = nm.getCurrentInterruptionFilter();
+        if (filter == NotificationManager.INTERRUPTION_FILTER_ALL) return "all";
+        if (filter == NotificationManager.INTERRUPTION_FILTER_PRIORITY) return "priority";
+        if (filter == NotificationManager.INTERRUPTION_FILTER_NONE) return "none";
+        if (filter == NotificationManager.INTERRUPTION_FILTER_ALARMS) return "alarms";
+        return "unknown";
+    }
+
+    private ConnectivityHealth readConnectivity(Context ctx) {
+        ConnectivityManager cm = (ConnectivityManager) ctx.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) return new ConnectivityHealth(false, false);
+        Network network = cm.getActiveNetwork();
+        if (network == null) return new ConnectivityHealth(false, false);
+        NetworkCapabilities caps = cm.getNetworkCapabilities(network);
+        if (caps == null) return new ConnectivityHealth(false, false);
+        boolean connected = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        boolean validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+        return new ConnectivityHealth(connected, validated);
+    }
+
+    private String inferFoldState(Configuration config) {
+        String model = (Build.MANUFACTURER + " " + Build.MODEL).toLowerCase(Locale.US);
+        boolean likelyFoldable = model.contains("fold")
+                || model.contains("flip")
+                || model.contains("zflip")
+                || model.contains("z fold");
+        if (!likelyFoldable) return "not_foldable_or_unknown";
+        if (config.screenWidthDp >= 600) return "wide_open";
+        if (config.smallestScreenWidthDp >= 600 || config.screenWidthDp < 420) {
+            return "possibly_folded";
+        }
+        return "unknown";
+    }
+
+    private static final class ConnectivityHealth {
+        final boolean connected;
+        final boolean validated;
+
+        ConnectivityHealth(boolean connected, boolean validated) {
+            this.connected = connected;
+            this.validated = validated;
+        }
     }
 }

@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { supabase } from "../../../lib/supabase.js";
 
+const CHILD_PHOTO_PREVIEW_TTL_SECONDS = 60 * 60 * 24 * 7;
+
 export function PhotoUpload({ value, onChange, familyId, childOrder }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -43,8 +45,11 @@ export function PhotoUpload({ value, onChange, familyId, childOrder }) {
       const bucket = supabase.storage.from("child-photos");
       const { error: upErr } = await bucket.upload(path, file, { upsert: true });
       if (upErr) throw upErr;
-      const { data } = bucket.getPublicUrl(path);
-      onChange(data.publicUrl);
+      const { data, error: signErr } = bucket.createSignedUrl
+        ? await bucket.createSignedUrl(path, CHILD_PHOTO_PREVIEW_TTL_SECONDS)
+        : { data: null, error: null };
+      if (signErr) console.warn("[PhotoUpload] signed preview failed:", signErr);
+      onChange(data?.signedUrl || path);
     } catch (err) {
       setError(err.message || "업로드 실패");
     } finally {
@@ -60,8 +65,12 @@ export function PhotoUpload({ value, onChange, familyId, childOrder }) {
           display: "flex", alignItems: "center", justifyContent: "center",
           width: 96, height: 96, borderRadius: "50%",
           background: value ? `url(${value}) center/cover` : "var(--bg-subtle)",
-          border: "2px dashed #D1D5DB", cursor: busy ? "wait" : "pointer",
+          border: "2px dashed var(--theme-accent-line)", cursor: busy ? "wait" : "pointer",
           color: "var(--fg-secondary)", fontSize: 12,
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+          touchAction: "manipulation",
         }}
       >
         {!value && (busy ? "업로드 중..." : "사진 추가")}

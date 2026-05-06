@@ -95,8 +95,12 @@ export function MiniMap({ children, positions, onTap }) {
       type="button" onClick={onTap} aria-label="지도 탭으로 이동"
       style={{
         position: "relative", width: "100%", height: 160, borderRadius: 16,
-        background: "linear-gradient(135deg, #F0F9FF, #FEF3F8)",
-        border: "1.5px solid #E5E7EB", overflow: "hidden", cursor: "pointer", padding: 0,
+        background: "linear-gradient(135deg, var(--bg-subtle), var(--theme-accent-soft))",
+        border: "1.5px solid var(--theme-accent-line)", overflow: "hidden", cursor: "pointer", padding: 0,
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+        touchAction: "manipulation",
       }}
     >
       <div ref={mapRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
@@ -111,14 +115,14 @@ export function MiniMap({ children, positions, onTap }) {
             transform: "rotate(-45deg)",
             background: p.color_hex,
             border: "2px solid white",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+            boxShadow: "0 2px 6px color-mix(in srgb, var(--fg-primary) 20%, transparent)",
           }}
         />
       ))}
       <div style={{
         position: "absolute", bottom: 8, right: 12,
         fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700,
-        background: "rgba(255,255,255,0.9)", padding: "2px 8px", borderRadius: 8,
+        background: "color-mix(in srgb, var(--bg-base) 90%, transparent)", padding: "2px 8px", borderRadius: 8,
       }}>탭하여 전체 지도 보기</div>
     </button>
   );

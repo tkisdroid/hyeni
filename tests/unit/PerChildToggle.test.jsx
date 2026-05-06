@@ -1,6 +1,6 @@
 // tests/unit/PerChildToggle.test.jsx
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { PerChildToggle } from "../../src/components/multichild/SubscriptionScreen/PerChildToggle.jsx";
 
 const child = { user_id: "c1", name: "혜니", birthdate: "2015-03-21", color_hex: "#F779A8", photo_url: null };
@@ -10,6 +10,7 @@ describe("PerChildToggle", () => {
     render(<PerChildToggle child={child} subscribed={false} onToggle={() => {}} />);
     expect(screen.getByText("혜니")).toBeInTheDocument();
     expect(screen.getByText(/2015년생/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "혜니 프로필" })).toHaveAttribute("data-avatar-state", "fallback");
   });
 
   it("subscribed=true → toggle ON, ₩1,500/월 표시", () => {

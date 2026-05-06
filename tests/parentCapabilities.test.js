@@ -39,6 +39,49 @@ describe("deriveParentCapabilities", () => {
     expect(result.canReceiveKkuk).toBe(false);
   });
 
+  it("keeps primary-parent controls when older family payloads omit parent id but only one parent member exists", () => {
+    const result = deriveParentCapabilities(
+      {
+        familyId: "family-legacy",
+        myRole: "parent",
+        members: [
+          { user_id: "mom", role: "parent", name: "엄마" },
+          { user_id: "child", role: "child", name: "혜니" },
+        ],
+      },
+      { id: "mom" },
+      "parent",
+    );
+
+    expect(result.isPrimaryParent).toBe(true);
+    expect(result.isCoParent).toBe(false);
+    expect(result.canRequestChildLocation).toBe(true);
+    expect(result.canUseRemoteListen).toBe(true);
+    expect(result.canUseForceRing).toBe(true);
+  });
+
+  it("does not infer primary-parent controls for an explicit co-parent payload", () => {
+    const result = deriveParentCapabilities(
+      {
+        familyId: "family-coparent",
+        myRole: "parent",
+        isCoParent: true,
+        members: [
+          { user_id: "dad", role: "parent", name: "아빠" },
+          { user_id: "child", role: "child", name: "혜니" },
+        ],
+      },
+      { id: "dad" },
+      "parent",
+    );
+
+    expect(result.isPrimaryParent).toBe(false);
+    expect(result.isCoParent).toBe(true);
+    expect(result.canRequestChildLocation).toBe(false);
+    expect(result.canUseRemoteListen).toBe(false);
+    expect(result.canUseForceRing).toBe(false);
+  });
+
   it("keeps child capabilities separate from parent controls", () => {
     const result = deriveParentCapabilities(
       { ...baseFamily, myRole: "child" },

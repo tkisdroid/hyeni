@@ -16,11 +16,15 @@ export function ChildCountStep({ value, onChange, onNext }) {
             onClick={() => onChange(n)}
             style={{
               flex: 1, padding: "16px 0", borderRadius: 14,
-              border: value === n ? "2px solid #F779A8" : "1.5px solid #E5E7EB",
-              background: value === n ? "#FFF1F7" : "white",
+              border: value === n ? "2px solid var(--theme-accent)" : "1.5px solid var(--line-soft)",
+              background: value === n ? "var(--theme-accent-soft)" : "white",
               fontSize: 16, fontWeight: 800,
-              color: value === n ? "#BE185D" : "var(--fg-primary)",
+              color: value === n ? "var(--theme-accent-text)" : "var(--fg-primary)",
               cursor: "pointer",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+              touchAction: "manipulation",
             }}
           >
             {n}명
@@ -31,11 +35,15 @@ export function ChildCountStep({ value, onChange, onNext }) {
         type="button" onClick={onNext} disabled={value == null}
         style={{
           width: "100%", padding: "14px 0", borderRadius: 14,
-          background: value == null ? "#E5E7EB" : "#F779A8",
-          color: value == null ? "#9CA3AF" : "white",
+          background: value == null ? "var(--bg-muted)" : "var(--theme-accent)",
+          color: value == null ? "var(--fg-disabled)" : "white",
           fontSize: 16, fontWeight: 800,
           cursor: value == null ? "not-allowed" : "pointer",
           border: "none",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+          touchAction: "manipulation",
         }}
       >다음</button>
     </div>

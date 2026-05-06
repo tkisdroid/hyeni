@@ -9,8 +9,10 @@
 // 아이의 events만 묶어 보여준다.
 
 import { useMemo } from "react";
+import { ChildAvatar } from "./ChildAvatar.jsx";
+import { formatDeviceDuration } from "../../../lib/deviceFormat.js";
 
-const FF = '"BMHANNAPro", "Pretendard", system-ui, -apple-system, sans-serif';
+const FF = '"Pretendard Variable", "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
 
 function eventsForChild(events, childId) {
   if (!Array.isArray(events) || !childId) return [];
@@ -27,7 +29,7 @@ function formatTime(time) {
   return `${ampm} ${h12}:${mStr || "00"}`;
 }
 
-export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
+export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMap = {}, onSelectChild, onRefreshDevices, deviceRefreshPending = false }) {
   const eventsByChild = useMemo(() => {
     const map = new Map();
     for (const c of children || []) map.set(c.id, eventsForChild(todayEvents, c.id));
@@ -40,17 +42,47 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
   return (
     <div className="hyeni-v5-parent-main" aria-label="오늘 가족 일정" style={{ fontFamily: FF }}>
       <div style={{ padding: "16px 16px 8px" }}>
-        <div style={{ fontSize: 11, color: "var(--hyeni-pink-deep)", fontWeight: "var(--weight-bold)", letterSpacing: 0.5 }}>오늘</div>
-        <div style={{ fontSize: 24, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", marginTop: 2 }}>{todayLabel}</div>
-        <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, fontWeight: "var(--weight-medium)" }}>
-          카드를 탭하면 그 아이의 상세 일정이 열려요
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 11, color: "var(--theme-accent-text)", fontWeight: "var(--weight-bold)", letterSpacing: 0.5 }}>오늘</div>
+            <div style={{ fontSize: 24, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", marginTop: 2 }}>{todayLabel}</div>
+            <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, fontWeight: "var(--weight-medium)" }}>
+              카드를 탭하면 그 아이의 상세 일정이 열려요
+            </div>
+          </div>
+          {onRefreshDevices && (
+            <button
+              type="button"
+              onClick={() => onRefreshDevices?.("device_status_manual_refresh")}
+              style={{
+                border: "1px solid var(--theme-accent-line)",
+                background: "var(--theme-accent-soft)",
+                color: "var(--theme-accent-text)",
+                borderRadius: "var(--radius-full)",
+                padding: "8px 12px",
+                fontFamily: FF,
+                fontSize: 12,
+                fontWeight: "var(--weight-bold)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              {deviceRefreshPending ? "요청 중" : "지금 갱신"}
+            </button>
+          )}
         </div>
       </div>
 
       <div style={{ padding: "0 16px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
         {(children || []).map((child) => {
           const list = eventsByChild.get(child.id) || [];
-          const color = child.color_hex || "#A78BFA";
+          const color = child.color_hex || "var(--theme-accent)";
+          const status = child?.user_id ? childDeviceStatusMap[child.user_id] : null;
+          const battery = Number.isFinite(Number(status?.batteryLevel))
+            ? `${Math.max(0, Math.min(100, Number(status.batteryLevel)))}%`
+            : "확인 중";
+          const screenLabel = formatDeviceDuration(Number(status?.screenOnMs || 0));
           return (
             <button
               key={child.id}
@@ -67,32 +99,25 @@ export function TodayMultiChildView({ children, todayEvents, onSelectChild }) {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: list.length > 0 ? 12 : 0 }}>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: "var(--radius-full)",
-                    background: child.photo_url ? `url(${child.photo_url}) center/cover` : color,
-                    border: `2px solid ${color}`,
-                    flexShrink: 0,
-                    color: "white",
-                    fontWeight: "var(--weight-bold)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 17,
-                  }}
-                >
-                  {child.photo_url ? "" : (child.emoji || (child.name?.trim?.()[0] ?? "👶"))}
-                </span>
+                <ChildAvatar child={child} size={40} color={color} fontSize={17} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
-                  <div style={{ fontSize: 13, color: list.length > 0 ? "var(--hyeni-pink-deep)" : "var(--fg-secondary)", marginTop: 3, fontWeight: list.length > 0 ? "var(--weight-bold)" : "var(--weight-medium)" }}>
+                  <div style={{ fontSize: 13, color: list.length > 0 ? "var(--theme-accent-text)" : "var(--fg-secondary)", marginTop: 3, fontWeight: list.length > 0 ? "var(--weight-bold)" : "var(--weight-medium)" }}>
                     {list.length === 0 ? "오늘 일정이 없어요" : `오늘 일정 ${list.length}건`}
                   </div>
                 </div>
                 <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 20, fontWeight: "var(--weight-medium)" }}>›</span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: list.length > 0 ? 12 : 0 }}>
+                <div style={{ background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", padding: "8px 10px" }}>
+                  <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: "var(--weight-bold)" }}>배터리</div>
+                  <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2 }}>🔋 {battery}</div>
+                </div>
+                <div style={{ background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", padding: "8px 10px" }}>
+                  <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: "var(--weight-bold)" }}>화면 시간</div>
+                  <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2 }}>⏱️ {screenLabel}</div>
+                </div>
               </div>
 
               {list.length > 0 && (

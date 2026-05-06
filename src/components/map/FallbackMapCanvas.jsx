@@ -5,6 +5,11 @@
 import { DESIGN, FF } from "../../lib/styleHelpers.js";
 import { KAKAO_APP_KEY } from "../../lib/kakaoMap.js";
 import { CHILD_MARKER_COLORS } from "../../lib/markerColors.js";
+import {
+    HYENI_DEFAULT_CHILD_IMAGE_CROP,
+    HYENI_DEFAULT_CHILD_IMAGE_STYLE,
+    HYENI_DEFAULT_CHILD_IMAGE_URL,
+} from "../../lib/childDefaultImage.js";
 
 function toLatLngPoint(point) {
     if (!point) return null;
@@ -57,6 +62,7 @@ export function FallbackMapCanvas({
                 emoji: child.emoji || "🧒",
                 label: child.name || "아이",
                 color: child.color || CHILD_MARKER_COLORS[index % CHILD_MARKER_COLORS.length],
+                photoUrl: typeof child.photo_url === "string" && child.photo_url.trim() ? child.photo_url : null,
             };
         })
         .filter(Boolean);
@@ -181,10 +187,11 @@ export function FallbackMapCanvas({
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", filter: isSelected ? `drop-shadow(0 8px 16px ${marker.color}55)` : "drop-shadow(0 4px 10px rgba(31,41,55,0.18))" }}>
                             <div style={{
                                 minWidth: isChild ? 42 : 34,
+                                width: isChild ? 42 : undefined,
                                 height: isChild ? 42 : 34,
-                                padding: isChild ? "0 8px" : "0 7px",
+                                padding: isChild ? 0 : "0 7px",
                                 borderRadius: isChild ? 16 : 14,
-                                background: marker.color,
+                                background: isChild ? "white" : marker.color,
                                 color: "white",
                                 display: "flex",
                                 alignItems: "center",
@@ -192,9 +199,26 @@ export function FallbackMapCanvas({
                                 border: "3px solid white",
                                 fontSize: isChild ? 18 : 15,
                                 fontWeight: 900,
+                                overflow: "hidden",
+                                position: "relative",
                                 boxShadow: isSelected ? `0 0 0 7px ${marker.color}24` : `0 0 0 4px ${marker.color}18`,
                             }}>
-                                {marker.emoji}
+                                {isChild ? (
+                                    <img
+                                        src={marker.photoUrl || HYENI_DEFAULT_CHILD_IMAGE_URL}
+                                        alt=""
+                                        aria-hidden="true"
+                                        data-hyeni-default-child-image={marker.photoUrl ? undefined : true}
+                                        data-hyeni-default-child-image-crop={marker.photoUrl ? undefined : HYENI_DEFAULT_CHILD_IMAGE_CROP}
+                                        style={marker.photoUrl ? {
+                                            position: "absolute",
+                                            inset: 0,
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                        } : HYENI_DEFAULT_CHILD_IMAGE_STYLE}
+                                    />
+                                ) : marker.emoji}
                             </div>
                             <div style={{
                                 marginTop: 5,

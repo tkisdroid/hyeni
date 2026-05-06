@@ -19,8 +19,9 @@ const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Auth client (anon key) — used for getClaims() to verify caller JWT (D-A01).
 // The service-role client (created per-request below) is for RLS-bypassing DB work.
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY")!;
-const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY")!;
+const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY") || "";
+const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY") || "";
+const webPushConfigured = Boolean(VAPID_PUBLIC && VAPID_PRIVATE);
 
 // FCM credentials
 const FCM_SERVICE_ACCOUNT_JSON =
@@ -57,7 +58,11 @@ const FCM_PRIVATE_KEY = (() => {
   return (Deno.env.get("FCM_PRIVATE_KEY") || "").replace(/\\n/g, "\n");
 })();
 
-webpush.setVapidDetails("mailto:hyeni-calendar@noreply.com", VAPID_PUBLIC, VAPID_PRIVATE);
+if (webPushConfigured) {
+  webpush.setVapidDetails("mailto:hyeni-calendar@noreply.com", VAPID_PUBLIC, VAPID_PRIVATE);
+} else {
+  console.warn("Web Push is disabled because VAPID keys are not configured");
+}
 
 interface PushPayload {
   title: string;
@@ -766,7 +771,7 @@ async function handleForceRingReminder(
           ),
       );
     }
-    if (webSubs?.length) {
+    if (webPushConfigured && webSubs?.length) {
       await Promise.all(
         webSubs.map(async (sub) => {
           try {
@@ -979,7 +984,7 @@ async function handleInstantNotification(
   let webSent = 0;
   const expiredIds: string[] = [];
 
-  if (subs?.length) {
+  if (webPushConfigured && subs?.length) {
     for (const sub of subs) {
       if (sub.user_id === senderUserId) continue;
       if (sub.user_id && nativeRecipientIds.has(sub.user_id)) continue;
@@ -1224,7 +1229,7 @@ async function handleCronNotification(supabase: ReturnType<typeof createClient>)
 
       const expiredIds: string[] = [];
 
-      if (subs?.length) {
+      if (webPushConfigured && subs?.length) {
         for (const sub of subs) {
           if (sub.user_id && nativeRecipientIds.has(sub.user_id)) continue;
           try {

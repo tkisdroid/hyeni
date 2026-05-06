@@ -480,8 +480,8 @@ describe("Soft Brand visual system", () => {
     expect(routeSource).toContain("var(--hyeni-theme-gradient)");
     expect(routeSource).toContain("var(--hyeni-theme-shadow-soft)");
     expect(routeSource).toContain("childProfile");
-    expect(routeSource).toContain("currentMarkerEmoji");
-    expect(routeSource).toContain("기존 아이 이모티콘");
+    expect(routeSource).toContain("currentMarkerPhotoUrl");
+    expect(routeSource).toContain("기본 혜니 이미지");
     expect(routeSource).not.toContain("bunnySvg");
     expect(routeSource).not.toContain("rgba(236,72,153");
     expect(routeSource).not.toContain("rgba(244,114,182");

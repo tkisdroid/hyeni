@@ -14,7 +14,7 @@ afterEach(() => cleanup());
 describe('FriendPlaydateToggle (isolated)', () => {
   it('renders OFF state with helper copy', () => {
     render(<FriendPlaydateToggle familyId="fam-1" enabled={false} onChange={vi.fn()} />);
-    expect(screen.getByRole('switch', { name: /친구놀이 기능/ })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /친구 만남 기능/ })).toBeInTheDocument();
     expect(screen.getByText(/양쪽 부모가 모두 켜야/)).toBeInTheDocument();
   });
 

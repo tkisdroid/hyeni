@@ -4,6 +4,7 @@
 
 const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY;
+const KAKAO_REST_KEY = import.meta.env?.VITE_KAKAO_REST_KEY || "";
 
 // Native background location (Capacitor plugin)
 export async function startNativeLocationService(userId, familyId, accessToken, role) {
@@ -16,6 +17,7 @@ export async function startNativeLocationService(userId, familyId, accessToken, 
                 userId, familyId,
                 supabaseUrl: SUPABASE_URL,
                 supabaseKey: SUPABASE_KEY,
+                kakaoRestKey: KAKAO_REST_KEY,
                 accessToken: accessToken || "",
                 role: role || "child"
             });
@@ -37,6 +39,7 @@ export async function requestNativeCurrentLocation(userId, familyId, accessToken
                 userId, familyId,
                 supabaseUrl: SUPABASE_URL,
                 supabaseKey: SUPABASE_KEY,
+                kakaoRestKey: KAKAO_REST_KEY,
                 accessToken: accessToken || "",
                 role: role || "child"
             });

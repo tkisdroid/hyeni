@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "verify": "npm run test && npm run test:e2e"
+    "verify": "npm run test && npm run test:e2e",
+    "verify:recovery": "node scripts/supabase-recovery-verification.mjs",
+    "support:bundle": "node scripts/build-supabase-support-bundle.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.1",

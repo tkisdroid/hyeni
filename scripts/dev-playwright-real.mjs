@@ -28,24 +28,50 @@ const envFromFile = parseEnv(readFileSync(envPath, "utf8"));
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const env = {
-  ...process.env,
   ...envFromFile,
+  ...process.env,
 };
 
-const child = spawn(
-  npmCommand,
-  ["run", "dev", "--", "--host", "0.0.0.0", "--port", "4173"],
-  {
-    stdio: "inherit",
-    env,
-    shell: process.platform === "win32",
-  },
-);
+let activeChild = null;
 
-child.on("exit", (code, signal) => {
+function spawnNpm(args) {
+  activeChild = spawn(
+    npmCommand,
+    args,
+    {
+      stdio: "inherit",
+      env,
+      shell: process.platform === "win32",
+    },
+  );
+  return activeChild;
+}
+
+function exitWith(code, signal) {
   if (signal) {
     process.kill(process.pid, signal);
     return;
   }
   process.exit(code ?? 0);
+}
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.on(signal, () => {
+    if (activeChild && !activeChild.killed) {
+      activeChild.kill(signal);
+      return;
+    }
+    process.exit(0);
+  });
+}
+
+const build = spawnNpm(["run", "build"]);
+build.on("exit", (code, signal) => {
+  if (code || signal) {
+    exitWith(code, signal);
+    return;
+  }
+
+  const preview = spawnNpm(["run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]);
+  preview.on("exit", exitWith);
 });

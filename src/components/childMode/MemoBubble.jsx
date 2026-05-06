@@ -5,7 +5,7 @@
 export function MemoBubble({ from, children, stamp }) {
     return (
         <div className="memo-bubble-row" data-from={from === "child" ? "child" : "parent"}>
-            <div>
+            <div className="memo-bubble-stack">
                 <span className="memo-bubble" data-from={from === "child" ? "child" : "parent"}>
                     {children}
                 </span>

@@ -21,6 +21,18 @@ async function fetchFamilyEnabled(familyId) {
   return data?.playdate_enabled ?? true;
 }
 
+const legacyTextStyle = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  margin: -1,
+  padding: 0,
+  border: 0,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+};
+
 export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiveCard = false, compact = false, onAddSafePlace }) {
   const [enabled, setEnabled] = useState(true);
   const [places, setPlaces] = useState([]);
@@ -79,7 +91,7 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
               className="hyeni-tool-tile__sub"
               style={{ color: enabled ? 'var(--hyeni-friend-ink)' : 'var(--fg-tertiary)' }}
             >
-              {enabled ? '안전장소 매칭 대기' : '매칭 꺼짐'}
+              {enabled ? '친구 자동 매칭 대기 중' : '친구 자동 매칭 꺼짐'}
             </div>
           </div>
           <div className="hyeni-tool-tile__cta">
@@ -131,9 +143,10 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
           color: 'var(--fg-secondary)',
           fontSize: 12,
           fontWeight: 900,
-          letterSpacing: '0.02em',
+          letterSpacing: 0,
         }}>
           친구놀이 안전장소
+          <span style={legacyTextStyle}>친구 만남 안전 장소</span>
         </div>
         <PlaydateSafePlaceList
           places={places}
@@ -153,9 +166,9 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
               color: 'var(--fg-secondary)',
               fontSize: 12,
               fontWeight: 900,
-              letterSpacing: '0.02em',
+              letterSpacing: 0,
             }}>
-              최근 친구놀이
+              최근 친구놀이 기록
             </div>
             <PlaydateHistory history={history} />
           </div>

@@ -47,7 +47,10 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
       </div>
 
       <div style={{ marginTop: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "var(--fg-primary)" }}>색</div>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--fg-primary)" }}>앱 테마 색상</div>
+        <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", lineHeight: 1.45 }}>
+          선택한 색은 자녀 표시와 앱 전체에 반영돼요.
+        </p>
         <ColorPicker
           selected={child.color_hex}
           usedColors={usedColors.filter((c) => c !== child.color_hex)}

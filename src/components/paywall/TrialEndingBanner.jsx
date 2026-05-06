@@ -33,7 +33,7 @@ export function TrialEndingBanner({ trialDaysLeft, isTrial, onContinue, isChild 
     >
       <div style={{ fontSize: 22 }}>{danger ? "⏰" : "✨"}</div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: danger ? "#BE123C" : "#92400E" }}>{copy}</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: danger ? "var(--status-negative-strong)" : "var(--status-cautionary-strong)" }}>{copy}</div>
         <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 3 }}>체험이 끝나도 데이터는 남고, 프리미엄 기능만 잠깁니다.</div>
       </div>
       <button
@@ -43,12 +43,16 @@ export function TrialEndingBanner({ trialDaysLeft, isTrial, onContinue, isChild 
           padding: "10px 14px",
           borderRadius: 14,
           border: "none",
-          background: danger ? "#E11D48" : "#CA8A04",
+          background: danger ? "var(--status-negative)" : "var(--status-cautionary)",
           color: "white",
           fontWeight: 800,
           fontSize: 12,
           cursor: "pointer",
           whiteSpace: "nowrap",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+          touchAction: "manipulation",
         }}
       >
         {TRIAL_ENDING.cta}

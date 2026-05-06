@@ -885,22 +885,21 @@ test.describe.fixme("subscription and premium flow", () => {
     await parentPage.getByRole("button", { name: "닫기" }).click();
 
     await parentPage.getByRole("button", { name: "📍 장소" }).click();
-    await parentPage.getByRole("button", { name: "📍 자주 가는 장소 추가" }).click();
+    await parentPage.getByRole("button", { name: "+ 자주 가는 장소" }).click();
     await expect(parentPage.getByText("유료계정은 자주가는 장소를 무제한 등록할 수 있어요", { exact: true })).toBeVisible();
 
     await parentPage.getByRole("button", { name: "7일 무료 체험 시작" }).click();
     await expect(parentPage.getByText("자동 갱신 안내")).toBeVisible();
     await parentPage.getByRole("button", { name: "안내를 확인했고 계속할게요" }).evaluate((button) => button.click());
 
-    await parentPage.getByRole("button", { name: "📍 자주 가는 장소 추가" }).click();
-    await expect(parentPage.getByText("📍 자주 가는 장소")).toBeVisible();
-    await parentPage.getByRole("button", { name: /\+ 장소 직접 추가/ }).click();
-    await parentPage.getByPlaceholder("예) 할머니 집, 피아노 학원, 도서관").fill("피아노 학원");
+    await parentPage.getByRole("button", { name: "+ 자주 가는 장소" }).click();
+    await expect(parentPage.getByText("➕ 자주 가는 장소 추가")).toBeVisible();
+    await parentPage.getByPlaceholder("예) 집, 할머니 집, 도서관").fill("피아노 학원");
     await parentPage.getByRole("button", { name: "🗺️ 지도에서 장소 선택" }).click();
     await expect(parentPage.getByText("📍 자주 가는 장소 설정")).toBeVisible();
     await parentPage.getByRole("button", { name: "📍 이 장소로 설정하기" }).click();
     await parentPage.getByRole("button", { name: "저장", exact: true }).click();
-    await parentPage.getByRole("button", { name: "← 저장" }).click();
+    await parentPage.getByRole("button", { name: "장소관리 저장" }).click();
     await expect(parentPage.getByText("📍 자주 가는 장소가 저장됐어요!")).toBeVisible();
     await expect(parentPage.getByText("피아노 학원")).toBeVisible();
 
@@ -965,13 +964,13 @@ test.describe.fixme("subscription and premium flow", () => {
 
     const labels = [
       "📍 우리아이",
-      "🏫 학원관리",
+      "📍 장소관리",
+      "친구놀이 관리",
+      "응급 강제 알림",
       "🏆 스티커",
-      "🔔 일정알림",
       "💎 구독",
       "📞 연락처",
       "🎙️ 주변소리",
-      "⚠️ 위험지역",
       "💌 피드백 보내기",
       "📅 달력",
       "📍 장소",
@@ -985,13 +984,13 @@ test.describe.fixme("subscription and premium flow", () => {
       const doc = document.documentElement;
       const trackedLabels = [
         "📍 우리아이",
-        "🏫 학원관리",
+        "📍 장소관리",
+        "친구놀이 관리",
+        "응급 강제 알림",
         "🏆 스티커",
-        "🔔 일정알림",
         "💎 구독",
         "📞 연락처",
         "🎙️ 주변소리",
-        "⚠️ 위험지역",
         "💌 피드백 보내기",
         "📅 달력",
         "📍 장소",

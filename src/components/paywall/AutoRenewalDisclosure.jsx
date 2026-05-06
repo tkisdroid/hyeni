@@ -11,7 +11,7 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
         position: "fixed",
         inset: 0,
         zIndex: 710,
-        background: "rgba(31,41,55,0.38)",
+        background: "color-mix(in srgb, var(--fg-primary) 38%, transparent)",
         backdropFilter: "blur(12px)",
         display: "flex",
         alignItems: "flex-end",
@@ -41,7 +41,8 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
                 gap: 10,
                 padding: "12px 14px",
                 borderRadius: 16,
-                background: "#F8FAFC",
+                background: "var(--theme-accent-soft)",
+                border: "1px solid var(--theme-accent-line)",
                 color: "var(--fg-secondary)",
                 fontSize: 13,
                 lineHeight: 1.6,
@@ -61,10 +62,14 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
               padding: "14px 16px",
               borderRadius: 18,
               border: "none",
-              background: "linear-gradient(135deg,#2563EB,#1D4ED8)",
+              background: "var(--hyeni-theme-gradient)",
               color: "white",
               fontWeight: 800,
               cursor: "pointer",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+              touchAction: "manipulation",
             }}
           >
             {AUTO_RENEWAL_DISCLOSURE.confirm}
@@ -75,11 +80,15 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
             style={{
               padding: "14px 16px",
               borderRadius: 18,
-              border: "1px solid #E5E7EB",
-              background: "#F9FAFB",
+              border: "1px solid var(--line-soft)",
+              background: "var(--bg-subtle)",
               color: "var(--fg-secondary)",
               fontWeight: 700,
               cursor: "pointer",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+              touchAction: "manipulation",
             }}
           >
             {AUTO_RENEWAL_DISCLOSURE.cancel}

@@ -48,7 +48,7 @@ describe("PlaydateSafePlaceList", () => {
 
   it("empty state copy", () => {
     render(<PlaydateSafePlaceList places={[]} onUpdate={vi.fn()} />);
-    expect(screen.getByText(/안전장소를 먼저 등록/)).toBeInTheDocument();
+    expect(screen.getByText(/친구 만남 안전 장소를 먼저 등록/)).toBeInTheDocument();
   });
 
   it("toggling ON — upserts public_place + calls setSavedPlacePlaydateSafe", async () => {

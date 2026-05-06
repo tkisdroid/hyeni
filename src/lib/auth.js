@@ -4,6 +4,8 @@ import { getUserDisplayName, getUserPhoneLocal, normalizePhoneForStorage } from 
 const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
 const NATIVE_OAUTH_REDIRECT_URL = "hyenicalendar://auth-callback";
 const CHILD_PHOTO_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7d
+const CHILD_PHOTO_SIGNED_URL_CACHE_SAFETY_MS = 5 * 60 * 1000;
+const childPhotoSignedUrlCache = new Map();
 
 // child-photos bucket is private, so getPublicUrl returns a URL anon GET cannot
 // load. Extract storage path (works for stored publicUrl, signed URL, or raw
@@ -20,16 +22,28 @@ function extractChildPhotoStoragePath(urlOrPath) {
 
 async function enrichMembersWithSignedPhotos(members) {
   if (!Array.isArray(members) || members.length === 0) return members;
-  const bucket = supabase.storage.from("child-photos");
+  const membersWithPhotoPaths = members.filter((m) => extractChildPhotoStoragePath(m?.photo_url));
+  if (membersWithPhotoPaths.length === 0) return members;
+  const bucket = supabase.storage?.from?.("child-photos");
+  if (!bucket?.createSignedUrl) return members;
   return Promise.all(members.map(async (m) => {
     if (!m?.photo_url) return m;
     const path = extractChildPhotoStoragePath(m.photo_url);
     if (!path) return m;
+    const cached = childPhotoSignedUrlCache.get(path);
+    if (cached?.signedUrl && cached.expiresAt > Date.now()) {
+      return { ...m, photo_url: cached.signedUrl };
+    }
     const { data, error } = await bucket.createSignedUrl(path, CHILD_PHOTO_SIGNED_URL_TTL_SECONDS);
     if (error || !data?.signedUrl) {
       console.warn("[getMyFamily] signed url failed for member", m.id, error?.message || "");
+      childPhotoSignedUrlCache.delete(path);
       return { ...m, photo_url: null };
     }
+    childPhotoSignedUrlCache.set(path, {
+      signedUrl: data.signedUrl,
+      expiresAt: Date.now() + (CHILD_PHOTO_SIGNED_URL_TTL_SECONDS * 1000) - CHILD_PHOTO_SIGNED_URL_CACHE_SAFETY_MS,
+    });
     return { ...m, photo_url: data.signedUrl };
   }));
 }
@@ -318,10 +332,16 @@ export async function getMyFamily(userId) {
 
   const { data: members } = await supabase
     .from("family_members")
-    .select("id, user_id, role, name, emoji, child_order, color_hex, birthdate, photo_url, device_label")
+    .select("id, user_id, role, name, emoji, child_order, color_hex, birthdate, photo_url, device_label, device_health")
     .eq("family_id", membership.family_id);
 
   const enrichedMembers = await enrichMembersWithSignedPhotos(members || []);
+  const parentMembers = enrichedMembers.filter((member) => member?.role === "parent" && member?.user_id);
+  const explicitPrimaryParentId = family?.parent_id || "";
+  const inferredPrimaryParentId = explicitPrimaryParentId
+    || (membership.role === "parent" && parentMembers.length === 1 ? parentMembers[0].user_id : "");
+  const isPrimaryParent = membership.role === "parent" && !!inferredPrimaryParentId && inferredPrimaryParentId === userId;
+  const isCoParent = membership.role === "parent" && !!inferredPrimaryParentId && inferredPrimaryParentId !== userId;
 
   return {
     familyId: membership.family_id,
@@ -332,9 +352,9 @@ export async function getMyFamily(userId) {
     members: enrichedMembers,
     phones: { mom: family?.mom_phone || "", dad: family?.dad_phone || "" },
     pairCodeExpiresAt: family?.pair_code_expires_at ? new Date(family.pair_code_expires_at) : null,
-    primaryParentId: family?.parent_id || "",
-    isPrimaryParent: family?.parent_id === userId,
-    isCoParent: membership.role === "parent" && family?.parent_id !== userId,
+    primaryParentId: inferredPrimaryParentId,
+    isPrimaryParent,
+    isCoParent,
   };
 }
 

@@ -88,6 +88,7 @@ export function PlaceManagerScreen({
     academies = [],
     dangerZones = [],
     onAdd,
+    bottomNavigation = null,
 }) {
     const [openId, setOpenId] = useState("academy");
     useBackHandler(() => {
@@ -113,7 +114,7 @@ export function PlaceManagerScreen({
     ];
 
     return (
-        <div className="settings-screen" aria-label="장소 관리">
+        <div className="settings-screen" aria-label="장소 관리" data-has-bottom-nav={bottomNavigation ? "true" : undefined}>
             <header className="settings-header">
                 <button type="button" className="settings-back" onClick={onBack} aria-label="뒤로">←</button>
                 <h1 className="settings-title">장소 관리</h1>
@@ -136,6 +137,11 @@ export function PlaceManagerScreen({
                     ))}
                 </div>
             </div>
+            {bottomNavigation && (
+                <div className="settings-bottom-nav" aria-label="장소 관리 하단 바로가기">
+                    {bottomNavigation}
+                </div>
+            )}
         </div>
     );
 }

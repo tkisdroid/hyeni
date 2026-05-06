@@ -217,7 +217,8 @@ export function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParent
                                         fontSize: 15,
                                         lineHeight: 1.5,
                                         fontFamily: FF,
-                                        wordBreak: "break-word",
+                                        whiteSpace: "pre-wrap",
+                                        wordBreak: "keep-all",
                                         overflowWrap: "break-word",
                                         border: isLegacy ? "1px dashed #FBBF24" : "none"
                                     }}>

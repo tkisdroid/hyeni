@@ -10,17 +10,99 @@ import { FallbackMapCanvas } from "./FallbackMapCanvas.jsx";
 import { MapZoomControls } from "./MapZoomControls.jsx";
 
 export function MapPicker({ initial, currentPos, title = "📍 장소 설정", onConfirm, onClose }) {
-    const defaultCenter = initial || currentPos || { lat: 37.5665, lng: 126.9780 };
+    const [defaultCenter] = useState(() => initial || currentPos || { lat: 37.5665, lng: 126.9780 });
     const hasPreloadedKakao = typeof window !== "undefined" && !!window.kakao?.maps?.LatLng;
     const mapRef = useRef(), mapObj = useRef(), markerRef = useRef();
     const [pos, setPos] = useState(defaultCenter);
-    const [address, setAddress] = useState(initial?.address || "");
-    const [kakaoPlaceId, setKakaoPlaceId] = useState(initial?.kakao_place_id || null);
+    const [address, setAddress] = useState(defaultCenter?.address || "");
+    const [kakaoPlaceId, setKakaoPlaceId] = useState(defaultCenter?.kakao_place_id || null);
     const [loading, setLoading] = useState(() => (hasPreloadedKakao ? false : !!KAKAO_APP_KEY));
     const [err, setErr] = useState(() => (hasPreloadedKakao || KAKAO_APP_KEY ? "" : "카카오 앱 키가 설정되지 않았어요. (.env 파일 확인)"));
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
     const [searchMessage, setSearchMessage] = useState("");
+    const [dragOffsetY, setDragOffsetY] = useState(0);
+    const [isClosing, setIsClosing] = useState(false);
+    const dragStartYRef = useRef(null);
+    const dragOffsetYRef = useRef(0);
+    const dragCleanupRef = useRef(null);
+    const closeTimerRef = useRef(null);
+
+    const clearDragListeners = useCallback(() => {
+        if (typeof dragCleanupRef.current === "function") {
+            dragCleanupRef.current();
+            dragCleanupRef.current = null;
+        }
+    }, []);
+
+    const setSheetDragOffset = useCallback((nextOffset) => {
+        const safeOffset = Math.max(0, Math.round(nextOffset || 0));
+        dragOffsetYRef.current = safeOffset;
+        setDragOffsetY(safeOffset);
+    }, []);
+
+    const requestClose = useCallback(() => {
+        clearDragListeners();
+        if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+        setIsClosing(true);
+        closeTimerRef.current = window.setTimeout(() => {
+            onClose?.();
+        }, 140);
+    }, [clearDragListeners, onClose]);
+
+    useEffect(() => () => {
+        clearDragListeners();
+        if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    }, [clearDragListeners]);
+
+    const canStartSheetDrag = useCallback((target) => {
+        if (!(target instanceof Element)) return false;
+        const dragTarget = target.closest(".map-picker-drag-zone, .map-picker-header");
+        if (!dragTarget) return false;
+        return !target.closest("button, input, textarea, select, a, [role='button']");
+    }, []);
+
+    const finishSheetDrag = useCallback(() => {
+        const shouldClose = dragOffsetYRef.current >= 120;
+        dragStartYRef.current = null;
+        clearDragListeners();
+        if (shouldClose) {
+            requestClose();
+            return;
+        }
+        setSheetDragOffset(0);
+    }, [clearDragListeners, requestClose, setSheetDragOffset]);
+
+    const handleDragPointerDown = useCallback((event) => {
+        if (!canStartSheetDrag(event.target)) return;
+        if (typeof event.button === "number" && event.button !== 0) return;
+        event.preventDefault();
+        clearDragListeners();
+        dragStartYRef.current = event.clientY;
+        setSheetDragOffset(0);
+
+        const pointerId = event.pointerId;
+        const handlePointerMove = (moveEvent) => {
+            if (pointerId !== undefined && moveEvent.pointerId !== pointerId) return;
+            moveEvent.preventDefault();
+            const startY = dragStartYRef.current;
+            if (typeof startY !== "number") return;
+            setSheetDragOffset(moveEvent.clientY - startY);
+        };
+        const handlePointerUp = (upEvent) => {
+            if (pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+            finishSheetDrag();
+        };
+
+        window.addEventListener("pointermove", handlePointerMove, { passive: false });
+        window.addEventListener("pointerup", handlePointerUp);
+        window.addEventListener("pointercancel", handlePointerUp);
+        dragCleanupRef.current = () => {
+            window.removeEventListener("pointermove", handlePointerMove);
+            window.removeEventListener("pointerup", handlePointerUp);
+            window.removeEventListener("pointercancel", handlePointerUp);
+        };
+    }, [canStartSheetDrag, clearDragListeners, finishSheetDrag, setSheetDragOffset]);
 
     const reverseGeocode = useCallback((lat, lng) => {
         const gc = new window.kakao.maps.services.Geocoder();
@@ -39,7 +121,7 @@ export function MapPicker({ initial, currentPos, title = "📍 장소 설정", o
                 mapObj.current.setCenter(center);
                 markerRef.current.setPosition(center);
                 setPos({ lat: defaultCenter.lat, lng: defaultCenter.lng });
-                if (!initial?.address) reverseGeocode(center.getLat(), center.getLng());
+                if (!defaultCenter?.address) reverseGeocode(center.getLat(), center.getLng());
                 return;
             }
             mapObj.current = new window.kakao.maps.Map(mapRef.current, { center, level: 3 });
@@ -59,7 +141,7 @@ export function MapPicker({ initial, currentPos, title = "📍 장소 설정", o
                 reverseGeocode(latlng.getLat(), latlng.getLng());
             });
 
-            if (!initial?.address) reverseGeocode(center.getLat(), center.getLng());
+            if (!defaultCenter?.address) reverseGeocode(center.getLat(), center.getLng());
         };
 
         if (window.kakao?.maps?.LatLng) {
@@ -73,7 +155,7 @@ export function MapPicker({ initial, currentPos, title = "📍 장소 설정", o
             setLoading(false);
             initMap();
         }).catch((e) => { setErr(`지도 로딩 실패: ${e.message}\n\n1. 카카오 개발자 콘솔에서 앱 키 확인\n2. 플랫폼 → Web → ${window.location.origin} 등록 확인`); setLoading(false); });
-    }, [defaultCenter.lat, defaultCenter.lng, initial?.address, reverseGeocode]);
+    }, [defaultCenter.lat, defaultCenter.lng, defaultCenter?.address, reverseGeocode]);
 
     const doSearch = () => {
         const keyword = query.trim();
@@ -115,12 +197,23 @@ export function MapPicker({ initial, currentPos, title = "📍 장소 설정", o
     };
 
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column", background: "white", fontFamily: FF }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--bg-muted)", display: "flex", alignItems: "center", gap: 12 }}>
-                <button onClick={onClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 닫기</button>
+        <div className="map-picker-shell" style={{ fontFamily: FF }}>
+            <button type="button" className="map-picker-backdrop" aria-label="지도 닫기" onClick={requestClose} />
+            <section
+                className={`map-picker-sheet${isClosing ? " is-closing" : ""}`}
+                role="dialog"
+                aria-modal="true"
+                aria-label={title}
+                style={{ transform: dragOffsetY > 0 ? `translateY(${dragOffsetY}px)` : undefined }}
+            >
+            <div className="map-picker-drag-zone" onPointerDown={handleDragPointerDown}>
+                <span className="map-picker-drag-handle" aria-hidden="true" />
+            </div>
+            <div className="map-picker-header" onPointerDown={handleDragPointerDown}>
+                <button onClick={requestClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}>← 닫기</button>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "var(--fg-primary)" }}>{title}</div>
             </div>
-            <div style={{ padding: "12px 16px", background: "#FAFAFA", position: "relative", zIndex: 40 }}>
+            <div className="map-picker-search" style={{ padding: "12px 16px", background: "#FAFAFA", position: "relative", zIndex: 40 }}>
                 <div style={{ display: "flex", gap: 8 }}>
                     <input value={query} onChange={e => setQuery(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") doSearch(); }}
@@ -147,7 +240,7 @@ export function MapPicker({ initial, currentPos, title = "📍 장소 설정", o
                     </div>
                 )}
             </div>
-            <div style={{ flex: 1, position: "relative" }}>
+            <div className="map-picker-map" style={{ flex: 1, position: "relative" }}>
                 {loading && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--theme-accent-soft)", zIndex: 10, fontSize: 15, fontWeight: 700, color: "var(--theme-accent-text)", fontFamily: FF }}>🗺️ 지도 불러오는 중...</div>}
                 {err && (
                     <FallbackMapCanvas
@@ -161,7 +254,7 @@ export function MapPicker({ initial, currentPos, title = "📍 장소 설정", o
                 <div ref={mapRef} style={{ width: "100%", height: "100%", display: err ? "none" : "block" }} />
                 {!err && <MapZoomControls mapObj={mapObj} />}
             </div>
-            <div style={{ padding: "16px 20px", borderTop: "1px solid var(--bg-muted)", fontFamily: FF }}>
+            <div className="map-picker-footer" style={{ padding: "16px 20px", borderTop: "1px solid var(--bg-muted)", fontFamily: FF }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 4 }}>선택된 장소</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg-primary)", marginBottom: 14, minHeight: 20 }}>{address || "지도를 클릭하거나 검색하세요"}</div>
                 <button onClick={() => { if (pos) onConfirm({ lat: pos.lat, lng: pos.lng, address, kakao_place_id: kakaoPlaceId }); }}
@@ -169,6 +262,7 @@ export function MapPicker({ initial, currentPos, title = "📍 장소 설정", o
                     📍 이 장소로 설정하기
                 </button>
             </div>
+            </section>
         </div>
     );
 }

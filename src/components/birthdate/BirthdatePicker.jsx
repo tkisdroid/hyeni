@@ -103,16 +103,20 @@ export function BirthdatePicker({
           width: "100%",
           minHeight: 48,
           padding: "12px 14px",
-          border: "1.5px solid #E5E7EB",
+          border: "1.5px solid var(--theme-accent-line)",
           borderRadius: 14,
           fontSize: 15,
           fontWeight: 700,
           background: "white",
-          color: display ? "#111827" : "var(--fg-tertiary)",
+          color: display ? "var(--fg-primary)" : "var(--fg-tertiary)",
           textAlign: "left",
           cursor: disabled ? "not-allowed" : "pointer",
           opacity: disabled ? 0.6 : 1,
           boxSizing: "border-box",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+          touchAction: "manipulation",
           ...style,
         }}
       >
@@ -129,7 +133,7 @@ export function BirthdatePicker({
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
           style={{
             position: "fixed", inset: 0, zIndex: 1000,
-            background: "rgba(15,23,42,0.45)",
+            background: "color-mix(in srgb, var(--fg-primary) 45%, transparent)",
             display: "flex", flexDirection: "column", justifyContent: "flex-end",
           }}
         >
@@ -144,13 +148,13 @@ export function BirthdatePicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                style={{ background: "none", border: "none", color: "var(--fg-secondary)", fontSize: 15, fontWeight: 700, padding: "8px 4px", cursor: "pointer" }}
+                style={{ background: "none", border: "none", color: "var(--fg-secondary)", fontSize: 15, fontWeight: 700, padding: "8px 4px", cursor: "pointer", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", touchAction: "manipulation" }}
               >취소</button>
               <div style={{ fontSize: 16, fontWeight: 900, color: "var(--fg-primary)" }}>생년월일 선택</div>
               <button
                 type="button"
                 onClick={handleConfirm}
-                style={{ background: "none", border: "none", color: "var(--hyeni-pink-deep)", fontSize: 15, fontWeight: 900, padding: "8px 4px", cursor: "pointer" }}
+                style={{ background: "none", border: "none", color: "var(--theme-accent)", fontSize: 15, fontWeight: 900, padding: "8px 4px", cursor: "pointer", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none", touchAction: "manipulation" }}
               >확인</button>
             </div>
             <Picker value={draft} onChange={setDraft} height={216} itemHeight={36}>

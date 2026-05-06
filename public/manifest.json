@@ -4,8 +4,8 @@
   "description": "학부모-아이 일정 동기화 캘린더",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFF0F7",
-  "theme_color": "#E879A0",
+  "background_color": "#FFF5FA",
+  "theme_color": "#F779A8",
   "orientation": "portrait",
   "icons": [
     {

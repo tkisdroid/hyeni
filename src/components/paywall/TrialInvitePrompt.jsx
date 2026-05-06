@@ -11,7 +11,7 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
         position: "fixed",
         inset: 0,
         zIndex: 700,
-        background: "rgba(31,41,55,0.38)",
+        background: "color-mix(in srgb, var(--fg-primary) 38%, transparent)",
         backdropFilter: "blur(12px)",
         display: "flex",
         alignItems: "flex-end",
@@ -37,8 +37,8 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
             gap: 8,
             padding: "6px 12px",
             borderRadius: 999,
-            background: "#FFF7ED",
-            color: "#C2410C",
+            background: "var(--status-cautionary-subtle)",
+            color: "var(--status-cautionary-strong)",
             fontSize: 12,
             fontWeight: 800,
           }}
@@ -55,12 +55,12 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
             marginTop: 16,
             padding: "14px 16px",
             borderRadius: 20,
-            background: "linear-gradient(135deg,#FFF0F7,#FDF2F8)",
-            border: "1px solid #FBCFE8",
+            background: "linear-gradient(135deg,var(--theme-accent-soft),var(--bg-subtle))",
+            border: "1px solid var(--theme-accent-line)",
           }}
         >
-          <div style={{ fontSize: 15, fontWeight: 900, color: "var(--hyeni-pink-deep)" }}>{PRICING.monthlyLabel}</div>
-          <div style={{ fontSize: 12, color: "#9D174D", marginTop: 4 }}>
+          <div style={{ fontSize: 15, fontWeight: 900, color: "var(--theme-accent-text)" }}>{PRICING.monthlyLabel}</div>
+          <div style={{ fontSize: 12, color: "var(--theme-accent-text)", marginTop: 4 }}>
             {PRICING.dailyLabel} · {PRICING.yearlyLabel}
           </div>
           <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 8, lineHeight: 1.5 }}>
@@ -76,11 +76,15 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
               padding: "14px 16px",
               borderRadius: 18,
               border: "none",
-              background: "linear-gradient(135deg,#E879A0,#BE185D)",
+              background: "var(--hyeni-theme-gradient)",
               color: "white",
               fontWeight: 800,
               fontSize: 14,
               cursor: "pointer",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+              touchAction: "manipulation",
             }}
           >
             {TRIAL_INVITE.ctaPrimary}
@@ -91,12 +95,16 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
             style={{
               padding: "14px 16px",
               borderRadius: 18,
-              border: "1px solid #E5E7EB",
-              background: "#F9FAFB",
+              border: "1px solid var(--line-soft)",
+              background: "var(--bg-subtle)",
               color: "var(--fg-secondary)",
               fontWeight: 700,
               fontSize: 14,
               cursor: "pointer",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              WebkitTouchCallout: "none",
+              touchAction: "manipulation",
             }}
           >
             {TRIAL_INVITE.ctaSecondary}

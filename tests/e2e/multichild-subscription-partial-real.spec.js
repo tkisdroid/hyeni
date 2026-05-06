@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent, getDbRowCount } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, getDbRowCount, openSubscriptionSettings } from "./_helpers.js";
 
 test.describe("multichild — partial subscription (first child only)", () => {
   test.skip(
@@ -42,8 +42,7 @@ test.describe("multichild — partial subscription (first child only)", () => {
     // UI assertion: PriceSummary shows ₩1,500 (one paid child).
     // (child_device_stats RLS assertions deferred — the table is gated behind
     // M5 conditional creation and not present on the production schema yet.)
-    await page.click("button[aria-label='💎 구독']");
-    await page.waitForSelector("text=혜니 프리미엄", { timeout: 8000 });
+    await openSubscriptionSettings(page, { timeoutMs: 8000 });
     await expect(page.locator("text=₩1,500").first()).toBeVisible({ timeout: 8000 });
   });
 });

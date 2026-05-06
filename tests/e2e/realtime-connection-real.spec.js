@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * Real-services E2E: Supabase realtime connection.
@@ -21,68 +22,43 @@ test.describe("supabase realtime connectivity", () => {
     "signup-heavy: chromium-only to stay within Supabase rate limits",
   );
 
-  test("anon child session can open a realtime channel", async ({ page }) => {
-    await page.goto("/");
-    await page.getByText(/^아이$/).first().click();
+  test("anon child session can open a realtime channel", async () => {
+    const signup = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ data: {} }),
+    });
+    if (signup.status === 429) {
+      test.skip(true, "Supabase anon signup rate-limited in this run");
+    }
+    const signupText = await signup.text();
+    expect(signup.ok, `anon signup: ${signupText}`).toBe(true);
+    const session = JSON.parse(signupText);
 
-    // Wait for session to land in storage. If Supabase rate-limits the
-    // anonymous signup, the app can't proceed — in that case skip rather
-    // than fail (rate limit is infra, not an app defect).
-    const sessionAppeared = await page
-      .waitForFunction(
-        () =>
-          Object.keys(localStorage).some(
-            (k) => k.startsWith("sb-") && k.endsWith("-auth-token"),
-          ),
-        null,
-        { timeout: 20_000 },
-      )
-      .then(() => true)
-      .catch(() => false);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { headers: { Authorization: `Bearer ${session.access_token}` } },
+    });
 
-    test.skip(
-      !sessionAppeared,
-      "Supabase anon signup didn't land in localStorage (likely rate-limited in this run)",
-    );
+    const status = await new Promise((resolve) => {
+      const channel = supabase.channel(`e2e-probe-${Date.now()}`);
+      const timeout = setTimeout(() => {
+        try { supabase.removeChannel(channel); } catch {}
+        resolve({ status: "TIMED_OUT" });
+      }, 20_000);
 
-    // Drive the app's own Supabase client to open a channel and wait for the
-    // 'SUBSCRIBED' status. This proves the websocket handshake succeeds
-    // against the real Supabase project with the user's token.
-    const status = await page.evaluate(
-      async ({ url, anon }) => {
-        const mod = await import("/src/lib/supabase.js");
-        const { supabase } = mod;
-        if (!supabase?.channel) {
-          return { status: "NO_CLIENT", note: "supabase.channel missing" };
+      channel.subscribe((s, err) => {
+        if (s === "SUBSCRIBED") {
+          clearTimeout(timeout);
+          try { supabase.removeChannel(channel); } catch {}
+          resolve({ status: "SUBSCRIBED" });
+        } else if (s === "CHANNEL_ERROR") {
+          clearTimeout(timeout);
+          try { supabase.removeChannel(channel); } catch {}
+          resolve({ status: s, error: err?.message || String(err || "") });
         }
-
-        return await new Promise((resolve) => {
-          // A plain public broadcast channel — no config overrides, no
-          // postgres_changes subscription (which would need a table
-          // filter and RLS policy).
-          const channel = supabase.channel(`e2e-probe-${Date.now()}`);
-          const timeout = setTimeout(() => {
-            try { supabase.removeChannel(channel); } catch {}
-            resolve({ status: "TIMED_OUT" });
-          }, 20_000);
-
-          channel.subscribe((s, err) => {
-            if (s === "SUBSCRIBED") {
-              clearTimeout(timeout);
-              try { supabase.removeChannel(channel); } catch {}
-              resolve({ status: "SUBSCRIBED" });
-            } else if (s === "CHANNEL_ERROR") {
-              clearTimeout(timeout);
-              try { supabase.removeChannel(channel); } catch {}
-              resolve({ status: s, error: err?.message || String(err || "") });
-            }
-            // Ignore transient CLOSED events — the supabase-js client will
-            // sometimes emit CLOSED before the socket handshake retries.
-          });
-        });
-      },
-      { url: SUPABASE_URL, anon: SUPABASE_ANON_KEY },
-    );
+      });
+    });
 
     expect(
       status.status,

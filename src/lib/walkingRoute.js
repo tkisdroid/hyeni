@@ -80,11 +80,8 @@ export async function fetchWalkingRoute(start, destination, signal) {
     if (!startCoord || !destinationCoord) throw new Error("invalid route coordinates");
 
     // Kakao-only. The OSM (OSRM) fallback used to fire on Kakao failure but
-    // routed children through an open-data road-graph that did not match the
-    // walking-distance heuristics the in-app guidance card surfaces, so a
-    // failed Kakao request silently re-routed to OSM and the parent saw a
-    // distance that disagreed with the displayed straight-line. The caller
-    // (requestWalkingRoute) catches the throw and falls back to
-    // drawDirectRoute (in-app straight-line + 예상 직선거리 label).
+    // routed children through an open-data road graph that did not match the
+    // app's walking guidance. Callers must surface failure without drawing a
+    // straight-line child route.
     return await fetchKakaoWalkingRoute(startCoord, destinationCoord, signal);
 }

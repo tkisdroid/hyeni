@@ -39,7 +39,7 @@ export default function ActivePlaydateBanner({ familyId, isParent }) {
 
   const handleStop = async () => {
     if (busy) return;
-    if (!confirm(`${friendChild}와의 친구놀이를 정지하시겠어요?`)) return;
+    if (!confirm(`${friendChild}와의 친구 만남을 정지하시겠어요?`)) return;
     setBusy(true);
     try {
       await endPlaydate(session.id, "parent_end");
@@ -55,7 +55,7 @@ export default function ActivePlaydateBanner({ familyId, isParent }) {
   return (
     <div
       role="status"
-      aria-label="친구놀이 진행 중"
+      aria-label="친구 만남 진행 중"
       className="hyeni-tool hyeni-tool--friend"
       style={{ width: "100%", marginTop: 12, gap: 10 }}
     >
@@ -91,7 +91,7 @@ export default function ActivePlaydateBanner({ familyId, isParent }) {
               type="button"
               onClick={handleStop}
               disabled={busy}
-              aria-label="친구놀이 정지"
+              aria-label="친구 만남 종료"
               className="hyeni-tool-button hyeni-tool-button--accent-soft"
               style={{
                 padding: "8px 14px",

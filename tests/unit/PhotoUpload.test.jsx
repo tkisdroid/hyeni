@@ -1,6 +1,6 @@
 // tests/unit/PhotoUpload.test.jsx
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PhotoUpload } from "../../src/components/multichild/PairingWizard/PhotoUpload.jsx";
 
 vi.mock("../../src/lib/supabase.js", () => ({
@@ -8,7 +8,7 @@ vi.mock("../../src/lib/supabase.js", () => ({
     storage: {
       from: () => ({
         upload: vi.fn().mockResolvedValue({ data: { path: "test/photo.jpg" }, error: null }),
-        getPublicUrl: () => ({ data: { publicUrl: "https://test/photo.jpg" } }),
+        createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: "https://test/signed-photo.jpg" }, error: null }),
       }),
     },
   },
@@ -31,7 +31,6 @@ describe("PhotoUpload", () => {
     const input = screen.getByLabelText(/사진 추가/i);
     const file = new File(["dummy"], "photo.jpg", { type: "image/jpeg" });
     fireEvent.change(input, { target: { files: [file] } });
-    await new Promise((r) => setTimeout(r, 50));
-    expect(onChange).toHaveBeenCalledWith("https://test/photo.jpg");
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("https://test/signed-photo.jpg"));
   });
 });

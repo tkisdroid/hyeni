@@ -21,6 +21,7 @@ import {
     getTrailHourLabel,
     buildTrailHourSegments,
     buildTrailGradientSegments,
+    buildDetailedLocationHistoryRows,
     averageTrailPoint,
     buildTrailDwellPlaces,
     LOCATION_TRAIL_JITTER_M,
@@ -368,6 +369,63 @@ describe("averageTrailPoint", () => {
     });
 });
 
+describe("buildDetailedLocationHistoryRows", () => {
+    it("도보 경로의 중간 좌표를 recorded_at 순서로 history row로 만든다", () => {
+        const rows = buildDetailedLocationHistoryRows({
+            userId: "child-1",
+            familyId: "family-1",
+            previousPoint: {
+                lat: 37.5665,
+                lng: 126.9780,
+                recordedAt: "2026-05-06T01:00:00.000Z",
+            },
+            currentPoint: {
+                lat: 37.5685,
+                lng: 126.9800,
+                recordedAt: "2026-05-06T01:10:00.000Z",
+            },
+            routePoints: [
+                { lat: 37.5665, lng: 126.9780 },
+                { lat: 37.5670, lng: 126.9785 },
+                { lat: 37.5680, lng: 126.9794 },
+                { lat: 37.5685, lng: 126.9800 },
+            ],
+        });
+
+        expect(rows).toHaveLength(3);
+        expect(rows.map((row) => row.user_id)).toEqual(["child-1", "child-1", "child-1"]);
+        expect(rows.map((row) => row.family_id)).toEqual(["family-1", "family-1", "family-1"]);
+        expect(rows[0]).toMatchObject({ lat: 37.5670, lng: 126.9785 });
+        expect(rows[2]).toMatchObject({ lat: 37.5685, lng: 126.9800 });
+        expect(Date.parse(rows[0].recorded_at)).toBeGreaterThan(Date.parse("2026-05-06T01:00:00.000Z"));
+        expect(Date.parse(rows[2].recorded_at)).toBe(Date.parse("2026-05-06T01:10:00.000Z"));
+    });
+
+    it("도보 경로가 없으면 현재 위치 1개만 저장한다", () => {
+        const rows = buildDetailedLocationHistoryRows({
+            userId: "child-1",
+            familyId: "family-1",
+            previousPoint: null,
+            currentPoint: {
+                lat: 37.5685,
+                lng: 126.9800,
+                recordedAt: "2026-05-06T01:10:00.000Z",
+            },
+            routePoints: [],
+        });
+
+        expect(rows).toEqual([
+            {
+                user_id: "child-1",
+                family_id: "family-1",
+                lat: 37.5685,
+                lng: 126.98,
+                recorded_at: "2026-05-06T01:10:00.000Z",
+            },
+        ]);
+    });
+});
+
 describe("buildTrailDwellPlaces", () => {
     it("dwell 시간 미만은 무시", () => {
         const t0 = Date.now();
@@ -379,7 +437,7 @@ describe("buildTrailDwellPlaces", () => {
     });
 
     it("같은 자리 10분 이상 머물면 dwell", () => {
-        const t0 = Date.now();
+        const t0 = new Date(2026, 4, 6, 8, 23).getTime();
         const result = buildTrailDwellPlaces([
             { lat: 37.5, lng: 127, recordedMs: t0 },
             { lat: 37.50005, lng: 127, recordedMs: t0 + 5 * 60_000 },
@@ -388,6 +446,9 @@ describe("buildTrailDwellPlaces", () => {
         expect(result.length).toBe(1);
         expect(result[0].pointCount).toBe(3);
         expect(result[0].durationMs).toBeGreaterThanOrEqual(LOCATION_TRAIL_DWELL_MIN_MS);
+        expect(result[0].timeLabel).toBe("11분 머무름");
+        expect(result[0].label).toBe("11분 머무름");
+        expect(result[0].timeLabel).not.toContain("08:23");
     });
 
     it("recordedMs 없으면 무시", () => {

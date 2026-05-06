@@ -8,8 +8,23 @@ import { DESIGN, FF } from "../../lib/styleHelpers.js";
 import { KAKAO_APP_KEY } from "../../lib/kakaoMap.js";
 import { escHtml } from "../../lib/htmlEscape.js";
 import { fetchWalkingRoute, ROUTE_REQUEST_TIMEOUT_MS } from "../../lib/walkingRoute.js";
+import {
+    HYENI_DEFAULT_CHILD_IMAGE_CROP,
+    HYENI_DEFAULT_CHILD_IMAGE_STYLE_HTML,
+    HYENI_DEFAULT_CHILD_IMAGE_URL,
+} from "../../lib/childDefaultImage.js";
 import { FallbackMapCanvas } from "../map/FallbackMapCanvas.jsx";
 import { MapZoomControls } from "../map/MapZoomControls.jsx";
+
+function childMarkerImageHtml(photoUrl) {
+    const safePhotoUrl = typeof photoUrl === "string" && photoUrl.trim() ? photoUrl : "";
+    const src = safePhotoUrl || HYENI_DEFAULT_CHILD_IMAGE_URL;
+    const style = safePhotoUrl
+        ? "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"
+        : HYENI_DEFAULT_CHILD_IMAGE_STYLE_HTML;
+    const cropAttrs = safePhotoUrl ? "" : ` data-hyeni-default-child-image data-hyeni-default-child-image-crop="${HYENI_DEFAULT_CHILD_IMAGE_CROP}"`;
+    return `<img src="${escHtml(src)}" alt="" aria-hidden="true"${cropAttrs} style="${style}" />`;
+}
 
 export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapLoadError = "", onClose, isChildMode = false }) {
     const mapRef = useRef();
@@ -31,17 +46,24 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
     const watchIdRef = useRef(null);
     const routeInitDoneRef = useRef(false);
     const routeRequestRef = useRef(null);
+    const lastRoutePosRef = useRef(null);
     const suppressViewportEventRef = useRef(false);
 
     // Compute live distance/time
     const currentPos = livePos || childPos;
     const currentMarkerColor = childProfile?.color_hex || childPos?.color_hex || childPos?.color || "var(--theme-accent)";
-    const currentMarkerEmoji = childProfile?.emoji || childPos?.emoji || "👧";
+    const currentMarkerPhotoUrl = childProfile?.photo_url || childPos?.photo_url || "";
     const currentMarkerLabel = isChildMode ? "내 위치" : `${childProfile?.name || "아이"} 위치`;
+    const detailedRoutePoints = Array.isArray(routeInfo?.points) && routeInfo.points.length >= 2 && !routeInfo.error
+        ? routeInfo.points
+        : [];
+    const hasDetailedWalkingRoute = detailedRoutePoints.length >= 2;
     const liveDist = currentPos && ev.location
         ? haversineM(currentPos.lat, currentPos.lng, ev.location.lat, ev.location.lng)
         : null;
-    const displayDist = routeInfo?.distance ?? liveDist;
+    const displayDist = hasDetailedWalkingRoute
+        ? (routeInfo?.distance ?? sumRouteDistance(detailedRoutePoints))
+        : null;
     const displayMin = routeInfo?.duration != null
         ? Math.max(1, Math.round(routeInfo.duration / 60))
         : displayDist != null ? Math.max(1, Math.round(displayDist / 67)) : null;
@@ -53,9 +75,19 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
             ? `${Math.floor(displayMin / 60)}시간 ${displayMin % 60 > 0 ? `${displayMin % 60}분` : ""}`
             : `${displayMin}분`
         : null;
+    const canStartGuidance = Boolean(currentPos && ev.location && hasDetailedWalkingRoute);
 
-    // Start real-time GPS tracking
     useEffect(() => {
+        if (isChildMode) return;
+        setLivePos(childPos || null);
+        setGpsError(false);
+        setIsTracking(false);
+    }, [childPos, isChildMode]);
+
+    // Start real-time GPS tracking only on the child's own device. In parent
+    // mode the route must stay anchored to the child's reported position.
+    useEffect(() => {
+        if (!isChildMode) return;
         if (!navigator.geolocation) return;
         // 즉시 현재 위치 획득 (watch 첫 응답 전 빈 상태 방지)
         navigator.geolocation.getCurrentPosition(
@@ -79,7 +111,7 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
             navigator.geolocation.clearWatch(wid);
             setIsTracking(false);
         };
-    }, []);
+    }, [isChildMode]);
 
     // Compass heading via DeviceOrientationEvent
     useEffect(() => {
@@ -200,76 +232,73 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
         if (fit) fitRouteBounds(path, startLL, destLL);
     }, [clearRouteDrawing, createWalkingArrows, fitRouteBounds]);
 
-    const drawDirectRoute = useCallback((start, destination, { fit = false } = {}) => {
-        if (!mapInst.current || !start || !destination) return;
+    const drawWalkingRoutePoints = useCallback((points, start, destination, { fit = false } = {}) => {
+        if (!mapInst.current || !window.kakao?.maps?.LatLng || !Array.isArray(points) || points.length < 2 || !start || !destination) return;
         const startLL = new window.kakao.maps.LatLng(start.lat, start.lng);
         const destLL = new window.kakao.maps.LatLng(destination.lat, destination.lng);
-        drawRoutePath([startLL, destLL], { dashed: true, fit, startLL, destLL });
-        setRouteInfo({
-            distance: haversineM(start.lat, start.lng, destination.lat, destination.lng),
-            duration: null,
-            loading: false,
-            error: true
-        });
+        const path = points.map((point) => new window.kakao.maps.LatLng(point.lat, point.lng));
+        drawRoutePath(path, { fit, startLL, destLL });
     }, [drawRoutePath]);
 
     const drawWalkingRoute = useCallback(async (start, destination, { fit = false, signal } = {}) => {
-        if (!mapInst.current || !start || !destination) return;
-        const startLL = new window.kakao.maps.LatLng(start.lat, start.lng);
-        const destLL = new window.kakao.maps.LatLng(destination.lat, destination.lng);
+        if (!start || !destination) return;
 
         setRouteInfo((prev) => ({
             distance: prev?.distance ?? null,
             duration: prev?.duration ?? null,
+            points: prev?.points ?? [],
             loading: true,
             error: false,
         }));
 
         try {
             const route = await fetchWalkingRoute(start, destination, signal);
-            if (signal?.aborted) return;
-            const path = route.points.map((point) => new window.kakao.maps.LatLng(point.lat, point.lng));
-            drawRoutePath(path, { fit, startLL, destLL });
+            if (signal?.aborted) {
+                if (signal.reason === "replaced") return;
+                throw new Error("walking route request timed out");
+            }
+            const points = Array.isArray(route?.points) ? route.points : [];
+            if (points.length < 2) throw new Error("walking route returned too few points");
+            drawWalkingRoutePoints(points, start, destination, { fit });
             setRouteInfo({
-                distance: route.distance ?? sumRouteDistance(route.points),
+                distance: route.distance ?? sumRouteDistance(points),
                 duration: route.duration ?? null,
+                points,
+                start,
+                destination,
                 loading: false,
                 error: false,
                 provider: route.provider,
             });
         } catch (error) {
-            if (signal?.aborted) return;
-            // Surface the failure mode (Kakao 401/quota vs network vs parse)
-            // so a parent who only sees the straight-line fallback can see
-            // *why* in chrome://inspect when filing a bug report.
-            console.warn("[Guidance] Walking route failed; using direct line:", {
+            if (signal?.aborted && signal.reason === "replaced") return;
+            console.warn("[Guidance] Walking route failed; no straight fallback:", {
                 message: error?.message || String(error),
                 status: error?.status || error?.statusCode || null,
                 start,
                 destination,
             });
-            drawDirectRoute(start, destination, { fit });
-            // Settle loading=false + error=true so the "🔍 경로 검색 중..."
-            // overlay disappears and the route card switches to the
-            // "예상 직선거리 · 도보 약 …" label (rendered when
-            // routeInfo.error is truthy).
-            setRouteInfo((prev) => ({
-                distance: prev?.distance ?? null,
-                duration: prev?.duration ?? null,
+            clearRouteDrawing();
+            routePathRef.current = null;
+            setRouteInfo({
+                distance: null,
+                duration: null,
+                points: [],
                 loading: false,
                 error: true,
-                provider: "in_app_direct",
-            }));
+                provider: "walking_unavailable",
+                message: "도보 경로를 불러오지 못했어요",
+            });
         }
-    }, [drawDirectRoute, drawRoutePath]);
+    }, [clearRouteDrawing, drawWalkingRoutePoints]);
 
     const requestWalkingRoute = useCallback((start, destination, { fit = false } = {}) => {
         if (!start || !destination) return;
-        if (routeRequestRef.current) routeRequestRef.current.abort();
+        if (routeRequestRef.current) routeRequestRef.current.abort("replaced");
 
         const controller = new AbortController();
         routeRequestRef.current = controller;
-        const timeoutId = setTimeout(() => controller.abort(), ROUTE_REQUEST_TIMEOUT_MS);
+        const timeoutId = setTimeout(() => controller.abort("timeout"), ROUTE_REQUEST_TIMEOUT_MS);
 
         drawWalkingRoute(start, destination, { fit, signal: controller.signal })
             .finally(() => {
@@ -280,7 +309,8 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
 
     useEffect(() => {
         return () => {
-            if (routeRequestRef.current) routeRequestRef.current.abort();
+            if (routeRequestRef.current) routeRequestRef.current.abort("replaced");
+            lastRoutePosRef.current = null;
         };
     }, []);
 
@@ -298,18 +328,17 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
         };
     }, []);
 
-    const lastRoutePosRef = useRef(null);
     useEffect(() => {
-        if (!livePos || !ev.location || !mapInst.current) return;
+        if (!currentPos || !ev.location) return;
         if (lastRoutePosRef.current) {
-            const moved = haversineM(livePos.lat, livePos.lng, lastRoutePosRef.current.lat, lastRoutePosRef.current.lng);
+            const moved = haversineM(currentPos.lat, currentPos.lng, lastRoutePosRef.current.lat, lastRoutePosRef.current.lng);
             if (moved < 50) return;
         }
-        const startPos = { ...livePos };
+        const startPos = { ...currentPos };
         const destination = ev.location;
         lastRoutePosRef.current = startPos;
-        requestWalkingRoute(startPos, destination);
-    }, [livePos, ev.location, requestWalkingRoute]);
+        requestWalkingRoute(startPos, destination, { fit: Boolean(mapInst.current) });
+    }, [currentPos, ev.location, requestWalkingRoute]);
 
     // Initialize map + route
     useEffect(() => {
@@ -340,11 +369,11 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
         const startPos = currentPos;
         const myLL = new window.kakao.maps.LatLng(startPos.lat, startPos.lng);
 
-        // ── 내 위치 마커 (이동 가능) — 기존 아이 이모티콘 + 선택 테마색 ──
+        // ── 내 위치 마커 (이동 가능) — 기본 혜니 이미지 + 선택 테마색 ──
         const myOverlay = new window.kakao.maps.CustomOverlay({
             map: mapInst.current, position: myLL, yAnchor: 0.85, zIndex: 10,
             content: `<div style="display:flex;flex-direction:column;align-items:center;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif">
-                <div style="width:56px;height:56px;border-radius:20px;background:#fff;border:3px solid ${currentMarkerColor};box-shadow:0 0 0 8px color-mix(in srgb, ${currentMarkerColor} 18%, transparent),0 7px 18px rgba(15,23,42,0.22);display:flex;align-items:center;justify-content:center;font-size:28px;line-height:1">${escHtml(currentMarkerEmoji)}</div>
+                <div style="width:56px;height:56px;border-radius:20px;background:#fff;border:3px solid ${currentMarkerColor};box-shadow:0 0 0 8px color-mix(in srgb, ${currentMarkerColor} 18%, transparent),0 7px 18px rgba(15,23,42,0.22);display:flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;position:relative">${childMarkerImageHtml(currentMarkerPhotoUrl)}</div>
                 <div style="margin-top:5px;background:${currentMarkerColor};color:white;padding:5px 10px;border-radius:12px;font-size:11px;font-weight:900;box-shadow:0 4px 12px rgba(15,23,42,0.18);white-space:nowrap">${escHtml(currentMarkerLabel)}</div>
             </div>`
         });
@@ -357,10 +386,12 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
         });
         startOverlayRef.current = startOv;
 
+    }, [mapReady, ev, currentPos, currentMarkerColor, currentMarkerPhotoUrl, currentMarkerLabel]);
 
-        lastRoutePosRef.current = { ...startPos };
-        requestWalkingRoute(startPos, ev.location, { fit: true });
-    }, [mapReady, ev, currentPos, currentMarkerColor, currentMarkerEmoji, currentMarkerLabel, requestWalkingRoute]);
+    useEffect(() => {
+        if (!mapReady || !mapInst.current || !routeInfo?.start || !routeInfo?.destination || !hasDetailedWalkingRoute) return;
+        drawWalkingRoutePoints(detailedRoutePoints, routeInfo.start, routeInfo.destination, { fit: true });
+    }, [mapReady, routeInfo?.start, routeInfo?.destination, hasDetailedWalkingRoute, detailedRoutePoints, drawWalkingRoutePoints]);
 
     const recenterMap = () => {
         if (!mapInst.current || !currentPos) return;
@@ -383,10 +414,6 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
     const fitFullRoute = () => {
         if (!mapInst.current || !currentPos || !ev.location) return;
         setCentered(false);
-        if (!routePathRef.current) {
-            drawDirectRoute(currentPos, ev.location, { fit: true });
-            return;
-        }
         const bounds = new window.kakao.maps.LatLngBounds();
         bounds.extend(new window.kakao.maps.LatLng(currentPos.lat, currentPos.lng));
         bounds.extend(new window.kakao.maps.LatLng(ev.location.lat, ev.location.lng));
@@ -443,7 +470,7 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
                         ⏰ {ev.time} {ev.location?.address ? `· 📍 ${ev.location.address.split(" ").slice(0, 3).join(" ")}` : ""}
                     </div>
                 </div>
-                {isTracking && (
+                {isChildMode && isTracking && (
                     <div style={{ fontSize: 11, fontWeight: 700, color: "var(--theme-accent-text)", background: "var(--theme-accent-soft)", padding: "4px 8px", borderRadius: 8, whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "center", gap: 3 }}>
                         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--theme-accent)", animation: "pulse 1.5s infinite" }} />
                         GPS
@@ -452,6 +479,26 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
             </div>
 
             {/* Route info bar */}
+            {routeInfo?.error && !routeInfo?.loading && (
+                <div style={{
+                    margin: "0 16px", marginTop: 10, background: "var(--status-cautionary-subtle)",
+                    borderRadius: 20, padding: "14px 20px", boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                    display: "flex", alignItems: "center", gap: 14, zIndex: 2,
+                    border: "1px solid #FED7AA"
+                }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 16, background: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+                        🚶
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 900, fontSize: 16, color: "var(--status-cautionary-strong)" }}>
+                            도보 경로를 불러오지 못했어요
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>
+                            잠시 후 다시 열면 상세 도보 경로로 다시 확인해요
+                        </div>
+                    </div>
+                </div>
+            )}
             {!routeInfo?.loading && distLabel && (
                 <div style={{
                     margin: "0 16px", marginTop: 10, background: arrived ? "var(--status-positive-subtle)" : "white",
@@ -471,7 +518,7 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
                             <>
                                 <div style={{ fontWeight: 900, fontSize: 20, color: ev.color }}>{distLabel}</div>
                                 <div style={{ fontSize: 12, color: "var(--fg-secondary)", marginTop: 2 }}>
-                                    {routeInfo?.error ? `예상 직선거리 · 도보 약 ${timeLabel}` : `도보 약 ${timeLabel}`}
+                                    도보 약 {timeLabel}
                                 </div>
                                 {bunnyEncouragement && (
                                     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--theme-accent-text)", marginTop: 4 }}>
@@ -506,9 +553,9 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
                 {!mapReady && (
                     <FallbackMapCanvas
                         center={currentPos || ev.location}
-                        children={currentPos ? [{ ...currentPos, name: "내 위치", emoji: isChildMode ? "🐰" : "👨‍👩‍👧", color: DESIGN.colors.pink }] : []}
+                        children={currentPos ? [{ ...currentPos, name: isChildMode ? "내 위치" : `${childProfile?.name || "아이"} 위치`, color: currentMarkerColor, photo_url: currentMarkerPhotoUrl || null }] : []}
                         eventPlaces={ev.location ? [{ key: ev.id || "destination", title: ev.title, emoji: ev.emoji || "📍", color: ev.color || DESIGN.colors.pink, location: ev.location }] : []}
-                        routePoints={currentPos && ev.location ? [currentPos, ev.location] : []}
+                        routePoints={detailedRoutePoints}
                         title={ev.title || "경로"}
                         subtitle={fallbackMapSubtitle}
                         showRadius={Boolean(currentPos)}
@@ -599,7 +646,7 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
                             fontSize: 14, fontWeight: 800, color: centered ? "white" : "var(--theme-accent-text)", fontFamily: FF,
                             transition: "all 0.2s ease"
                         }}>
-                        🐰 내 위치
+                        {isChildMode ? "🐰 내 위치" : "🐰 아이 위치"}
                     </button>
                     <button onClick={fitFullRoute} title="전체 경로"
                         style={{ width: 44, height: 44, borderRadius: 14, background: "white", border: "none", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "var(--fg-secondary)" }}>
@@ -622,16 +669,16 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
                         </div>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                             <div style={{ padding: "7px 10px", borderRadius: 999, background: arrived ? "var(--status-positive-subtle)" : ev.bg, color: arrived ? "#166534" : ev.color, fontSize: 11, fontWeight: 800 }}>
-                                {arrived ? "근처 도착" : distLabel || "경로 확인"}
+                                {arrived ? "근처 도착" : distLabel || "도보 경로 확인"}
                             </div>
-                            {displayMin != null && !routeInfo?.error && (
+                            {displayMin != null && (
                                 <div style={{ padding: "7px 10px", borderRadius: 999, background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", fontSize: 11, fontWeight: 800 }}>
                                     도보 {timeLabel}
                                 </div>
                             )}
                             {routeInfo?.error && (
                                 <div style={{ padding: "7px 10px", borderRadius: 999, background: "var(--bg-subtle)", color: "var(--theme-accent-text)", fontSize: 11, fontWeight: 800 }}>
-                                    위치 확인
+                                    도보 경로 필요
                                 </div>
                             )}
                         </div>
@@ -640,8 +687,8 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
                     <div style={{ display: "flex", gap: 10 }}>
                         <button
                             onClick={guidanceStarted ? fitFullRoute : startInAppGuidance}
-                            disabled={!currentPos || !ev.location}
-                            style={{ flex: 1, padding: "15px 14px", borderRadius: 18, border: "none", cursor: currentPos && ev.location ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "white", background: currentPos && ev.location ? "var(--hyeni-theme-gradient)" : "#D1D5DB", boxShadow: currentPos && ev.location ? "var(--hyeni-theme-shadow-soft)" : "none" }}
+                            disabled={!canStartGuidance}
+                            style={{ flex: 1, padding: "15px 14px", borderRadius: 18, border: "none", cursor: canStartGuidance ? "pointer" : "not-allowed", fontSize: 14, fontWeight: 800, fontFamily: FF, color: "white", background: canStartGuidance ? "var(--hyeni-theme-gradient)" : "#D1D5DB", boxShadow: canStartGuidance ? "var(--hyeni-theme-shadow-soft)" : "none" }}
                         >
                             {guidanceStarted ? "전체 경로 보기" : "길안내 시작"}
                         </button>

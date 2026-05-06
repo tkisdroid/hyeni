@@ -11,6 +11,7 @@ import { formatDeviceDuration } from "../../lib/deviceFormat.js";
 import { getDeviceLabelFromUA } from "../../lib/deviceInfo.js";
 import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
 import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "../../lib/remoteListenHealth.js";
+import { supabase } from "../../lib/supabase.js";
 
 export function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, onConfirm = null }) {
     const [showCode, setShowCode] = useState(childrenCount === 0);

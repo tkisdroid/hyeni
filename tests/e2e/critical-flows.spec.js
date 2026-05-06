@@ -28,6 +28,12 @@ function currentDateParts() {
   };
 }
 
+async function waitForStableExactMinuteWindow() {
+  const seconds = new Date().getSeconds();
+  if (seconds < 40) return;
+  await new Promise((resolve) => setTimeout(resolve, (62 - seconds) * 1000));
+}
+
 function buildEventRow({ insideArrivalZone = false, ...overrides } = {}) {
   const { dateKey, time } = currentDateParts();
   const eventRow = {
@@ -101,18 +107,28 @@ async function expectCalendarEventStatus(page, eventRow, expectedStatus) {
 }
 
 async function installCriticalMocks(page, options = {}) {
+  await waitForStableExactMinuteWindow();
   const {
     role = "parent",
     initiallyPaired = true,
     insideArrivalZone = false,
     walkingRoute = "success",
     seedEvents = [],
+    locationHistoryRows = [],
+    childDeviceHealth = null,
+    secondChildDeviceHealth = null,
     refreshLocationAfterRequest = false,
     extraChild = false,
+    deviceLocation = { latitude: 37.5665, longitude: 126.978, accuracy: 12 },
+    qrRawValue = "",
   } = options;
   const state = {
     paired: role === "parent" ? true : initiallyPaired,
+    childEmoji: "🐰",
     insertedEvents: [],
+    insertedEventChildren: [],
+    insertedMemoReplies: [],
+    memberUpdates: [],
     functionCalls: [],
     rpcCalls: [],
     routeRequests: [],
@@ -123,7 +139,7 @@ async function installCriticalMocks(page, options = {}) {
   const userId = role === "child" ? CHILD_ID : PARENT_ID;
 
   await page.addInitScript(
-    ({ projectRef, role, userId, familyId }) => {
+    ({ projectRef, role, userId, familyId, deviceLocation, qrRawValue }) => {
       const expiresAt = Math.floor(Date.now() / 1000) + 3600;
       window.localStorage.setItem(
         `sb-${projectRef}-auth-token`,
@@ -171,18 +187,67 @@ async function installCriticalMocks(page, options = {}) {
         }),
       );
 
+      const originalPermissions = navigator.permissions;
+      const grantedPermissionStatus = () => ({
+        state: "granted",
+        onchange: null,
+        addEventListener() {},
+        removeEventListener() {},
+      });
+      Object.defineProperty(navigator, "permissions", {
+        configurable: true,
+        value: {
+          query: async (descriptor) => {
+            if (descriptor?.name === "camera") return grantedPermissionStatus();
+            try {
+              if (originalPermissions?.query) return originalPermissions.query(descriptor);
+            } catch {
+              // fall back to a granted mock below
+            }
+            return grantedPermissionStatus();
+          },
+        },
+      });
+      window.__hyeniGeoCalls = { getCurrentPosition: 0, watchPosition: 0 };
       navigator.geolocation.getCurrentPosition = (success) => {
-        success({ coords: { latitude: 37.5665, longitude: 126.978, accuracy: 12 } });
+        window.__hyeniGeoCalls.getCurrentPosition += 1;
+        success({ coords: { latitude: deviceLocation.latitude, longitude: deviceLocation.longitude, accuracy: deviceLocation.accuracy } });
       };
       navigator.geolocation.watchPosition = (success) => {
-        success({ coords: { latitude: 37.5665, longitude: 126.978, accuracy: 12 } });
+        window.__hyeniGeoCalls.watchPosition += 1;
+        success({ coords: { latitude: deviceLocation.latitude, longitude: deviceLocation.longitude, accuracy: deviceLocation.accuracy } });
         return 1;
       };
       navigator.geolocation.clearWatch = () => {};
       navigator.mediaDevices = navigator.mediaDevices || {};
-      navigator.mediaDevices.getUserMedia = async () => ({
-        getTracks: () => [{ stop() {} }],
-      });
+      window.__hyeniCameraCalls = { getUserMedia: 0 };
+      navigator.mediaDevices.getUserMedia = async () => {
+        window.__hyeniCameraCalls.getUserMedia += 1;
+        return {
+          getTracks: () => [{ stop() {} }],
+        };
+      };
+      if (window.HTMLMediaElement?.prototype) {
+        window.HTMLMediaElement.prototype.play = () => Promise.resolve();
+        Object.defineProperty(window.HTMLMediaElement.prototype, "srcObject", {
+          configurable: true,
+          get() {
+            return this.__hyeniTestSrcObject || null;
+          },
+          set(value) {
+            this.__hyeniTestSrcObject = value;
+          },
+        });
+      }
+      if (qrRawValue) {
+        window.__hyeniQrValues = [qrRawValue];
+        window.BarcodeDetector = class {
+          async detect() {
+            const rawValue = window.__hyeniQrValues.shift();
+            return rawValue ? [{ rawValue }] : [];
+          }
+        };
+      }
       window.Notification = class {
         static permission = "granted";
         static requestPermission() {
@@ -308,17 +373,23 @@ async function installCriticalMocks(page, options = {}) {
         },
       };
     },
-    { projectRef: PROJECT_REF, role, userId, familyId: FAMILY_ID },
+    { projectRef: PROJECT_REF, role, userId, familyId: FAMILY_ID, deviceLocation, qrRawValue },
   );
 
   await page.route("**/*", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const method = request.method();
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "authorization,content-type,accept,service",
+      "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+    };
     const fulfillJson = (body, status = 200) =>
       route.fulfill({
         status,
         contentType: "application/json",
+        headers: corsHeaders,
         body: JSON.stringify(body),
       });
 
@@ -342,6 +413,33 @@ async function installCriticalMocks(page, options = {}) {
             },
           },
         ],
+      });
+    }
+
+    if (url.hostname.includes("kakaomobility.com") && url.pathname.includes("directions")) {
+      state.routeRequests.push(url.href);
+      if (method === "OPTIONS") {
+        return route.fulfill({ status: 204, headers: corsHeaders, body: "" });
+      }
+      if (walkingRoute === "failure") {
+        return fulfillJson({ routes: [{ result_code: 104, result_message: "No walking route" }] }, 503);
+      }
+      return fulfillJson({
+        routes: [{
+          result_code: 0,
+          summary: { distance: 420, duration: 360 },
+          sections: [{
+            distance: 420,
+            duration: 360,
+            roads: [{
+              vertexes: [
+                126.9780, 37.5665,
+                126.9795, 37.5671,
+                126.9810, 37.5678,
+              ],
+            }],
+          }],
+        }],
       });
     }
 
@@ -406,22 +504,33 @@ async function installCriticalMocks(page, options = {}) {
     const eventRows = [buildEventRow({ insideArrivalZone }), ...seedEvents];
 
     if (table === "family_members") {
+      if (method === "PATCH") {
+        const body = request.postData() ? request.postDataJSON() : {};
+        state.memberUpdates.push(body);
+        if (typeof body?.emoji === "string" && body.emoji) {
+          state.childEmoji = body.emoji;
+        }
+        return fulfillJson({ id: "member-child-1", user_id: CHILD_ID, role: "child", name: "혜니", emoji: state.childEmoji });
+      }
       if (query.get("user_id")) {
         if (role === "child" && !state.paired) return fulfillJson(null);
         return fulfillJson({
           family_id: FAMILY_ID,
           role,
           name: role === "child" ? "혜니" : "엄마",
+          emoji: role === "child" ? state.childEmoji : "👩",
         });
       }
       if (query.get("role")?.includes("child")) {
-        return fulfillJson(extraChild ? [{ user_id: CHILD_ID }, { user_id: SECOND_CHILD_ID }] : [{ user_id: CHILD_ID }]);
+        return fulfillJson(extraChild
+          ? [{ id: "member-child-1", user_id: CHILD_ID }, { id: "member-child-2", user_id: SECOND_CHILD_ID }]
+          : [{ id: "member-child-1", user_id: CHILD_ID }]);
       }
       const members = [
-        { user_id: PARENT_ID, role: "parent", name: "엄마", emoji: "👩" },
-        { user_id: CHILD_ID, role: "child", name: "혜니", emoji: "🐰" },
+        { id: "member-parent", user_id: PARENT_ID, role: "parent", name: "엄마", emoji: "👩" },
+        { id: "member-child-1", user_id: CHILD_ID, role: "child", name: "혜니", emoji: state.childEmoji, child_order: 1, device_health: childDeviceHealth },
       ];
-      if (extraChild) members.push({ user_id: SECOND_CHILD_ID, role: "child", name: "민이", emoji: "🐥" });
+      if (extraChild) members.push({ id: "member-child-2", user_id: SECOND_CHILD_ID, role: "child", name: "민이", emoji: "🐥", child_order: 2, device_health: secondChildDeviceHealth });
       return fulfillJson(members);
     }
 
@@ -448,8 +557,41 @@ async function installCriticalMocks(page, options = {}) {
     }
 
     if (table === "events") {
-      if (method === "POST") state.insertedEvents.push(request.postDataJSON());
+      if (method === "POST") {
+        const body = request.postDataJSON();
+        const eventRow = Array.isArray(body) ? body[0] : body;
+        state.insertedEvents.push(body);
+        return fulfillJson({
+          id: eventRow?.id || `event-inserted-${state.insertedEvents.length}`,
+          ...eventRow,
+        });
+      }
       return fulfillJson(method === "GET" ? eventRows : []);
+    }
+
+    if (table === "events_children") {
+      if (method === "POST") {
+        const body = request.postDataJSON();
+        const rows = Array.isArray(body) ? body : [body];
+        state.insertedEventChildren.push(...rows);
+        return fulfillJson(rows);
+      }
+      return fulfillJson([]);
+    }
+
+    if (table === "memo_replies") {
+      if (method === "POST") {
+        const body = request.postDataJSON();
+        const row = {
+          id: `memo-reply-${state.insertedMemoReplies.length + 1}`,
+          created_at: new Date().toISOString(),
+          read_by: [],
+          ...(Array.isArray(body) ? body[0] : body),
+        };
+        state.insertedMemoReplies.push(row);
+        return fulfillJson(row);
+      }
+      return fulfillJson(method === "GET" ? state.insertedMemoReplies : []);
     }
 
     if (table === "saved_places") {
@@ -494,12 +636,30 @@ async function installCriticalMocks(page, options = {}) {
       return fulfillJson(locations);
     }
 
+    if (table === "location_history") {
+      if (method !== "GET") return fulfillJson([]);
+      const userIdsParam = query.get("user_id") || "";
+      const selectedUserIds = userIdsParam.match(/in\.\(([^)]*)\)/)?.[1]
+        ?.split(",")
+        .map((value) => value.trim())
+        .filter(Boolean) || [];
+      const recordedFilters = query.getAll("recorded_at");
+      const gte = recordedFilters.find((value) => value.startsWith("gte."))?.slice(4);
+      const lt = recordedFilters.find((value) => value.startsWith("lt."))?.slice(3);
+      const rows = locationHistoryRows.filter((row) => {
+        if (selectedUserIds.length && !selectedUserIds.includes(row.user_id)) return false;
+        const recordedMs = Date.parse(row.recorded_at);
+        if (gte && recordedMs < Date.parse(gte)) return false;
+        if (lt && recordedMs >= Date.parse(lt)) return false;
+        return true;
+      });
+      return fulfillJson(rows);
+    }
+
     if (
       [
         "academies",
         "memos",
-        "memo_replies",
-        "location_history",
         "danger_zones",
         "parent_alerts",
         "remote_listen_sessions",
@@ -518,7 +678,7 @@ async function installCriticalMocks(page, options = {}) {
 }
 
 test.describe("critical Hyeni flows", () => {
-  test("parent mode covers emergency, location, scheduling, AI, notifications, remote audio, and kkuk", async ({ page }) => {
+  test("parent mode covers emergency, location, scheduling, AI, notifications, remote audio, and kkuk", async ({ page }, testInfo) => {
     const state = await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
     await page.goto("/");
 
@@ -528,23 +688,67 @@ test.describe("critical Hyeni flows", () => {
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await expect(page.getByRole("button", { name: "🔗 연동 (1명)" })).toBeVisible();
+    const managementRail = page.locator('[aria-label="관리 바로가기"]');
+    await expect(managementRail.locator("button").first()).toHaveAttribute("aria-label", "빠른 일정입력");
+    await expect(page.getByText("관리 바로가기", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("필요한 기능만 빠르게", { exact: true })).toHaveCount(0);
+    await expect(page.locator(".hyeni-v5-add-row")).toHaveCount(0);
+    const firstManagementButtonLayout = await managementRail.locator("button").first().evaluate((button) => {
+      const styles = getComputedStyle(button);
+      return {
+        gridColumnEnd: styles.gridColumnEnd,
+        flexDirection: styles.flexDirection,
+      };
+    });
+    expect(firstManagementButtonLayout.gridColumnEnd).toBe("span 2");
+    expect(firstManagementButtonLayout.flexDirection).toBe("row");
+    await managementRail.getByRole("button", { name: "빠른 일정입력" }).click();
+    await expect(page.getByText("일정 빠른 입력")).toBeVisible();
+    await expect(page.getByRole("button", { name: "말하기" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "이미지" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "텍스트" })).toBeVisible();
+    await page.getByRole("button", { name: "닫기" }).click();
     await page.getByRole("button", { name: "📍 우리아이" }).click();
     await expect(page.getByRole("button", { name: "현재 위치 다시 확인" })).toBeVisible();
     await expect(page.getByText("혜니 실시간")).toBeVisible();
     await page.getByRole("button", { name: "← 돌아가기" }).click();
 
-    await page.getByRole("button", { name: "+" }).click();
+    const now = new Date();
+    const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
+    await mainCalendar.getByRole("button", { name: new RegExp(`${now.getMonth() + 1}월 ${now.getDate()}일`) }).click();
     await page.getByPlaceholder("예) 영어 학원, 태권도...").fill("피아노 연습");
+    const timePicker = page.locator(".hyeni-schedule-time-card").first();
+    await expect(timePicker).toBeVisible();
+    await timePicker.getByRole("button", { name: "오후 3:00 시작 시간 선택" }).click();
+    await timePicker.getByRole("button", { name: "오후 4:30 종료 시간 선택" }).click();
+    const timeSummary = timePicker.locator(".hyeni-time-summary");
+    await expect(timeSummary.getByText("오후 3:00 ~ 오후 4:30")).toBeVisible();
+    await expect(timeSummary.getByText("1시간 30분")).toBeVisible();
+    const themedTimePickerStyles = await timePicker.evaluate((element) => {
+      const styles = getComputedStyle(element);
+      const selectedSlot = element.querySelector(".hyeni-time-slot.is-start");
+      const selectedStyles = selectedSlot ? getComputedStyle(selectedSlot) : null;
+      return {
+        borderRadius: styles.borderRadius,
+        selectedSlotBackground: selectedStyles?.backgroundColor || "",
+      };
+    });
+    expect(themedTimePickerStyles.borderRadius).toBe("16px");
+    expect(themedTimePickerStyles.selectedSlotBackground).toMatch(/^rgb\(/);
+    expect(themedTimePickerStyles.selectedSlotBackground).not.toBe("rgb(255, 255, 255)");
+    const timePickerScreenshot = testInfo.outputPath("time-picker-theme.png");
+    await timePicker.screenshot({ path: timePickerScreenshot });
+    await testInfo.attach("time-picker-theme", { path: timePickerScreenshot, contentType: "image/png" });
     await page.getByRole("button", { name: "🗺️ 지도에서 장소 선택" }).click();
     await page.getByPlaceholder("🔍 학원 이름이나 주소 검색...").fill("세종대로");
     await page.getByRole("button", { name: "검색" }).click();
     await page.getByText("세종대로", { exact: true }).click();
     await page.getByRole("button", { name: "📍 이 장소로 설정하기" }).click();
     await expect(page.getByText("서울특별시 중구 세종대로 110").first()).toBeVisible();
-    await page.getByRole("button", { name: "🐰 일정 추가하기!" }).click();
-    await expect(page.getByText("피아노 연습")).toBeVisible();
+    await page.locator("button.sheet-save").click();
+    await expect(page.getByRole("button", { name: "피아노 연습 편집" })).toBeVisible();
 
-    await page.getByRole("button", { name: "🤖 AI로 일정입력" }).click();
+    await managementRail.getByRole("button", { name: "빠른 일정입력" }).click();
     await page.locator("#ai-text-input").fill("오늘 4시 반 수학 학원, 교재 챙기기");
     await page.getByRole("button", { name: "✅ 다 입력했어요^^" }).click();
     await expect(page.getByText("수학 학원", { exact: true }).first()).toBeVisible();
@@ -563,7 +767,7 @@ test.describe("critical Hyeni flows", () => {
     // listening). Match the umbrella substring "연결" + the noun phrase
     // "아이 기기" so the test tolerates either "아이 기기 자동 연결 시도 중"
     // or future copy variants.
-    await expect(page.getByText(/아이 기기.*연결/)).toBeVisible();
+    await expect(page.getByText("아이 기기 자동 연결 시도 중")).toBeVisible();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "remote_listen")).toBeTruthy();
     await page.getByRole("button", { name: "⏹️ 중지" }).click();
     await page.getByRole("button", { name: "닫기" }).click();
@@ -611,6 +815,28 @@ test.describe("critical Hyeni flows", () => {
     expect(navState.scrollY).toBe(0);
   });
 
+  test("parent calendar page add saves a single-child schedule with a child link", async ({ page }) => {
+    const state = await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
+    await mainTabbar.getByRole("button", { name: "일정" }).click();
+    await expect(page.getByRole("region", { name: "부모 캘린더" })).toBeVisible();
+
+    await page.locator(".hyeni-v5-page-add").click();
+    await page.getByPlaceholder("예) 영어 학원, 태권도...").fill("기본 연결 일정");
+    await page.locator("button.sheet-save").click();
+
+    await expect.poll(() => state.insertedEventChildren.length).toBeGreaterThan(0);
+    expect(state.insertedEventChildren).toContainEqual(
+      expect.objectContaining({ child_id: "member-child-1" }),
+    );
+  });
+
   test("parent child tracker sends a native location refresh push fallback", async ({ page }) => {
     const state = await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
     await page.goto("/");
@@ -637,6 +863,39 @@ test.describe("critical Hyeni flows", () => {
 
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_location")).toBeTruthy();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
+  });
+
+  test("parent dashboard renders persisted child device health before live broadcast refresh", async ({ page }) => {
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      childDeviceHealth: {
+        batteryLevel: 42,
+        isCharging: true,
+        connectionType: "wifi",
+        screenOnMs: 65 * 60_000,
+        recentApp: "com.youtube",
+        usagePermission: "granted",
+        updatedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+      },
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+    const deviceSection = page.getByRole("region", { name: "아이 기기 사용 지표" });
+
+    await expect(deviceSection).toContainText("42%");
+    await expect(deviceSection).toContainText("1시간 5분");
+    await expect(deviceSection).not.toContainText("충전 중");
+    await expect(deviceSection).not.toContainText("wifi");
+    await expect(deviceSection).not.toContainText("com.youtube");
+
+    await deviceSection.getByRole("button", { name: "상세" }).click();
+    await expect(deviceSection).toContainText("충전 중");
+    await expect(deviceSection).toContainText("wifi");
+    await expect(deviceSection).toContainText("com.youtube");
   });
 
   test("parent dashboard manual refresh requests child location and device status together", async ({ page }) => {
@@ -699,7 +958,32 @@ test.describe("critical Hyeni flows", () => {
     await expect(page.getByRole("button", { name: /37\.56990,\s*126\.98220/ })).toBeVisible({ timeout: 7_000 });
   });
 
-  test("parent main calendar selection uses distinct colors and filters the schedule list", async ({ page }) => {
+  test("parent child tracker shows dwell duration instead of same-place time range", async ({ page }) => {
+    const selectedDay = currentDateParts();
+    const at = (hour, minute) => new Date(selectedDay.year, selectedDay.month, selectedDay.day, hour, minute).toISOString();
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      locationHistoryRows: [
+        { user_id: CHILD_ID, lat: 37.56650, lng: 126.97800, recorded_at: at(8, 23) },
+        { user_id: CHILD_ID, lat: 37.56662, lng: 126.97804, recorded_at: at(8, 28) },
+        { user_id: CHILD_ID, lat: 37.56673, lng: 126.97807, recorded_at: at(8, 34) },
+      ],
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    await page.getByRole("button", { name: "📍 우리아이" }).click();
+
+    await expect(page.getByText("오래 머문 곳")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("11분 머무름")).toBeVisible();
+    await expect(page.getByText(/08:23.*08:34|오전 08:23.*오전 08:34/)).toHaveCount(0);
+  });
+
+  test("parent main calendar empty date tap opens schedule add sheet and saves to that date", async ({ page }) => {
     const now = new Date();
     const targetDay = now.getDate() === 1 ? 2 : now.getDate() - 1;
     const visibleMonth = now.getMonth() + 1;
@@ -712,12 +996,13 @@ test.describe("critical Hyeni flows", () => {
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
     await mainCalendar.getByRole("button", { name: new RegExp(`${visibleMonth}월 ${targetDay}일`) }).click();
+    await expect(page.getByRole("dialog", { name: "새 일정" })).toBeVisible();
 
     const colors = await page.evaluate(
       ({ todayDay, targetDay, visibleMonth }) => {
         const calendar = document.querySelector('[aria-label="캘린더"]');
         const buttonFor = (day) => Array.from(calendar?.querySelectorAll("button") || [])
-          .find((button) => button.textContent?.trim() === String(day));
+          .find((button) => (button.getAttribute("aria-label") || "").includes(`${visibleMonth}월 ${day}일`));
         const visual = (button) => {
           if (!button) return "";
           const style = getComputedStyle(button);
@@ -734,13 +1019,247 @@ test.describe("critical Hyeni flows", () => {
     expect(colors.today).toBeTruthy();
     expect(colors.selected).not.toBe(colors.today);
 
-    await page.getByRole("button", { name: "+", exact: true }).click();
     await page.getByPlaceholder("예) 영어 학원, 태권도...").fill("미술 학원");
-    await page.getByRole("button", { name: "🐰 일정 추가하기!" }).click();
+    await page.locator("button.sheet-save").click();
 
     const parentMain = page.getByLabel("부모 메인");
-    await expect(parentMain.getByText("미술 학원", { exact: true })).toBeVisible();
-    await expect(parentMain.getByText(`${visibleMonth}월 ${targetDay}일`)).toBeVisible();
+    await expect(parentMain.getByRole("button", { name: "미술 학원 편집" })).toBeVisible();
+    await expect(parentMain.locator(".hyeni-v5-section-head .hyeni-v5-date-count").getByText(`${visibleMonth}월 ${targetDay}일`)).toBeVisible();
+  });
+
+  test("parent main calendar event date tap still opens schedule add sheet for additional events", async ({ page }) => {
+    const now = new Date();
+    const targetDay = now.getDate() === 1 ? 2 : now.getDate() - 1;
+    const visibleMonth = now.getMonth() + 1;
+    const targetDateKey = `${now.getFullYear()}-${now.getMonth()}-${targetDay}`;
+    const seedEvent = buildEventRow({
+      id: "event-existing-on-tapped-date",
+      date_key: targetDateKey,
+      title: "태권도",
+      time: "15:00",
+      location: null,
+    });
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      seedEvents: [seedEvent],
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
+    await mainCalendar.getByRole("button", { name: new RegExp(`${visibleMonth}월 ${targetDay}일.*일정 1개`) }).click();
+    await expect(page.getByRole("dialog", { name: "새 일정" })).toBeVisible();
+
+    await page.getByPlaceholder("예) 영어 학원, 태권도...").fill("영어 보강");
+    await page.locator("button.sheet-save").click();
+
+    const parentMain = page.getByLabel("부모 메인");
+    await expect(parentMain.getByRole("button", { name: "태권도 편집" })).toBeVisible();
+    await expect(parentMain.getByRole("button", { name: "영어 보강 편집" })).toBeVisible();
+    await expect(parentMain.locator(".hyeni-v5-section-head .hyeni-v5-date-count").getByText(`${visibleMonth}월 ${targetDay}일`)).toBeVisible();
+  });
+
+  test("parent event sheet closes when the sheet header is dragged down", async ({ page }) => {
+    const now = new Date();
+    await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
+    await mainCalendar.getByRole("button", { name: new RegExp(`${now.getMonth() + 1}월 ${now.getDate()}일`) }).click();
+    const sheet = page.getByRole("dialog", { name: "새 일정" });
+    await expect(sheet).toBeVisible();
+
+    const header = sheet.locator(".event-sheet-header");
+    const box = await header.boundingBox();
+    expect(box).toBeTruthy();
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await header.dispatchEvent("pointerdown", {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: x,
+      clientY: y,
+      button: 0,
+      buttons: 1,
+      bubbles: true,
+      cancelable: true,
+    });
+    await page.dispatchEvent("body", "pointermove", {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: x,
+      clientY: y + 170,
+      buttons: 1,
+      bubbles: true,
+      cancelable: true,
+    });
+    await page.dispatchEvent("body", "pointerup", {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: x,
+      clientY: y + 170,
+      button: 0,
+      buttons: 0,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(sheet).toHaveCount(0);
+  });
+
+  test("parent event location map picker closes when the sheet header is dragged down", async ({ page }) => {
+    const now = new Date();
+    await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
+    await mainCalendar.getByRole("button", { name: new RegExp(`${now.getMonth() + 1}월 ${now.getDate()}일`) }).click();
+    const sheet = page.getByRole("dialog", { name: "새 일정" });
+    await expect(sheet).toBeVisible();
+
+    await sheet.getByRole("button", { name: "🗺️ 지도에서 장소 선택" }).click();
+    const mapDialog = page.getByRole("dialog", { name: "📍 장소 설정" });
+    await expect(mapDialog).toBeVisible();
+
+    const header = mapDialog.locator(".map-picker-header");
+    const box = await header.boundingBox();
+    expect(box).toBeTruthy();
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await header.dispatchEvent("pointerdown", {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: x,
+      clientY: y,
+      button: 0,
+      buttons: 1,
+      bubbles: true,
+      cancelable: true,
+    });
+    await page.dispatchEvent("body", "pointermove", {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: x,
+      clientY: y + 180,
+      buttons: 1,
+      bubbles: true,
+      cancelable: true,
+    });
+    await page.dispatchEvent("body", "pointerup", {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: x,
+      clientY: y + 180,
+      button: 0,
+      buttons: 0,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await expect(mapDialog).toHaveCount(0);
+    await expect(sheet).toBeVisible();
+  });
+
+  test("parent place manager keeps bottom navigation visible and usable", async ({ page }) => {
+    await installCriticalMocks(page, { role: "parent", initiallyPaired: true });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const managementRail = page.locator('[aria-label="관리 바로가기"]');
+    await managementRail.getByRole("button", { name: "장소관리" }).click();
+    await expect(page.getByText("📍 장소관리").first()).toBeVisible();
+
+    const navState = await page.evaluate(() => {
+      const nav = document.querySelector(".hyeni-manager-bottom-nav .hyeni-v5-tabbar");
+      const active = nav?.querySelector("button.active");
+      const rect = nav?.getBoundingClientRect();
+      const style = nav ? getComputedStyle(nav) : null;
+      return {
+        activeText: active?.innerText || "",
+        position: style?.position || "",
+        visible: !!rect && rect.width > 0 && rect.height > 0,
+        bottomGap: rect ? Math.round(window.innerHeight - rect.bottom) : null,
+      };
+    });
+    expect(navState.activeText).toContain("장소관리");
+    expect(navState.position).toBe("relative");
+    expect(navState.visible).toBe(true);
+    expect(navState.bottomGap).toBeLessThanOrEqual(24);
+
+    await page.getByRole("navigation", { name: "부모 메인 탭" }).getByRole("button", { name: "오늘" }).click();
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("📍 장소관리")).toHaveCount(0);
+  });
+
+  test("parent calendar marks event days with color dots instead of clipped titles", async ({ page }) => {
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const targetDay = now.getDate() === daysInMonth ? now.getDate() - 1 : now.getDate() + 1;
+    const targetDateKey = `${now.getFullYear()}-${now.getMonth()}-${targetDay}`;
+    const taekwondoEvent = buildEventRow({
+      id: "event-taekwondo",
+      date_key: targetDateKey,
+      title: "태권도",
+      time: "15:00",
+      color: "#A78BFA",
+      location: null,
+    });
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      seedEvents: [taekwondoEvent],
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
+    await mainTabbar.getByRole("button", { name: "일정" }).click();
+
+    const calendarPage = page.getByRole("region", { name: "부모 캘린더" });
+    const dayButton = calendarPage.getByRole("button", {
+      name: new RegExp(`${now.getMonth() + 1}월 ${targetDay}일.*일정 1개`),
+    });
+    await expect(dayButton).toBeVisible();
+    await dayButton.click();
+
+    const markerDetails = await dayButton.evaluate((button) => {
+      const firstDot = button.querySelector(".hyeni-v5-calendar-dots span");
+      return {
+        text: button.textContent || "",
+        chipCount: button.querySelectorAll(".cal-chip").length,
+        dotCount: button.querySelectorAll(".hyeni-v5-calendar-dots span").length,
+        firstDotColor: firstDot ? getComputedStyle(firstDot).backgroundColor : "",
+      };
+    });
+
+    expect(markerDetails.text).not.toContain("태권도");
+    expect(markerDetails.chipCount).toBe(0);
+    expect(markerDetails.dotCount).toBe(1);
+    expect(markerDetails.firstDotColor).toBe("rgb(247, 121, 168)");
   });
 
   test("parent calendar selected-day statuses use minute, hour-minute, and day labels", async ({ page }) => {
@@ -765,6 +1284,146 @@ test.describe("critical Hyeni flows", () => {
     await expectCalendarEventStatus(page, minuteEvent, /^\d+분 뒤$/);
     await expectCalendarEventStatus(page, hourEvent, /^1시간 \d+분 뒤$/);
     await expectCalendarEventStatus(page, dayEvent, "1일 뒤");
+  });
+
+  test("parent route guidance uses the child's location instead of parent device GPS", async ({ page }) => {
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      deviceLocation: { latitude: 35.1796, longitude: 129.0756, accuracy: 10 },
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    const routeButton = page.getByRole("button", { name: "영어 학원 경로 보기" }).first();
+    await routeButton.scrollIntoViewIfNeeded();
+    await routeButton.click();
+
+    await expect(page.getByText("ROUTE")).toBeVisible();
+    await expect(page.getByRole("button", { name: "🐰 아이 위치" })).toBeVisible();
+
+    const geoCalls = await page.evaluate(() => window.__hyeniGeoCalls || {});
+    expect(geoCalls).toMatchObject({ getCurrentPosition: 0, watchPosition: 0 });
+  });
+
+  test("parent calendar shows the selected child's day movement summary", async ({ page }) => {
+    const selectedDay = currentDateParts();
+    const at = (hour, minute) => new Date(selectedDay.year, selectedDay.month, selectedDay.day, hour, minute).toISOString();
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      extraChild: true,
+      locationHistoryRows: [
+        { user_id: CHILD_ID, lat: 37.5665, lng: 126.9780, recorded_at: at(8, 10) },
+        { user_id: CHILD_ID, lat: 37.5670, lng: 126.9790, recorded_at: at(8, 35) },
+        { user_id: CHILD_ID, lat: 37.5700, lng: 126.9820, recorded_at: at(9, 5) },
+        { user_id: SECOND_CHILD_ID, lat: 37.5900, lng: 126.9900, recorded_at: at(10, 0) },
+      ],
+    });
+    await page.goto("/");
+
+    await page.getByRole("button", { name: /^혜니 오늘 일정/ }).evaluate((button) => button.click());
+    const summary = page.getByRole("region", { name: "선택한 날짜 이동경로 요약" });
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText("혜니");
+    await expect(summary).not.toContainText("이동 기록");
+    await expect(summary).toContainText("영어 학원 : 25분 머무름");
+    const placeListIsUnderMap = await summary.evaluate((element) => {
+      const map = element.querySelector('[aria-label="선택한 날짜 이동경로 지도"]');
+      const list = element.querySelector(".hyeni-v5-movement-summary__visits");
+      if (!map || !list) return false;
+      return !!(map.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    expect(placeListIsUnderMap).toBe(true);
+
+    await page.getByRole("group", { name: "자녀 빠른 전환" }).getByRole("button", { name: "민이", exact: true }).evaluate((button) => button.click());
+    await expect(summary).toContainText("민이");
+    await expect(summary).toContainText("등록된 장소 근처 이동내역이 없어요.");
+  });
+
+  test("parent remote listen distinguishes child device failure reasons", async ({ page }) => {
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      childDeviceHealth: {
+        recordAudio: false,
+        postNotif: false,
+        channelOk: false,
+        fullScreen: false,
+        battery: false,
+        powerSaveMode: true,
+        backgroundRestricted: true,
+        locationOk: true,
+        dndMode: "priority",
+        dndAccess: false,
+        ringerMode: "silent",
+        networkConnected: false,
+        screenInteractive: false,
+        keyguardLocked: true,
+        foldState: "possibly_folded",
+        lastReportedAt: new Date().toISOString(),
+      },
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    await page.getByRole("button", { name: "🎙️ 주변소리" }).click();
+    const dialog = page.getByText("주변 소리 듣기").locator("..").locator("..");
+
+    await expect(dialog).toContainText("마이크 권한 필요");
+    await expect(dialog).toContainText("알림 권한 꺼짐");
+    await expect(dialog).toContainText("방해 금지 모드 영향");
+    await expect(dialog).toContainText("무음 모드");
+    await expect(dialog).toContainText("화면 꺼짐/잠금");
+    await expect(dialog).toContainText("네트워크 끊김");
+    await expect(dialog).toContainText("배터리 최적화 제한");
+    await expect(dialog).toContainText("절전 모드 켜짐");
+    await expect(dialog).toContainText("백그라운드 제한");
+    await expect(dialog).toContainText("폴더블 접힘 상태 확인");
+  });
+
+  test("family pairing management treats advisory remote-listen states as connectable", async ({ page }) => {
+    await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      childDeviceHealth: {
+        recordAudio: true,
+        postNotif: true,
+        channelOk: true,
+        fullScreen: false,
+        battery: false,
+        powerSaveMode: true,
+        backgroundRestricted: true,
+        locationOk: true,
+        dndMode: "priority",
+        dndAccess: false,
+        ringerMode: "vibrate",
+        networkConnected: true,
+        networkValidated: true,
+        screenInteractive: false,
+        keyguardLocked: true,
+        foldState: "possibly_folded",
+        lastReportedAt: new Date().toISOString(),
+      },
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
+    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+    await page.getByRole("button", { name: "🔗 연동 (1명)" }).click();
+
+    await expect(page.getByText("원격 청취 연결 가능")).toBeVisible();
+    await expect(page.getByText(/확인:/)).toBeVisible();
+    await expect(page.getByText("배터리 최적화 제한")).toBeVisible();
+    await expect(page.getByText("원격 청취 준비 부족")).toHaveCount(0);
+    await expect(page.getByText("원격 청취 설정 필요")).toHaveCount(0);
   });
 
   test("parent dashboard uses redesign v1 calendar and timeline details", async ({ page }) => {
@@ -813,7 +1472,7 @@ test.describe("critical Hyeni flows", () => {
     expect(details.eventStripeColor).toBe("rgb(167, 139, 250)");
     expect(details.eventDotWidth).toBe("8px");
     expect(details.eventDotColor).toBe("rgb(167, 139, 250)");
-    expect(details.calendarDotColor).toBe("rgba(255, 255, 255, 0.9)");
+    expect(details.calendarDotColor).toBe("rgb(247, 121, 168)");
   });
 
   test("parent home matches redesign v1 family hero and today summary cards", async ({ page }) => {
@@ -937,6 +1596,41 @@ test.describe("critical Hyeni flows", () => {
     await expect(page.getByRole("region", { name: "오늘의 가족" })).toBeVisible();
   });
 
+  test("child memo keeps short Korean replies horizontal", async ({ page }) => {
+    await installCriticalMocks(page, {
+      role: "child",
+      initiallyPaired: true,
+      insideArrivalZone: true,
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: /부모님 메모/ })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: /부모님 메모/ }).click();
+    await expect(page.getByRole("main", { name: "오늘의 메모 페이지" })).toBeVisible();
+
+    await page.getByLabel("메모 입력").fill("하이");
+    await page.getByRole("button", { name: "메시지 보내기" }).click();
+
+    const bubble = page.locator(".memo-bubble").filter({ hasText: "하이" }).last();
+    await expect(bubble).toBeVisible();
+    const bubbleMetrics = await bubble.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return {
+        wordBreak: style.getPropertyValue("word-break"),
+        whiteSpace: style.getPropertyValue("white-space"),
+        overflowWrap: style.getPropertyValue("overflow-wrap"),
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+
+    expect(bubbleMetrics.wordBreak).toBe("keep-all");
+    expect(bubbleMetrics.whiteSpace).toBe("pre-wrap");
+    expect(bubbleMetrics.overflowWrap).toBe("break-word");
+    expect(bubbleMetrics.width).toBeGreaterThan(bubbleMetrics.height);
+  });
+
   test("child mode requires pairing before showing schedule and can send kkuk", async ({ page }) => {
     const state = await installCriticalMocks(page, {
       role: "child",
@@ -950,11 +1644,9 @@ test.describe("critical Hyeni flows", () => {
     await page.getByRole("button", { name: "🔗 연결하기" }).click();
 
     await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("아이 모드")).toBeVisible();
+    await expect(page.getByRole("img", { name: "🐰 캐릭터" })).toBeVisible();
     await expect(page.getByText("영어 학원").first()).toBeVisible();
-    await expect(page.getByText("지금 나는 어디에 있나요?").first()).toBeVisible();
     await expect(page.getByText("서울특별시 중구 세종대로 110").first()).toBeVisible();
-    await expect(page.getByText("도로명 기준").first()).toBeVisible();
     await expect(page.getByText(/GPS 정확도/)).toHaveCount(0);
 
     await page.getByRole("button", { name: "💗 꾹" }).click();
@@ -963,15 +1655,48 @@ test.describe("critical Hyeni flows", () => {
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "kkuk")).toBeTruthy();
   });
 
-  // TODO: route guidance has two useEffects that both call requestWalking
-  // Route (lines 3245 + 3258 in App.jsx). When Kakao fails, the catch
-  // handler sets loading=false but the next useEffect re-run flips it
-  // back to loading=true within the same tick, so "🔍 경로 검색 중..."
-  // never stays hidden long enough for this 8s assertion. The OSRM
-  // fallback removal already landed; the remaining work is debouncing
-  // the parallel requestWalkingRoute invocations.
-  test.fixme("child route view uses in-app guidance instead of OSRM road-like routes", async ({ page }) => {
+  test("child QR pairing opens camera, scans the pair code, and joins family", async ({ page }) => {
     const state = await installCriticalMocks(page, {
+      role: "child",
+      initiallyPaired: false,
+      insideArrivalZone: true,
+      qrRawValue: `https://hyenicalendar.com/join?pairCode=${PAIR_CODE}`,
+    });
+    await page.goto("/");
+
+    await expect(page.getByText("부모님과 연결하기")).toBeVisible();
+    await page.getByRole("button", { name: /QR로 연결하기/ }).click();
+
+    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
+
+    expect(state.rpcCalls.some((call) => call.name === "join_family")).toBeTruthy();
+    expect(await page.evaluate(() => window.__hyeniCameraCalls?.getUserMedia || 0)).toBeGreaterThan(0);
+  });
+
+  test("child mode lets the child change their animal character", async ({ page }) => {
+    const state = await installCriticalMocks(page, {
+      role: "child",
+      initiallyPaired: true,
+      insideArrivalZone: true,
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("img", { name: "🐰 캐릭터" })).toBeVisible();
+
+    await page.getByRole("button", { name: "설정" }).click();
+    await expect(page.getByRole("radiogroup", { name: "동물 캐릭터 선택" })).toBeVisible();
+
+    await page.getByRole("radio", { name: /고양이 캐릭터/ }).click();
+    await expect(page.getByRole("radio", { name: /고양이 캐릭터 \(선택됨\)/ })).toHaveAttribute("aria-checked", "true");
+
+    await page.getByRole("button", { name: "뒤로" }).click();
+    await expect(page.getByRole("img", { name: "🐱 캐릭터" })).toBeVisible();
+    expect(state.memberUpdates).toContainEqual(expect.objectContaining({ emoji: "🐱" }));
+  });
+
+  test("child route view does not fall back to a straight line when walking route fails", async ({ page }) => {
+    await installCriticalMocks(page, {
       role: "child",
       initiallyPaired: true,
       insideArrivalZone: false,
@@ -980,12 +1705,13 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: /길찾기/ }).click();
+    await page.getByRole("button", { name: "🧭 길찾기" }).click();
 
     await expect(page.getByRole("button", { name: "길안내 시작" })).toBeVisible();
     await expect(page.getByText("경로 검색 중")).toBeHidden({ timeout: 8_000 });
-    await expect(page.getByText(/예상 직선거리 · 도보 약/)).toBeVisible();
-    expect(state.routeRequests).toHaveLength(0);
+    await expect(page.getByText("도보 경로를 불러오지 못했어요")).toBeVisible();
+    await expect(page.getByText(/예상 직선거리/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "길안내 시작" })).toBeDisabled();
   });
 
   test("child route guidance stays inside the app", async ({ page }) => {
@@ -1005,7 +1731,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: /길찾기/ }).click();
+    await page.getByRole("button", { name: "🧭 길찾기" }).click();
 
     const beforeUrl = page.url();
     await page.getByRole("button", { name: "길안내 시작" }).click();

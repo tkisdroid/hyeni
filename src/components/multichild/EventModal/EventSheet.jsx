@@ -19,6 +19,8 @@ export function EventSheet({
 }) {
     const sheetRef = useRef(null);
     const dragStartY = useRef(null);
+    const dragOffsetYRef = useRef(0);
+    const dragCleanupRef = useRef(null);
     const [dragOffsetY, setDragOffsetY] = useState(0);
     const [isClosing, setIsClosing] = useState(false);
 
@@ -29,6 +31,10 @@ export function EventSheet({
         document.body.style.overflow = "hidden";
         return () => {
             document.body.style.overflow = previous;
+            if (typeof dragCleanupRef.current === "function") {
+                dragCleanupRef.current();
+                dragCleanupRef.current = null;
+            }
         };
     }, [open]);
 
@@ -44,6 +50,7 @@ export function EventSheet({
         setIsClosing(true);
         window.setTimeout(() => {
             setIsClosing(false);
+            dragOffsetYRef.current = 0;
             setDragOffsetY(0);
             if (typeof onClose === "function") onClose();
         }, 240);
@@ -53,23 +60,130 @@ export function EventSheet({
         if (event.target === event.currentTarget) requestClose();
     };
 
-    const handleHandlePointerDown = (event) => {
-        dragStartY.current = event.clientY;
+    const setSheetDragOffset = (offset) => {
+        dragOffsetYRef.current = offset;
+        setDragOffsetY(offset);
     };
-    const handleHandlePointerMove = (event) => {
-        if (dragStartY.current == null) return;
-        const dy = event.clientY - dragStartY.current;
-        if (dy > 0) setDragOffsetY(dy);
-    };
-    const handleHandlePointerUp = () => {
-        if (dragStartY.current == null) return;
-        if (dragOffsetY > 120) {
+
+    const finishDrag = (finalOffset) => {
+        if (typeof dragCleanupRef.current === "function") {
+            dragCleanupRef.current();
+            dragCleanupRef.current = null;
+        }
+        dragStartY.current = null;
+        dragOffsetYRef.current = 0;
+        if (finalOffset > 120) {
             requestClose();
         } else {
             setDragOffsetY(0);
         }
-        dragStartY.current = null;
     };
+
+    const canStartSheetDrag = (event) => {
+        if (event.target?.closest?.(".event-sheet-header button")) return false;
+        const dragZone = event.target?.closest?.(".event-sheet-header, .event-sheet-handle");
+        if (dragZone) return true;
+        const rect = sheetRef.current?.getBoundingClientRect?.();
+        return !!rect && event.clientY >= rect.top && event.clientY <= rect.top + 92;
+    };
+
+    const handleDragPointerDown = (event) => {
+        if (event.button != null && event.button !== 0) return;
+        if (!canStartSheetDrag(event)) return;
+        if (dragStartY.current != null) return;
+        event.preventDefault();
+        dragStartY.current = event.clientY;
+        dragOffsetYRef.current = 0;
+        if (typeof dragCleanupRef.current === "function") {
+            dragCleanupRef.current();
+            dragCleanupRef.current = null;
+        }
+        const pointerId = event.pointerId;
+        const handleMove = (pointerEvent) => {
+            if (pointerEvent.pointerId !== pointerId || dragStartY.current == null) return;
+            const dy = pointerEvent.clientY - dragStartY.current;
+            if (dy > 4) pointerEvent.preventDefault();
+            setSheetDragOffset(Math.max(0, dy));
+        };
+        const handleEnd = (pointerEvent) => {
+            if (pointerEvent.pointerId !== pointerId || dragStartY.current == null) return;
+            const dy = Math.max(0, pointerEvent.clientY - dragStartY.current);
+            finishDrag(Math.max(dy, dragOffsetYRef.current));
+        };
+        const handleMouseMove = (mouseEvent) => {
+            if (dragStartY.current == null) return;
+            const dy = mouseEvent.clientY - dragStartY.current;
+            if (dy > 4) mouseEvent.preventDefault();
+            setSheetDragOffset(Math.max(0, dy));
+        };
+        const handleMouseEnd = (mouseEvent) => {
+            if (dragStartY.current == null) return;
+            const dy = Math.max(0, mouseEvent.clientY - dragStartY.current);
+            finishDrag(Math.max(dy, dragOffsetYRef.current));
+        };
+        window.addEventListener("pointermove", handleMove, { passive: false });
+        window.addEventListener("pointerup", handleEnd);
+        window.addEventListener("pointercancel", handleEnd);
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseEnd);
+        dragCleanupRef.current = () => {
+            window.removeEventListener("pointermove", handleMove);
+            window.removeEventListener("pointerup", handleEnd);
+            window.removeEventListener("pointercancel", handleEnd);
+            window.removeEventListener("mousemove", handleMouseMove);
+            window.removeEventListener("mouseup", handleMouseEnd);
+        };
+    };
+
+    const handleDragMouseDown = (event) => {
+        if (event.button !== 0) return;
+        if (!canStartSheetDrag(event)) return;
+        if (dragStartY.current != null) return;
+        event.preventDefault();
+        dragStartY.current = event.clientY;
+        dragOffsetYRef.current = 0;
+        if (typeof dragCleanupRef.current === "function") {
+            dragCleanupRef.current();
+            dragCleanupRef.current = null;
+        }
+        const handleMove = (mouseEvent) => {
+            if (dragStartY.current == null) return;
+            const dy = mouseEvent.clientY - dragStartY.current;
+            if (dy > 4) mouseEvent.preventDefault();
+            setSheetDragOffset(Math.max(0, dy));
+        };
+        const handleEnd = (mouseEvent) => {
+            if (dragStartY.current == null) return;
+            const dy = Math.max(0, mouseEvent.clientY - dragStartY.current);
+            finishDrag(Math.max(dy, dragOffsetYRef.current));
+        };
+        window.addEventListener("mousemove", handleMove);
+        window.addEventListener("mouseup", handleEnd);
+        dragCleanupRef.current = () => {
+            window.removeEventListener("mousemove", handleMove);
+            window.removeEventListener("mouseup", handleEnd);
+        };
+    };
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const handleWindowPointerDown = (event) => {
+            if (dragStartY.current != null) return;
+            if (!canStartSheetDrag(event)) return;
+            handleDragPointerDown(event);
+        };
+        const handleWindowMouseDown = (event) => {
+            if (dragStartY.current != null) return;
+            if (!canStartSheetDrag(event)) return;
+            handleDragMouseDown(event);
+        };
+        window.addEventListener("pointerdown", handleWindowPointerDown, true);
+        window.addEventListener("mousedown", handleWindowMouseDown, true);
+        return () => {
+            window.removeEventListener("pointerdown", handleWindowPointerDown, true);
+            window.removeEventListener("mousedown", handleWindowMouseDown, true);
+        };
+    }, [open]);
 
     if (!open) return null;
 
@@ -86,6 +200,8 @@ export function EventSheet({
                 role="dialog"
                 aria-modal="true"
                 aria-label={title}
+                onPointerDownCapture={handleDragPointerDown}
+                onMouseDownCapture={handleDragMouseDown}
                 style={{
                     transform: `translateY(${dragOffsetY}px)`,
                     transition: dragStartY.current == null
@@ -97,14 +213,16 @@ export function EventSheet({
                 <button
                     type="button"
                     className="event-sheet-handle"
-                    onPointerDown={handleHandlePointerDown}
-                    onPointerMove={handleHandlePointerMove}
-                    onPointerUp={handleHandlePointerUp}
-                    onPointerCancel={handleHandlePointerUp}
+                    onPointerDown={handleDragPointerDown}
+                    onMouseDown={handleDragMouseDown}
                     aria-label="아래로 끌어 닫기"
                     style={{ border: "none", padding: 0, cursor: "grab" }}
                 />
-                <div className="event-sheet-header">
+                <div
+                    className="event-sheet-header"
+                    onPointerDown={handleDragPointerDown}
+                    onMouseDown={handleDragMouseDown}
+                >
                     <button type="button" className="sheet-cancel" onClick={requestClose}>취소</button>
                     <span className="sheet-title">{title}</span>
                     <button

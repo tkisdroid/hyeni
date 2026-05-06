@@ -22,6 +22,11 @@ import { DESIGN, FF } from "../../lib/styleHelpers.js";
 import { KAKAO_APP_KEY } from "../../lib/kakaoMap.js";
 import { CHILD_MARKER_COLORS } from "../../lib/markerColors.js";
 import { escHtml } from "../../lib/htmlEscape.js";
+import {
+    HYENI_DEFAULT_CHILD_IMAGE_CROP,
+    HYENI_DEFAULT_CHILD_IMAGE_STYLE_HTML,
+    HYENI_DEFAULT_CHILD_IMAGE_URL,
+} from "../../lib/childDefaultImage.js";
 import { FallbackMapCanvas } from "../map/FallbackMapCanvas.jsx";
 import { MapZoomControls } from "../map/MapZoomControls.jsx";
 import { ChildAvatar } from "../multichild/HomeDashboard/ChildAvatar.jsx";
@@ -29,6 +34,16 @@ import { ChildAvatar } from "../multichild/HomeDashboard/ChildAvatar.jsx";
 const CHILD_TRACKER_ZOOM_LEVEL = 2;
 const CHILD_TRACKER_WALK_RADIUS_M = 30;
 const CHILD_TRACKER_DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
+
+function childMarkerImageHtml(child) {
+    const photoUrl = typeof child?.photo_url === "string" && child.photo_url.trim() ? child.photo_url : "";
+    const src = photoUrl || HYENI_DEFAULT_CHILD_IMAGE_URL;
+    const style = photoUrl
+        ? "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"
+        : HYENI_DEFAULT_CHILD_IMAGE_STYLE_HTML;
+    const cropAttrs = photoUrl ? "" : ` data-hyeni-default-child-image data-hyeni-default-child-image-crop="${HYENI_DEFAULT_CHILD_IMAGE_CROP}"`;
+    return `<img src="${escHtml(src)}" alt="" aria-hidden="true"${cropAttrs} style="${style}" />`;
+}
 
 export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedChildren = [], events, academies = [], childLocationLabels = {}, selectedChildUserId = null, mapReady, arrivedSet, onClose, locationTrail = [], locationHint = "", refreshRequestedAt = null, onRefreshLocation }) {
     const mapRef = useRef();
@@ -285,10 +300,11 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
             const isActive = child.trackerKey === selectedChild?.trackerKey;
             const ll = new window.kakao.maps.LatLng(child.lat, child.lng);
             const updatedLabel = child.updatedAt ? (() => { const d = new Date(child.updatedAt); return `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`; })() : "";
+            const markerSize = isActive ? 34 : 28;
             const overlay = new window.kakao.maps.CustomOverlay({
                 position: ll,
                 content: `<div style="display:flex;flex-direction:column;align-items:center">
-                    <div style="width:${isActive ? 34 : 28}px;height:${isActive ? 34 : 28}px;background:${color};border:${isActive ? 5 : 4}px solid white;border-radius:50%;box-shadow:0 0 0 ${isActive ? 12 : 8}px ${color}33,0 3px 12px ${color}66;display:flex;align-items:center;justify-content:center;font-size:${isActive ? 16 : 14}px">${escHtml(child.emoji)}</div>
+                    <div style="width:${markerSize}px;height:${markerSize}px;background:#fff;border:${isActive ? 5 : 4}px solid white;border-radius:50%;box-shadow:0 0 0 ${isActive ? 12 : 8}px ${color}33,0 3px 12px ${color}66;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">${childMarkerImageHtml(child)}</div>
                     <div style="margin-top:4px;background:${color};color:white;padding:${isActive ? "5px 14px" : "4px 12px"};border-radius:10px;font-size:11px;font-weight:800;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap">${escHtml(child.name)}${updatedLabel ? ` · ${updatedLabel}` : ""}</div>
                 </div>`,
                 yAnchor: 1.8, xAnchor: 0.5, zIndex: isActive ? 20 : 10
@@ -348,11 +364,10 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
 
         const selectedHourSegment = trailHourSegments.find(segment => segment.key === selectedTrailSegmentKey) || null;
 
-        // 실제 이동경로: 200m 이상 누적 이동한 chunk 만 직선 polyline 으로 단순화.
-        // chunk 내부의 작은 흔들림은 시작 → 끝 직선으로 합쳐 noise 를 제거.
-        // movementSegments 가 비어있으면 (총 이동 < 200m) trail 자체가 "거의 안 움직임"
-        // 이라는 뜻이라 polyline 을 그리지 않는다.
-        const segmentsToDraw = trailMovementSegments.length > 0 ? trailMovementSegments : trailGradientSegments;
+        // 실제 이동경로: 저장된 상세 route point를 그대로 이어 그린다.
+        // 이전 구현은 200m chunk를 시작→끝 직선으로 단순화해 도보 동선이
+        // 대각선처럼 보였으므로, 상세 기록이 있을 때는 gradient segment를 우선한다.
+        const segmentsToDraw = trailGradientSegments.length > 0 ? trailGradientSegments : trailMovementSegments;
         segmentsToDraw.forEach((segment) => {
             if (segment.points.length >= 2) {
                 const path = segment.points.map(pt => new window.kakao.maps.LatLng(pt.lat, pt.lng));
@@ -644,7 +659,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                                                         {place.addressLabel && (
                                                             <span style={{ display: "block", fontSize: 10, color: "#78350F", fontWeight: 800, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.addressLabel}</span>
                                                         )}
-                                                        <span style={{ display: "block", fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, marginTop: 1 }}>{formatTrailDuration(place.durationMs)} · {place.timeLabel || place.label}</span>
+                                                        <span style={{ display: "block", fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, marginTop: 1 }}>{place.timeLabel || `${formatTrailDuration(place.durationMs)} 머무름`}</span>
                                                     </span>
                                                 </button>
                                             ))}
@@ -683,4 +698,3 @@ function ChildPositionLabel({ lat, lng, fallback = "" }) {
     const label = useReverseGeocodedLabel(lat, lng, fallback);
     return <>{label}</>;
 }
-
