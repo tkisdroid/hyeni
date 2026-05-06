@@ -235,6 +235,11 @@ export function buildTrailHourSegments(points) {
     return segments;
 }
 
+// Phase C: gap > 150m AND time > 90s 인 segment 는 추정 (Kakao 실패/anon 폴백 등) 가능성
+// 이 높으므로 dashed 플래그를 달아 frontend 가 점선 표시하도록.
+export const LOCATION_TRAIL_DASHED_GAP_M = 150;
+export const LOCATION_TRAIL_DASHED_TIME_MS = 90_000;
+
 export function buildTrailGradientSegments(points) {
     if (!Array.isArray(points) || points.length < 2) return [];
     const { firstMs, lastMs } = getTrailTimeBounds(points);
@@ -242,10 +247,16 @@ export function buildTrailGradientSegments(points) {
     for (let index = 1; index < points.length; index += 1) {
         const prev = points[index - 1];
         const point = points[index];
+        const gapM = haversineM(prev.lat, prev.lng, point.lat, point.lng);
+        const gapMs = (Number.isFinite(prev?.recordedMs) && Number.isFinite(point?.recordedMs))
+            ? (point.recordedMs - prev.recordedMs)
+            : 0;
+        const dashed = gapM > LOCATION_TRAIL_DASHED_GAP_M && gapMs > LOCATION_TRAIL_DASHED_TIME_MS;
         segments.push({
             key: `trail-gradient-${index}-${point?.recordedMs || index}`,
             color: interpolateTrailColor(getTrailProgress(point, index, points.length, firstMs, lastMs)),
             points: [prev, point],
+            dashed,
         });
     }
     return segments;

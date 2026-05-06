@@ -88,8 +88,9 @@ export function DailyTrailMap({ trail = [], child = null, height = 220 }) {
                 path,
                 strokeWeight: 5,
                 strokeColor: segment.color,
-                strokeOpacity: 0.86,
-                strokeStyle: "solid",
+                // Phase C: dashed segment 는 추정 경로 (Kakao API 실패/긴 gap) — 점선으로 표시.
+                strokeOpacity: segment.dashed ? 0.55 : 0.86,
+                strokeStyle: segment.dashed ? "shortdash" : "solid",
             });
             polysRef.current.push(polyline);
         });

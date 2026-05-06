@@ -76,15 +76,19 @@ public class LocationService extends Service {
 
     // Location tracking constants
     private static final long LOCATION_INTERVAL_MOVING_MS = 5_000;
-    private static final long LOCATION_INTERVAL_STATIONARY_MS = 60_000;
-    private static final long LOCATION_MIN_INTERVAL_STATIONARY_MS = 30_000;
+    // Phase C: stationary 모드도 30s 로 더 짧게. 정지 → 이동 전환 직후 GPS 점프 거리를 줄임.
+    private static final long LOCATION_INTERVAL_STATIONARY_MS = 30_000;
+    private static final long LOCATION_MIN_INTERVAL_STATIONARY_MS = 15_000;
     private static final float STATIONARY_THRESHOLD_M = 15f;  // 15m 이내 이동 = 정지로 간주
-    private static final long STATIONARY_WINDOW_MS = 60_000; // 60초 동안 정지 시 저전력 모드
+    // Phase C: 1분 → 3분. 짧은 정지(예: 횡단보도 대기)가 BALANCED_POWER 모드 진입 안 시키도록.
+    private static final long STATIONARY_WINDOW_MS = 180_000;
     private static final float MIN_UPLOAD_DISTANCE_M = 2f;
     private static final float MIN_UPDATE_DISTANCE_M = 0f;
-    private static final float MAX_ACCURACY_M = 100f;
+    // Phase C: 100m → 50m. 실내/지하 노이즈 fix 가 history 에 들어가는 빈도 감소.
+    private static final float MAX_ACCURACY_M = 50f;
     private static final long MAX_UPLOAD_AGE_MS = 15_000L;
-    private static final float MIN_HISTORY_DISTANCE_M = 15f;
+    // Phase C: 15m → 8m. 도보 속도 기준 약 5초마다 history 한 점, 실선 polyline 밀도 향상.
+    private static final float MIN_HISTORY_DISTANCE_M = 8f;
     private static final long MAX_HISTORY_AGE_MS = 5 * 60_000L;
     private static final int LOW_BATTERY_THRESHOLD_PERCENT = 5;
     private static final long LOW_BATTERY_CHECK_INTERVAL_MS = 60_000L;
@@ -687,8 +691,10 @@ public class LocationService extends Service {
                     lastUploadedLat = lat;
                     lastUploadedLng = lng;
                     lastUploadedAtMs = capturedAtMs;
+                    // Phase C: anon-key 폴백 경로에서도 history 저장. SECURITY DEFINER RPC
+                    // record_location_history_rows 가 RLS 우회. 이전엔 anon 일 때 skip 하던
+                    // 가드 제거 — access token 만료 시간대의 모든 이동경로가 누락되던 버그 회복.
                     if (!isBlank(successfulBearer)
-                        && !successfulBearer.equals(supabaseKey)
                         && shouldRecordLocationHistory(lat, lng, capturedAtMs)
                         && uploadLocationHistory(lat, lng, capturedAtMs, successfulBearer)) {
                         lastHistoryLat = lat;
@@ -745,6 +751,13 @@ public class LocationService extends Service {
                 }
             }
             points = filtered;
+        } else if (hasPrevious) {
+            // Phase C: Kakao API 실패/빈응답 시 두 점 사이 선형 보간점 생성.
+            // 이전엔 endpoint 만 저장 → polyline 이 도로/건물 가로지르는 직선.
+            // 보간점은 추정선 (실제 도보 경로 아님) 이지만, frontend 가 dashed 로
+            // 표시해 추적 vs 추정 구분 가능 (gap > 150m && time > 90s 조건).
+            points.clear();
+            points.addAll(interpolateLinearPath(lastHistoryLat, lastHistoryLng, lat, lng, 12f));
         } else {
             points.clear();
         }
@@ -770,23 +783,27 @@ public class LocationService extends Service {
     private boolean uploadLocationHistoryRows(JSONArray rows, String bearerToken) {
         if (rows == null || rows.length() == 0) return false;
         try {
+            // Phase C: 직접 INSERT 대신 SECURITY DEFINER RPC 사용. 이유 — anon-key 폴백
+            // 경로에서 location_history 의 RLS (user_id = auth.uid()) 가 거부하던 문제.
+            // RPC 가 family_members 멤버십으로 authz 후 우회 insert.
+            JSONObject body = new JSONObject();
+            body.put("p_rows", rows);
 
             Response response = httpClient.newCall(new Request.Builder()
-                .url(supabaseUrl.replaceAll("/+$", "") + "/rest/v1/location_history")
+                .url(supabaseUrl.replaceAll("/+$", "") + "/rest/v1/rpc/record_location_history_rows")
                 .header("apikey", supabaseKey)
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + bearerToken)
-                .header("Prefer", "return=minimal")
-                .post(RequestBody.create(rows.toString(), MediaType.get("application/json")))
+                .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
                 .build()).execute();
             boolean success = response.isSuccessful();
             if (!success) {
-                Log.w(TAG, "Location history insert failed: " + response.code());
+                Log.w(TAG, "Location history RPC failed: " + response.code());
             }
             response.close();
             return success;
         } catch (Exception e) {
-            Log.w(TAG, "Location history insert error", e);
+            Log.w(TAG, "Location history RPC error", e);
             return false;
         }
     }
@@ -798,6 +815,29 @@ public class LocationService extends Service {
         double ratio = (double) (index + 1) / (double) total;
         long value = startMs + Math.round((endMs - startMs) * ratio);
         return formatIsoUtc(value);
+    }
+
+    // Phase C: Kakao 도보 API 실패/빈 응답 시의 폴백 보간 점 생성기.
+    // start - end 사이를 minSpacingM 간격으로 균등 분할. 결과는 endpoint 포함.
+    // 너무 짧은 거리는 그냥 [start, end] 만 반환.
+    private List<RoutePoint> interpolateLinearPath(double startLat, double startLng,
+                                                    double endLat, double endLng,
+                                                    float minSpacingM) {
+        List<RoutePoint> result = new ArrayList<>();
+        float total = distanceBetween(startLat, startLng, endLat, endLng);
+        if (total < minSpacingM * 1.5f) {
+            result.add(new RoutePoint(startLat, startLng));
+            result.add(new RoutePoint(endLat, endLng));
+            return result;
+        }
+        int steps = Math.max(2, Math.min(40, (int) Math.ceil(total / minSpacingM)));
+        for (int i = 0; i <= steps; i++) {
+            double t = (double) i / steps;
+            double lat = startLat + (endLat - startLat) * t;
+            double lng = startLng + (endLng - startLng) * t;
+            result.add(new RoutePoint(lat, lng));
+        }
+        return result;
     }
 
     private List<RoutePoint> fetchWalkingRoutePoints(double startLat, double startLng, double endLat, double endLng) {
