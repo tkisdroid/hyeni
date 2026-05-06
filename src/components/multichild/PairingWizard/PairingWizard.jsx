@@ -306,7 +306,7 @@ function Step5PairCode({ family, deviceType, onNext }) {
             </p>
             <div style={{
                 background: "var(--theme-accent-soft)",
-                border: "2px solid var(--theme-accent)",
+                border: "2px solid var(--theme-accent-deep)",
                 borderRadius: "var(--radius-card)",
                 padding: "var(--space-6)",
                 textAlign: "center",

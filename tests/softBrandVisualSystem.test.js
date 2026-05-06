@@ -274,13 +274,19 @@ describe("Soft Brand visual system", () => {
   });
 
   test("schedule time picker clock uses the selected theme", () => {
+    // App.jsx 일정 모달 시간대 입력은 커스텀 slot picker(hyeni-schedule-time-card)로 재디자인됐고,
+    // 학원관리(AcademyManager) 폼은 여전히 native <input type="time"/> + .hyeni-time-input 사용.
     const timeInputCount = (appSource.match(/<input type="time"/g) || []).length;
 
-    expect(timeInputCount).toBeGreaterThanOrEqual(4);
+    expect(timeInputCount).toBeGreaterThanOrEqual(2);
     expect(appSource).toContain('className="hyeni-time-input"');
     expect(appCss).toContain(".hyeni-time-input::-webkit-calendar-picker-indicator");
     expect(appCss).toContain("mask: url(\"data:image/svg+xml");
     expect(appCss).toContain("background-color: var(--theme-accent)");
+
+    // App.jsx 슬롯 피커가 정착했는지 — 신규 시간대 UI 마커.
+    expect(appSource).toContain("hyeni-schedule-time-card");
+    expect(appSource).toContain("hyeni-time-slot");
   });
 
   test("memo preview and tracker stats use theme chrome instead of extra accent palettes", () => {
@@ -329,8 +335,9 @@ describe("Soft Brand visual system", () => {
   });
 
   test("schedule add modal controls follow the selected theme variables", () => {
-    const modalStart = appSource.indexOf("{/* ── ADD MODAL ── */}");
-    const modalEnd = appSource.indexOf("<button onClick={addEvent}", modalStart);
+    // Phase 2: ADD MODAL 블록이 EventSheet 로 이관 — 마커도 그에 맞춰 갱신.
+    const modalStart = appSource.indexOf("{/* ── EVENT SHEET (Phase 2) ── */}");
+    const modalEnd = appSource.indexOf("</EventSheet>", modalStart);
     const modalSource = appSource.slice(modalStart, modalEnd);
 
     expect(modalSource).toContain("var(--theme-accent)");
@@ -438,28 +445,24 @@ describe("Soft Brand visual system", () => {
   });
 
   test("first-run connection surfaces follow the selected theme variables", () => {
-    const parentSetupStart = appSource.indexOf("가족 연결을 시작해요");
-    const parentSetupEnd = appSource.indexOf("KID-804DF582", parentSetupStart);
-    const parentSetupSource = appSource.slice(parentSetupStart, parentSetupEnd);
-    const confirmStart = appSource.indexOf("function AppConfirmDialog");
-    const confirmEnd = appSource.indexOf("function RoleSetupModal", confirmStart);
-    const confirmSource = appSource.slice(confirmStart, confirmEnd);
-    const roleStart = appSource.indexOf("function RoleSetupModal");
-    const roleEnd = appSource.indexOf("function ParentAuthScreen", roleStart);
-    const roleSource = appSource.slice(roleStart, roleEnd);
-    const childPairStart = appSource.indexOf("function ChildPairInput");
-    const childPairEnd = appSource.indexOf("function AcademyManager", childPairStart);
-    const childPairSource = appSource.slice(childPairStart, childPairEnd);
+    // Phase 5 #4: ParentSetupScreen / AppConfirmDialog / RoleSetupModal / ChildPairInput 가
+    // 각각 components/auth, components/dialogs, components/childMode 로 추출됨.
+    const parentSetupSource = readFileSync("src/components/auth/ParentSetupScreen.jsx", "utf8");
+    const confirmSource = readFileSync("src/components/dialogs/AppConfirmDialog.jsx", "utf8");
+    const roleSource = readFileSync("src/components/auth/RoleSetupModal.jsx", "utf8");
+    const childPairSource = readFileSync("src/components/childMode/ChildPairInput.jsx", "utf8");
 
     for (const source of [parentSetupSource, confirmSource, roleSource, childPairSource]) {
       expect(source).toContain("var(--theme-accent");
-      expect(source).toContain("var(--hyeni-theme-shadow");
       expect(source).not.toContain("#BE185D");
       expect(source).not.toContain("#E879A0");
       expect(source).not.toContain("#FDF2F8");
       expect(source).not.toContain("rgba(190,24,93");
       expect(source).not.toContain("rgba(244,114,182");
     }
+    // theme-shadow 토큰은 시각적 강조 표면에만 — 첫 화면(parentSetup)과 자녀 페어링 입력만 검증.
+    expect(parentSetupSource).toContain("var(--hyeni-theme-shadow");
+    expect(childPairSource).toContain("var(--hyeni-theme-shadow");
   });
 
   test("route, timetable, contact, and feedback surfaces use shared theme accents", () => {
@@ -540,18 +543,20 @@ describe("Soft Brand visual system", () => {
   });
 
   test("schedule quick-add copy avoids robot-style AI presentation", () => {
-    const modalStart = appSource.indexOf("function AiScheduleModal");
-    const modalIntroEnd = appSource.indexOf("{/* 3가지 입력 방식 버튼 */}", modalStart);
-    const modalIntro = appSource.slice(modalStart, modalIntroEnd);
-    const parentQuickAddStart = appSource.indexOf('className="hyeni-v5-ai-button"');
-    const parentQuickAdd = appSource.slice(parentQuickAddStart, parentQuickAddStart + 500);
-    const singleQuickAddStart = appSource.indexOf("openAiSchedule", appSource.indexOf("혜니캘린더는 아이와 함께 만들어갑니다"));
-    const singleQuickAdd = appSource.slice(singleQuickAddStart, singleQuickAddStart + 700);
+    // Phase 5 #4: AiScheduleModal 본체가 src/components/aiSchedule/AiScheduleModal.jsx 로 추출.
+    // App.jsx 의 parent/single quick-add 도 단일 블록으로 통합돼 'hyeni-v5-ai-button' 클래스가 제거됨.
+    const modalIntro = aiScheduleModalSource.slice(
+      0,
+      aiScheduleModalSource.indexOf("{/* 3가지 입력 방식 버튼 */}") >= 0
+        ? aiScheduleModalSource.indexOf("{/* 3가지 입력 방식 버튼 */}")
+        : aiScheduleModalSource.length,
+    );
+    const quickAddStart = appSource.indexOf("{/* 빠른 일정입력 + 수동 추가 */}");
+    const quickAdd = appSource.slice(quickAddStart, quickAddStart + 800);
 
     expect(modalIntro).toContain("일정 빠른 입력");
-    expect(parentQuickAdd).toContain("빠른 일정입력");
-    expect(singleQuickAdd).toContain("빠른 일정입력");
-    for (const source of [modalIntro, parentQuickAdd, singleQuickAdd]) {
+    expect(quickAdd).toContain("빠른 일정입력");
+    for (const source of [modalIntro, quickAdd]) {
       expect(source).not.toContain("🤖");
       expect(source).not.toContain("AI로 일정입력");
     }

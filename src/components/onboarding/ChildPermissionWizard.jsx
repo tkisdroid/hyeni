@@ -60,7 +60,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                                 fontWeight: "var(--weight-bold)",
                                 color: "var(--fg-primary)",
                                 lineHeight: "var(--leading-tight)",
-                                letterSpacing: "-0.01em",
+                                letterSpacing: 0,
                             }}
                         >
                             {allReady ? "준비 완료! 시작해볼까?" : "혜니가 도와줄게!"}
@@ -76,7 +76,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                         >
                             {allReady
                                 ? "이제 부모님이 너를 안전하게 챙길 수 있어"
-                                : "안전을 위해 권한 몇 개만 허용해줘"}
+                                : "안전 사용을 위해 권한 몇 개만 허용해줘"}
                         </p>
                     </div>
                 </div>
@@ -111,7 +111,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                             minHeight: 56,
                             padding: "0 var(--space-4)",
                             borderRadius: "var(--radius-control)",
-                            background: running ? "var(--bg-muted)" : "var(--theme-accent)",
+                            background: running ? "var(--bg-muted)" : "var(--hyeni-theme-gradient)",
                             color: running ? "var(--fg-disabled)" : "#FFFFFF",
                             border: "none",
                             cursor: running ? "wait" : "pointer",
@@ -127,7 +127,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                             transition: "background var(--duration-fast) var(--easing-standard)",
                         }}
                     >
-                        {running ? "허용 진행 중…" : "한번에 모두 허용하기"}
+                        {running ? "허용 진행 중…" : "한 번에 모두 허용하기"}
                         {!running && <span aria-hidden="true" style={{ fontSize: 13, opacity: 0.85 }}>→</span>}
                     </button>
                 )}

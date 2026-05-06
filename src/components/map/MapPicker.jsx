@@ -197,7 +197,7 @@ export function MapPicker({ initial, currentPos, title = "📍 장소 설정", o
     };
 
     return (
-        <div className="map-picker-shell" style={{ fontFamily: FF }}>
+        <div className="map-picker-shell" style={{ fontFamily: FF, zIndex: 900 }}>
             <button type="button" className="map-picker-backdrop" aria-label="지도 닫기" onClick={requestClose} />
             <section
                 className={`map-picker-sheet${isClosing ? " is-closing" : ""}`}

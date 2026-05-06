@@ -20,10 +20,10 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
         return (
             <section
                 style={{
-                    background: "var(--bg-base)",
+                    background: "var(--theme-accent-soft)",
                     borderRadius: "var(--radius-card)",
                     padding: "var(--space-5) var(--space-4)",
-                    border: "1px solid var(--line-soft)",
+                    border: "1px solid var(--theme-accent-line)",
                 }}
             >
                 <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>구독 상태</div>
@@ -71,7 +71,7 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
                 background: "var(--bg-base)",
                 borderRadius: "var(--radius-card)",
                 padding: "var(--space-5) var(--space-4)",
-                border: "1px solid var(--line-soft)",
+                border: "1px solid var(--theme-accent-line)",
                 display: "flex",
                 flexDirection: "column",
                 gap: "var(--space-5)",
@@ -93,21 +93,31 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
                         const busy = busyChildId === c.id;
                         const initial = (c.name || "?").slice(0, 1);
                         const color = c.color_hex || "var(--theme-accent)";
+                        const childName = c.name || "아이";
                         return (
-                            <button
+                            <div
                                 key={c.id}
-                                type="button"
-                                className="avatar-stepper-slot"
-                                data-child-id={c.id}
-                                data-filled={subscribed ? "true" : "false"}
-                                style={{ "--child-color": color, opacity: busy ? 0.6 : 1 }}
-                                onClick={() => handleToggleChild(c)}
-                                disabled={busy}
-                                aria-label={`${c.name || "아이"} ${subscribed ? "구독 해지" : "구독 시작"}`}
-                                title={`${c.name || "아이"}${subscribed ? " · 구독중" : ""}`}
+                                className="avatar-stepper-cell"
+                                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}
                             >
-                                {initial}
-                            </button>
+                                <button
+                                    type="button"
+                                    className="avatar-stepper-slot"
+                                    data-child-id={c.id}
+                                    data-filled={subscribed ? "true" : "false"}
+                                    style={{ "--child-color": color, opacity: busy ? 0.6 : 1 }}
+                                    onClick={() => handleToggleChild(c)}
+                                    disabled={busy}
+                                    aria-label={`${childName} ${subscribed ? "구독 해지" : "구독 시작"}`}
+                                    title={`${childName}${subscribed ? " · 구독중" : ""}`}
+                                >
+                                    {initial}
+                                </button>
+                                <span style={{ fontSize: 12, fontWeight: "var(--weight-medium)", color: "var(--fg-primary)" }}>{childName}</span>
+                                <span style={{ fontSize: 10, color: subscribed ? "var(--theme-accent-text)" : "var(--fg-tertiary)", fontWeight: "var(--weight-medium)" }}>
+                                    {subscribed ? `${fmtKrw(PRICE_PER_CHILD_MONTHLY)}/월` : "무료"}
+                                </span>
+                            </div>
                         );
                     })}
                 </div>

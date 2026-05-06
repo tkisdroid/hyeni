@@ -5330,11 +5330,11 @@ export default function KidsScheduler() {
                 }
             }}
             onDangerZonesLocked={() => {
-                showNotif("보조 보호자는 조심할 곳을 바꿀 수 없어요.", "error");
+                showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
             }}
             onDangerZoneAdd={async (zone) => {
                 if (!parentCapabilities.canManagePlaces) {
-                    showNotif("보조 보호자는 조심할 곳을 바꿀 수 없어요.", "error");
+                    showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
                     throw new Error("co-parent danger zone blocked");
                 }
                 if (dangerZones.length >= 1 && !entitlement.canUse(FEATURES.MULTI_GEOFENCE)) {
@@ -5348,7 +5348,7 @@ export default function KidsScheduler() {
             }}
             onDangerZoneDelete={async (id) => {
                 if (!parentCapabilities.canManagePlaces) {
-                    showNotif("보조 보호자는 조심할 곳을 바꿀 수 없어요.", "error");
+                    showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
                     return;
                 }
                 await deleteDangerZone(id);
@@ -5525,7 +5525,7 @@ export default function KidsScheduler() {
     );
 
     return (
-        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", background: isParent ? "linear-gradient(180deg,#FDFAFB 0%,#F6F0F3 100%)" : DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 28px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)", position: "relative", overflowX: "hidden", overflowY: "auto", width: "100%", boxSizing: "border-box" }}>
+        <div className="hyeni-app-shell" style={{ minHeight: "100dvh", background: "var(--hyeni-product-canvas)", fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 28px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)", position: "relative", overflowX: "hidden", overflowY: "auto", width: "100%", boxSizing: "border-box" }}>
             <style>{`
         *,*::before,*::after{box-sizing:border-box}
         html,body,#root{margin:0;padding:0;width:100%;min-height:100vh}
@@ -6074,7 +6074,7 @@ export default function KidsScheduler() {
                             background: "rgba(255,255,255,0.18)",
                         }}
                     >
-                        <AppBrandLogo size={100} radius={28} shadow={false} />
+                        <AppBrandLogo size={88} radius={22} />
                     </div>}
                     {isParent && (
                         <button
