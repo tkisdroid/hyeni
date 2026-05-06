@@ -2672,7 +2672,7 @@ export default function KidsScheduler() {
     // ── Helpers ────────────────────────────────────────────────────────────────
     const startTrial = useCallback(async (productId = PRICING.monthlyProductId) => {
         if (myRole === "child") {
-            showNotif("아이 기기에서는 직접 구독을 시작할 수 없어요.", "error");
+            showNotif("구독은 부모 기기에서 시작해 주세요!", "error");
             return;
         }
         if (!familyId) {
@@ -2703,7 +2703,7 @@ export default function KidsScheduler() {
             setShowSubscriptionSettings(false);
         } catch (error) {
             console.error("[subscription] start trial failed:", error);
-            showNotif(error?.message || "구독 시작에 실패했어요", "error");
+            showNotif(error?.message || "구독을 시작 못 했어요. 다시 해볼까요?", "error");
         } finally {
             setPendingProduct(null);
             setShowDisclosure(false);
@@ -3818,7 +3818,7 @@ export default function KidsScheduler() {
                             return reverted;
                         });
                     }
-                    showNotif("서버 저장에 실패했어요. 다시 시도해주세요", "error");
+                    showNotif("저장이 잠시 멈췄어요. 한 번 더 해볼까요?", "error");
                 }
             }
             return;
@@ -3880,7 +3880,7 @@ export default function KidsScheduler() {
                     }
                     return updated;
                 });
-                showNotif("서버 저장에 실패했어요. 다시 시도해주세요", "error");
+                showNotif("저장이 잠시 멈췄어요. 한 번 더 해볼까요?", "error");
             }
         }
     };
@@ -4322,11 +4322,11 @@ export default function KidsScheduler() {
         requestChildDeviceStatusRefresh("device_status_manual_refresh")
             .then((sent) => {
                 if (!sent) setDeviceStatusRefreshRequestedAt(prev => (prev === requestedAt ? null : prev));
-                showNotif(sent ? "아이 기기에 안전 지표 갱신을 요청했어요." : "아이 기기에 요청을 보내지 못했어요.", sent ? "success" : "error");
+                showNotif(sent ? "아이 기기에 살짝 신호 보냈어요. 잠시 기다려 봐요!" : "아이 기기에 신호를 못 보냈어요. 다시 해볼까요?", sent ? "success" : "error");
             })
             .catch((error) => {
                 console.warn("[DeviceStatus] manual refresh failed:", error?.message || error);
-                showNotif("아이 기기 안전 지표 갱신에 실패했어요.", "error");
+                showNotif("아이 기기 정보를 못 가져왔어요. 잠시 후 다시 해볼까요?", "error");
                 setDeviceStatusRefreshRequestedAt(prev => (prev === requestedAt ? null : prev));
             });
     }, [requestChildDeviceStatusRefresh, requestChildLocationRefresh, showNotif]);
@@ -5014,7 +5014,7 @@ export default function KidsScheduler() {
                     setMyRole(fam.myRole || "child");
                     showNotif("🎉 부모님과 연동됐어요!", "success");
                 } else {
-                    showNotif("연동은 됐지만 정보 로딩에 실패했어요. 앱을 다시 열어주세요", "error");
+                    showNotif("연동은 됐어요! 정보를 다시 불러올게요. 앱을 한 번 닫았다 열어볼까요?", "error");
                 }
             } catch (err) {
                 console.error("[onPaired] getMyFamily failed:", err);
@@ -5035,7 +5035,7 @@ export default function KidsScheduler() {
             bottomNavigation={isParent ? renderParentBottomTabbar("maplist", "hyeni-v5-tabbar-manager") : null}
             onSave={async (newList) => {
                 if (!parentCapabilities.canManagePlaces) {
-                    showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
+                    showNotif("보조 보호자는 학원·장소를 바꿀 수 없어요.", "error");
                     return false;
                 }
                 // Diff old vs new to determine DB operations
@@ -5201,14 +5201,14 @@ export default function KidsScheduler() {
             }}
             onSavedPlacesLocked={() => {
                 if (!parentCapabilities.canManagePlaces) {
-                    showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
+                    showNotif("보조 보호자는 학원·장소를 바꿀 수 없어요.", "error");
                     return;
                 }
                 openFeatureLock(FEATURES.SAVED_PLACES);
             }}
             onSavedPlacesSave={async (nextList) => {
                 if (!parentCapabilities.canManagePlaces) {
-                    showNotif("보조 보호자는 학원·장소를 수정할 수 없어요.", "error");
+                    showNotif("보조 보호자는 학원·장소를 바꿀 수 없어요.", "error");
                     return false;
                 }
                 if (!entitlement.canUse(FEATURES.SAVED_PLACES)) {
@@ -5289,16 +5289,16 @@ export default function KidsScheduler() {
                     console.error("[saved-place] save error:", error);
                     setSavedPlaces(previousList);
                     cacheSavedPlaces(previousList);
-                    showNotif("장소 저장에 실패했어요. 다시 시도해주세요", "error");
+                    showNotif("장소 저장이 잠시 멈췄어요. 한 번 더 해볼까요?", "error");
                     return false;
                 }
             }}
             onDangerZonesLocked={() => {
-                showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
+                showNotif("보조 보호자는 조심할 곳을 바꿀 수 없어요.", "error");
             }}
             onDangerZoneAdd={async (zone) => {
                 if (!parentCapabilities.canManagePlaces) {
-                    showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
+                    showNotif("보조 보호자는 조심할 곳을 바꿀 수 없어요.", "error");
                     throw new Error("co-parent danger zone blocked");
                 }
                 if (dangerZones.length >= 1 && !entitlement.canUse(FEATURES.MULTI_GEOFENCE)) {
@@ -5307,12 +5307,12 @@ export default function KidsScheduler() {
                 }
                 const saved = await saveDangerZone(familyId, zone);
                 setDangerZones(prev => [...prev, saved]);
-                showNotif(`⚠️ 조심할 곳 '${zone.name}' 등록 완료`);
+                showNotif(`⚠️ 조심할 곳 '${zone.name}' 추가했어요!`);
                 return saved;
             }}
             onDangerZoneDelete={async (id) => {
                 if (!parentCapabilities.canManagePlaces) {
-                    showNotif("보조 보호자는 조심할 곳을 수정할 수 없어요.", "error");
+                    showNotif("보조 보호자는 조심할 곳을 바꿀 수 없어요.", "error");
                     return;
                 }
                 await deleteDangerZone(id);
@@ -5328,18 +5328,34 @@ export default function KidsScheduler() {
         <SavedPlaceManager
             places={savedPlaces}
             currentPos={displayChildPos || childPos}
+            isPremium={entitlement.canUse(FEATURES.SAVED_PLACES)}
+            freeSafePlaceLimit={1}
+            onRequestUpgrade={() => {
+                setShowSavedPlaceMgr(false);
+                openFeatureLock(FEATURES.SAVED_PLACES);
+            }}
             onSave={async (nextList) => {
-                if (!entitlement.canUse(FEATURES.SAVED_PLACES)) {
-                    setShowSavedPlaceMgr(false);
-                    openFeatureLock(FEATURES.SAVED_PLACES);
-                    return;
-                }
+                const isPremium = entitlement.canUse(FEATURES.SAVED_PLACES);
 
+                // 무료 티어: 모든 새 장소를 안전장소로 저장 (RLS 통과 조건),
+                // 단 총 안전장소 1개 한도. 초과 시 구독 유도.
                 const normalizedNext = nextList.map((place) => ({
                     ...place,
                     id: place.id || generateUUID(),
                     name: place.name.trim(),
+                    is_playdate_safe: isPremium ? !!place.is_playdate_safe : true,
                 }));
+
+                if (!isPremium) {
+                    const safeCount = normalizedNext.filter((p) => p.is_playdate_safe).length;
+                    if (safeCount > 1) {
+                        showNotif("무료 사용자는 안전장소를 1개까지 저장할 수 있어요. 더 추가하려면 프리미엄을 켜주세요!", "error");
+                        setShowSavedPlaceMgr(false);
+                        openFeatureLock(FEATURES.SAVED_PLACES);
+                        return;
+                    }
+                }
+
                 const previousList = savedPlaces;
                 const previousMap = new Map(previousList.map((place) => [place.id, place]));
                 const nextMap = new Map(normalizedNext.map((place) => [place.id, place]));
@@ -5363,22 +5379,35 @@ export default function KidsScheduler() {
                         }
 
                         const changed = previous.name !== place.name
-                            || JSON.stringify(previous.location) !== JSON.stringify(place.location);
+                            || JSON.stringify(previous.location) !== JSON.stringify(place.location)
+                            || !!previous.is_playdate_safe !== !!place.is_playdate_safe;
                         if (changed) {
                             await updateSavedPlace(place.id, {
                                 name: place.name,
                                 location: place.location || null,
+                                is_playdate_safe: !!place.is_playdate_safe,
                             });
                         }
                     }
 
                     maybeOpenTrialInvite();
-                    showNotif("📍 자주 가는 장소가 저장됐어요!");
+                    showNotif("📍 자주 가는 장소를 저장했어요!");
                 } catch (error) {
                     console.error("[saved-place] save error:", error);
                     setSavedPlaces(previousList);
                     cacheSavedPlaces(previousList);
-                    showNotif("장소 저장에 실패했어요. 다시 시도해주세요", "error");
+                    // RLS / 구독 제약으로 거부된 경우 친근한 안내 + 구독 팝업.
+                    const message = String(error?.message || error || "");
+                    const isRlsBlock = message.includes("row-level security")
+                        || message.includes("violates")
+                        || error?.code === "42501"
+                        || error?.code === "PGRST301";
+                    if (!isPremium || isRlsBlock) {
+                        showNotif("프리미엄 구독자만 더 많은 장소를 저장할 수 있어요. 안내 화면을 띄울게요!", "error");
+                        openFeatureLock(FEATURES.SAVED_PLACES);
+                    } else {
+                        showNotif("장소 저장에 실패했어요. 잠시 후 다시 시도해 주세요", "error");
+                    }
                 }
             }}
             onClose={() => setShowSavedPlaceMgr(false)}
@@ -7214,7 +7243,7 @@ export default function KidsScheduler() {
                     canManageFamily={parentCapabilities.canManageFamily}
                     onRegenerate={async () => {
                         if (!parentCapabilities.canManageFamily) {
-                            showNotif("보조 보호자는 연동 코드를 변경할 수 없어요.", "error");
+                            showNotif("보조 보호자는 연동 코드를 바꿀 수 없어요.", "error");
                             throw new Error("co-parent regenerate blocked");
                         }
                         try {
@@ -7230,7 +7259,7 @@ export default function KidsScheduler() {
                     }}
                     onUnpair={async (childUserId) => {
                         if (!parentCapabilities.canManageFamily) {
-                            showNotif("보조 보호자는 연동을 해제할 수 없어요.", "error");
+                            showNotif("보조 보호자는 연동을 끊을 수 없어요.", "error");
                             return;
                         }
                         try {
@@ -7465,7 +7494,7 @@ export default function KidsScheduler() {
                 phones={parentPhones}
                 onSave={async (phones) => {
                     if (!parentCapabilities.canEditParentPhones) {
-                        showNotif("보조 보호자는 연락처를 변경할 수 없어요.", "error");
+                        showNotif("보조 보호자는 연락처를 바꿀 수 없어요.", "error");
                         setShowPhoneSettings(false);
                         return;
                     }
@@ -7529,7 +7558,7 @@ export default function KidsScheduler() {
                         return;
                     }
                     setEvents(prev => ({ ...prev, [dk]: [...(prev[dk] || []), newEv].sort((a, b) => a.time.localeCompare(b.time)) }));
-                    showNotif(`${newEv.emoji} ${newEv.title} 등록 완료!`);
+                    showNotif(`${newEv.emoji} ${newEv.title} 추가했어요!`);
                 }}
                 onNavigateDate={(y, m, d) => { setCurrentYear(y); setCurrentMonth(m); setSelectedDate(d); }}
                 onClose={() => setShowAiSchedule(false)}
@@ -7542,7 +7571,7 @@ export default function KidsScheduler() {
                 mapReady={mapReady}
                 onAdd={async (zone) => {
                     if (!parentCapabilities.canManagePlaces) {
-                        showNotif("보조 보호자는 위험지역을 수정할 수 없어요.", "error");
+                        showNotif("보조 보호자는 위험지역을 바꿀 수 없어요.", "error");
                         throw new Error("co-parent danger zone blocked");
                     }
                     if (dangerZones.length >= 1 && !entitlement.canUse(FEATURES.MULTI_GEOFENCE)) {
@@ -7551,12 +7580,12 @@ export default function KidsScheduler() {
                     }
                     const saved = await saveDangerZone(familyId, zone);
                     setDangerZones(prev => [...prev, saved]);
-                    showNotif(`⚠️ 위험지역 '${zone.name}' 등록 완료`);
+                    showNotif(`⚠️ 위험지역 '${zone.name}' 추가했어요!`);
                     return saved;
                 }}
                 onDelete={async (id) => {
                     if (!parentCapabilities.canManagePlaces) {
-                        showNotif("보조 보호자는 위험지역을 수정할 수 없어요.", "error");
+                        showNotif("보조 보호자는 위험지역을 바꿀 수 없어요.", "error");
                         return;
                     }
                     await deleteDangerZone(id);

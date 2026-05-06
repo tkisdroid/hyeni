@@ -7,15 +7,31 @@ import { generateUUID } from "../../lib/auth.js";
 import { FF } from "../../lib/styleHelpers.js";
 import { MapPicker } from "../map/MapPicker.jsx";
 
-export function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
+export function SavedPlaceManager({
+    places,
+    onSave,
+    onClose,
+    currentPos,
+    isPremium = false,
+    freeSafePlaceLimit = 1,
+    onRequestUpgrade,
+}) {
     const [list, setList] = useState(places);
     const [showForm, setShowForm] = useState(false);
     const [showMap, setShowMap] = useState(false);
     const [editIdx, setEditIdx] = useState(null);
-    const [form, setForm] = useState({ name: "", location: null });
+    const [form, setForm] = useState({ name: "", location: null, is_playdate_safe: !isPremium });
+
+    // 무료 티어: 모든 장소가 자동으로 안전장소(is_playdate_safe=true) 처리되며 한도 1개.
+    const safeCount = list.filter((p) => p.is_playdate_safe).length;
+    const freeQuotaReached = !isPremium && safeCount >= freeSafePlaceLimit && editIdx === null;
 
     const openNew = () => {
-        setForm({ name: "", location: null });
+        if (freeQuotaReached) {
+            if (typeof onRequestUpgrade === "function") onRequestUpgrade();
+            return;
+        }
+        setForm({ name: "", location: null, is_playdate_safe: !isPremium });
         setEditIdx(null);
         setShowForm(true);
     };
@@ -26,7 +42,12 @@ export function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
     };
     const saveForm = () => {
         if (!form.name.trim() || !form.location?.address) return;
-        const item = { ...form, id: form.id || generateUUID(), name: form.name.trim() };
+        const item = {
+            ...form,
+            id: form.id || generateUUID(),
+            name: form.name.trim(),
+            is_playdate_safe: isPremium ? !!form.is_playdate_safe : true,
+        };
         if (editIdx !== null) {
             const nextList = [...list];
             nextList[editIdx] = item;
@@ -62,14 +83,36 @@ export function SavedPlaceManager({ places, onSave, onClose, currentPos }) {
                 <div style={{ fontWeight: 800, fontSize: 17, color: "var(--fg-primary)" }}>📍 자주 가는 장소</div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: 16, paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
+                {!isPremium && (
+                    <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 14, background: "var(--theme-accent-soft)", border: "1px solid var(--theme-accent-line)", fontSize: 12, lineHeight: 1.55, color: "var(--theme-accent-text)" }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>💡 무료 안내</div>
+                        무료 사용자는 안전장소 <strong>{freeSafePlaceLimit}개</strong>까지 저장할 수 있어요 ({safeCount}/{freeSafePlaceLimit}). 더 많이 등록하고 싶으면 프리미엄으로 업그레이드해 봐요!
+                    </div>
+                )}
                 {!showForm && (
                     <div style={{ marginBottom: 20 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>빠른 추가</div>
                         <button
                             onClick={openNew}
-                            style={{ padding: "10px 14px", borderRadius: 16, border: "2px dashed var(--theme-accent-line)", background: "var(--theme-accent-soft)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, color: "var(--theme-accent-text)" }}
+                            style={{
+                                padding: "10px 14px",
+                                borderRadius: 16,
+                                border: freeQuotaReached
+                                    ? "2px dashed var(--status-cautionary-line, #FCD34D)"
+                                    : "2px dashed var(--theme-accent-line)",
+                                background: freeQuotaReached
+                                    ? "var(--status-cautionary-subtle, #FEF3C7)"
+                                    : "var(--theme-accent-soft)",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                fontFamily: FF,
+                                color: freeQuotaReached
+                                    ? "var(--status-cautionary-strong, #92400E)"
+                                    : "var(--theme-accent-text)",
+                            }}
                         >
-                            + 장소 직접 추가
+                            {freeQuotaReached ? "✨ 프리미엄으로 더 추가하기" : "+ 장소 직접 추가"}
                         </button>
                     </div>
                 )}
