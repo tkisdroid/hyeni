@@ -3,7 +3,7 @@
 // Extracted from App.jsx (Phase 5 #4 / B4).
 
 import { useState } from "react";
-import { kakaoLogin, googleLogin } from "../../lib/auth.js";
+import { kakaoLogin, googleLogin, naverLogin } from "../../lib/auth.js";
 import { signInWithLoginId } from "../../lib/accountAuth.js";
 import { useBackHandler } from "../../lib/backHandler.js";
 import { rememberParentPairingIntent, clearParentPairingIntent } from "../../lib/parentPairingIntent.js";
@@ -44,6 +44,22 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
             clearParentPairingIntent();
             console.error("[googleLogin]", err);
             setError(err?.message || "구글 로그인이 잠시 멈췄어요. 다시 해볼까요?");
+        } finally {
+            setBusy("");
+        }
+    };
+
+    const handleNaver = async () => {
+        setBusy("naver");
+        setError("");
+        setMessage("");
+        rememberParentPairingIntent();
+        try {
+            await naverLogin();
+        } catch (err) {
+            clearParentPairingIntent();
+            console.error("[naverLogin]", err);
+            setError(err?.message || "네이버 로그인이 잠시 멈췄어요. 다시 해볼까요?");
         } finally {
             setBusy("");
         }
@@ -184,6 +200,37 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
                     {busy === "google" ? "구글 로그인 중..." : "구글로 시작"}
+                </button>
+
+                <button
+                    type="button"
+                    onClick={handleNaver}
+                    disabled={!!busy}
+                    style={{
+                        marginTop: "var(--space-3)",
+                        width: "100%",
+                        height: "var(--control-height-lg)",
+                        background: "#03C75A",
+                        color: "#FFFFFF",
+                        border: "none",
+                        borderRadius: "var(--radius-control)",
+                        fontFamily: FF,
+                        fontWeight: "var(--weight-bold)",
+                        fontSize: 16,
+                        cursor: busy ? "wait" : "pointer",
+                        opacity: busy ? 0.65 : 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "var(--space-2)",
+                        transition: "filter var(--duration-fast) var(--easing-standard)",
+                    }}
+                    aria-label="네이버로 시작"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                        <path d="M16.273 12.845L7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727z"/>
+                    </svg>
+                    {busy === "naver" ? "네이버 로그인 중..." : "네이버로 시작"}
                 </button>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", margin: "var(--space-4) 0", color: "var(--fg-tertiary)", fontSize: 12, fontWeight: "var(--weight-medium)" }}>

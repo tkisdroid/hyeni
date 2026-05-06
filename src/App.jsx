@@ -1215,8 +1215,18 @@ export default function KidsScheduler() {
         const accessToken = params.get("access_token");
         const refreshToken = params.get("refresh_token");
         const code = params.get("code");
+        const provider = params.get("provider");
+        const state = params.get("state");
 
         try {
+            // Phase G-2: Naver 커스텀 OAuth 콜백. provider=naver 시 finishNaverLogin
+            // 으로 magiclink 토큰 교환 + verifyOtp.
+            if (provider === "naver" && code) {
+                const { finishNaverLogin } = await import("./lib/auth.js");
+                await finishNaverLogin({ code, state });
+                return true;
+            }
+
             if (accessToken && refreshToken) {
                 await supabase.auth.setSession({
                     access_token: accessToken,
@@ -1265,6 +1275,32 @@ export default function KidsScheduler() {
         })();
         return () => { if (handle) handle.remove(); };
     }, [handleNativeAuthCallback, isNativeApp]);
+
+    // ── Web Naver OAuth 콜백 처리 (페이지 로드 시 ?provider=naver&code=... 감지) ──
+    useEffect(() => {
+        if (isNativeApp) return;
+        if (typeof window === "undefined") return;
+        const url = new URL(window.location.href);
+        if (url.searchParams.get("provider") !== "naver") return;
+        const code = url.searchParams.get("code");
+        const state = url.searchParams.get("state");
+        if (!code) return;
+
+        (async () => {
+            try {
+                const { finishNaverLogin } = await import("./lib/auth.js");
+                await finishNaverLogin({ code, state });
+                // URL 정리 — 새로고침 시 재시도 방지
+                url.searchParams.delete("provider");
+                url.searchParams.delete("code");
+                url.searchParams.delete("state");
+                url.searchParams.delete("error");
+                window.history.replaceState({}, "", url.toString());
+            } catch (err) {
+                console.error("[Naver] web callback failed:", err);
+            }
+        })();
+    }, [isNativeApp]);
 
     // ── Register Service Worker for push notifications (웹 전용, 네이티브 앱 제외) ──
     useEffect(() => {

@@ -144,6 +144,143 @@ export async function googleLogin() {
   }
 }
 
+// ── Naver OAuth login (parent) ──────────────────────────────────────────────
+// Naver 는 Supabase 빌트인 provider 가 아니므로 커스텀 플로우.
+// 1. 이 함수 — Naver OAuth URL open. state(nonce + target) 동봉.
+// 2. Naver → Supabase Edge Function naver-auth/callback 으로 redirect
+// 3. Edge GET handler — deep link/origin 으로 다시 redirect (code/state 동봉)
+// 4. App.jsx appUrlOpen — code/state 받고 finishNaverLogin 호출
+// 5. finishNaverLogin — Edge POST 로 magiclink token 받고 verifyOtp
+//
+// 운영 설정:
+//   - Naver Developers 애플리케이션 등록
+//   - Callback URL 등록: https://<project>.supabase.co/functions/v1/naver-auth
+//   - .env: VITE_NAVER_CLIENT_ID (필수, public). Secret 은 Edge Function 만.
+const NAVER_CLIENT_ID = (() => {
+  try {
+    return import.meta.env?.VITE_NAVER_CLIENT_ID || "";
+  } catch {
+    return "";
+  }
+})();
+const NAVER_AUTHORIZE_URL = "https://nid.naver.com/oauth2.0/authorize";
+const NAVER_OAUTH_STATE_KEY = "hyeni-naver-oauth-state";
+
+function generateNaverState(target) {
+  const nonce = (typeof crypto !== "undefined" && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `n-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const payload = btoa(JSON.stringify({ nonce, target }));
+  return { nonce, encoded: payload };
+}
+
+function getNaverEdgeFunctionUrl() {
+  // SUPABASE_URL 은 supabase 클라이언트 설정에 있지만 직접 노출 안 됨.
+  // import.meta.env 로부터 가져옴.
+  const base = (() => {
+    try {
+      return import.meta.env?.VITE_SUPABASE_URL || "";
+    } catch {
+      return "";
+    }
+  })();
+  if (!base) throw new Error("VITE_SUPABASE_URL 미설정");
+  return `${base.replace(/\/+$/, "")}/functions/v1/naver-auth`;
+}
+
+export async function naverLogin() {
+  if (!NAVER_CLIENT_ID) {
+    throw new Error("네이버 로그인 설정이 아직 안 됐어요. 운영자에게 문의해 주세요!");
+  }
+
+  const native = isNative();
+  const target = native ? NATIVE_OAUTH_REDIRECT_URL : window.location.origin;
+  const { nonce, encoded } = generateNaverState(target);
+
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.setItem(NAVER_OAUTH_STATE_KEY, nonce);
+    }
+  } catch { /* sessionStorage unavailable */ }
+
+  const callbackUrl = getNaverEdgeFunctionUrl();
+  const authorizeParams = new URLSearchParams({
+    response_type: "code",
+    client_id: NAVER_CLIENT_ID,
+    redirect_uri: callbackUrl,
+    state: encoded,
+  });
+  const url = `${NAVER_AUTHORIZE_URL}?${authorizeParams.toString()}`;
+
+  if (native) {
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.open({
+      url,
+      windowName: "_self",
+      presentationStyle: "popover",
+    });
+  } else {
+    window.location.href = url;
+  }
+}
+
+// 콜백에서 호출. App.jsx appUrlOpen / 페이지 로드 핸들러가 이 함수를 부른다.
+export async function finishNaverLogin({ code, state }) {
+  if (!code) throw new Error("네이버 인증 코드가 없어요. 다시 시도해 주세요!");
+
+  // state 검증 (CSRF 방어)
+  let savedNonce = "";
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      savedNonce = window.sessionStorage.getItem(NAVER_OAUTH_STATE_KEY) || "";
+      window.sessionStorage.removeItem(NAVER_OAUTH_STATE_KEY);
+    }
+  } catch { /* ignore */ }
+
+  if (savedNonce && state && savedNonce !== state) {
+    throw new Error("네이버 로그인 인증 정보가 어긋났어요. 보안을 위해 처음부터 다시 해주세요!");
+  }
+
+  const native = isNative();
+  const targetRedirect = native ? NATIVE_OAUTH_REDIRECT_URL : window.location.origin;
+  const callbackUrl = getNaverEdgeFunctionUrl();
+
+  const resp = await fetch(callbackUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      code,
+      state: state || savedNonce,
+      redirect_uri: callbackUrl,
+      target: targetRedirect,
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch { /* not JSON */ }
+    const friendly = parsed?.message
+      || (parsed?.error === "naver_not_configured"
+        ? "네이버 로그인 설정이 아직 안 됐어요. 운영자에게 문의해 주세요!"
+        : "네이버 로그인이 잠시 멈췄어요. 다시 해볼까요?");
+    throw new Error(friendly);
+  }
+
+  const data = await resp.json();
+  if (!data?.email || !data?.token) {
+    throw new Error("네이버 로그인 응답이 이상해요. 다시 시도해 주세요!");
+  }
+
+  // verifyOtp 로 세션 활성화. supabase-js 가 자동으로 access/refresh token 보관.
+  const { error: otpError } = await supabase.auth.verifyOtp({
+    email: data.email,
+    token: data.token,
+    type: "magiclink",
+  });
+  if (otpError) throw otpError;
+}
+
 // ── Anonymous login (child) ─────────────────────────────────────────────────
 export async function anonymousLogin() {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
