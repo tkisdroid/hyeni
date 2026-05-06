@@ -14,7 +14,11 @@
 import { LOCATION_TRAIL_GRADIENT_STOPS } from "./locationTrailDisplay.js";
 
 export const LOCATION_TRAIL_JITTER_M = 8;
-export const LOCATION_TRAIL_DWELL_RADIUS_M = 80;
+// 사용자 요구: 반경 50m 안에서의 움직임은 머무름으로 간주.
+// 학교/학원/집 같은 단일 장소 내 이동(복도/운동장)이 GPS 잡음 + 실제 동선으로
+// 50m 이내에 머무르므로 합리적 임계값. 80m 이전 값은 두 인접 건물을 한 dwell로
+// 묶는 오류가 있었음.
+export const LOCATION_TRAIL_DWELL_RADIUS_M = 50;
 export const LOCATION_TRAIL_DWELL_MIN_MS = 10 * 60_000;
 // Phase 6 movement summary: trail polyline 그릴 때 200m 미만의 작은 흔들림은
 // 합쳐서 한 chunk로 그려 noise 를 줄인다. 사용자 요구 "200m 이상의 큰 이동만

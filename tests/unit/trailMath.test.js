@@ -465,8 +465,8 @@ describe("constants", () => {
         expect(LOCATION_TRAIL_JITTER_M).toBe(8);
     });
 
-    it("LOCATION_TRAIL_DWELL_RADIUS_M = 80m", () => {
-        expect(LOCATION_TRAIL_DWELL_RADIUS_M).toBe(80);
+    it("LOCATION_TRAIL_DWELL_RADIUS_M = 50m", () => {
+        expect(LOCATION_TRAIL_DWELL_RADIUS_M).toBe(50);
     });
 
     it("LOCATION_TRAIL_DWELL_MIN_MS = 10분", () => {
