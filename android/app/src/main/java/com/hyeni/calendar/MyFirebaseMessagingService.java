@@ -51,7 +51,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String PREFS_NAME = "hyeni_location_prefs";
     private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
     private static final String SCHEDULE_CHANNEL_ID = NotificationHelper.CHANNEL_SCHEDULE;
-    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v3";
     private static final int DEFAULT_REMOTE_LISTEN_DURATION_SEC = 60;
     private static final AtomicInteger notifId = new AtomicInteger(5000);
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
@@ -450,7 +450,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             .setAutoCancel(false)
             .setContentIntent(launchPendingIntent)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
@@ -721,14 +721,17 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
         // Channel must be IMPORTANCE_HIGH (or above) for setFullScreenIntent
         // to actually launch the activity instead of shrinking to a heads-up.
+        // Z Flip 등 폴더블 cover screen 에서 알림이 무음 처리되지 않도록
+        // USAGE_ALARM + bypassDnd=true 사용. CATEGORY_ALARM 알림과 일관.
+        // Samsung One UI 가 cover display 에 alarm 카테고리 알림을 표시 허용.
         NotificationChannel channel = new NotificationChannel(
             channelId, "원격 듣기 연결", NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription("아이 기기에서 주변 소리 연결을 시작해야 할 때 표시되는 알림");
         channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 180, 100, 180});
-        channel.setBypassDnd(false);
-        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), new android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+        channel.setVibrationPattern(new long[]{0, 250, 150, 250, 150, 250});
+        channel.setBypassDnd(true);
+        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), new android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build());
         channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);

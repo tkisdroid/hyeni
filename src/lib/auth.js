@@ -34,17 +34,29 @@ async function enrichMembersWithSignedPhotos(members) {
     if (cached?.signedUrl && cached.expiresAt > Date.now()) {
       return { ...m, photo_url: cached.signedUrl };
     }
-    const { data, error } = await bucket.createSignedUrl(path, CHILD_PHOTO_SIGNED_URL_TTL_SECONDS);
-    if (error || !data?.signedUrl) {
-      console.warn("[getMyFamily] signed url failed for member", m.id, error?.message || "");
+
+    let result = await bucket.createSignedUrl(path, CHILD_PHOTO_SIGNED_URL_TTL_SECONDS);
+    if (result.error || !result.data?.signedUrl) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      result = await bucket.createSignedUrl(path, CHILD_PHOTO_SIGNED_URL_TTL_SECONDS);
+    }
+
+    if (result.error || !result.data?.signedUrl) {
+      // Stale cache 폴백: safety margin 5분 지났어도 실제 TTL 여유 남아있어 표시 가능.
+      // null 처리하면 프로필 사진이 갑자기 사라지는 회귀 발생.
+      if (cached?.signedUrl) {
+        console.warn("[getMyFamily] signed url refresh failed, reusing stale cached URL for", m.id);
+        return { ...m, photo_url: cached.signedUrl };
+      }
+      console.warn("[getMyFamily] signed url failed for member", m.id, result.error?.message || "");
       childPhotoSignedUrlCache.delete(path);
       return { ...m, photo_url: null };
     }
     childPhotoSignedUrlCache.set(path, {
-      signedUrl: data.signedUrl,
+      signedUrl: result.data.signedUrl,
       expiresAt: Date.now() + (CHILD_PHOTO_SIGNED_URL_TTL_SECONDS * 1000) - CHILD_PHOTO_SIGNED_URL_CACHE_SAFETY_MS,
     });
-    return { ...m, photo_url: data.signedUrl };
+    return { ...m, photo_url: result.data.signedUrl };
   }));
 }
 

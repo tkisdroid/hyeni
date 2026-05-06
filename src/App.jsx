@@ -536,7 +536,27 @@ export default function KidsScheduler() {
       ? null
       : (pairedChildren.find((c) => c.user_id === authUser?.id) || pairedChildren[0] || null);
     const isMultiChild = childrenContext.isMultiChild;
-    const globalNotif = DEFAULT_NOTIF;
+    const [globalNotif, setGlobalNotif] = useState(() => {
+        if (typeof window === "undefined") return DEFAULT_NOTIF;
+        try {
+            const raw = window.localStorage.getItem("hyeni-global-notif");
+            if (!raw) return DEFAULT_NOTIF;
+            return normalizeNotifSettings(JSON.parse(raw));
+        } catch {
+            return DEFAULT_NOTIF;
+        }
+    });
+    const updateGlobalNotif = (patch) => {
+        setGlobalNotif((prev) => {
+            const next = normalizeNotifSettings({ ...prev, ...patch });
+            try {
+                if (typeof window !== "undefined") {
+                    window.localStorage.setItem("hyeni-global-notif", JSON.stringify(next));
+                }
+            } catch { /* localStorage unavailable */ }
+            return next;
+        });
+    };
 
     // ── Academy, calendar, memo state ───────────────────────────────────────────
     const [academies, setAcademies] = useState(() => getCachedAcademies());
@@ -5816,14 +5836,6 @@ export default function KidsScheduler() {
                         aria-label="💗 꾹">
                         💗 꾹
                     </button>
-                    {isParent && (
-                        <button onClick={() => setShowSettingsSheet(true)}
-                            aria-label="설정"
-                            title="설정"
-                            style={{ fontSize: 16, width: 36, height: 36, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", cursor: "pointer", fontFamily: FF, lineHeight: 1 }}>
-                            ⚙
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -7125,6 +7137,10 @@ export default function KidsScheduler() {
                     onOpenPhoneSettings={() => setShowPhoneSettings(true)}
                     onOpenPlaceManager={() => { setShowParentSettings(false); setShowPlaceManager(true); }}
                     onOpenSubscription={() => { setShowParentSettings(false); setShowSubscriptionSettings(true); }}
+                    notifyEvents={!!globalNotif.parentEnabled}
+                    onChangeNotifyEvents={(v) => updateGlobalNotif({ parentEnabled: v, childEnabled: v })}
+                    notifMinutesBefore={globalNotif.minutesBefore}
+                    onChangeNotifMinutes={(mins) => updateGlobalNotif({ minutesBefore: mins })}
                     subscriptionPlanLabel={entitlement?.tier === "premium" ? "프리미엄" : "무료"}
                     appVersion={typeof window !== "undefined" && window.__APP_VERSION__ ? String(window.__APP_VERSION__) : ""}
                     onLogout={async () => {

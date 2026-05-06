@@ -62,6 +62,62 @@ function Section({ title, children, danger }) {
     );
 }
 
+const NOTIF_MINUTE_OPTIONS = [
+    { value: 30, label: "30분 전" },
+    { value: 15, label: "15분 전" },
+    { value: 10, label: "10분 전" },
+    { value: 5, label: "5분 전" },
+    { value: 0, label: "시작 시" },
+];
+
+function MinutesBeforeSelector({ value = [15, 5], onChange }) {
+    const set = new Set(Array.isArray(value) ? value : []);
+    const toggle = (mins) => {
+        const next = new Set(set);
+        if (next.has(mins)) next.delete(mins);
+        else next.add(mins);
+        const sorted = Array.from(next).sort((a, b) => b - a);
+        if (typeof onChange === "function") onChange(sorted);
+    };
+    return (
+        <div
+            role="group"
+            aria-label="알림 시간 선택"
+            style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                padding: "8px 16px 14px",
+            }}
+        >
+            {NOTIF_MINUTE_OPTIONS.map((opt) => {
+                const active = set.has(opt.value);
+                return (
+                    <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => toggle(opt.value)}
+                        aria-pressed={active}
+                        style={{
+                            padding: "7px 13px",
+                            borderRadius: "var(--radius-pill)",
+                            background: active ? "var(--theme-accent)" : "var(--bg-muted)",
+                            color: active ? "var(--fg-on-primary)" : "var(--fg-secondary)",
+                            border: "none",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            transition: "all var(--duration-fast) var(--easing-standard)",
+                        }}
+                    >
+                        {opt.label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
 export function ParentSettingsScreen({
     onBack,
     parentName = "",
@@ -77,6 +133,8 @@ export function ParentSettingsScreen({
     onChangeNotifyEvents,
     onChangeNotifyChildLocation,
     onChangeNotifyPlaydate,
+    notifMinutesBefore = [15, 5],
+    onChangeNotifMinutes,
     subscriptionPlanLabel = "무료",
     onOpenSubscription,
     onOpenPlaceManager,
@@ -120,6 +178,15 @@ export function ParentSettingsScreen({
                     <Row icon="🔔" label="일정 알림">
                         <Toggle value={notifyEvents} onChange={onChangeNotifyEvents || (() => {})} ariaLabel="일정 알림" />
                     </Row>
+                    {notifyEvents && (
+                        <>
+                            <Row icon="🕐" label="알림 시간" trailing={<span style={{ fontSize: 11, color: "var(--fg-tertiary)" }}>아이 모든 일정에 적용</span>} />
+                            <MinutesBeforeSelector
+                                value={notifMinutesBefore}
+                                onChange={onChangeNotifMinutes}
+                            />
+                        </>
+                    )}
                     <Row icon="📍" label="자녀 위치 알림">
                         <Toggle value={notifyChildLocation} onChange={onChangeNotifyChildLocation || (() => {})} ariaLabel="자녀 위치 알림" />
                     </Row>

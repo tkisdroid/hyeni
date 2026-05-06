@@ -64,7 +64,7 @@ public class LocationService extends Service {
     private static final String TAG = "LocationService";
     private static final String CHANNEL_ID = "hyeni_location_v4";
     private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
-    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v3";
     public static final String ACTION_REFRESH_NOW = "REFRESH_NOW";
     private static final int NOTIFICATION_ID = 9001;
     private static final int ALERT_NOTIFICATION_BASE = 10000;
@@ -1253,7 +1253,7 @@ public class LocationService extends Service {
             .setAutoCancel(false)
             .setContentIntent(launchPendingIntent)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
@@ -1319,12 +1319,12 @@ public class LocationService extends Service {
         );
         channel.setDescription("아이 기기에서 주변 소리 연결을 시작해야 할 때 표시되는 알림");
         channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 180, 100, 180});
-        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), new AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+        channel.setVibrationPattern(new long[]{0, 250, 150, 250, 150, 250});
+        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build());
-        channel.setBypassDnd(false);
+        channel.setBypassDnd(true);
         channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         channel.setShowBadge(false);
         manager.createNotificationChannel(channel);
