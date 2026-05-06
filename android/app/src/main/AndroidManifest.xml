@@ -149,6 +149,18 @@
             </intent-filter>
         </receiver>
 
+        <!-- Phase 0-A: Power-off resilience — 시스템 종료 직전 마지막 위치를 부모에게 push.
+             ACTION_SHUTDOWN 은 protected broadcast 이므로 system 만 발신. exported=true 가능. -->
+        <receiver
+            android:name=".ShutdownReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.ACTION_SHUTDOWN" />
+                <action android:name="android.intent.action.QUICKBOOT_POWEROFF" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

@@ -72,6 +72,29 @@
   touch-action: manipulation;
 }
 
+/* Phase 1-A: 버튼 시각 무결성 baseline — testplan2 요구사항.
+   - 최소 터치 타겟 36px (이미 더 큰 min-height 가 있는 버튼은 그대로)
+   - 텍스트·아이콘 수직/수평 중앙 정렬
+   - 텍스트 잘림 방지 (긴 라벨은 ellipsis)
+   inline style 또는 컴포넌트 전용 클래스가 명시한 padding/min-height 는 그대로 우선.
+   :not(...) 로 자체 사이징을 가진 컴포넌트(달력 셀, 아바타 스텝퍼, 시간 슬롯, 플랜 카드) 제외. */
+.hyeni-app-shell button:not([class*="hyeni-v5-calendar-day"]):not([class*="avatar-stepper-slot"]):not([class*="hyeni-time-slot"]):not([class*="plan-card"]) {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 카드 내부 텍스트(2줄 이상 허용)는 ellipsis 대상 아님 — wrap 허용. */
+.hyeni-app-shell .card *,
+.hyeni-app-shell [class*="hyeni-v5-event-card"] * {
+  white-space: normal;
+}
+
 .hyeni-app-shell button,
 .hyeni-app-shell a,
 .hyeni-app-shell [role="button"],

@@ -691,6 +691,17 @@ public class LocationService extends Service {
                     lastUploadedLat = lat;
                     lastUploadedLng = lng;
                     lastUploadedAtMs = capturedAtMs;
+                    // Phase 0-A: ShutdownReceiver 가 ACTION_SHUTDOWN 시 마지막 좌표를 읽어
+                    // is_final_before_shutdown=true 로 부모에게 푸시하기 위해 영속화.
+                    try {
+                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                            .putString("last_uploaded_lat", String.valueOf(lat))
+                            .putString("last_uploaded_lng", String.valueOf(lng))
+                            .putLong("last_uploaded_at_ms", capturedAtMs)
+                            .apply();
+                    } catch (Exception persistErr) {
+                        Log.w(TAG, "last-location prefs persist failed", persistErr);
+                    }
                     // Phase C: anon-key 폴백 경로에서도 history 저장. SECURITY DEFINER RPC
                     // record_location_history_rows 가 RLS 우회. 이전엔 anon 일 때 skip 하던
                     // 가드 제거 — access token 만료 시간대의 모든 이동경로가 누락되던 버그 회복.
