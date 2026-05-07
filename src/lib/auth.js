@@ -1,5 +1,7 @@
 import { supabase } from "./supabase.js";
 import { getUserDisplayName, getUserPhoneLocal, normalizePhoneForStorage } from "./accountAuth.js";
+import { clearFamilyInfoCache } from "./familyInfoCache.js";
+import { clearEntitlementCache } from "./entitlementCache.js";
 
 const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
 const NATIVE_OAUTH_REDIRECT_URL = "hyenicalendar://auth-callback";
@@ -341,9 +343,29 @@ export async function getUser() {
   return user;
 }
 
+// 로그아웃 시 모든 per-account 캐시를 즉시 비워 다음 세션이 이전 사용자
+// 데이터로 부팅되지 않도록 한다 (signed photo URL, familyInfo blob,
+// entitlement tier). signOut 의 SIGNED_OUT 이벤트는 비동기라 그 콜백
+// 이전에 프로세스가 종료되는 경우 stale 데이터가 localStorage 에 남는다.
+export function clearChildPhotoCache() {
+  childPhotoSignedUrlCache.clear();
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage?.removeItem?.(CHILD_PHOTO_CACHE_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 // ── Logout ──────────────────────────────────────────────────────────────────
 export async function logout() {
-  await supabase.auth.signOut();
+  try {
+    await supabase.auth.signOut();
+  } finally {
+    clearChildPhotoCache();
+    clearFamilyInfoCache();
+    clearEntitlementCache();
+  }
 }
 
 // ── Setup family (parent, after login) ──────────────────────────────────────

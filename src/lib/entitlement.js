@@ -84,13 +84,23 @@ export function useEntitlement(familyId) {
   // useState 의 lazy initializer 는 첫 렌더에서만 실행된다. 첫 렌더 시
   // familyId 가 아직 로드되지 않은 경우 (auth 후에 결정), 캐시된 premium
   // 값을 놓치고 free 로 굳어지는 회귀가 있었다 (locationGateHint 깜빡임의
-  // 원인). familyId 가 늦게 들어오면 다시 캐시를 읽어 동기적으로 적용.
+  // 원인). familyId 가 바뀔 때마다 캐시를 다시 읽어 동기적으로 적용.
+  // familyId 가 비면 (logout/unpaired) ready 를 다시 false 로 내려서
+  // consumer 가 stale tier 로 premium 권한을 오인하지 않게 한다.
   useEffect(() => {
-    if (!familyId) return;
+    if (!familyId) {
+      setState(deriveEntitlement(null));
+      setReady(false);
+      return;
+    }
     const cached = readEntitlementCache(familyId);
     if (cached) {
       setState(cached);
       setReady(true);
+    } else {
+      // 캐시 미스 시 ready=false 로 두어 refresh 가 완료될 때까지
+      // "premium 만 가능" UI 가 노출되지 않도록 한다.
+      setReady(false);
     }
   }, [familyId]);
 
@@ -107,7 +117,10 @@ export function useEntitlement(familyId) {
 
   const refresh = useCallback(async () => {
     if (!familyId) {
-      return applyRow(null);
+      // familyId 가 없으면 권한을 단정할 수 없다. state/ready 는 familyId
+      // useEffect 가 이미 처리했으므로 여기서는 noop. (이전 구현은
+      // applyRow(null) 을 호출해 ready=true + tier=free 로 잘못 단정했다.)
+      return;
     }
 
     setLoading(true);

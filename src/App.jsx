@@ -1494,7 +1494,18 @@ export default function KidsScheduler() {
     // Mirror familyInfo to localStorage so the next cold start can hydrate
     // the first paint immediately (avatars, role gating, pair code, etc.).
     // null is a valid signal — the writer treats it as "clear cache".
-    useEffect(() => { writeFamilyInfoCache(familyInfo); }, [familyInfo]);
+    // 500ms trailing debounce: 옵티미스틱 emoji 패치, realtime member
+    // 변경 등 hot path 에서 매번 JSON.stringify(members) + setItem 으로
+    // JS thread 가 막히는 것을 방지. logout 은 setFamilyInfo(null) 즉시
+    // flush 가 필요해 null 인 경우는 debounce 없이 동기 처리.
+    useEffect(() => {
+        if (familyInfo === null) {
+            writeFamilyInfoCache(null);
+            return undefined;
+        }
+        const timer = setTimeout(() => writeFamilyInfoCache(familyInfo), 500);
+        return () => clearTimeout(timer);
+    }, [familyInfo]);
     useEffect(() => { selectedChildUserIdRef.current = selectedChild?.user_id || null; }, [selectedChild?.user_id]);
 
     useEffect(() => {
@@ -7168,8 +7179,9 @@ export default function KidsScheduler() {
                     onRequestParentChange={() => showNotif("부모님께 변경 요청을 보냈어요")}
                     onLogout={async () => {
                         if (!window.confirm("정말 로그아웃할까?")) return;
-                        try { await supabase.auth.signOut(); } catch (e) { console.error(e); }
+                        try { await logout(); } catch (e) { console.error(e); }
                         if (typeof window !== "undefined") window.localStorage.removeItem("hyeni-last-role");
+                        setFamilyInfo(null);
                         setMyRole(null);
                     }}
                 />
@@ -7223,8 +7235,9 @@ export default function KidsScheduler() {
                     appVersion={typeof window !== "undefined" && window.__APP_VERSION__ ? String(window.__APP_VERSION__) : ""}
                     onLogout={async () => {
                         if (!window.confirm("로그아웃 할까요?")) return;
-                        try { await supabase.auth.signOut(); } catch (e) { console.error(e); }
+                        try { await logout(); } catch (e) { console.error(e); }
                         if (typeof window !== "undefined") window.localStorage.removeItem("hyeni-last-role");
+                        setFamilyInfo(null);
                         setMyRole(null);
                         setShowParentSettings(false);
                     }}
