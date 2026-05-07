@@ -14,45 +14,38 @@ export function TrialEndingBanner({ trialDaysLeft, isTrial, onContinue, isChild 
   if (!copy) return null;
 
   const danger = trialDaysLeft <= 1;
+  const statusClass = danger ? "cartoon-status--negative" : "cartoon-status--cautionary";
 
   return (
     <div
       role="status"
-      className="card"
+      className={`cartoon-status ${statusClass}`}
       style={{
         width: "100%",
         maxWidth: 420,
-        marginBottom: 10,
-        padding: "12px 14px",
-        background: danger ? "var(--status-negative-subtle)" : "var(--status-cautionary-subtle)",
-        border: `1px solid ${danger ? "var(--status-negative)" : "var(--status-cautionary)"}`,
+        marginBottom: "var(--space-3)",
         display: "flex",
         alignItems: "center",
-        gap: 12,
+        gap: "var(--space-3)",
+        padding: "var(--space-3) var(--space-4)",
       }}
     >
-      <div style={{ fontSize: 22 }}>{danger ? "⏰" : "✨"}</div>
+      <div aria-hidden="true" style={{ fontSize: 22 }}>{danger ? "⏰" : "✨"}</div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: danger ? "var(--status-negative-strong)" : "var(--status-cautionary-strong)" }}>{copy}</div>
-        <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 3 }}>체험이 끝나도 데이터는 남고, 프리미엄 기능만 잠깁니다.</div>
+        <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.4 }}>{copy}</div>
+        <div style={{ fontSize: 11, fontWeight: 600, marginTop: 3, opacity: 0.85 }}>
+          체험이 끝나도 데이터는 남고, 프리미엄 기능만 잠깁니다.
+        </div>
       </div>
       <button
         type="button"
         onClick={onContinue}
+        className="cartoon-pill cartoon-pill--rose"
         style={{
-          padding: "10px 14px",
-          borderRadius: 14,
-          border: "none",
-          background: danger ? "var(--status-negative)" : "var(--status-cautionary)",
-          color: "white",
-          fontWeight: 800,
+          height: 36,
+          padding: "0 var(--space-4)",
           fontSize: 12,
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          WebkitTouchCallout: "none",
-          touchAction: "manipulation",
+          flexShrink: 0,
         }}
       >
         {TRIAL_ENDING.cta}

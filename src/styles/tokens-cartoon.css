@@ -344,6 +344,121 @@
   cursor: not-allowed;
 }
 
+/* Modal backdrop + card (FeatureLockOverlay, TrialInvitePrompt 등) */
+.cartoon-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 720;
+  background: color-mix(in srgb, var(--fg-primary) 38%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  animation: cartoonBackdropIn 220ms ease;
+}
+.cartoon-modal-backdrop--bottom {
+  align-items: flex-end;
+  padding: 0;
+}
+.cartoon-modal-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-card);
+  box-shadow:
+    0 1px 2px rgba(245, 96, 130, 0.06),
+    0 24px 60px rgba(245, 96, 130, 0.18);
+  padding: var(--space-6) var(--space-5);
+  text-align: center;
+  animation: cartoonModalIn 240ms cubic-bezier(.2,.8,.2,1);
+}
+.cartoon-modal-card--bottom {
+  max-width: 460px;
+  border-radius: var(--cartoon-radius-card) var(--cartoon-radius-card) 0 0;
+  text-align: left;
+  padding: var(--space-6) var(--space-5) calc(env(safe-area-inset-bottom, 0px) + var(--space-8));
+  animation: cartoonSheetIn 260ms cubic-bezier(.2,.8,.2,1);
+}
+@keyframes cartoonBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes cartoonModalIn {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+@keyframes cartoonSheetIn {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cartoon-modal-backdrop,
+  .cartoon-modal-card { animation: none; }
+}
+
+/* Top-anchored toast — showNotif 출력. type 에 따라 variant 사용. */
+.cartoon-toast {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 250;
+  max-width: calc(100vw - 32px);
+  padding: var(--cartoon-pad-resume-y) var(--space-5);
+  border-radius: var(--cartoon-radius-pill);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: var(--cartoon-shadow-card);
+  animation: cartoonToastIn 280ms cubic-bezier(.2,.8,.2,1);
+}
+.cartoon-toast--success {
+  background: var(--cartoon-status-positive-bg);
+  color: var(--cartoon-status-positive-text);
+}
+.cartoon-toast--error {
+  background: var(--cartoon-status-negative-bg);
+  color: var(--cartoon-status-negative-text);
+}
+.cartoon-toast--child {
+  background: var(--cartoon-bg-chip);
+  color: var(--cartoon-rose-text);
+}
+.cartoon-toast--parent {
+  background: var(--cartoon-bg-card);
+  color: var(--fg-secondary);
+  border: 1px solid var(--cartoon-line);
+}
+@keyframes cartoonToastIn {
+  from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cartoon-toast { animation: none; }
+}
+
+/* Modal helper text (체험 안내 등) */
+.cartoon-modal-meta {
+  margin-top: var(--space-4);
+  border-radius: var(--cartoon-radius-input);
+  background: var(--cartoon-bg-chip);
+  border: 1px solid var(--cartoon-line);
+  padding: var(--space-3) var(--space-4);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cartoon-rose-text);
+  letter-spacing: -0.01em;
+}
+
 /* Inline link (가입하기 등) */
 .cartoon-link {
   background: none;

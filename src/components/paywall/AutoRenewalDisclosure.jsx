@@ -7,89 +7,42 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
     <div
       role="dialog"
       aria-modal="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 710,
-        background: "color-mix(in srgb, var(--fg-primary) 38%, transparent)",
-        backdropFilter: "blur(12px)",
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center",
-      }}
+      className="cartoon-modal-backdrop cartoon-modal-backdrop--bottom"
+      style={{ zIndex: 710 }}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div
-        className="card-elevated"
-        style={{
-          width: "100%",
-          maxWidth: 460,
-          borderRadius: "16px 16px 0 0",
-          padding: "24px 20px 32px",
-        }}
-      >
-        <div style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)" }}>{AUTO_RENEWAL_DISCLOSURE.title}</div>
-        <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+      <div className="cartoon-modal-card cartoon-modal-card--bottom">
+        <h2 className="cartoon-title" style={{ fontSize: 20, color: "var(--fg-primary)", textAlign: "left" }}>
+          {AUTO_RENEWAL_DISCLOSURE.title}
+        </h2>
+        <div style={{ marginTop: "var(--space-4)", display: "grid", gap: "var(--space-2)" }}>
           {AUTO_RENEWAL_DISCLOSURE.items.map((item) => (
             <div
               key={item}
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 10,
-                padding: "12px 14px",
-                borderRadius: 16,
-                background: "var(--theme-accent-soft)",
-                border: "1px solid var(--theme-accent-line)",
-                color: "var(--fg-secondary)",
-                fontSize: 13,
-                lineHeight: 1.6,
-              }}
+              className="cartoon-modal-meta"
+              style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-2)", marginTop: 0, fontWeight: 600, lineHeight: 1.6 }}
             >
-              <span>•</span>
+              <span aria-hidden="true">•</span>
               <span>{item}</span>
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-5)" }}>
           <button
             type="button"
             onClick={onConfirm}
-            style={{
-              flex: 1,
-              padding: "14px 16px",
-              borderRadius: 18,
-              border: "none",
-              background: "var(--hyeni-theme-gradient)",
-              color: "white",
-              fontWeight: 800,
-              cursor: "pointer",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-              WebkitTouchCallout: "none",
-              touchAction: "manipulation",
-            }}
+            className="cartoon-pill cartoon-pill--rose cartoon-pill--lg"
+            style={{ flex: 1 }}
           >
             {AUTO_RENEWAL_DISCLOSURE.confirm}
           </button>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              padding: "14px 16px",
-              borderRadius: 18,
-              border: "1px solid var(--line-soft)",
-              background: "var(--bg-subtle)",
-              color: "var(--fg-secondary)",
-              fontWeight: 700,
-              cursor: "pointer",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-              WebkitTouchCallout: "none",
-              touchAction: "manipulation",
-            }}
+            className="cartoon-pill cartoon-pill--white cartoon-pill--lg"
+            style={{ flexShrink: 0, padding: "0 var(--space-5)" }}
           >
             {AUTO_RENEWAL_DISCLOSURE.cancel}
           </button>

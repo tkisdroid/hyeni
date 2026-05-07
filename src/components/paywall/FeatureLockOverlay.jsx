@@ -1,4 +1,5 @@
 import { FEATURE_LOCK, PRICING } from "../../lib/paywallCopy.js";
+import { HyeniGirl } from "../decoration/CartoonIllustrations.jsx";
 
 export function FeatureLockOverlay({
   open,
@@ -19,83 +20,62 @@ export function FeatureLockOverlay({
     <div
       role="dialog"
       aria-modal="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 720,
-        background: "color-mix(in srgb, var(--fg-primary) 38%, transparent)",
-        backdropFilter: "blur(12px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-      }}
+      className="cartoon-modal-backdrop"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div
-        className="card-elevated"
-        style={{
-          width: "100%",
-          maxWidth: 360,
-          padding: "24px 20px",
-          textAlign: "center",
-        }}
-      >
-        <div style={{ fontSize: 44 }}>{copy?.emoji || "💎"}</div>
-        <div style={{ marginTop: 10, fontSize: 19, fontWeight: 900, color: "var(--fg-primary)" }}>{title}</div>
-        <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--fg-secondary)" }}>{body}</div>
+      <div className="cartoon-modal-card">
         <div
           style={{
-            marginTop: 16,
-            borderRadius: 18,
-            background: "var(--theme-accent-soft)",
-            border: "1px solid var(--theme-accent-line)",
-            padding: "12px 14px",
-            fontSize: 13,
-            color: "var(--theme-accent-text)",
+            display: "inline-flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            width: 84,
+            height: 84,
+            background: "var(--cartoon-bg-chip)",
+            borderRadius: "50%",
+            border: "1px solid var(--cartoon-line)",
+            margin: "0 auto var(--space-3)",
+            overflow: "hidden",
+            position: "relative",
           }}
         >
+          <HyeniGirl size={76} ariaLabel="" />
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              right: -2,
+              top: -2,
+              fontSize: 22,
+              filter: "drop-shadow(0 2px 4px rgba(245,96,130,0.2))",
+            }}
+          >
+            {copy?.emoji || "💎"}
+          </span>
+        </div>
+        <h2 className="cartoon-title" style={{ fontSize: 20, color: "var(--fg-primary)" }}>{title}</h2>
+        <p className="cartoon-subtitle" style={{ marginTop: "var(--space-2)", fontSize: 14, lineHeight: 1.6 }}>{body}</p>
+
+        <div className="cartoon-modal-meta">
           7일 무료 체험 후 {PRICING.monthlyLabel}부터 시작할 수 있어요.
         </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+
+        <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-5)" }}>
           <button
             type="button"
             onClick={onStart}
-            style={{
-              flex: 1,
-              padding: "13px 14px",
-              borderRadius: 16,
-              border: "none",
-              background: "var(--hyeni-theme-gradient)",
-              color: "white",
-              fontWeight: 800,
-              cursor: "pointer",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-              WebkitTouchCallout: "none",
-              touchAction: "manipulation",
-            }}
+            className="cartoon-pill cartoon-pill--rose"
+            style={{ flex: 1 }}
           >
             7일 무료 체험 시작
           </button>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              padding: "13px 14px",
-              borderRadius: 16,
-              border: "1px solid var(--line-soft)",
-              background: "var(--bg-subtle)",
-              color: "var(--fg-secondary)",
-              fontWeight: 700,
-              cursor: "pointer",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-              WebkitTouchCallout: "none",
-              touchAction: "manipulation",
-            }}
+            className="cartoon-pill cartoon-pill--white"
+            style={{ flexShrink: 0, padding: "0 var(--space-5)" }}
           >
             닫기
           </button>

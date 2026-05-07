@@ -5493,12 +5493,7 @@ export default function KidsScheduler() {
     if (showParentMemoPage && isParent) return (
         <div className="hyeni-app-shell hyeni-parent-memo-shell" style={{ height: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 22px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 104px)", position: "relative", overflowX: "hidden", overflowY: "hidden", width: "100%", boxSizing: "border-box" }}>
             {notification && (
-                <div style={{
-                    position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
-                    color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
-                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none"
-                }}>
+                <div className={`cartoon-toast cartoon-toast--${notification.type === "error" ? "error" : notification.type === "child" ? "child" : notification.type === "parent" ? "parent" : "success"}`}>
                     {notification.msg}
                 </div>
             )}
@@ -5517,12 +5512,7 @@ export default function KidsScheduler() {
     if (showChildMemoPage && !isParent) return (
         <div className="hyeni-app-shell hyeni-child-memo-shell" style={{ height: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 22px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)", position: "relative", overflowX: "hidden", overflowY: "hidden", width: "100%", boxSizing: "border-box" }}>
             {notification && (
-                <div style={{
-                    position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
-                    color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
-                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none"
-                }}>
+                <div className={`cartoon-toast cartoon-toast--${notification.type === "error" ? "error" : notification.type === "child" ? "child" : notification.type === "parent" ? "parent" : "success"}`}>
                     {notification.msg}
                 </div>
             )}
