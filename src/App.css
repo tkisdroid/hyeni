@@ -88,11 +88,58 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Phase 4: 부드러운 transition + tactile active 피드백 */
+  transition: transform 80ms cubic-bezier(0.2, 0, 0.2, 1),
+              opacity 120ms cubic-bezier(0.2, 0, 0.2, 1),
+              background-color 160ms cubic-bezier(0.2, 0, 0.2, 1),
+              box-shadow 160ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+.hyeni-app-shell button:not([disabled]):not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+  opacity: 0.92;
 }
 /* 카드 내부 텍스트(2줄 이상 허용)는 ellipsis 대상 아님 — wrap 허용. */
 .hyeni-app-shell .card *,
 .hyeni-app-shell [class*="hyeni-v5-event-card"] * {
   white-space: normal;
+}
+
+/* Phase 4: 페이지/뷰 전환 페이드 인 — 메인 view 컨테이너에 자동 적용. */
+@keyframes hyeni-view-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hyeni-app-shell .hyeni-v5-parent-main,
+.hyeni-app-shell .hyeni-v5-child-main,
+.hyeni-app-shell [data-view-root="true"] {
+  animation: hyeni-view-fade-in 220ms cubic-bezier(0.2, 0, 0.2, 1) backwards;
+}
+
+/* Phase 4: 일반 스켈레톤 클래스 — 모든 화면에서 로딩 placeholder 사용 가능.
+   사용 예: <div className="hyeni-skeleton" style={{height: 64, borderRadius: 12}} /> */
+.hyeni-skeleton {
+  background: linear-gradient(90deg,
+    var(--bg-muted) 0%,
+    color-mix(in srgb, var(--bg-base) 60%, var(--bg-muted)) 50%,
+    var(--bg-muted) 100%);
+  background-size: 200% 100%;
+  animation: hyeni-shimmer 1400ms infinite linear;
+}
+@keyframes hyeni-shimmer {
+  0%   { background-position-x: 100%; }
+  100% { background-position-x: -100%; }
+}
+
+/* Phase 4: prefers-reduced-motion 접근성 가드 — 모든 micro-interaction 무력화. */
+@media (prefers-reduced-motion: reduce) {
+  .hyeni-app-shell button:not([disabled]):active { transform: none; }
+  .hyeni-app-shell .hyeni-v5-parent-main,
+  .hyeni-app-shell .hyeni-v5-child-main,
+  .hyeni-app-shell [data-view-root="true"] { animation: none; }
+  .hyeni-v5-action-rail .hyeni-v5-action-chip,
+  .hyeni-v5-event-list > *,
+  .hyeni-v5-kid-card { animation: none !important; }
+  .hyeni-skeleton { animation: none; background: var(--bg-muted); }
 }
 
 .hyeni-app-shell button,
