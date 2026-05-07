@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Sun, Sparkles } from "lucide-react";
+import { Sun, Sparkles, Home, Calendar, MapPin } from "lucide-react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
@@ -4225,18 +4225,18 @@ export default function KidsScheduler() {
                 className={activeTab === "home" ? "active" : undefined}
                 style={{ fontFamily: FF }}
               >
-                <span aria-hidden="true">🏡</span>홈
+                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Home size={16} strokeWidth={1.75} /></span>홈
               </button>
             )}
             <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
                 <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Sun size={16} strokeWidth={1.75} /></span>오늘
             </button>
             <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentCalendarTabClick, "일정 보기")} style={{ fontFamily: FF }}>
-                <span aria-hidden="true">📅</span>일정
+                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Calendar size={16} strokeWidth={1.75} /></span>일정
             </button>
             {parentCapabilities.canManagePlaces && (
                 <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentMapTabClick, "장소 관리")} style={{ fontFamily: FF }}>
-                    <span aria-hidden="true">📍</span>장소관리
+                    <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><MapPin size={16} strokeWidth={1.75} /></span>장소관리
                 </button>
             )}
             <button
@@ -4594,7 +4594,7 @@ export default function KidsScheduler() {
                         </span>
                     </div>
                     <div className="hyeni-v5-event-chips">
-                        {distanceLabel && <span className="hyeni-v5-chip distance">📍 {distanceLabel}</span>}
+                        {distanceLabel && <span className="hyeni-v5-chip distance" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={12} strokeWidth={1.75} />{distanceLabel}</span>}
                         {event.memo && <span className="hyeni-v5-chip memo">📝 메모</span>}
                         <span className="hyeni-v5-chip" style={{ background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", border: "1px solid #FED7AA" }}>✏️ 수정</span>
                     </div>

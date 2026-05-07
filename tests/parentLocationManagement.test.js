@@ -28,8 +28,10 @@ describe("parent location management entry", () => {
     expect(app).toContain("gridTemplateColumns: `repeat(${parentBottomTabCount}, minmax(0, 1fr))`");
     expect(app).toContain("handleParentHomeTabClick");
     expect(app).toContain("closeParentManagementPanels()");
-    expect(app).toContain("<span aria-hidden=\"true\">📅</span>일정");
-    expect(app).toContain("<span aria-hidden=\"true\">📍</span>장소관리");
+    // Phase E P2: 탭 라벨의 시각 마커가 raw emoji → Lucide SVG 로 통일됨.
+    // 텍스트(일정/장소관리)는 동일 위치, 마커만 <Calendar/MapPin> 컴포넌트로.
+    expect(app).toContain("<Calendar size={16} strokeWidth={1.75} /></span>일정");
+    expect(app).toContain("<MapPin size={16} strokeWidth={1.75} /></span>장소관리");
   });
 
   test("keeps frequent places managed inside the academy manager", () => {

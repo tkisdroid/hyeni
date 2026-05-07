@@ -12,6 +12,13 @@ import {
     Heart, Star, Sparkles, Trophy, Target, Rainbow, Gift, Apple,
     Cookie, Cat, Dog, Rabbit, Flower2, Dumbbell, PartyPopper,
     ThumbsUp, Moon, Sun, Frown,
+    // Phase 2 — 위치/카테고리/시스템
+    MapPin, Map, Pin, Home, Compass, Satellite, DoorClosed,
+    School, Backpack, BookOpen, Palette, Music, Mic, Volleyball,
+    Type, Hash, Laptop, Waves,
+    Calendar, Phone, Pencil, Plus, Search, Trash2, Settings,
+    Bell, MessageCircle, Mail, Camera, Lock, Battery, Wifi,
+    Users, AlertTriangle, ShieldAlert, Check, X,
 } from "lucide-react";
 
 const ICON_MAP = {
@@ -40,6 +47,48 @@ const ICON_MAP = {
     "🐱": Cat,
     "🐶": Dog,
     "🐰": Rabbit,
+    // Phase 2 — 위치/지도 (가장 사용량 많은 영역, 📍 70+)
+    "📍": MapPin,
+    "🗺️": Map, "🗺": Map,
+    "📌": Pin,
+    "🏠": Home, "🏡": Home,
+    "🚪": DoorClosed,
+    "🧭": Compass,
+    "🛰️": Satellite, "🛰": Satellite,
+    // Phase 2 — 일정 카테고리 (CATEGORIES + ACADEMY_PRESETS)
+    "🏫": School,
+    "🎒": Backpack,
+    "📚": BookOpen,
+    "📖": BookOpen,
+    "🎨": Palette,
+    "🎹": Music,
+    "🎤": Mic, "🎙️": Mic, "🎙": Mic,
+    "⚽": Volleyball, // Lucide 1.x soccer 부재 — 가장 가까운 구기
+    "🏊": Waves,
+    "🌊": Waves,
+    "🔤": Type,
+    "🔢": Hash,
+    "💻": Laptop,
+    // Phase 2 — 시스템/UI (편집·관리·소통)
+    "📅": Calendar,
+    "📞": Phone, "☎️": Phone, "☎": Phone, "📲": Phone, "📱": Phone,
+    "✏️": Pencil, "✏": Pencil, "🖊️": Pencil, "🖊": Pencil, "📝": Pencil,
+    "➕": Plus,
+    "🔍": Search,
+    "🗑️": Trash2, "🗑": Trash2,
+    "⚙️": Settings, "⚙": Settings,
+    "🔔": Bell, "🔕": Bell,
+    "💬": MessageCircle, "💌": Mail, "📧": Mail, "✉️": Mail, "✉": Mail,
+    "📷": Camera, "📸": Camera,
+    "🔒": Lock, "🔐": Lock, "🔓": Lock,
+    "🔋": Battery,
+    "📡": Wifi, "📶": Wifi,
+    "👫": Users, "👨‍👩‍👧": Users, "👩‍👩‍👧": Users, "👨‍👨‍👧": Users,
+    "🚨": AlertTriangle,
+    "⚠️": AlertTriangle, "⚠": AlertTriangle,
+    "🛡️": ShieldAlert, "🛡": ShieldAlert,
+    "✅": Check, "✓": Check,
+    "❌": X, "✕": X, "✖️": X, "✖": X,
 };
 
 export function StickerIcon({
