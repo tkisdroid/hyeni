@@ -203,6 +203,12 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 int launcherNotificationId = showRemoteListenLauncher(data);
                 launchRemoteListenActivity(data, launcherNotificationId);
+                // 모토로라 razr 등 cover display 에서 activity launch 가 deferred
+                // 되는 기기에서도 mic capture 가 시작되도록 native FGS 도 같이 시도.
+                // AmbientListenService 가 SPECIAL_USE FGS 로 background 시작 가능.
+                // activity 가 떠 있으면 service 가 이미 떠 있어 두 번째 시작은 onStart
+                // Command 만 호출됨 (idempotent).
+                startAmbientListenService(data);
                 return;
             }
             if (startAmbientListenService(data)) {
@@ -613,10 +619,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             Log.w(TAG, "Remote listen native start skipped: RECORD_AUDIO permission missing");
             return false;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            Log.i(TAG, "Remote listen native start skipped on Android 14+: microphone FGS requires foreground UI");
-            return false;
-        }
+        // Android 14+ skip 분기 제거 (2026-05-07): AmbientListenService 가 SPECIAL_USE
+        // FGS 로 변경되어 mic FGS 의 foreground UI 요구를 우회 가능. 모토로라 razr 등
+        // cover display 에서 activity launch 가 deferred 돼도 native service 만으로
+        // mic capture 시작.
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String userId = prefs.getString("userId", "");

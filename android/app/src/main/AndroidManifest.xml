@@ -98,10 +98,21 @@
              foreground service with a persistent non-dismissable notification
              while capture is active. Service class is authored this phase but
              wired through a Capacitor bridge in v1.1 native-deploy. -->
+        <!-- 2026-05-07: foregroundServiceType microphone → specialUse 로 변경.
+             Android 14+ 의 mic FGS 는 background 시작 시 foreground UI 요구라
+             모토로라 razr cover display 에서 activity launch 가 deferred 되면
+             ForegroundServiceStartNotAllowedException. SPECIAL_USE 는 background
+             시작 허용. mic capture 는 RECORD_AUDIO 권한 + AudioRecord 로 별개.
+             Play Console 검토 시 SUBTYPE 메타로 "remote_listen_cover_display"
+             목적 명시. -->
         <service
             android:name=".AmbientListenService"
-            android:foregroundServiceType="microphone"
-            android:exported="false" />
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="remote_listen_cover_display" />
+        </service>
 
         <!-- Phase 5.x (force_ring): emergency parental alert FGS + fullscreen Activity.
              specialUse type per Android 14+ requirement; SUBTYPE meta declares

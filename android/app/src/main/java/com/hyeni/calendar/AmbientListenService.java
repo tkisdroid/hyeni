@@ -112,13 +112,19 @@ public class AmbientListenService extends Service {
         Notification notification = buildOngoingNotification();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
+                // Android 14+ FOREGROUND_SERVICE_TYPE_MICROPHONE 은 background
+                // 시작 시 "foreground UI from app" 을 요구해서 모토로라 razr 등
+                // 폴더 닫힌 상태(cover display)에서 RemoteListenActivity launch 가
+                // deferred 되면 ForegroundServiceStartNotAllowedException 발생.
+                // SPECIAL_USE 로 시작하고 mic 는 RECORD_AUDIO 권한 + AudioRecord
+                // 로 capture (FGS type 과 별개 권한 체계).
                 startForeground(
                     NOTIF_ID,
                     notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 );
             } catch (SecurityException error) {
-                Log.e(TAG, "Microphone foreground-service type denied; stopping ambient listen", error);
+                Log.e(TAG, "SpecialUse foreground-service type denied; stopping ambient listen", error);
                 stopSelf();
                 return START_NOT_STICKY;
             }
