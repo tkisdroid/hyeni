@@ -203,12 +203,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 int launcherNotificationId = showRemoteListenLauncher(data);
                 launchRemoteListenActivity(data, launcherNotificationId);
-                // 모토로라 razr 등 cover display 에서 activity launch 가 deferred
-                // 되는 기기에서도 mic capture 가 시작되도록 native FGS 도 같이 시도.
-                // AmbientListenService 가 SPECIAL_USE FGS 로 background 시작 가능.
-                // activity 가 떠 있으면 service 가 이미 떠 있어 두 번째 시작은 onStart
-                // Command 만 호출됨 (idempotent).
-                startAmbientListenService(data);
+                // 2026-05-08: background 에서 startForegroundService(AmbientListen)
+                // 호출 제거. Android 14+ 는 mic capture 를 위해 FGS type=MICROPHONE
+                // 이 필수인데, 그 type 은 background 시작을 거부한다 (SPECIAL_USE
+                // 로 우회하면 mic 가 silently muted 되어 peak16=0 무음 PCM 이 된다).
+                // 따라서 서비스 시작은 전적으로 RemoteListenActivity.onCreate (foreground
+                // context) 에서만 수행한다. cover display 등 activity launch 가 deferred
+                // 되는 기기는 폴더를 열어야 동작한다 (system 제약, 우회 불가).
                 return;
             }
             if (startAmbientListenService(data)) {

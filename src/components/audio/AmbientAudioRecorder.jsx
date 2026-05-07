@@ -247,77 +247,60 @@ export function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUse
                     const bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
                     const audioContext = audioContextRef.current;
+
+                    // Native AmbientListenService (Android) sends PCM 16 LE
+                    // wrapped in WAV. Web Audio createBuffer + BufferSource
+                    // played but routed to a stream that did not respect the
+                    // device media-volume slider on Capacitor WebView, so
+                    // chunks scheduled correctly yet produced silence.
+                    // HTMLAudioElement plays through STREAM_MUSIC and follows
+                    // the media-volume slider — switch to it for native WAV.
+                    const looksWav =
+                        (typeof mimeType === "string" && mimeType.includes("wav"))
+                        || (bytes.length > 44
+                            && bytes[0] === 0x52 && bytes[1] === 0x49
+                            && bytes[2] === 0x46 && bytes[3] === 0x46);
+                    if (looksWav) {
+                        const blob = new Blob([bytes], { type: "audio/wav" });
+                        const url = URL.createObjectURL(blob);
+                        const audio = new Audio();
+                        audio.preload = "auto";
+                        audio.src = url;
+                        activeAudioElementsRef.current.add(audio);
+                        await new Promise((resolve) => {
+                            const cleanup = () => {
+                                activeAudioElementsRef.current.delete(audio);
+                                audio.onended = null;
+                                audio.onerror = null;
+                                URL.revokeObjectURL(url);
+                            };
+                            audio.onended = () => { cleanup(); resolve(); };
+                            audio.onerror = (e) => {
+                                console.warn("[Audio] <audio> playback error", e?.message || "");
+                                cleanup();
+                                resolve();
+                            };
+                            if (playbackGeneration !== playbackGenerationRef.current) {
+                                cleanup();
+                                resolve();
+                                return;
+                            }
+                            const p = audio.play();
+                            if (p?.catch) {
+                                p.catch((err) => {
+                                    console.warn("[Audio] <audio>.play() rejected:", err?.message || err);
+                                    cleanup();
+                                    resolve();
+                                });
+                            }
+                        });
+                        return;
+                    }
+
                     if (audioContext && audioContext.state !== "closed") {
                         if (playbackGeneration !== playbackGenerationRef.current) return;
                         if (audioContext.state === "suspended") {
                             await audioContext.resume();
-                        }
-
-                        // Native AmbientListenService (Android) sends PCM 16 LE
-                        // wrapped in WAV (mimeType="audio/wav"). Some Android WebView
-                        // builds silently fail decodeAudioData on these chunks even
-                        // though the header is standard. Parse manually and feed the
-                        // PCM directly into an AudioBuffer to bypass that path.
-                        const looksWav =
-                            (typeof mimeType === "string" && mimeType.includes("wav"))
-                            || (bytes.length > 44
-                                && bytes[0] === 0x52 && bytes[1] === 0x49
-                                && bytes[2] === 0x46 && bytes[3] === 0x46);
-                        if (looksWav) {
-                            try {
-                                const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-                                let sampleRate = 16000;
-                                let numChannels = 1;
-                                let bitsPerSample = 16;
-                                let dataOffset = 44;
-                                let dataLength = bytes.length - 44;
-                                let cursor = 12;
-                                while (cursor + 8 <= bytes.length) {
-                                    const chunkId = String.fromCharCode(
-                                        bytes[cursor], bytes[cursor + 1],
-                                        bytes[cursor + 2], bytes[cursor + 3]
-                                    );
-                                    const chunkSize = dv.getUint32(cursor + 4, true);
-                                    if (chunkId === "fmt ") {
-                                        numChannels = dv.getUint16(cursor + 10, true) || 1;
-                                        sampleRate = dv.getUint32(cursor + 12, true) || 16000;
-                                        bitsPerSample = dv.getUint16(cursor + 22, true) || 16;
-                                    }
-                                    if (chunkId === "data") {
-                                        dataOffset = cursor + 8;
-                                        dataLength = Math.min(chunkSize, bytes.length - dataOffset);
-                                        break;
-                                    }
-                                    cursor += 8 + chunkSize;
-                                }
-                                if (bitsPerSample !== 16) {
-                                    throw new Error(`unsupported bitsPerSample=${bitsPerSample}`);
-                                }
-                                const sampleCount = Math.floor(dataLength / 2 / numChannels);
-                                if (sampleCount <= 0) {
-                                    throw new Error("empty wav data");
-                                }
-                                const audioBuffer = audioContext.createBuffer(numChannels, sampleCount, sampleRate);
-                                for (let ch = 0; ch < numChannels; ch++) {
-                                    const channel = audioBuffer.getChannelData(ch);
-                                    for (let i = 0; i < sampleCount; i++) {
-                                        const offset = dataOffset + (i * numChannels + ch) * 2;
-                                        channel[i] = dv.getInt16(offset, true) / 32768;
-                                    }
-                                }
-                                if (playbackGeneration !== playbackGenerationRef.current) return;
-                                const source = audioContext.createBufferSource();
-                                const startAt = Math.max(audioContext.currentTime + 0.02, nextPlayAtRef.current || 0);
-                                nextPlayAtRef.current = startAt + audioBuffer.duration;
-                                source.buffer = audioBuffer;
-                                source.connect(audioContext.destination);
-                                activeSourcesRef.current.add(source);
-                                source.onended = () => activeSourcesRef.current.delete(source);
-                                source.start(startAt);
-                                return;
-                            } catch (wavParseError) {
-                                console.warn("[Audio] WAV manual parse failed, falling back:", wavParseError?.message || wavParseError);
-                            }
                         }
 
                         try {

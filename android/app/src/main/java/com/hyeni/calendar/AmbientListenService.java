@@ -111,20 +111,38 @@ public class AmbientListenService extends Service {
         createChannel();
         Notification notification = buildOngoingNotification();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Android 14+ silently mutes mic capture when FGS type is anything
+            // other than MICROPHONE (peak16=0 with SPECIAL_USE confirmed via
+            // parent-device logs). Always try MICROPHONE first; only fall back
+            // to SPECIAL_USE on the cover-display ForegroundServiceStartNotAllowed
+            // case. The fallback service won't produce audio but at least keeps
+            // the foreground notification visible so the user can investigate.
+            boolean micTypeStarted = false;
             try {
-                // Android 14+ FOREGROUND_SERVICE_TYPE_MICROPHONE 은 background
-                // 시작 시 "foreground UI from app" 을 요구해서 모토로라 razr 등
-                // 폴더 닫힌 상태(cover display)에서 RemoteListenActivity launch 가
-                // deferred 되면 ForegroundServiceStartNotAllowedException 발생.
-                // SPECIAL_USE 로 시작하고 mic 는 RECORD_AUDIO 권한 + AudioRecord
-                // 로 capture (FGS type 과 별개 권한 체계).
                 startForeground(
                     NOTIF_ID,
                     notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 );
-            } catch (SecurityException error) {
-                Log.e(TAG, "SpecialUse foreground-service type denied; stopping ambient listen", error);
+                micTypeStarted = true;
+                Log.i(TAG, "Started FGS with TYPE_MICROPHONE");
+            } catch (Exception micError) {
+                Log.w(TAG, "FGS TYPE_MICROPHONE denied (likely cover-display path), falling back to SPECIAL_USE", micError);
+                try {
+                    startForeground(
+                        NOTIF_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    );
+                } catch (Exception specError) {
+                    Log.e(TAG, "All FGS types denied; stopping ambient listen", specError);
+                    stopSelf();
+                    return START_NOT_STICKY;
+                }
+            }
+            if (!micTypeStarted) {
+                Log.w(TAG, "FGS started in SPECIAL_USE mode — mic capture will be silent on Android 14+. Stopping early.");
+                removeForegroundNotification();
                 stopSelf();
                 return START_NOT_STICKY;
             }

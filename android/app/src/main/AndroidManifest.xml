@@ -96,18 +96,19 @@
         <!-- Phase 5 D-B06 (RL-03): Ambient listen foreground service.
              Play Store stalkerware policy requires this as a microphone-type
              foreground service with a persistent non-dismissable notification
-             while capture is active. Service class is authored this phase but
-             wired through a Capacitor bridge in v1.1 native-deploy. -->
-        <!-- 2026-05-07: foregroundServiceType microphone → specialUse 로 변경.
-             Android 14+ 의 mic FGS 는 background 시작 시 foreground UI 요구라
-             모토로라 razr cover display 에서 activity launch 가 deferred 되면
-             ForegroundServiceStartNotAllowedException. SPECIAL_USE 는 background
-             시작 허용. mic capture 는 RECORD_AUDIO 권한 + AudioRecord 로 별개.
-             Play Console 검토 시 SUBTYPE 메타로 "remote_listen_cover_display"
-             목적 명시. -->
+             while capture is active.
+             2026-05-08: foregroundServiceType="microphone|specialUse".
+             Android 14+ silently mutes mic capture when FGS type is specialUse
+             (peak16=0 confirmed via parent device logs). Service code calls
+             startForeground(MICROPHONE) first, falls back to SPECIAL_USE only
+             if cover-display case throws ForegroundServiceStartNotAllowed —
+             but that fallback path will not produce audio anyway, so we just
+             surface a clear error.
+             SUBTYPE meta retained for Play Console review of the specialUse
+             fallback edge case. -->
         <service
             android:name=".AmbientListenService"
-            android:foregroundServiceType="specialUse"
+            android:foregroundServiceType="microphone|specialUse"
             android:exported="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
