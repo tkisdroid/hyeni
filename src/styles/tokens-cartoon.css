@@ -43,6 +43,10 @@
   --cartoon-mint:            #6FE0A8;
   --cartoon-pin-pink:        #FF7BA0;
 
+  /* On-* text colors — hex 값을 클래스 body 에 직접 쓰지 않기 위한 토큰 */
+  --cartoon-pill-rose-text:  var(--fg-on-primary);     /* #FFFFFF — Wanted DS 토큰 재사용 */
+  --cartoon-pill-kakao-text: #2A1D00;                  /* 카카오 공식 어두운 갈색 텍스트 */
+
   /* Hearts pattern — BG decoration */
   --cartoon-heart-fill:        rgba(255, 128, 158, 0.10);
   --cartoon-heart-fill-strong: rgba(255, 128, 158, 0.18);
@@ -83,10 +87,13 @@
   --cartoon-shadow-pill:
     0 4px 12px rgba(245, 96, 130, 0.20);
 
-  /* Typography — 제목용 둥근 한글 */
+  /* Typography — 제목용. Cafe24 Ssurround 같은 외부 CDN 폰트는 의도적으로
+     사용하지 않는다 (offline 안전성, 네트워크 비용, 프라이버시). Pretendard
+     의 ExtraBold(800) + letter-spacing 음수 + HyeniWordmark 의 글자별
+     rotate/scale 조합으로 reference 의 둥글고 통통한 느낌을 구현한다. */
   --cartoon-font-display:
-    "Cafe24 Ssurround", "Cafe24 Ssurround Air", "Pretendard Variable",
-    "Pretendard", system-ui, sans-serif;
+    "Pretendard Variable", "Pretendard", system-ui,
+    "Apple SD Gothic Neo", sans-serif;
 }
 
 /* --------------------------------------------------------------------------
@@ -129,7 +136,7 @@
 .cartoon-pill:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .cartoon-pill--rose {
-  color: #FFFFFF;
+  color: var(--cartoon-pill-rose-text);
   background: var(--cartoon-rose-gradient);
   box-shadow: var(--cartoon-shadow-pill);
 }
@@ -142,7 +149,7 @@
 }
 
 .cartoon-pill--kakao {
-  color: #2A1D00;
+  color: var(--cartoon-pill-kakao-text);
   background: var(--cartoon-yellow);
 }
 
