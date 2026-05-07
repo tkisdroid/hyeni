@@ -1,11 +1,12 @@
 // src/components/auth/ParentSignupScreen.jsx
 // 학부모 가입 화면 — phone OTP 단계 + 프로필 입력.
-// 2026-05-07 cartoon DS migration. 로직/prop 보존.
+// Extracted from App.jsx (Phase 5 #4 / B4).
 
 import { useState } from "react";
 import { requestPhoneSignupCode, verifyPhoneSignupCode } from "../../lib/accountAuth.js";
 import { useBackHandler } from "../../lib/backHandler.js";
 import { rememberParentPairingIntent, clearParentPairingIntent } from "../../lib/parentPairingIntent.js";
+import { FF } from "../../lib/styleHelpers.js";
 import { AppBrandLogo } from "./AppBrandLogo.jsx";
 import { BirthdatePicker } from "../birthdate/BirthdatePicker.jsx";
 
@@ -17,6 +18,9 @@ export function ParentSignupScreen({ onBack }) {
     const [otp, setOtp] = useState("");
     const [pendingSignup, setPendingSignup] = useState(null);
     const codeSent = !!pendingSignup && !pendingSignup.session;
+
+    const fieldWrapStyle = { display: "flex", flexDirection: "column", gap: "var(--space-2)" };
+    const labelStyle = { fontSize: 12, fontWeight: "var(--weight-bold)", color: "var(--fg-secondary)" };
 
     const handleRequestCode = async (event) => {
         event.preventDefault();
@@ -77,48 +81,74 @@ export function ParentSignupScreen({ onBack }) {
         return false;
     });
 
-    const genderOptions = [
-        { value: "엄마", emoji: "🤱" },
-        { value: "아빠", emoji: "👨" },
-        { value: "보호자", emoji: "👤" },
-    ];
-
     return (
-        <div className="hy-auth">
-            <div className="hy-auth__header">
-                <button type="button" onClick={onBack} aria-label="뒤로" className="hy-auth__back">←</button>
-                <AppBrandLogo size={56} radius={16} />
-                <span className="hy-auth__back-spacer" aria-hidden="true" />
+        <div
+            className="hyeni-app-shell"
+            style={{
+                minHeight: "100dvh",
+                background: "var(--bg-subtle)",
+                display: "flex",
+                flexDirection: "column",
+                fontFamily: FF,
+                padding: "calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-6))",
+            }}
+        >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-5)" }}>
+                <button
+                    type="button"
+                    onClick={onBack}
+                    aria-label="뒤로"
+                    style={{
+                        width: 36, height: 36,
+                        borderRadius: "var(--radius-control)",
+                        border: "1px solid var(--line-soft)",
+                        background: "var(--bg-base)",
+                        cursor: "pointer",
+                        fontSize: 18,
+                        fontWeight: "var(--weight-bold)",
+                        color: "var(--fg-secondary)",
+                        fontFamily: FF,
+                    }}
+                >
+                    ←
+                </button>
+                <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
+                    <AppBrandLogo size={56} radius={16} />
+                </div>
+                <div style={{ width: 36 }} />
             </div>
 
-            <div className="hy-auth__hero">
-                <h1 className="hy-auth__title">학부모 가입</h1>
-                <p className="hy-auth__subtitle">혜니캘린더에 처음 오셨군요</p>
+            <div style={{ textAlign: "center", marginBottom: "var(--space-6)" }}>
+                <h1 className="t-screen-title">학부모 가입</h1>
+                <p className="t-screen-subtitle" style={{ marginTop: "var(--space-2)" }}>혜니캘린더에 처음 오셨군요</p>
             </div>
 
-            <div className="hy-auth__body">
-                <form onSubmit={codeSent ? handleVerifyCode : handleRequestCode} className="hy-auth__form">
-                    <label className="hy-field">
-                        <span className="hy-field__label">이름</span>
-                        <input value={signup.name} onChange={(e) => setSignup((p) => ({ ...p, name: e.target.value }))} autoComplete="name" placeholder="홍길동" maxLength={30} disabled={codeSent} className="hy-field__input" />
+            <div style={{ maxWidth: 400, width: "100%", margin: "0 auto" }}>
+                <form onSubmit={codeSent ? handleVerifyCode : handleRequestCode} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>이름</span>
+                        <input value={signup.name} onChange={(e) => setSignup((p) => ({ ...p, name: e.target.value }))} autoComplete="name" placeholder="홍길동" maxLength={30} disabled={codeSent} className="input" />
                     </label>
-                    <label className="hy-field">
-                        <span className="hy-field__label">아이디</span>
-                        <input value={signup.loginId} onChange={(e) => setSignup((p) => ({ ...p, loginId: e.target.value }))} autoComplete="username" placeholder="parent01" disabled={codeSent} className="hy-field__input" />
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>아이디</span>
+                        <input value={signup.loginId} onChange={(e) => setSignup((p) => ({ ...p, loginId: e.target.value }))} autoComplete="username" placeholder="parent01" disabled={codeSent} className="input" />
                     </label>
-                    <label className="hy-field">
-                        <span className="hy-field__label">비밀번호</span>
-                        <input type="password" value={signup.password} onChange={(e) => setSignup((p) => ({ ...p, password: e.target.value }))} autoComplete="new-password" placeholder="6자 이상" disabled={codeSent} className="hy-field__input" />
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>비밀번호</span>
+                        <input type="password" value={signup.password} onChange={(e) => setSignup((p) => ({ ...p, password: e.target.value }))} autoComplete="new-password" placeholder="6자 이상" disabled={codeSent} className="input" />
                     </label>
-                    <label className="hy-field">
-                        <span className="hy-field__label">비밀번호 확인</span>
-                        <input type="password" value={signup.passwordConfirm} onChange={(e) => setSignup((p) => ({ ...p, passwordConfirm: e.target.value }))} autoComplete="new-password" placeholder="비밀번호 재입력" disabled={codeSent} className="hy-field__input" />
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>비밀번호 확인</span>
+                        <input type="password" value={signup.passwordConfirm} onChange={(e) => setSignup((p) => ({ ...p, passwordConfirm: e.target.value }))} autoComplete="new-password" placeholder="비밀번호 재입력" disabled={codeSent} className="input" />
                     </label>
-
-                    <fieldset disabled={codeSent} className="hy-fieldset">
-                        <legend>역할</legend>
-                        <div role="radiogroup" aria-label="역할" className="hy-radio-group">
-                            {genderOptions.map((option) => {
+                    <fieldset disabled={codeSent} style={{ ...fieldWrapStyle, border: "none", padding: 0, margin: 0 }}>
+                        <legend style={labelStyle}>역할</legend>
+                        <div role="radiogroup" aria-label="역할" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
+                            {[
+                                { value: "엄마", emoji: "🤱" },
+                                { value: "아빠", emoji: "👨" },
+                                { value: "보호자", emoji: "👤" },
+                            ].map((option) => {
                                 const selected = signup.gender === option.value;
                                 return (
                                     <button
@@ -128,7 +158,21 @@ export function ParentSignupScreen({ onBack }) {
                                         aria-checked={selected}
                                         disabled={codeSent}
                                         onClick={() => setSignup((p) => ({ ...p, gender: option.value }))}
-                                        className="hy-radio-pill"
+                                        style={{
+                                            padding: "var(--space-3) var(--space-2)",
+                                            borderRadius: "var(--radius-control)",
+                                            border: `1px solid ${selected ? "var(--theme-accent)" : "var(--line-soft)"}`,
+                                            background: selected ? "var(--theme-accent-soft)" : "var(--bg-base)",
+                                            color: selected ? "var(--theme-accent-text)" : "var(--fg-secondary)",
+                                            fontWeight: "var(--weight-semibold)",
+                                            fontFamily: FF,
+                                            cursor: codeSent ? "not-allowed" : "pointer",
+                                            fontSize: 14,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            gap: "var(--space-1)",
+                                        }}
                                     >
                                         <span aria-hidden="true">{option.emoji}</span>
                                         <span>{option.value}</span>
@@ -137,9 +181,8 @@ export function ParentSignupScreen({ onBack }) {
                             })}
                         </div>
                     </fieldset>
-
-                    <label className="hy-field">
-                        <span className="hy-field__label">생년월일</span>
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>생년월일</span>
                         <BirthdatePicker
                             value={signup.birthdate}
                             onChange={(yyyymmdd) => setSignup((p) => ({ ...p, birthdate: yyyymmdd }))}
@@ -150,31 +193,36 @@ export function ParentSignupScreen({ onBack }) {
                             defaultYearOffset={30}
                         />
                     </label>
-
-                    <label className="hy-field">
-                        <span className="hy-field__label">전화번호</span>
-                        <input type="tel" inputMode="tel" value={signup.phone} onChange={(e) => setSignup((p) => ({ ...p, phone: e.target.value }))} autoComplete="tel" placeholder="010-1234-5678" disabled={codeSent} className="hy-field__input" />
+                    <label style={fieldWrapStyle}>
+                        <span style={labelStyle}>전화번호</span>
+                        <input type="tel" inputMode="tel" value={signup.phone} onChange={(e) => setSignup((p) => ({ ...p, phone: e.target.value }))} autoComplete="tel" placeholder="010-1234-5678" disabled={codeSent} className="input" />
                     </label>
-
                     {codeSent && (
-                        <label className="hy-field">
-                            <span className="hy-field__label">인증번호</span>
-                            <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="6자리" className="hy-field__input" />
+                        <label style={fieldWrapStyle}>
+                            <span style={labelStyle}>인증번호</span>
+                            <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="6자리" className="input" />
                         </label>
                     )}
-
-                    <button type="submit" disabled={!!busy} className="hy-button hy-button--primary">
+                    <button type="submit" disabled={!!busy} className="btn btn-primary" style={{ marginTop: "var(--space-2)", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" }}>
                         {busy === "signup" ? "인증번호 요청 중..." : busy === "verify" ? "확인 중..." : codeSent ? "인증번호 확인 후 가입" : "인증번호 받기"}
                     </button>
                     {codeSent && (
-                        <button type="button" disabled={!!busy} onClick={handleRequestCode} className="hy-button hy-button--outline">
+                        <button type="button" disabled={!!busy} onClick={handleRequestCode} className="btn btn-secondary" style={{ opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" }}>
                             인증번호 다시 받기
                         </button>
                     )}
                 </form>
 
-                {message && <div className="hy-message hy-message--positive">{message}</div>}
-                {error && <div className="hy-message hy-message--negative">{error}</div>}
+                {message && (
+                    <div style={{ marginTop: "var(--space-4)", padding: "var(--space-3)", borderRadius: "var(--radius-md)", background: "var(--status-positive-subtle)", color: "var(--status-positive-strong)", fontSize: 13, fontWeight: "var(--weight-bold)", lineHeight: 1.45 }}>
+                        {message}
+                    </div>
+                )}
+                {error && (
+                    <div style={{ marginTop: "var(--space-4)", padding: "var(--space-3)", borderRadius: "var(--radius-md)", background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", fontSize: 13, fontWeight: "var(--weight-bold)", lineHeight: 1.45 }}>
+                        {error}
+                    </div>
+                )}
             </div>
         </div>
     );

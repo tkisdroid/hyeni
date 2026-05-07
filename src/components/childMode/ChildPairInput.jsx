@@ -1,11 +1,12 @@
 // src/components/childMode/ChildPairInput.jsx
 // 자녀 첫 페어링 화면 — KID-XXXXXXXX 코드 직접 입력 + QR 스캐너 fallback.
 // Bundles QrPairScanner (BarcodeDetector based camera scanner) for self-containment.
-// 2026-05-07 cartoon DS migration: 외곽/입력/버튼만 hy-* 클래스로 교체. QR scanner UI 는 dark 그대로 보존.
+// Extracted from App.jsx (Phase 5 #4 / B18).
 
 import { useEffect, useRef, useState } from "react";
 import { joinFamily } from "../../lib/auth.js";
 import { normalizePairCodeInput } from "../../lib/pairCode.js";
+import { DESIGN, FF, makePrimaryButtonStyle, makeSecondaryButtonStyle } from "../../lib/styleHelpers.js";
 import { AppBrandLogo } from "../auth/AppBrandLogo.jsx";
 
 const QR_CAMERA_PERMISSION_MESSAGE = "카메라 권한이 필요해요. 권한을 허용한 뒤 다시 시도해 주세요.";
@@ -200,9 +201,9 @@ function QrPairScanner({ onDetected, onClose }) {
     }, [onDetected, retryKey]);
 
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 650, background: "rgba(15,23,42,0.92)", display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 650, background: "rgba(15,23,42,0.92)", display: "flex", flexDirection: "column", fontFamily: FF }}>
             <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", display: "flex", alignItems: "center", gap: 12 }}>
-                <button onClick={onClose} style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, color: "white" }}>← 닫기</button>
+                <button onClick={onClose} style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, color: "white", fontFamily: FF }}>← 닫기</button>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "white" }}>📷 QR 코드 스캔</div>
             </div>
             <div style={{ flex: 1, padding: "20px 20px 28px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 18 }}>
@@ -221,20 +222,20 @@ function QrPairScanner({ onDetected, onClose }) {
                     <div style={{ fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,0.8)" }}>
                         QR을 인식하면 코드 입력 없이 바로 연동을 시작해요
                     </div>
-                    {error && <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "#ffb84a" }}>{error}</div>}
+                    {error && <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--status-cautionary-strong)" }}>{error}</div>}
                     {permissionDenied && (
                         <div style={{ marginTop: 14, display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
                             <button
                                 type="button"
                                 onClick={() => setRetryKey((value) => value + 1)}
-                                style={{ border: "none", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "white", background: "rgba(255,255,255,0.18)", cursor: "pointer" }}
+                                style={{ border: "none", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "white", background: "rgba(255,255,255,0.18)", cursor: "pointer", fontFamily: FF }}
                             >
                                 권한 다시 확인
                             </button>
                             <button
                                 type="button"
                                 onClick={() => { void openQrCameraPermissionSettings(); }}
-                                style={{ border: "1px solid rgba(255,255,255,0.32)", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "white", background: "rgba(255,255,255,0.08)", cursor: "pointer" }}
+                                style={{ border: "1px solid rgba(255,255,255,0.32)", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "white", background: "rgba(255,255,255,0.08)", cursor: "pointer", fontFamily: FF }}
                             >
                                 앱 설정 열기
                             </button>
@@ -289,59 +290,40 @@ export function ChildPairInput({ userId, onPaired }) {
 
     if (phase === "loading") {
         return (
-            <div className="hy-pair">
-                <div className="hy-pair__success-emoji" aria-hidden="true">🎉</div>
-                <h1 className="hy-pair__success-title">연결됐어요!</h1>
-                <p className="hy-pair__success-desc">
+            <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF, textAlign: "center" }}>
+                <div style={{ fontSize: 64, marginBottom: 18 }}>🎉</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 10 }}>연결됐어요!</div>
+                <div style={{ fontSize: 14, color: "var(--fg-secondary)", lineHeight: 1.55 }}>
                     가족 정보를 불러오는 중이에요...<br />위치 권한을 묻는 창이 뜨면 허용해 주세요.
-                </p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="hy-pair">
-            <AppBrandLogo size={88} radius={24} />
-            <h1 className="hy-pair__title">부모님과 연결하기</h1>
-            <p className="hy-pair__subtitle">
-                부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요
-            </p>
-
-            <div className="hy-pair__form">
-                <div className="hy-pair-code-input">
-                    <span className="hy-pair-code-prefix">KID-</span>
-                    <input
-                        value={code}
-                        onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
-                        placeholder="XXXXXXXX"
-                        maxLength={8}
-                        inputMode="text"
-                        autoCapitalize="characters"
-                        autoComplete="off"
-                    />
-                </div>
-
-                {error && <div className="hy-message hy-message--negative">{error}</div>}
-
-                <button
-                    type="button"
-                    onClick={() => { void handleJoin(); }}
-                    disabled={busy}
-                    className="hy-button hy-button--primary"
-                >
-                    {busy ? "연결 중..." : "🔗 연결하기"}
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => { if (!busy) setShowScanner(true); }}
-                    disabled={busy}
-                    className="hy-button hy-button--outline"
-                >
-                    📷 QR로 연결하기
-                </button>
+        <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
+            <AppBrandLogo size={78} radius={24} />
+            <div style={{ fontSize: 24, fontWeight: 900, color: "var(--theme-accent-text)", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
+            <div style={{ fontSize: 14, color: "var(--fg-secondary)", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
+            <div style={{ position: "relative", width: "100%", maxWidth: 320, marginBottom: 8 }}>
+                <div style={{ position: "absolute", left: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 20, fontFamily: "monospace", fontWeight: 700, color: "var(--theme-accent-text)", pointerEvents: "none", zIndex: 1 }}>KID-</div>
+                <input value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
+                    placeholder="XXXXXXXX" maxLength={8}
+                    style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid var(--theme-accent-line)", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "var(--fg-primary)", background: "white", boxShadow: "var(--hyeni-theme-shadow-soft)" }} />
             </div>
-
+            {error && <div style={{ fontSize: 13, color: "var(--status-cautionary-strong)", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
+            <button onClick={() => { void handleJoin(); }} disabled={busy}
+                style={{ ...makePrimaryButtonStyle({ maxWidth: 320, padding: "16px", fontSize: 16, marginTop: 8, opacity: busy ? 0.7 : 1 }), cursor: busy ? "wait" : "pointer" }}>
+                {busy ? "연결 중..." : "🔗 연결하기"}
+            </button>
+            <button
+                type="button"
+                onClick={() => { if (!busy) setShowScanner(true); }}
+                disabled={busy}
+                style={{ ...makeSecondaryButtonStyle({ maxWidth: 320, padding: "14px", color: "var(--theme-accent-text)", border: "1.5px solid var(--theme-accent-line)", background: "var(--theme-accent-soft)", fontSize: 15, marginTop: 10 }), cursor: busy ? "wait" : "pointer" }}
+            >
+                📷 QR로 연결하기
+            </button>
             {showScanner && (
                 <QrPairScanner
                     onClose={() => setShowScanner(false)}
