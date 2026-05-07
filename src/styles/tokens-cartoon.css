@@ -1,0 +1,303 @@
+/* ==========================================================================
+   Cartoon-Warm 토큰 + 컴포넌트 클래스 (2026-05-08)
+   reference: screenshots/design1/* — 가족 친화 카툰 핑크 무드
+   - 기존 Wanted DS 토큰을 절대 덮어쓰지 않는다. 별도 namespace 로만 추가.
+   - 적용 영역: HeartsBackground · HyeniWordmark · RoleSetupModal 등 cartoon
+     클래스를 opt-in 한 화면.
+   - 다크모드 변수는 의도적으로 제공하지 않는다 (cartoon mood 는 light-only
+     intent). 다크모드에서는 Wanted DS 기본값으로 fallback.
+
+   tokens.css 에 인라인하지 않고 분리한 이유: tokens.css 는 Wanted DS 의
+   기준 팔레트(공식 spec) 만 담고, cartoon 은 opt-in 레이어로 명확히 격리.
+   tokens-phase3-child.css / tokens-phase4-ops.css 패턴과 동일.
+   ========================================================================== */
+
+:root {
+  /* Surfaces — 부드러운 크림 핑크 */
+  --cartoon-bg-cream:        #FFF1EE;        /* 화면 BG */
+  --cartoon-bg-cream-strong: #FFE6E0;        /* 강조 영역 */
+  --cartoon-bg-card:         #FFFFFF;        /* 카드 surface */
+  --cartoon-bg-input:        #FFF7F5;        /* 입력 필드 surface */
+  --cartoon-bg-chip:         #FFE0E6;        /* 라이트 핑크 chip */
+  --cartoon-bg-chip-mint:    #DAF6E3;        /* 민트 chip (체험중 등) */
+  --cartoon-bg-chip-mint-text: #2F8F5C;
+  --cartoon-bg-chip-yellow:  #FFF1A8;        /* 라이트 옐로 chip */
+
+  /* "Glass" 형태로 흰색을 알파로 깔 때 — Rule 8 위반 방지용 토큰 */
+  --cartoon-bg-glass:        rgba(255, 255, 255, 0.60);
+  --cartoon-bg-glass-strong: rgba(255, 255, 255, 0.85);
+
+  /* Brand — 로즈 핑크 강조 */
+  --cartoon-rose:            #FF6E8E;
+  --cartoon-rose-strong:     #F04A6F;
+  --cartoon-rose-soft:       #FFC1CF;
+  --cartoon-rose-text:       #C3325B;
+
+  /* Lines */
+  --cartoon-line:            #FFD6DD;
+  --cartoon-line-strong:     #FFB3BF;
+
+  /* Accents */
+  --cartoon-yellow:          #FFE066;
+  --cartoon-yellow-text:     #3B2F00;
+  --cartoon-mint:            #6FE0A8;
+  --cartoon-pin-pink:        #FF7BA0;
+
+  /* Hearts pattern — BG decoration */
+  --cartoon-heart-fill:        rgba(255, 128, 158, 0.10);
+  --cartoon-heart-fill-strong: rgba(255, 128, 158, 0.18);
+
+  /* Gradients */
+  --cartoon-bg-gradient:
+    radial-gradient(at 12% 0%, #FFE7DE 0%, transparent 55%),
+    radial-gradient(at 88% 0%, #FFD9E0 0%, transparent 55%),
+    radial-gradient(at 50% 100%, #FFE0E8 0%, transparent 70%),
+    #FFF1EE;
+  --cartoon-rose-gradient:
+    linear-gradient(135deg, #FF8CA8 0%, #FF6E8E 100%);
+
+  /* Radius — 둥근 cartoon 무드 */
+  --cartoon-radius-card:     20px;
+  --cartoon-radius-pill:     999px;
+  --cartoon-radius-button:   16px;
+  --cartoon-radius-input:    14px;
+  --cartoon-radius-chip:     999px;
+  --cartoon-radius-frame:    22px;   /* 진입 화면 로고 액자 */
+  --cartoon-radius-icon:     18px;   /* 카드 안 아이콘 백그라운드 */
+
+  /* Spacing — 4px 그리드를 따르되, reference 디자인의 in-between 값
+     (3·6·14·18px) 을 별도 token 으로 보존해 magic px 회피 */
+  --cartoon-gap-tight:       3px;
+  --cartoon-gap-chip:        6px;
+  --cartoon-gap-card:        14px;
+  --cartoon-pad-card-x:      18px;
+  --cartoon-pad-card-y:      14px;
+  --cartoon-pad-resume-y:    12px;
+  --cartoon-pad-resume-x:    14px;
+  --cartoon-mt-resume:       18px;
+
+  /* Shadow — soft pink-tinted */
+  --cartoon-shadow-card:
+    0 1px 2px rgba(245, 96, 130, 0.06),
+    0 8px 24px rgba(245, 96, 130, 0.08);
+  --cartoon-shadow-pill:
+    0 4px 12px rgba(245, 96, 130, 0.20);
+
+  /* Typography — 제목용 둥근 한글 */
+  --cartoon-font-display:
+    "Cafe24 Ssurround", "Cafe24 Ssurround Air", "Pretendard Variable",
+    "Pretendard", system-ui, sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   Reusable cartoon classes
+   -------------------------------------------------------------------------- */
+.cartoon-card {
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-card);
+  box-shadow: var(--cartoon-shadow-card);
+}
+.cartoon-card-flat {
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-card);
+  box-shadow: none;
+}
+
+.cartoon-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 52px;
+  padding: 0 22px;
+  border: none;
+  border-radius: var(--cartoon-radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.cartoon-pill:active { transform: scale(0.98); }
+.cartoon-pill:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cartoon-pill--rose {
+  color: #FFFFFF;
+  background: var(--cartoon-rose-gradient);
+  box-shadow: var(--cartoon-shadow-pill);
+}
+.cartoon-pill--rose:hover { filter: brightness(1.04); }
+
+.cartoon-pill--white {
+  color: var(--fg-primary);
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+}
+
+.cartoon-pill--kakao {
+  color: #2A1D00;
+  background: var(--cartoon-yellow);
+}
+
+.cartoon-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--space-4);
+  background: var(--cartoon-bg-input);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-input);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--fg-primary);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.cartoon-input:focus {
+  outline: none;
+  border-color: var(--cartoon-line-strong);
+  background: var(--cartoon-bg-card);
+}
+.cartoon-input::placeholder {
+  color: var(--fg-tertiary);
+}
+
+.cartoon-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--cartoon-radius-chip);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.cartoon-chip--mint {
+  background: var(--cartoon-bg-chip-mint);
+  color: var(--cartoon-bg-chip-mint-text);
+}
+.cartoon-chip--pink {
+  background: var(--cartoon-bg-chip);
+  color: var(--cartoon-rose-text);
+}
+.cartoon-chip--yellow {
+  background: var(--cartoon-bg-chip-yellow);
+  color: var(--cartoon-yellow-text);
+}
+
+/* --------------------------------------------------------------------------
+   RoleSetupModal — cartoon role-select cards (light-only)
+   -------------------------------------------------------------------------- */
+.hyeni-role-logo-frame {
+  width: 84px;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-frame);
+  box-shadow: var(--cartoon-shadow-card);
+}
+.hyeni-role-card {
+  display: flex;
+  align-items: center;
+  gap: var(--cartoon-gap-card);
+  width: 100%;
+  min-height: 92px;
+  padding: var(--cartoon-pad-card-y) var(--cartoon-pad-card-x);
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-card);
+  box-shadow: var(--cartoon-shadow-card);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans);
+  transition: transform 140ms cubic-bezier(.2,.8,.2,1), border-color 140ms ease, box-shadow 140ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.hyeni-role-card:hover { border-color: var(--cartoon-line-strong); }
+.hyeni-role-card:active { transform: scale(0.985); }
+.hyeni-role-card-icon {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cartoon-bg-chip);
+  color: var(--cartoon-rose-text);
+  border-radius: var(--cartoon-radius-icon);
+  flex-shrink: 0;
+}
+.hyeni-role-card-mascot {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cartoon-bg-chip);
+  border-radius: 50%;
+}
+.hyeni-role-card-title {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--fg-primary);
+  letter-spacing: -0.02em;
+}
+.hyeni-role-card-sub {
+  display: block;
+  font-size: 12.5px;
+  color: var(--fg-tertiary);
+  margin-top: var(--cartoon-gap-tight);
+  font-weight: 600;
+}
+.hyeni-role-card-arrow {
+  color: var(--fg-tertiary);
+  font-size: 22px;
+  font-weight: 800;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.hyeni-role-resume {
+  margin-top: var(--cartoon-mt-resume);
+  width: 100%;
+  padding: var(--cartoon-pad-resume-y) var(--cartoon-pad-resume-x);
+  background: var(--cartoon-bg-glass);
+  border: 1px dashed var(--cartoon-line-strong);
+  border-radius: var(--cartoon-radius-input);
+  font-family: var(--font-sans);
+  color: var(--fg-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  transition: background 140ms ease;
+}
+.hyeni-role-resume:hover { background: var(--cartoon-bg-glass-strong); }
+
+.hyeni-role-card-child:hover .hyeni-role-card-mascot svg { transform: translateY(-3px); }
+.hyeni-role-card-mascot svg {
+  transition: transform var(--duration-mascot-bounce, 400ms) var(--easing-mascot, ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hyeni-role-card-mascot svg,
+  .hyeni-role-card { transition: none; }
+}

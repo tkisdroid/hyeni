@@ -3,7 +3,6 @@
 // Extracted from App.jsx (Phase 5 #4 / B4).
 
 import { useState, useEffect } from "react";
-import { FF } from "../../lib/styleHelpers.js";
 import { AppBrandLogo } from "./AppBrandLogo.jsx";
 import { HyeniMascot } from "./HyeniMascot.jsx";
 import { SplashScreen } from "./SplashScreen.jsx";
@@ -65,7 +64,8 @@ export function RoleSetupModal({ onSelect, loading }) {
             className="hyeni-role-shell"
             style={{
                 position: "fixed", inset: 0, zIndex: 500,
-                fontFamily: FF, overflowY: "auto",
+                fontFamily: "var(--font-sans)",
+                overflowY: "auto",
             }}
         >
             <div
@@ -91,14 +91,14 @@ export function RoleSetupModal({ onSelect, loading }) {
                         <div className="hyeni-role-logo-frame">
                             <AppBrandLogo size={68} radius={18} shadow={false} />
                         </div>
-                        <h1 style={{ margin: "16px 0 0", lineHeight: 1.1 }}>
+                        <h1 style={{ margin: "var(--space-4) 0 0", lineHeight: 1.1 }}>
                             <HyeniWordmark size="lg" />
                         </h1>
                         <p
                             style={{
-                                marginTop: 8,
+                                marginTop: "var(--space-2)",
                                 textAlign: "center",
-                                fontFamily: FF,
+                                fontFamily: "var(--font-sans)",
                                 fontSize: 13,
                                 fontWeight: 600,
                                 color: "var(--fg-secondary)",
@@ -109,7 +109,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                         </p>
                     </div>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "var(--cartoon-gap-card)", width: "100%" }}>
                         {/* ── Parent card ── */}
                         <button
                             type="button"
@@ -137,7 +137,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                                 <span className="hyeni-role-card-sub">ID · 카카오로 로그인</span>
                             </span>
                             {lastRole === "parent" && (
-                                <span className="cartoon-chip cartoon-chip--pink" style={{ marginRight: 6 }}>♡ 추천</span>
+                                <span className="cartoon-chip cartoon-chip--pink" style={{ marginRight: "var(--cartoon-gap-chip)" }}>♡ 추천</span>
                             )}
                             <span aria-hidden="true" className="hyeni-role-card-arrow">›</span>
                         </button>
@@ -157,7 +157,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                                 <span className="hyeni-role-card-sub">부모님 코드로 시작</span>
                             </span>
                             {lastRole === "child" && (
-                                <span className="cartoon-chip cartoon-chip--pink" style={{ marginRight: 6 }}>♡ 추천</span>
+                                <span className="cartoon-chip cartoon-chip--pink" style={{ marginRight: "var(--cartoon-gap-chip)" }}>♡ 추천</span>
                             )}
                             <span aria-hidden="true" className="hyeni-role-card-arrow" style={{ color: "var(--cartoon-rose-text)" }}>›</span>
                         </button>
@@ -169,121 +169,13 @@ export function RoleSetupModal({ onSelect, loading }) {
                             onClick={handleLastRole}
                             className="hyeni-role-resume"
                         >
-                            <span style={{ marginRight: 6 }}>📆</span>
+                            <span style={{ marginRight: "var(--cartoon-gap-chip)" }}>📆</span>
                             지난번엔 <b style={{ color: "var(--cartoon-rose-text)" }}>{lastRole === "parent" ? "학부모" : "아이"}</b>로 사용하셨어요
-                            <span style={{ color: "var(--cartoon-rose-text)", marginLeft: 6, fontWeight: 700 }}>다시 시작 →</span>
+                            <span style={{ color: "var(--cartoon-rose-text)", marginLeft: "var(--cartoon-gap-chip)", fontWeight: 700 }}>다시 시작 →</span>
                         </button>
                     )}
                 </div>
             </div>
-
-            <style>{`
-                .hyeni-role-logo-frame {
-                    width: 84px;
-                    height: 84px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #FFFFFF;
-                    border: 1px solid var(--cartoon-line);
-                    border-radius: 22px;
-                    box-shadow: var(--cartoon-shadow-card);
-                }
-                .hyeni-role-card {
-                    display: flex;
-                    align-items: center;
-                    gap: 14px;
-                    width: 100%;
-                    min-height: 92px;
-                    padding: 14px 18px;
-                    background: var(--cartoon-bg-card);
-                    border: 1px solid var(--cartoon-line);
-                    border-radius: var(--cartoon-radius-card);
-                    box-shadow: var(--cartoon-shadow-card);
-                    cursor: pointer;
-                    text-align: left;
-                    font-family: ${JSON.stringify(FF)};
-                    transition: transform 140ms cubic-bezier(.2,.8,.2,1), border-color 140ms ease, box-shadow 140ms ease;
-                    -webkit-user-select: none;
-                    user-select: none;
-                    -webkit-touch-callout: none;
-                    touch-action: manipulation;
-                }
-                .hyeni-role-card:hover { border-color: var(--cartoon-line-strong); }
-                .hyeni-role-card:active { transform: scale(0.985); }
-                .hyeni-role-card-icon {
-                    width: 52px;
-                    height: 52px;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: var(--cartoon-bg-chip);
-                    color: var(--cartoon-rose-text);
-                    border-radius: 18px;
-                    flex-shrink: 0;
-                }
-                .hyeni-role-card-mascot {
-                    flex-shrink: 0;
-                    width: 56px;
-                    height: 56px;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: var(--cartoon-bg-chip);
-                    border-radius: 50%;
-                }
-                .hyeni-role-card-title {
-                    display: block;
-                    font-size: 18px;
-                    font-weight: 800;
-                    color: var(--fg-primary);
-                    letter-spacing: -0.02em;
-                }
-                .hyeni-role-card-sub {
-                    display: block;
-                    font-size: 12.5px;
-                    color: var(--fg-tertiary);
-                    margin-top: 3px;
-                    font-weight: 600;
-                }
-                .hyeni-role-card-arrow {
-                    color: var(--fg-tertiary);
-                    font-size: 22px;
-                    font-weight: 800;
-                    flex-shrink: 0;
-                    line-height: 1;
-                }
-                .hyeni-role-resume {
-                    margin-top: 18px;
-                    width: 100%;
-                    padding: 12px 14px;
-                    background: rgba(255, 255, 255, 0.6);
-                    border: 1px dashed var(--cartoon-line-strong);
-                    border-radius: 14px;
-                    font-family: ${JSON.stringify(FF)};
-                    color: var(--fg-secondary);
-                    font-size: 13px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 4px;
-                    -webkit-user-select: none;
-                    user-select: none;
-                    touch-action: manipulation;
-                    transition: background 140ms ease;
-                }
-                .hyeni-role-resume:hover { background: rgba(255, 255, 255, 0.85); }
-                .hyeni-role-card-child:hover .hyeni-role-card-mascot svg { transform: translateY(-3px); }
-                .hyeni-role-card-mascot svg {
-                    transition: transform var(--duration-mascot-bounce, 400ms) var(--easing-mascot, ease);
-                }
-                @media (prefers-reduced-motion: reduce) {
-                    .hyeni-role-card-mascot svg,
-                    .hyeni-role-card { transition: none; }
-                }
-            `}</style>
         </HeartsBackground>
     );
 }
