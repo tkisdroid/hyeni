@@ -1,13 +1,14 @@
 // src/components/onboarding/ChildPermissionWizard.jsx
-// Phase 3 spec section 4.1 — Playful-Character 톤으로 재구성.
-// HyeniMascot wave + 진행률 그라디언트 + .perm-step 카드 + 완료 시 mascot cheer.
+// Phase 3 spec section 4.1 — Cartoon-warm 톤으로 재구성 (2026-05-08).
+// HeartsBackground + HyeniGirl + cartoon-pill 버튼 + perm-step cartoon 톤.
 // Mounted from src/App.jsx (isNativeApp && !isParent && !allReady && !dismissed).
 // Steps come from CHILD_SAFETY_SETUP_STEPS via getChildSafetySetupSteps.
 
 import { useState } from "react";
-import { HyeniMascot } from "../auth/HyeniMascot.jsx";
+import { HeartsBackground } from "../decoration/HeartsBackground.jsx";
+import { HyeniGirl } from "../decoration/CartoonIllustrations.jsx";
 
-const FF = '"Pretendard Variable", "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
+const FF = "var(--font-sans)";
 
 export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDismiss }) {
     const totalCount = steps.length;
@@ -23,33 +24,51 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
     };
 
     return (
+        <HeartsBackground
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 900,
+                fontFamily: FF,
+                overflowY: "auto",
+            }}
+        >
         <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="child-permission-wizard-title"
             style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 900,
-                background: "var(--bg-subtle)",
+                minHeight: "100dvh",
                 display: "flex",
                 flexDirection: "column",
-                fontFamily: FF,
-                overflowY: "auto",
                 color: "var(--fg-primary)",
             }}
         >
-            {/* Hero — mascot + 진행률 그라디언트 */}
+            {/* Hero — mascot + 진행률 */}
             <header
                 style={{
                     padding: "calc(env(safe-area-inset-top, 0px) + var(--space-6)) var(--space-screen-pad) var(--space-5)",
-                    background: "var(--bg-base)",
-                    borderBottom: "1px solid var(--line-soft)",
+                    background: "var(--cartoon-bg-card)",
+                    borderBottom: "1px solid var(--cartoon-line)",
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
-                    <div className={allReady ? "hyeni-mascot-cheer" : ""}>
-                        <HyeniMascot size={64} variant={allReady ? "static" : "wave"} />
+                    <div
+                        className={allReady ? "hyeni-mascot-cheer" : ""}
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "flex-end",
+                            justifyContent: "center",
+                            width: 72,
+                            height: 72,
+                            background: "var(--cartoon-bg-chip)",
+                            borderRadius: "50%",
+                            border: "1px solid var(--cartoon-line)",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                        }}
+                    >
+                        <HyeniGirl size={64} ariaLabel="" />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <h2
@@ -119,26 +138,12 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                         onClick={handleAllowAll}
                         disabled={running}
                         aria-label="모든 권한을 한 번에 허용하기"
+                        className="cartoon-pill cartoon-pill--rose"
                         style={{
                             marginTop: "var(--space-4)",
                             width: "100%",
                             minHeight: 56,
-                            padding: "0 var(--space-4)",
-                            borderRadius: "var(--radius-control)",
-                            background: running ? "var(--bg-muted)" : "var(--hyeni-theme-gradient)",
-                            color: running ? "var(--fg-disabled)" : "#FFFFFF",
-                            border: "none",
-                            cursor: running ? "wait" : "pointer",
-                            fontWeight: "var(--weight-bold)",
                             fontSize: 15,
-                            fontFamily: FF,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: "var(--space-2)",
-                            userSelect: "none",
-                            touchAction: "manipulation",
-                            transition: "background var(--duration-fast) var(--easing-standard)",
                         }}
                     >
                         {running ? "허용 진행 중…" : "한 번에 모두 허용하기"}
@@ -175,19 +180,12 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                                         type="button"
                                         onClick={() => onAction?.(step)}
                                         aria-label={`${step.title} ${step.actionLabel || "허용하기"}`}
+                                        className="cartoon-pill cartoon-pill--rose"
                                         style={{
                                             flexShrink: 0,
                                             height: 36,
-                                            padding: "0 var(--space-3)",
-                                            borderRadius: "var(--radius-md)",
-                                            background: "var(--theme-accent-soft)",
-                                            color: "var(--theme-accent-text)",
-                                            border: "1px solid var(--theme-accent-line)",
-                                            cursor: "pointer",
-                                            fontWeight: "var(--weight-bold)",
                                             fontSize: 12,
-                                            fontFamily: FF,
-                                            touchAction: "manipulation",
+                                            padding: "0 var(--space-3)",
                                         }}
                                     >
                                         {step.actionLabel || "허용"}
@@ -204,26 +202,18 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                 style={{
                     marginTop: "auto",
                     padding: "var(--space-3) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-5))",
-                    background: "var(--bg-base)",
-                    borderTop: "1px solid var(--line-soft)",
+                    background: "var(--cartoon-bg-card)",
+                    borderTop: "1px solid var(--cartoon-line)",
                 }}
             >
                 <button
                     type="button"
                     onClick={onDismiss}
+                    className={`cartoon-pill ${allReady ? "cartoon-pill--rose" : "cartoon-pill--white"}`}
                     style={{
                         width: "100%",
                         minHeight: 56,
-                        padding: "0 var(--space-4)",
-                        borderRadius: "var(--radius-control)",
-                        background: allReady ? "var(--status-positive)" : "var(--bg-base)",
-                        color: allReady ? "#FFFFFF" : "var(--fg-secondary)",
-                        border: allReady ? "none" : "1px solid var(--line-default)",
                         fontSize: 15,
-                        fontWeight: "var(--weight-bold)",
-                        cursor: "pointer",
-                        fontFamily: FF,
-                        touchAction: "manipulation",
                     }}
                 >
                     {allReady ? "시작하기" : "나중에 할래"}
@@ -244,5 +234,6 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                 )}
             </footer>
         </div>
+        </HeartsBackground>
     );
 }

@@ -46,8 +46,8 @@ function Toggle({ value, onChange, ariaLabel }) {
                     top: 3, left: value ? 25 : 3,
                     width: 24, height: 24,
                     borderRadius: "var(--radius-full)",
-                    background: "var(--bg-base)",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
+                    background: "var(--cartoon-bg-card)",
+                    boxShadow: "var(--cartoon-shadow-thumb)",
                     transition: "left var(--duration-fast) var(--easing-cheer)",
                 }}
             />
@@ -75,21 +75,14 @@ function Row({ icon, label, children }) {
 
 function Section({ title, children }) {
     return (
-        <section style={{ marginBottom: "var(--space-5)" }}>
+        <section style={{ marginBottom: "var(--space-5)", padding: "0 var(--space-4)" }}>
             <h2
                 className="t-section-label"
-                style={{ marginLeft: "var(--space-4)", marginBottom: "var(--space-2)" }}
+                style={{ marginBottom: "var(--space-2)" }}
             >
                 {title}
             </h2>
-            <div
-                style={{
-                    background: "var(--bg-base)",
-                    border: "1px solid var(--line-soft)",
-                    borderRadius: "var(--radius-card)",
-                    overflow: "hidden",
-                }}
-            >
+            <div className="cartoon-card-flat" style={{ overflow: "hidden" }}>
                 {children}
             </div>
         </section>
@@ -124,7 +117,7 @@ export function ChildSettingsScreen({
                 position: "fixed",
                 inset: 0,
                 zIndex: 400,
-                background: "var(--bg-subtle)",
+                background: "var(--cartoon-bg-cream)",
                 display: "flex",
                 flexDirection: "column",
                 fontFamily: "var(--font-sans)",
@@ -132,9 +125,9 @@ export function ChildSettingsScreen({
         >
             <header
                 style={{
-                    background: "var(--bg-base)",
+                    background: "var(--cartoon-bg-card)",
                     padding: "calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-4) var(--space-3)",
-                    borderBottom: "1px solid var(--line-soft)",
+                    borderBottom: "1px solid var(--cartoon-line)",
                     display: "flex",
                     alignItems: "center",
                     gap: "var(--space-3)",
@@ -145,15 +138,7 @@ export function ChildSettingsScreen({
                     type="button"
                     onClick={onBack}
                     aria-label="뒤로"
-                    style={{
-                        width: 36, height: 36,
-                        borderRadius: "var(--radius-md)",
-                        border: "1px solid var(--line-soft)",
-                        background: "var(--bg-base)",
-                        cursor: "pointer",
-                        fontFamily: "inherit", fontSize: 16,
-                        color: "var(--fg-secondary)",
-                    }}
+                    className="cartoon-iconbtn"
                 >
                     ←
                 </button>
@@ -264,18 +249,8 @@ export function ChildSettingsScreen({
                             <button
                                 type="button"
                                 onClick={onRequestParentChange}
-                                style={{
-                                    width: "100%",
-                                    padding: "var(--space-3)",
-                                    borderRadius: "var(--radius-md)",
-                                    border: "1px solid var(--theme-accent)",
-                                    background: "var(--theme-accent-soft)",
-                                    color: "var(--theme-accent-text)",
-                                    cursor: "pointer",
-                                    fontFamily: "inherit",
-                                    fontSize: 13,
-                                    fontWeight: "var(--weight-bold)",
-                                }}
+                                className="cartoon-pill cartoon-pill--rose"
+                                style={{ width: "100%", height: 40, fontSize: 13 }}
                             >
                                 부모님께 변경 요청
                             </button>
@@ -288,17 +263,8 @@ export function ChildSettingsScreen({
                         <button
                             type="button"
                             onClick={onLogout}
-                            style={{
-                                background: "transparent",
-                                border: "none",
-                                color: "var(--fg-tertiary)",
-                                fontSize: 13,
-                                fontWeight: "var(--weight-medium)",
-                                cursor: "pointer",
-                                fontFamily: "inherit",
-                                textDecoration: "underline",
-                                textUnderlineOffset: "3px",
-                            }}
+                            className="cartoon-link"
+                            style={{ fontSize: 13, color: "var(--fg-tertiary)", fontWeight: "var(--weight-medium)" }}
                         >
                             로그아웃
                         </button>

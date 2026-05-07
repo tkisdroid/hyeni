@@ -39,18 +39,11 @@ export function ChildHero({ eventCount = 0, showMascot = true, characterEmoji = 
                     type="button"
                     onClick={onSettings}
                     aria-label="설정"
+                    className="cartoon-iconbtn"
                     style={{
                         position: "absolute",
                         top: "var(--space-3)",
                         right: "var(--space-3)",
-                        width: 36, height: 36,
-                        borderRadius: "var(--radius-md)",
-                        border: "1px solid var(--theme-accent-line)",
-                        background: "var(--bg-base)",
-                        cursor: "pointer",
-                        fontSize: 16,
-                        color: "var(--fg-secondary)",
-                        fontFamily: "inherit",
                     }}
                 >
                     ⚙
