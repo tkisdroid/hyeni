@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Sun, Sparkles } from "lucide-react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
@@ -3167,8 +3168,8 @@ export default function KidsScheduler() {
 
                     // Role-based arrival messages
                     if (!isParent && globalNotif.childEnabled) {
-                        addAlert(`🎉 ${ev.title}에 도착했어요! (${msg})`, "child");
-                        showNotif(`🎉 ${ev.title}에 잘 도착했어! ${isEarly ? "일찍 왔네~ 대단해! 🌟" : isOnTime ? "딱 맞춰 왔구나! ⭐" : "조금 늦었지만 괜찮아! 💪"}`, "child");
+                        addAlert(`${ev.title}에 도착했어요! (${msg})`, "child");
+                        showNotif(`${ev.title}에 잘 도착했어! ${isEarly ? "일찍 왔네~ 대단해!" : isOnTime ? "딱 맞춰 왔구나!" : "조금 늦었지만 괜찮아!"}`, "child");
                     }
                     if (!isParent) {
                         showArrivalNotification(ev, msg, myRole);
@@ -3180,10 +3181,10 @@ export default function KidsScheduler() {
                             const stickerType = isEarly ? "early" : "on_time";
                             const stickerEmoji = isEarly ? "🌟" : "⭐";
                             addSticker(authUser.id, familyId, String(ev.id), key, stickerType, stickerEmoji, ev.title);
-                            showNotif(`${stickerEmoji} 칭찬스티커를 받았어요! ${isEarly ? "일찍 도착 보너스!" : "시간 잘 지켰어요!"}`, "child");
+                            showNotif(`칭찬스티커를 받았어요! ${isEarly ? "일찍 도착 보너스!" : "시간 잘 지켰어요!"}`, "child");
                         } else if (isLate) {
                             addSticker(authUser.id, familyId, String(ev.id), key, "late", "😢", ev.title);
-                            showNotif("😢 아쉽게 칭찬스티커를 못받았어요...", "child");
+                            showNotif("아쉽게 칭찬스티커를 못받았어요...", "child");
                         }
                         setTimeout(() => fetchStickersForDate(familyId, key).then(s => setStickers(s)), 1000);
                     }
@@ -3886,7 +3887,7 @@ export default function KidsScheduler() {
         setNewTitle(""); setNewTime("09:00"); setNewEndTime(""); setTimeSelectionTarget("start"); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4);
         setAddEventDateKey(null);
         setShowAddModal(false);
-        showNotif(weeklyRepeat ? `✨ ${totalWeeks}주 반복 일정이 추가됐어요!` : "✨ 일정이 추가됐어요!");
+        showNotif(weeklyRepeat ? `${totalWeeks}주 반복 일정이 추가됐어요!` : "일정이 추가됐어요!");
         setBounce(true); setTimeout(() => setBounce(false), 800);
 
         // Persist to Supabase (Realtime will sync to other device)
@@ -4228,7 +4229,7 @@ export default function KidsScheduler() {
               </button>
             )}
             <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
-                <span aria-hidden="true">☀️</span>오늘
+                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Sun size={16} strokeWidth={1.75} /></span>오늘
             </button>
             <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentCalendarTabClick, "일정 보기")} style={{ fontFamily: FF }}>
                 <span aria-hidden="true">📅</span>일정
@@ -5669,14 +5670,14 @@ export default function KidsScheduler() {
                         <div style={{ overflowY: "auto", maxHeight: "calc(75vh - 80px)", padding: "12px 16px" }}>
                             {!aiEnabled && (
                                 <div style={{ textAlign: "center", padding: "30px 20px", color: "var(--fg-tertiary)" }}>
-                                    <div style={{ fontSize: 36, marginBottom: 8 }}>✨</div>
+                                    <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}><Sparkles size={36} strokeWidth={1.5} /></div>
                                     <div style={{ fontSize: 14, fontWeight: 700 }}>활동 분석이 꺼져 있어요</div>
                                     <div style={{ fontSize: 12, marginTop: 4 }}>위 토글을 켜면 아이 활동을 정리해 알려드려요</div>
                                 </div>
                             )}
                             {aiEnabled && parentAlerts.length === 0 && (
                                 <div style={{ textAlign: "center", padding: "30px 20px", color: "var(--fg-tertiary)" }}>
-                                    <div style={{ fontSize: 36, marginBottom: 8 }}>✨</div>
+                                    <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}><Sparkles size={36} strokeWidth={1.5} /></div>
                                     <div style={{ fontSize: 14, fontWeight: 700 }}>아직 알림이 없어요</div>
                                     <div style={{ fontSize: 12, marginTop: 4 }}>아이가 일정 장소에 도착/출발하면 정리해 알려드려요</div>
                                 </div>

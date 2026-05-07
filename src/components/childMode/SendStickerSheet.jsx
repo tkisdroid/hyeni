@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { EventSheet } from "../multichild/EventModal/EventSheet.jsx";
+import { StickerIcon } from "../../lib/stickerIcons.jsx";
 
 const DEFAULT_STICKERS = [
     "❤️", "🐰", "🎉", "👍",
@@ -55,7 +56,7 @@ export function SendStickerSheet({ open, onClose, onSend, stickers = DEFAULT_STI
                         onClick={() => setSelected(emoji)}
                         aria-label={`${emoji} 스티커 선택`}
                     >
-                        {emoji}
+                        <StickerIcon emoji={emoji} size={28} />
                     </button>
                 ))}
             </div>

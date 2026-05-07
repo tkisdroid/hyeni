@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { DESIGN, FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
+import { StickerIcon } from "../../lib/stickerIcons.jsx";
 
 export function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode, onGiveSticker }) {
     const earlyCount = summary?.early_count || 0;
@@ -25,7 +26,7 @@ export function StickerBookModal({ stickers, summary, dateLabel, onClose, isPare
                 <div style={{ padding: "20px 20px 0", flexShrink: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ fontSize: 28 }}>🏆</span>
+                            <StickerIcon emoji="🏆" size={28} color="var(--status-cautionary)" fill="var(--status-cautionary-subtle)" />
                             <div>
                                 <div style={{ fontSize: 17, fontWeight: 900, color: "var(--fg-primary)" }}>칭찬 스티커북</div>
                                 <div style={{ fontSize: 11, color: "var(--fg-tertiary)" }}>{dateLabel}</div>
@@ -43,7 +44,10 @@ export function StickerBookModal({ stickers, summary, dateLabel, onClose, isPare
                             { emoji: "💕", count: stickers.filter(s => s.sticker_type === "praise").length, label: "칭찬", bg: "var(--theme-accent-soft)", color: "var(--theme-accent-text)" },
                         ].map((item, i) => (
                             <div key={i} style={{ flex: 1, background: item.bg, borderRadius: 12, padding: "8px 4px", textAlign: "center" }}>
-                                <div style={{ fontSize: 16 }}>{item.emoji} <span style={{ fontWeight: 900, color: item.color }}>{item.count}</span></div>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, color: item.color }}>
+                                    <StickerIcon emoji={item.emoji} size={16} />
+                                    <span style={{ fontWeight: 900 }}>{item.count}</span>
+                                </div>
                                 <div style={{ fontSize: 11, color: item.color, fontWeight: 700, marginTop: 2 }}>{item.label}</div>
                             </div>
                         ))}
@@ -53,8 +57,10 @@ export function StickerBookModal({ stickers, summary, dateLabel, onClose, isPare
                 {/* 스티커 목록 (스크롤 영역) */}
                 <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", minHeight: 0 }}>
                     {stickers.length === 0 ? (
-                        <div style={{ textAlign: "center", padding: "20px 0", color: "#D1D5DB" }}>
-                            <div style={{ fontSize: 32, marginBottom: 6 }}>🌙</div>
+                        <div style={{ textAlign: "center", padding: "20px 0", color: "var(--fg-tertiary)" }}>
+                            <div style={{ marginBottom: 6, display: "flex", justifyContent: "center" }}>
+                                <StickerIcon emoji="🌙" size={32} />
+                            </div>
                             <div style={{ fontSize: 13, fontWeight: 700 }}>아직 스티커가 없어요</div>
                         </div>
                     ) : (
@@ -66,7 +72,9 @@ export function StickerBookModal({ stickers, summary, dateLabel, onClose, isPare
                                     border: `1.5px solid ${s.sticker_type === "early" ? "#FCD34D" : s.sticker_type === "late" ? "#D1D5DB" : s.sticker_type === "praise" ? "var(--theme-accent-line)" : "#C4B5FD"}`,
                                     opacity: s.sticker_type === "late" ? 0.6 : 1,
                                 }}>
-                                    <div style={{ fontSize: 22 }}>{s.emoji}</div>
+                                    <div style={{ display: "flex", justifyContent: "center" }}>
+                                        <StickerIcon emoji={s.emoji} size={22} />
+                                    </div>
                                     <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-primary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
                                 </div>
                             ))}
@@ -78,8 +86,9 @@ export function StickerBookModal({ stickers, summary, dateLabel, onClose, isPare
                 <div style={{ padding: "12px 20px 20px", flexShrink: 0 }}>
                     {isParentMode && onGiveSticker && !showGive && (
                         <button onClick={() => setShowGive(true)}
-                            style={{ width: "100%", padding: "13px", marginBottom: 8, borderRadius: 16, border: "2px dashed #FCD34D", background: "linear-gradient(135deg, var(--status-cautionary-subtle), var(--status-cautionary-subtle))", cursor: "pointer", fontSize: 14, fontWeight: 900, color: "var(--status-cautionary)", fontFamily: FF }}>
-                            🌟 칭찬스티커 주기
+                            style={{ width: "100%", padding: "13px", marginBottom: 8, borderRadius: 16, border: "2px dashed #FCD34D", background: "linear-gradient(135deg, var(--status-cautionary-subtle), var(--status-cautionary-subtle))", cursor: "pointer", fontSize: 14, fontWeight: 900, color: "var(--status-cautionary)", fontFamily: FF, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                            <StickerIcon emoji="🌟" size={18} />
+                            <span>칭찬스티커 주기</span>
                         </button>
                     )}
                     {isParentMode && onGiveSticker && showGive && (
@@ -91,7 +100,7 @@ export function StickerBookModal({ stickers, summary, dateLabel, onClose, isPare
                                         setShowGive(false); setGiveMsg("");
                                     }}
                                         style={{ background: "white", border: "1.5px solid #FCD34D", borderRadius: 12, padding: "8px 2px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontFamily: FF }}>
-                                        <span style={{ fontSize: 20 }}>{ps.emoji}</span>
+                                        <StickerIcon emoji={ps.emoji} size={20} color="var(--status-cautionary)" />
                                         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--status-cautionary-strong)" }}>{ps.title}</span>
                                     </button>
                                 ))}
