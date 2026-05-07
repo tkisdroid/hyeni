@@ -40,7 +40,7 @@ export function ColorPicker({ selected, usedColors = [], onChange }) {
               background: color,
               border: isSelected
                 ? "3px solid var(--fg-primary)"
-                : "2px solid var(--line-soft)",
+                : "2px solid var(--cartoon-line)",
               opacity: isUsed ? 0.3 : 1,
               cursor: isUsed ? "not-allowed" : "pointer",
               boxShadow: isSelected ? `0 0 0 4px ${color}33` : "none",

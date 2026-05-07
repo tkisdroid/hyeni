@@ -218,9 +218,9 @@ function Step2DevicePicker({ value, onChange, onNext }) {
                                 alignItems: "center",
                                 gap: "var(--space-3)",
                                 padding: "var(--space-4)",
-                                borderRadius: "var(--radius-card)",
-                                background: active ? "var(--theme-accent-soft)" : "var(--bg-base)",
-                                border: active ? "2px solid var(--theme-accent)" : "1px solid var(--line-soft)",
+                                borderRadius: "var(--cartoon-radius-card)",
+                                background: active ? "var(--cartoon-rose-soft)" : "var(--cartoon-bg-card)",
+                                border: active ? "2px solid var(--cartoon-rose)" : "1px solid var(--cartoon-line)",
                                 cursor: "pointer",
                                 fontFamily: "inherit",
                                 textAlign: "left",
@@ -305,15 +305,15 @@ function Step5PairCode({ family, deviceType, onNext }) {
                 {deviceLabel}에서 이 코드를 입력하면 연결돼요
             </p>
             <div style={{
-                background: "var(--theme-accent-soft)",
-                border: "2px solid var(--theme-accent-deep)",
-                borderRadius: "var(--radius-card)",
+                background: "var(--cartoon-rose-soft)",
+                border: "2px solid var(--cartoon-rose)",
+                borderRadius: "var(--cartoon-radius-card)",
                 padding: "var(--space-6)",
                 textAlign: "center",
                 fontSize: 28,
                 fontWeight: "var(--weight-bold)",
                 letterSpacing: 4,
-                color: "var(--theme-accent-text)",
+                color: "var(--cartoon-rose-text)",
                 fontVariantNumeric: "tabular-nums",
             }}>
                 {family.pair_code}

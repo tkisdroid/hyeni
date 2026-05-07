@@ -64,8 +64,8 @@ export function PhotoUpload({ value, onChange, familyId, childOrder }) {
         style={{
           display: "flex", alignItems: "center", justifyContent: "center",
           width: 96, height: 96, borderRadius: "50%",
-          background: value ? `url(${value}) center/cover` : "var(--bg-subtle)",
-          border: "2px dashed var(--theme-accent-line)", cursor: busy ? "wait" : "pointer",
+          background: value ? `url(${value}) center/cover` : "var(--cartoon-bg-chip)",
+          border: "2px dashed var(--cartoon-line-strong)", cursor: busy ? "wait" : "pointer",
           color: "var(--fg-secondary)", fontSize: 12,
           userSelect: "none",
           WebkitUserSelect: "none",
