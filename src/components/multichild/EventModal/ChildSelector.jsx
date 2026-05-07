@@ -48,16 +48,13 @@ export function ChildSelector({ children, value, onChange }) {
       </div>
       <button
         type="button" onClick={pickFamily}
+        className={`cartoon-pill ${familyAll ? "cartoon-pill--rose" : "cartoon-pill--white"}`}
         style={{
-          marginTop: 12, width: "100%", padding: "12px 14px",
-          borderRadius: 12, border: `2px dashed ${familyAll ? "var(--theme-accent)" : "var(--fg-tertiary)"}`,
-          background: familyAll ? "var(--theme-accent-soft)" : "white",
-          fontSize: 14, fontWeight: 700, color: familyAll ? "var(--theme-accent-text)" : "var(--fg-primary)",
-          cursor: "pointer",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          WebkitTouchCallout: "none",
-          touchAction: "manipulation",
+          marginTop: "var(--space-3)",
+          width: "100%",
+          height: 44,
+          fontSize: 14,
+          border: `2px dashed ${familyAll ? "var(--cartoon-rose)" : "var(--cartoon-line-strong)"}`,
         }}
       >가족 전체</button>
     </div>

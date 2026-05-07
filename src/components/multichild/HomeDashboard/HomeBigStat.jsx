@@ -38,7 +38,7 @@ export function HomeBigStat({ events, now = new Date() }) {
         <header
             style={{
                 paddingBottom: "var(--space-6)",
-                borderBottom: "1px solid var(--line-soft)",
+                borderBottom: "1px solid var(--cartoon-line)",
                 marginBottom: "var(--space-screen-gap)",
             }}
         >

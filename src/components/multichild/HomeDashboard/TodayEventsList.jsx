@@ -23,11 +23,13 @@ export function TodayEventsList({ events, children }) {
           <div
             key={event.id} data-event-id={event.id}
             style={{
-              padding: "10px 14px",
+              padding: "var(--space-3) var(--space-4)",
               borderLeftWidth: 4,
               borderLeftStyle: isFamily ? "dashed" : "solid",
               borderLeftColor: isFamily ? familyColor : firstColor,
-              background: "white", borderRadius: 8,
+              background: "var(--cartoon-bg-card)",
+              border: "1px solid var(--cartoon-line)",
+              borderRadius: "var(--radius-md)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
