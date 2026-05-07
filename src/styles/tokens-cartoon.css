@@ -467,7 +467,8 @@
    확보해 항상 우선 적용. 기존 .input/.btn-primary/.btn-secondary 를
    사용하는 모든 화면이 자동으로 cartoon 무드를 얻는다.
    ────────────────────────────────────────────────────────────────── */
-body .input {
+body .input,
+body .hyeni-app-shell .input {
   background: var(--cartoon-bg-input);
   border: 1px solid var(--cartoon-line);
   border-radius: var(--cartoon-radius-input);
@@ -476,16 +477,28 @@ body .input {
   color: var(--fg-primary);
   transition: border-color 120ms ease, background 120ms ease;
 }
-body .input:focus-visible {
-  outline: none;
-  border-color: var(--cartoon-line-strong);
-  background: var(--cartoon-bg-card);
-  box-shadow: 0 0 0 4px var(--cartoon-bg-chip);
+/* App.css 의 .hyeni-app-shell .input:focus (with !important) 를 이기려면
+   cartoon override 도 !important 로 못박아야 한다. focus ring 은 cartoon
+   bg-chip halo + cartoon-line-strong border 로 통일. */
+body .input:focus,
+body .input:focus-visible,
+body .hyeni-app-shell .input:focus,
+body .hyeni-app-shell .input:focus-visible {
+  outline: none !important;
+  border-color: var(--cartoon-line-strong) !important;
+  background: var(--cartoon-bg-card) !important;
+  box-shadow: 0 0 0 4px var(--cartoon-bg-chip) !important;
 }
-body .input:hover { border-color: var(--cartoon-line-strong); }
-body .input::placeholder { color: var(--fg-tertiary); }
+body .input:hover,
+body .hyeni-app-shell .input:hover { border-color: var(--cartoon-line-strong); }
+body .input::placeholder,
+body .hyeni-app-shell .input::placeholder { color: var(--fg-tertiary); }
 
-body .btn-primary {
+/* App.css 의 .hyeni-app-shell .btn-primary (specificity 0,0,2,0) 가 기본
+   .btn-primary 를 덮어쓰므로 cartoon override 도 같은 shell scope 를
+   매치해 0,0,2,1 specificity 로 우위 확보. 둘 다 정의해 shell 안팎 모두 적용. */
+body .btn-primary,
+body .hyeni-app-shell .btn-primary {
   background: var(--cartoon-rose-gradient);
   color: var(--cartoon-pill-rose-text);
   border: none;
@@ -495,24 +508,42 @@ body .btn-primary {
   box-shadow: var(--cartoon-shadow-pill);
   transition: filter 120ms ease, transform 120ms ease;
 }
-body .btn-primary:not(:disabled):hover  { filter: brightness(1.04); background: var(--cartoon-rose-gradient); }
-body .btn-primary:not(:disabled):active { filter: brightness(0.96); background: var(--cartoon-rose-gradient); transform: scale(0.98); }
-body .btn-primary:focus-visible {
+body .btn-primary:not(:disabled):hover,
+body .hyeni-app-shell .btn-primary:not(:disabled):hover  {
+  filter: brightness(1.04);
+  background: var(--cartoon-rose-gradient);
+}
+body .btn-primary:not(:disabled):active,
+body .hyeni-app-shell .btn-primary:not(:disabled):active {
+  filter: brightness(0.96);
+  background: var(--cartoon-rose-gradient);
+  transform: scale(0.98);
+}
+body .btn-primary:focus-visible,
+body .hyeni-app-shell .btn-primary:focus-visible {
   outline: none;
   box-shadow:
     var(--cartoon-shadow-pill),
     0 0 0 4px var(--cartoon-bg-chip);
 }
 
-body .btn-secondary {
+body .btn-secondary,
+body .hyeni-app-shell .btn-secondary {
   background: var(--cartoon-bg-card);
   color: var(--fg-secondary);
   border: 1px solid var(--cartoon-line);
   border-radius: var(--cartoon-radius-button);
   font-weight: 700;
 }
-body .btn-secondary:not(:disabled):hover  { background: var(--cartoon-bg-chip); border-color: var(--cartoon-line-strong); }
-body .btn-secondary:not(:disabled):active { transform: scale(0.98); }
+body .btn-secondary:not(:disabled):hover,
+body .hyeni-app-shell .btn-secondary:not(:disabled):hover  {
+  background: var(--cartoon-bg-chip);
+  border-color: var(--cartoon-line-strong);
+}
+body .btn-secondary:not(:disabled):active,
+body .hyeni-app-shell .btn-secondary:not(:disabled):active {
+  transform: scale(0.98);
+}
 
 /* Card override — Wanted DS .card 가 .card-elevated 가 아닌 경우 cartoon
    톤의 stroke + 부드러운 shadow 로 일관화 */
@@ -520,6 +551,11 @@ body .card {
   background: var(--cartoon-bg-card);
   border: 1px solid var(--cartoon-line);
   border-radius: var(--cartoon-radius-card);
+}
+/* card-interactive:hover 가 grey 로 회귀하지 않도록 cartoon hover 제공 */
+body .card.card-interactive:hover {
+  background: var(--cartoon-bg-cream);
+  border-color: var(--cartoon-line-strong);
 }
 
 /* ──────────────────────────────────────────────────────────────────
