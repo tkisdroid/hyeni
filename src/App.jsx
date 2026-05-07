@@ -32,6 +32,7 @@ import { supabase } from "./lib/supabase.js";
 import { applyThemeColor, initThemeFromCache } from "./lib/theme.js";
 import { FEATURES } from "./lib/features.js";
 import { useEntitlement } from "./lib/entitlement.js";
+import { readFamilyInfoCache, writeFamilyInfoCache } from "./lib/familyInfoCache.js";
 import { identify as identifySubscriptionUser, purchase as purchaseSubscription } from "./lib/qonversion.js";
 import { sendBroadcastWhenReady } from "./lib/realtime.js";
 import { getChildMemoQuickReplies, getMemoPreview, getParentMemoQuickReplies } from "./lib/memoDisplay.js";
@@ -485,7 +486,10 @@ export default function KidsScheduler() {
 
     // ── Auth & family state (Supabase) ──────────────────────────────────────────
     const [authUser, setAuthUser] = useState(null);       // supabase auth user
-    const [familyInfo, setFamilyInfo] = useState(null);   // { familyId, pairCode, myRole, myName, members }
+    // Lazy init from localStorage to give the first paint immediate access to
+    // children (avatars, color, role gating). getMyFamily still runs in
+    // parallel and replaces this with fresh data once it arrives.
+    const [familyInfo, setFamilyInfo] = useState(() => readFamilyInfoCache());   // { familyId, pairCode, myRole, myName, members }
     const [authLoading, setAuthLoading] = useState(true);
     const [myRole, setMyRole] = useState(() => {
         try { return roleStorage?.getItem("hyeni-my-role") || null; } catch { return null; }
@@ -870,7 +874,10 @@ export default function KidsScheduler() {
     //   Case B — child position present + free tier (M1 now always returns
     //     the latest fix tagged isDelayed=true): inform the parent why the
     //     marker isn't real-time, with an upgrade nudge.
-    const locationGateHint = isParent && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
+    // entitlement.ready 가 false 인 동안에는 tier 가 unknown 이므로
+    // "프리미엄에서 사용할 수 있어요" 류 안내를 노출하지 않는다. 그렇지 않으면
+    // 프리미엄 사용자도 첫 paint 에서 잠시 free 로 인식되어 메시지가 깜빡인다.
+    const locationGateHint = isParent && entitlement.ready && !entitlement.canUse(FEATURES.REALTIME_LOCATION)
         ? (!displayChildPos && allChildPositions.length > 0
             ? "무료 플랜에서는 위치 표시가 잠시 지연돼요. 실시간 위치는 프리미엄에서 사용할 수 있어요."
             : displayChildPos?.isDelayed
@@ -1484,6 +1491,10 @@ export default function KidsScheduler() {
     useEffect(() => { authUserRef.current = authUser; }, [authUser]);
     useEffect(() => { myRoleRef.current = myRole; }, [myRole]);
     useEffect(() => { familyInfoRef.current = familyInfo; }, [familyInfo]);
+    // Mirror familyInfo to localStorage so the next cold start can hydrate
+    // the first paint immediately (avatars, role gating, pair code, etc.).
+    // null is a valid signal — the writer treats it as "clear cache".
+    useEffect(() => { writeFamilyInfoCache(familyInfo); }, [familyInfo]);
     useEffect(() => { selectedChildUserIdRef.current = selectedChild?.user_id || null; }, [selectedChild?.user_id]);
 
     useEffect(() => {

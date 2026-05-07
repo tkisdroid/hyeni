@@ -5,7 +5,41 @@ const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
 const NATIVE_OAUTH_REDIRECT_URL = "hyenicalendar://auth-callback";
 const CHILD_PHOTO_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7d
 const CHILD_PHOTO_SIGNED_URL_CACHE_SAFETY_MS = 5 * 60 * 1000;
-const childPhotoSignedUrlCache = new Map();
+const CHILD_PHOTO_CACHE_STORAGE_KEY = "hyeni-child-photo-signed-url-cache-v1";
+
+// 이전에는 in-memory Map 만 사용해서 cold start 마다 supabase storage 에
+// signed URL 을 다시 발급받았다. 7일 TTL 인데도 cold start 마다 URL 의 token
+// 쿼리스트링이 바뀌어 CDN/브라우저 캐시 미스 → 프로필 사진이 매번 재다운로드.
+// localStorage 에 영속화해 launch 간에도 같은 signed URL 을 재사용한다.
+function loadPhotoCacheFromStorage() {
+  if (typeof window === "undefined") return new Map();
+  try {
+    const raw = window.localStorage?.getItem?.(CHILD_PHOTO_CACHE_STORAGE_KEY);
+    if (!raw) return new Map();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return new Map();
+    const now = Date.now();
+    const entries = Object.entries(parsed).filter(([, value]) =>
+      value && typeof value.signedUrl === "string" && typeof value.expiresAt === "number" && value.expiresAt > now
+    );
+    return new Map(entries);
+  } catch {
+    return new Map();
+  }
+}
+
+function persistPhotoCacheToStorage(cache) {
+  if (typeof window === "undefined") return;
+  try {
+    const obj = {};
+    for (const [key, value] of cache) obj[key] = value;
+    window.localStorage?.setItem?.(CHILD_PHOTO_CACHE_STORAGE_KEY, JSON.stringify(obj));
+  } catch {
+    // localStorage may be full or unavailable — degrade silently.
+  }
+}
+
+const childPhotoSignedUrlCache = loadPhotoCacheFromStorage();
 
 // child-photos bucket is private, so getPublicUrl returns a URL anon GET cannot
 // load. Extract storage path (works for stored publicUrl, signed URL, or raw
@@ -26,7 +60,8 @@ async function enrichMembersWithSignedPhotos(members) {
   if (membersWithPhotoPaths.length === 0) return members;
   const bucket = supabase.storage?.from?.("child-photos");
   if (!bucket?.createSignedUrl) return members;
-  return Promise.all(members.map(async (m) => {
+  let cacheMutated = false;
+  const enriched = await Promise.all(members.map(async (m) => {
     if (!m?.photo_url) return m;
     const path = extractChildPhotoStoragePath(m.photo_url);
     if (!path) return m;
@@ -49,15 +84,18 @@ async function enrichMembersWithSignedPhotos(members) {
         return { ...m, photo_url: cached.signedUrl };
       }
       console.warn("[getMyFamily] signed url failed for member", m.id, result.error?.message || "");
-      childPhotoSignedUrlCache.delete(path);
+      if (childPhotoSignedUrlCache.delete(path)) cacheMutated = true;
       return { ...m, photo_url: null };
     }
     childPhotoSignedUrlCache.set(path, {
       signedUrl: result.data.signedUrl,
       expiresAt: Date.now() + (CHILD_PHOTO_SIGNED_URL_TTL_SECONDS * 1000) - CHILD_PHOTO_SIGNED_URL_CACHE_SAFETY_MS,
     });
+    cacheMutated = true;
     return { ...m, photo_url: result.data.signedUrl };
   }));
+  if (cacheMutated) persistPhotoCacheToStorage(childPhotoSignedUrlCache);
+  return enriched;
 }
 
 // ── Helper: Safe UUID generator ───────────────────────────────────────────────

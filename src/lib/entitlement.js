@@ -70,17 +70,35 @@ function normalizeFromQonversion(entitlement) {
 }
 
 export function useEntitlement(familyId) {
+  // ready=false 상태에서는 tier 가 unknown 으로 간주되어야 한다.
+  // false 인 동안 consumer 는 "premium 만 가능" 류 메시지를 노출하면 안 됨.
+  // refresh 가 한번 완료되거나 캐시 hit 가 적용되면 ready=true.
   const [state, setState] = useState(() => {
     const cached = readEntitlementCache(familyId);
     return cached || deriveEntitlement(null);
   });
+  const [ready, setReady] = useState(() => Boolean(readEntitlementCache(familyId)));
   const [loading, setLoading] = useState(false);
   const channelRef = useRef(null);
+
+  // useState 의 lazy initializer 는 첫 렌더에서만 실행된다. 첫 렌더 시
+  // familyId 가 아직 로드되지 않은 경우 (auth 후에 결정), 캐시된 premium
+  // 값을 놓치고 free 로 굳어지는 회귀가 있었다 (locationGateHint 깜빡임의
+  // 원인). familyId 가 늦게 들어오면 다시 캐시를 읽어 동기적으로 적용.
+  useEffect(() => {
+    if (!familyId) return;
+    const cached = readEntitlementCache(familyId);
+    if (cached) {
+      setState(cached);
+      setReady(true);
+    }
+  }, [familyId]);
 
   const applyRow = useCallback(
     (row) => {
       const next = deriveEntitlement(row);
       setState(next);
+      setReady(true);
       if (familyId) writeEntitlementCache(familyId, next);
       return next;
     },
@@ -156,10 +174,11 @@ export function useEntitlement(familyId) {
   return useMemo(
     () => ({
       ...state,
+      ready,
       loading,
       refresh,
       canUse: (feature) => canUseFeature(state, feature),
     }),
-    [loading, refresh, state]
+    [loading, ready, refresh, state]
   );
 }
