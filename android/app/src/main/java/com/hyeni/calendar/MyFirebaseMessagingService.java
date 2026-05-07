@@ -51,11 +51,15 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String PREFS_NAME = "hyeni_location_prefs";
     private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
     private static final String SCHEDULE_CHANNEL_ID = NotificationHelper.CHANNEL_SCHEDULE;
-    // v4_silent: 주변 소리 듣기는 사용자(아이)에게 들키지 않게 깨우는 게 목적이라
-    // 소리/진동/DND 우회 모두 OFF. fullScreenIntent + wakeScreen 만으로 화면만 조용히 켜짐.
-    // 채널 ID 가 v3 → v4 로 바뀌어야 기존 기기에 silent 채널이 새로 만들어짐 (채널은 한 번
-    // 생성되면 sound/vibration 같은 importance 속성이 immutable).
-    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v4_silent";
+    // v5_silent_cover: 무음 + 폴더블 cover display 호환 채널.
+    // - sound=null + vibration=false → 사용자(아이) 에게 들키지 않음
+    // - bypassDnd=true → Samsung One UI 가 폴더 닫힌 상태에서도 알림을 cover display
+    //   에 표시 → fullScreenIntent 가 RemoteListenActivity launch 가능. bypassDnd 는
+    //   "표시 정책" 이고 sound 는 별개라 무음과 양립한다.
+    // 채널 ID 가 v4 → v5 로 바뀐 이유: NotificationChannel 의 importance/sound/
+    // bypassDnd 는 한 번 생성되면 immutable. v4_silent 은 bypassDnd=false 라 폴더
+    // 닫힌 상태에서 cover display 표시 실패. 새 ID 로 재생성해야 갱신됨.
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v5_silent_cover";
     private static final int DEFAULT_REMOTE_LISTEN_DURATION_SEC = 60;
     private static final AtomicInteger notifId = new AtomicInteger(5000);
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
@@ -460,7 +464,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             .setContentIntent(launchPendingIntent)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setFullScreenIntent(launchPendingIntent, true)
@@ -742,16 +746,18 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         NotificationChannel existing = nm.getNotificationChannel(channelId);
         if (existing != null) return;
 
-        // IMPORTANCE_HIGH 는 setFullScreenIntent 로 잠금화면에서 activity 가 launch
-        // 되도록 유지 (그 미만이면 heads-up 으로만 표시). 단 sound=null + vibration=false
-        // + bypassDnd=false 로 만들어 아이 기기에서 알람/진동 없이 조용히 깨우기만 한다.
-        // 사용자 요청(2026-05-07): "아이 기기를 깨울 때 알림이 울리지 않게".
+        // IMPORTANCE_HIGH 는 setFullScreenIntent 가 잠금화면 / cover display 에서
+        // RemoteListenActivity 를 launch 하도록 유지. sound=null + vibration=false
+        // 로 무음. bypassDnd=true 는 Samsung 폴더블 cover display 에 알림이 노출되어야
+        // fullScreenIntent activity launch 가 발동하기 때문에 다시 켠다 (DND 우회는
+        // 표시 정책, 사운드는 별개 — 채널이 sound=null 이면 우회해도 무음).
+        // 사용자 보고(2026-05-07): "폴더가 닫힌 상태에서 주변 소리 듣기 안 됨".
         NotificationChannel channel = new NotificationChannel(
-            channelId, "원격 듣기 연결 (무음)", NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("주변 소리 연결 시 화면만 켜고 소리/진동 없이 동작");
+            channelId, "원격 듣기 연결 (cover 호환 무음)", NotificationManager.IMPORTANCE_HIGH);
+        channel.setDescription("폴더 닫힘 / 잠금화면에서도 화면만 조용히 켜고 마이크 연결을 시작");
         channel.enableVibration(false);
         channel.setVibrationPattern(null);
-        channel.setBypassDnd(false);
+        channel.setBypassDnd(true);
         channel.setSound(null, null);
         channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
         channel.setShowBadge(false);
