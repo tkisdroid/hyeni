@@ -490,10 +490,11 @@ body .hyeni-v5-tabbar button.active {
 }
 body .hyeni-v5-tabbar button:active { transform: scale(0.96); }
 
-/* Push 알림 배너 — 부모 home 상단 (App.jsx 에서 사용) */
+/* Push 알림 배너 — 부모 home 상단 (App.jsx 에서 사용).
+   max-width 는 컴포넌트 측 inline style(contentMaxWidth) 에서 결정해
+   sibling 배너들 (sync degraded, denied 등) 과 폭을 일치시킨다. */
 .cartoon-push-banner {
   width: 100%;
-  max-width: 420px;
   margin-bottom: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--cartoon-bg-chip);
@@ -504,6 +505,30 @@ body .hyeni-v5-tabbar button:active { transform: scale(0.96); }
   gap: var(--space-3);
   font-family: var(--font-sans);
 }
+.cartoon-push-banner--denied {
+  background: var(--cartoon-bg-cream);
+  border-style: dashed;
+  padding: var(--space-2) var(--space-3);
+  font-size: 11px;
+}
+.cartoon-push-banner-dismiss {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--fg-tertiary);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  transition: background 120ms ease;
+}
+.cartoon-push-banner-dismiss:hover { background: var(--cartoon-bg-chip); }
 .cartoon-push-banner-icon {
   width: 36px;
   height: 36px;

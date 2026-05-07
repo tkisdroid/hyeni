@@ -5834,12 +5834,17 @@ export default function KidsScheduler() {
                 </div>
             )}
             {!isNativeApp && pushPermission === "denied" && !pushDeniedDismissed && (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "8px 12px", borderRadius: 14, background: "var(--bg-muted)", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 14 }}>🔕</span>
-                    <div style={{ flex: 1, fontSize: 11, color: "var(--fg-secondary)", fontWeight: 500 }}>알림이 꺼져있어요. 브라우저 설정에서 켤 수 있어요</div>
-                    <button onClick={() => { try { sessionStorage.setItem("hyeni-push-denied-dismissed", "1"); } catch (e) {} setPushDeniedDismissed(true); }}
+                <div className="cartoon-push-banner cartoon-push-banner--denied" style={{ maxWidth: contentMaxWidth }}>
+                    <span aria-hidden="true" className="cartoon-push-banner-icon" style={{ width: 28, height: 28, fontSize: 14 }}>🔕</span>
+                    <div className="cartoon-push-banner-text" style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 600 }}>
+                        알림이 꺼져있어요. 브라우저 설정에서 켤 수 있어요
+                    </div>
+                    <button
+                        type="button"
+                        className="cartoon-push-banner-dismiss"
                         aria-label="배너 닫기"
-                        style={{ padding: "4px 8px", border: "none", background: "transparent", color: "var(--fg-tertiary)", cursor: "pointer", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>×</button>
+                        onClick={() => { try { sessionStorage.setItem("hyeni-push-denied-dismissed", "1"); } catch (e) { /* sessionStorage 비활성: 무시 */ } setPushDeniedDismissed(true); }}
+                    >×</button>
                 </div>
             )}
 
