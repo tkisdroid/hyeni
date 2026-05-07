@@ -23,7 +23,7 @@ export function ChildAvatar({
   decorative = false,
 }) {
   const photoUrl = typeof child?.photo_url === "string" && child.photo_url.trim() ? child.photo_url : null;
-  const accent = color || child?.color_hex || "var(--theme-accent)";
+  const accent = color || child?.color_hex || "var(--cartoon-rose)";
   const name = child?.name || "자녀";
   const [imageState, setImageState] = useState(photoUrl ? "loading" : "fallback");
   const [defaultImageFailed, setDefaultImageFailed] = useState(false);
