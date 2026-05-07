@@ -19,11 +19,9 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
     if (role === "child") {
         return (
             <section
+                className="cartoon-card-flat"
                 style={{
-                    background: "var(--theme-accent-soft)",
-                    borderRadius: "var(--radius-card)",
                     padding: "var(--space-5) var(--space-4)",
-                    border: "1px solid var(--theme-accent-line)",
                 }}
             >
                 <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>구독 상태</div>
@@ -67,11 +65,9 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
 
     return (
         <section
+            className="cartoon-card-flat"
             style={{
-                background: "var(--bg-base)",
-                borderRadius: "var(--radius-card)",
                 padding: "var(--space-5) var(--space-4)",
-                border: "1px solid var(--theme-accent-line)",
                 display: "flex",
                 flexDirection: "column",
                 gap: "var(--space-5)",

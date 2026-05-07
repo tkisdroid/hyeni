@@ -38,22 +38,22 @@
 /* --- Settings screen scaffolding --- */
 .settings-screen {
   position: fixed; inset: 0; z-index: 400;
-  background: var(--bg-subtle);
+  background: var(--cartoon-bg-cream);
   display: flex; flex-direction: column;
   font-family: var(--font-sans);
 }
 .settings-header {
-  background: var(--bg-base);
+  background: var(--cartoon-bg-card);
   padding: calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-4) var(--space-3);
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--cartoon-line);
   display: flex; align-items: center; gap: var(--space-3);
   flex-shrink: 0;
 }
 .settings-back {
-  width: 36px; height: 36px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--line-soft);
-  background: var(--bg-base);
+  width: 40px; height: 40px;
+  border-radius: var(--cartoon-radius-icon);
+  border: 1px solid var(--cartoon-line);
+  background: var(--cartoon-bg-card);
   cursor: pointer;
   font-family: inherit; font-size: 16px;
   color: var(--fg-secondary);
@@ -74,9 +74,9 @@
 .settings-bottom-nav {
   flex-shrink: 0;
   padding: 0 var(--space-3) calc(env(safe-area-inset-bottom, 0px) + 10px);
-  border-top: 1px solid var(--line-soft);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 -10px 24px rgba(31, 26, 34, 0.06);
+  border-top: 1px solid var(--cartoon-line);
+  background: var(--cartoon-bg-glass-strong);
+  box-shadow: var(--cartoon-shadow-up);
 }
 .settings-bottom-nav .hyeni-v5-tabbar {
   position: relative;
@@ -101,9 +101,9 @@
   margin: 0 0 var(--space-2) var(--space-2);
 }
 .settings-card {
-  background: var(--bg-base);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-card);
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-card);
   overflow: hidden;
 }
 .settings-row {
@@ -116,7 +116,7 @@
   cursor: pointer;
   font-family: inherit;
   border: none;
-  border-bottom: 1px solid var(--line-subtle);
+  border-bottom: 1px solid var(--cartoon-line);
   color: var(--fg-primary);
 }
 .settings-card > .settings-row:last-child { border-bottom: none; }

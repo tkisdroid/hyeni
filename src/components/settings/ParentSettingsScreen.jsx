@@ -27,8 +27,8 @@ const Toggle = ({ value, onChange, ariaLabel }) => (
                 top: 3, left: value ? 25 : 3,
                 width: 24, height: 24,
                 borderRadius: "var(--radius-full)",
-                background: "var(--bg-base)",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
+                background: "var(--cartoon-bg-card)",
+                boxShadow: "var(--cartoon-shadow-thumb)",
                 transition: "left var(--duration-fast) var(--easing-standard)",
             }}
         />
@@ -86,8 +86,8 @@ function MinutesBeforeSelector({ value = [15, 5], onChange }) {
             style={{
                 display: "flex",
                 flexWrap: "wrap",
-                gap: 8,
-                padding: "8px 16px 14px",
+                gap: "var(--space-2)",
+                padding: "var(--space-2) var(--space-4) var(--space-3)",
             }}
         >
             {NOTIF_MINUTE_OPTIONS.map((opt) => {
@@ -98,17 +98,8 @@ function MinutesBeforeSelector({ value = [15, 5], onChange }) {
                         type="button"
                         onClick={() => toggle(opt.value)}
                         aria-pressed={active}
-                        style={{
-                            padding: "7px 13px",
-                            borderRadius: "var(--radius-pill)",
-                            background: active ? "var(--theme-accent)" : "var(--bg-muted)",
-                            color: active ? "var(--fg-on-primary)" : "var(--fg-secondary)",
-                            border: "none",
-                            fontSize: 13,
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            transition: "all var(--duration-fast) var(--easing-standard)",
-                        }}
+                        className={`cartoon-pill ${active ? "cartoon-pill--rose" : "cartoon-pill--white"}`}
+                        style={{ height: 32, padding: "0 var(--space-3)", fontSize: 13 }}
                     >
                         {opt.label}
                     </button>
