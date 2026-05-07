@@ -5810,22 +5810,25 @@ export default function KidsScheduler() {
                 </div>
             )}
             {!isNativeApp && pushPermission !== "granted" && pushPermission !== "unsupported" && pushPermission !== "denied" && (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 8, padding: "10px 14px", borderRadius: 16, background: "var(--bg-base)", border: "1px solid var(--line-soft)", display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 20 }}>🔔</span>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-primary)" }}>푸시 알림을 켜주세요</div>
-                        <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>일정 시작 전 알림을 받을 수 있어요</div>
+                <div className="cartoon-push-banner" style={{ maxWidth: contentMaxWidth }}>
+                    <span aria-hidden="true" className="cartoon-push-banner-icon">🔔</span>
+                    <div className="cartoon-push-banner-text">
+                        <div className="cartoon-push-banner-title">푸시 알림을 켜주세요</div>
+                        <div className="cartoon-push-banner-sub">일정 시작 전 알림을 받을 수 있어요</div>
                     </div>
-                    <button onClick={async () => {
-                        const result = await requestPermission();
-                        setPushPermission(result);
-                        if (result === "granted") {
-                            showNotif("푸시 알림이 켜졌어요!");
-                        } else if (result === "denied") {
-                            showNotif("알림이 차단되었어요. 브라우저 설정에서 허용해주세요.", "error");
-                        }
-                    }}
-                        style={{ padding: "8px 14px", borderRadius: 12, background: "var(--hyeni-theme-gradient)", color: "var(--fg-on-primary)", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF, whiteSpace: "nowrap", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
+                    <button
+                        type="button"
+                        className="cartoon-push-banner-cta"
+                        onClick={async () => {
+                            const result = await requestPermission();
+                            setPushPermission(result);
+                            if (result === "granted") {
+                                showNotif("푸시 알림이 켜졌어요!");
+                            } else if (result === "denied") {
+                                showNotif("알림이 차단되었어요. 브라우저 설정에서 허용해주세요.", "error");
+                            }
+                        }}
+                    >
                         허용하기
                     </button>
                 </div>
