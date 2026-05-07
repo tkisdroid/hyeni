@@ -509,7 +509,6 @@ body .hyeni-v5-tabbar button:active { transform: scale(0.96); }
   background: var(--cartoon-bg-cream);
   border-style: dashed;
   padding: var(--space-2) var(--space-3);
-  font-size: 11px;
 }
 .cartoon-push-banner--denied .cartoon-push-banner-icon {
   width: 28px;
