@@ -620,10 +620,12 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             Log.w(TAG, "Remote listen native start skipped: RECORD_AUDIO permission missing");
             return false;
         }
-        // Android 14+ skip 분기 제거 (2026-05-07): AmbientListenService 가 SPECIAL_USE
-        // FGS 로 변경되어 mic FGS 의 foreground UI 요구를 우회 가능. 모토로라 razr 등
-        // cover display 에서 activity launch 가 deferred 돼도 native service 만으로
-        // mic capture 시작.
+        // 2026-05-08: 이 경로는 pre-UDC14 (API < 34) 분기에서만 호출된다.
+        // UDC+ 에서는 onMessageReceived 의 UDC+ 분기에서 RemoteListenActivity
+        // 만 launch 하고, AmbientListenService 는 RemoteListenActivity.onCreate
+        // (foreground context) 에서 단일 시작한다. background 에서 직접 호출하면
+        // FOREGROUND_SERVICE_TYPE_MICROPHONE 이 ForegroundServiceStartNotAllowed
+        // 로 거부되고, SPECIAL_USE 로 우회하면 mic 가 silently muted 되기 때문.
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String userId = prefs.getString("userId", "");

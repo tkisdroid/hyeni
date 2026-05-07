@@ -113,10 +113,18 @@ public class AmbientListenService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             // Android 14+ silently mutes mic capture when FGS type is anything
             // other than MICROPHONE (peak16=0 with SPECIAL_USE confirmed via
-            // parent-device logs). Always try MICROPHONE first; only fall back
-            // to SPECIAL_USE on the cover-display ForegroundServiceStartNotAllowed
-            // case. The fallback service won't produce audio but at least keeps
-            // the foreground notification visible so the user can investigate.
+            // parent-device logs). Always try MICROPHONE first.
+            //
+            // The SPECIAL_USE fallback below is *normally unreachable*: with the
+            // 2026-05-08 fix this service is started exclusively from
+            // RemoteListenActivity.onCreate (foreground context), so
+            // startForeground(TYPE_MICROPHONE) will not throw
+            // ForegroundServiceStartNotAllowed. The fallback is retained as a
+            // belt-and-suspenders safeguard for OEMs that may still defer the
+            // activity launch on a closed cover display before its onCreate
+            // runs the foreground promotion. In that fallback path mic data is
+            // muted by the OS, so we stopSelf immediately — surfacing a clean
+            // failure rather than streaming silence that looks like success.
             boolean micTypeStarted = false;
             try {
                 startForeground(

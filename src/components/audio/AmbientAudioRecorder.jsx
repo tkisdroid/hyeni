@@ -325,7 +325,10 @@ export function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUse
                     const url = URL.createObjectURL(blob);
                     const audio = new Audio(url);
                     activeAudioElementsRef.current.add(audio);
-                    await new Promise((resolve, reject) => {
+                    // Always resolve — rejecting here breaks the sequential
+                    // playbackRef chain and silently drops every subsequent
+                    // chunk. Errors are surfaced via console.warn instead.
+                    await new Promise((resolve) => {
                         const cleanup = () => {
                             activeAudioElementsRef.current.delete(audio);
                             audio.onended = null;
@@ -333,7 +336,11 @@ export function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUse
                             URL.revokeObjectURL(url);
                         };
                         audio.onended = () => { cleanup(); resolve(); };
-                        audio.onerror = () => { cleanup(); reject(new Error("audio playback failed")); };
+                        audio.onerror = (err) => {
+                            console.warn("[Audio] <audio> fallback playback error:", err?.message || "");
+                            cleanup();
+                            resolve();
+                        };
                         if (playbackGeneration !== playbackGenerationRef.current) {
                             cleanup();
                             resolve();
@@ -342,13 +349,14 @@ export function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUse
                         const playPromise = audio.play();
                         if (playPromise?.catch) {
                             playPromise.catch((error) => {
+                                console.warn("[Audio] <audio> fallback play() rejected:", error?.message || error);
                                 cleanup();
-                                reject(error);
+                                resolve();
                             });
                         }
                     });
                 } catch (e) {
-                    console.log("[Audio] chunk play error:", e.message);
+                    console.warn("[Audio] chunk play error:", e?.message || e);
                 }
             });
     }, []);
