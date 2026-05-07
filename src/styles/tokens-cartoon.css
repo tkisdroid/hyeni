@@ -110,6 +110,8 @@
     0 8px 24px rgba(245, 96, 130, 0.08);
   --cartoon-shadow-pill:
     0 4px 12px rgba(245, 96, 130, 0.20);
+  --cartoon-shadow-badge:
+    drop-shadow(0 2px 4px rgba(245, 96, 130, 0.20));
 
   /* Typography — 제목용. Cafe24 Ssurround 같은 외부 CDN 폰트는 의도적으로
      사용하지 않는다 (offline 안전성, 네트워크 비용, 프라이버시). Pretendard

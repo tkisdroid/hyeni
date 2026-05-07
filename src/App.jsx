@@ -5562,12 +5562,7 @@ export default function KidsScheduler() {
 
             {/* Toast */}
             {notification && (
-                <div style={{
-                    position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
-                    background: notification.type === "error" ? "var(--status-cautionary-subtle)" : notification.type === "child" ? "var(--theme-accent-soft)" : notification.type === "parent" ? "var(--bg-subtle)" : "var(--status-positive-subtle)",
-                    color: notification.type === "error" ? "var(--status-cautionary-strong)" : notification.type === "child" ? "var(--theme-accent-text)" : notification.type === "parent" ? "#1D4ED8" : "#065F46",
-                    borderRadius: 20, padding: "12px 20px", fontWeight: 700, fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", zIndex: 250, maxWidth: "calc(100vw - 32px)", textAlign: "center", animation: "slideDown 0.3s ease", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none"
-                }}>
+                <div className={`cartoon-toast cartoon-toast--${notification.type === "error" ? "error" : notification.type === "child" ? "child" : notification.type === "parent" ? "parent" : "success"}`}>
                     {notification.msg}
                 </div>
             )}

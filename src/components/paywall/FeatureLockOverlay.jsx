@@ -20,6 +20,7 @@ export function FeatureLockOverlay({
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby="feature-lock-title"
       className="cartoon-modal-backdrop"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -49,13 +50,13 @@ export function FeatureLockOverlay({
               right: -2,
               top: -2,
               fontSize: 22,
-              filter: "drop-shadow(0 2px 4px rgba(245,96,130,0.2))",
+              filter: "var(--cartoon-shadow-badge)",
             }}
           >
             {copy?.emoji || "💎"}
           </span>
         </div>
-        <h2 className="cartoon-title" style={{ fontSize: 20, color: "var(--fg-primary)" }}>{title}</h2>
+        <h2 id="feature-lock-title" className="cartoon-title" style={{ fontSize: 20, color: "var(--fg-primary)" }}>{title}</h2>
         <p className="cartoon-subtitle" style={{ marginTop: "var(--space-2)", fontSize: 14, lineHeight: 1.6 }}>{body}</p>
 
         <div className="cartoon-modal-meta">
