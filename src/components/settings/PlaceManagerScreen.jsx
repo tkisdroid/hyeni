@@ -55,21 +55,16 @@ function Section({ id, icon, label, caution, places, color, openId, onToggle, on
                         ))
                     )}
                     {typeof onAdd === "function" && (
-                        <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--line-subtle)" }}>
+                        <div style={{ padding: "var(--space-3) var(--space-4)", borderTop: "1px solid var(--cartoon-line)" }}>
                             <button
                                 type="button"
                                 onClick={() => onAdd(id)}
+                                className="cartoon-pill cartoon-pill--white"
                                 style={{
                                     width: "100%",
-                                    padding: "var(--space-3)",
-                                    border: "1px dashed var(--theme-accent-line)",
-                                    borderRadius: "var(--radius-md)",
-                                    background: "var(--theme-accent-soft)",
-                                    color: "var(--theme-accent-text)",
-                                    cursor: "pointer",
-                                    fontFamily: "inherit",
+                                    height: 40,
                                     fontSize: 13,
-                                    fontWeight: "var(--weight-bold)",
+                                    border: "1px dashed var(--cartoon-line-strong)",
                                 }}
                             >
                                 + {label} 추가

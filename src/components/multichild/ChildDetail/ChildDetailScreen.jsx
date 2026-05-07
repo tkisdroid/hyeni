@@ -75,7 +75,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
             className="hyeni-child-detail-screen"
             style={{
                 position: "fixed", inset: 0, zIndex: 400,
-                background: "var(--bg-subtle)",
+                background: "var(--cartoon-bg-cream)",
                 display: "flex", flexDirection: "column",
                 fontFamily: "var(--font-sans)",
             }}
@@ -83,9 +83,9 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
             {/* Sticky header */}
             <header
                 style={{
-                    background: "var(--bg-base)",
+                    background: "var(--cartoon-bg-card)",
                     padding: "calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-4) 0",
-                    borderBottom: "1px solid var(--line-soft)",
+                    borderBottom: "1px solid var(--cartoon-line)",
                     flexShrink: 0,
                 }}
             >
@@ -94,16 +94,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                         type="button"
                         onClick={onBack}
                         aria-label="뒤로"
-                        style={{
-                            width: 36, height: 36,
-                            borderRadius: "var(--radius-md)",
-                            border: "1px solid var(--line-soft)",
-                            background: "var(--bg-base)",
-                            cursor: "pointer",
-                            fontFamily: "var(--font-sans)",
-                            fontSize: 16,
-                            color: "var(--fg-secondary)",
-                        }}
+                        className="cartoon-iconbtn"
                     >
                         ←
                     </button>
@@ -116,16 +107,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                             type="button"
                             onClick={() => onSettings(child)}
                             aria-label="자녀 설정"
-                            style={{
-                                width: 36, height: 36,
-                                borderRadius: "var(--radius-md)",
-                                border: "1px solid var(--line-soft)",
-                                background: "var(--bg-base)",
-                                cursor: "pointer",
-                                fontFamily: "var(--font-sans)",
-                                fontSize: 16,
-                                color: "var(--fg-secondary)",
-                            }}
+                            className="cartoon-iconbtn"
                         >
                             ⚙
                         </button>
@@ -173,11 +155,11 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                 <section
                     style={{
                         height: "min(50vh, 320px)",
-                        background: "linear-gradient(135deg, var(--theme-accent-soft) 0%, var(--bg-base) 100%)",
-                        borderRadius: "var(--radius-card)",
+                        background: "linear-gradient(135deg, var(--cartoon-rose-soft) 0%, var(--cartoon-bg-card) 100%)",
+                        borderRadius: "var(--cartoon-radius-card)",
                         marginBottom: "var(--space-2)",
                         position: "relative",
-                        border: "1px solid var(--line-soft)",
+                        border: "1px solid var(--cartoon-line)",
                         overflow: "hidden",
                         display: "flex",
                         alignItems: "center",
@@ -191,7 +173,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                 </section>
 
                 {/* 오늘 일정 */}
-                <section style={{ marginTop: "var(--space-5)", paddingTop: "var(--space-5)", borderTop: "1px solid var(--line-soft)" }}>
+                <section style={{ marginTop: "var(--space-5)", paddingTop: "var(--space-5)", borderTop: "1px solid var(--cartoon-line)" }}>
                     <h2 className="t-section-label">오늘 일정</h2>
                     {childEvents.length === 0 ? (
                         <p style={{ fontSize: 14, color: "var(--fg-tertiary)", textAlign: "center", padding: "var(--space-5) 0" }}>오늘 일정이 없어요</p>
@@ -203,8 +185,9 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                                     style={{
                                         padding: "var(--space-3) var(--space-4)",
                                         borderLeft: `4px ${event.is_family_event ? "dashed" : "solid"} ${event.color || childColor}`,
-                                        background: "var(--bg-base)",
-                                        borderRadius: "var(--radius-md)",
+                                        background: "var(--cartoon-bg-card)",
+                                        borderRadius: "var(--cartoon-radius-card)",
+                                        border: "1px solid var(--cartoon-line)",
                                     }}
                                 >
                                     <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", alignItems: "baseline" }}>
@@ -221,9 +204,9 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                 </section>
 
                 {/* 안전 메트릭 */}
-                <section style={{ marginTop: "var(--space-5)", paddingTop: "var(--space-5)", borderTop: "1px solid var(--line-soft)" }}>
+                <section style={{ marginTop: "var(--space-5)", paddingTop: "var(--space-5)", borderTop: "1px solid var(--cartoon-line)" }}>
                     <h2 className="t-section-label">안전 메트릭</h2>
-                    <div style={{ background: "var(--bg-base)", border: "1px solid var(--line-soft)", borderRadius: "var(--radius-md)" }}>
+                    <div className="cartoon-card-flat">
                         <MetricRow label="배터리" value={deviceStatus?.battery_pct != null ? `${deviceStatus.battery_pct}%` : "—"} meta={deviceStatus?.battery_updated_minutes_ago != null ? formatLastSeen(deviceStatus.battery_updated_minutes_ago) : null} />
                         <MetricRow label="위치" value={locationLabel || "확인 불가"} meta={deviceStatus?.last_seen_minutes_ago != null ? `${formatLastSeen(deviceStatus.last_seen_minutes_ago)} 갱신` : null} />
                         <MetricRow label="화면" value={screenLabel} meta="오늘" />
@@ -242,7 +225,7 @@ function MetricRow({ label, value, meta }) {
                 alignItems: "baseline",
                 gap: "var(--space-3)",
                 padding: "var(--space-3) var(--space-4)",
-                borderBottom: "1px solid var(--line-subtle)",
+                borderBottom: "1px solid var(--cartoon-line)",
             }}
         >
             <span style={{ fontSize: 12, color: "var(--fg-secondary)", width: 60, flexShrink: 0, fontWeight: "var(--weight-semibold)" }}>{label}</span>

@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import { ChildAvatar } from "./ChildAvatar.jsx";
 import { formatDeviceDuration } from "../../../lib/deviceFormat.js";
 
-const FF = '"Pretendard Variable", "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
+const FF = "var(--font-sans)";
 
 function eventsForChild(events, childId) {
   if (!Array.isArray(events) || !childId) return [];
@@ -44,7 +44,7 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
       <div style={{ padding: "16px 16px 8px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: "var(--theme-accent-text)", fontWeight: "var(--weight-bold)", letterSpacing: 0.5 }}>오늘</div>
+            <div style={{ fontSize: 11, color: "var(--cartoon-rose-text)", fontWeight: "var(--weight-bold)", letterSpacing: 0.5 }}>오늘</div>
             <div style={{ fontSize: 24, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", marginTop: 2 }}>{todayLabel}</div>
             <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, fontWeight: "var(--weight-medium)" }}>
               카드를 탭하면 그 아이의 상세 일정이 열려요
@@ -54,19 +54,8 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
             <button
               type="button"
               onClick={() => onRefreshDevices?.("device_status_manual_refresh")}
-              style={{
-                border: "1px solid var(--theme-accent-line)",
-                background: "var(--theme-accent-soft)",
-                color: "var(--theme-accent-text)",
-                borderRadius: "var(--radius-full)",
-                padding: "8px 12px",
-                fontFamily: FF,
-                fontSize: 12,
-                fontWeight: "var(--weight-bold)",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
+              className="cartoon-pill cartoon-pill--white"
+              style={{ height: 32, padding: "0 var(--space-3)", fontSize: 12 }}
             >
               {deviceRefreshPending ? "요청 중" : "지금 갱신"}
             </button>
@@ -102,7 +91,7 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
                 <ChildAvatar child={child} size={40} color={color} fontSize={17} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
-                  <div style={{ fontSize: 13, color: list.length > 0 ? "var(--theme-accent-text)" : "var(--fg-secondary)", marginTop: 3, fontWeight: list.length > 0 ? "var(--weight-bold)" : "var(--weight-medium)" }}>
+                  <div style={{ fontSize: 13, color: list.length > 0 ? "var(--cartoon-rose-text)" : "var(--fg-secondary)", marginTop: 3, fontWeight: list.length > 0 ? "var(--weight-bold)" : "var(--weight-medium)" }}>
                     {list.length === 0 ? "오늘 일정이 없어요" : `오늘 일정 ${list.length}건`}
                   </div>
                 </div>
@@ -110,11 +99,11 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: list.length > 0 ? 12 : 0 }}>
-                <div style={{ background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", padding: "8px 10px" }}>
+                <div style={{ background: "var(--cartoon-bg-chip)", borderRadius: "var(--radius-md)", padding: "8px 10px" }}>
                   <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: "var(--weight-bold)" }}>배터리</div>
                   <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2 }}>🔋 {battery}</div>
                 </div>
-                <div style={{ background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", padding: "8px 10px" }}>
+                <div style={{ background: "var(--cartoon-bg-chip)", borderRadius: "var(--radius-md)", padding: "8px 10px" }}>
                   <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: "var(--weight-bold)" }}>화면 시간</div>
                   <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2 }}>⏱️ {screenLabel}</div>
                 </div>
@@ -130,7 +119,7 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
                         alignItems: "center",
                         gap: 12,
                         padding: "10px 12px",
-                        background: "var(--bg-subtle)",
+                        background: "var(--cartoon-bg-chip)",
                         borderRadius: "var(--radius-md)",
                         fontSize: 13,
                       }}
