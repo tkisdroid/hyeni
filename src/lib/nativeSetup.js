@@ -64,7 +64,7 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
     {
         id: "battery",
         title: "배터리 예외",
-        description: "절전 모드가 위치 서비스와 연결 요청을 끊지 않게 해요.",
+        description: "절전 모드가 자녀 안전 위치 추적과 응급 연결을 끊지 않도록 예외 처리해요.",
         target: "battery",
         actionLabel: "예외 허용",
         isReady: (health) => health?.batteryOptimizationsIgnored === true,
@@ -72,7 +72,8 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
     {
         id: "backgroundLocation",
         title: "위치 항상 허용",
-        description: "앱이 화면 밖에 있어도 위치와 안전 상태를 계속 보낼 수 있어요.",
+        // Play Store Background Location Disclosure Policy: 백그라운드 위치 사용 이유 명시.
+        description: "앱이 닫혀 있을 때도 부모님이 자녀 안전을 확인할 수 있도록 위치를 백그라운드에서 전송해요.",
         target: "appLocation",
         actionLabel: "위치 권한",
         isReady: (_health, bgLocationGranted) => bgLocationGranted === true,

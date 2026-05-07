@@ -78,6 +78,20 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                                 ? "이제 부모님이 너를 안전하게 챙길 수 있어"
                                 : "안전 사용을 위해 권한 몇 개만 허용해줘"}
                         </p>
+                        {/* Play Store Background Location Disclosure: 권한 부여 전 사용 이유 명시. */}
+                        {!allReady && (
+                            <p
+                                style={{
+                                    margin: "var(--space-2) 0 0",
+                                    fontSize: 11,
+                                    color: "var(--fg-tertiary)",
+                                    lineHeight: "var(--leading-normal)",
+                                    fontWeight: "var(--weight-medium)",
+                                }}
+                            >
+                                위치는 부모님이 자녀 안전을 확인할 때만 백그라운드에서 사용해요.
+                            </p>
+                        )}
                     </div>
                 </div>
 
