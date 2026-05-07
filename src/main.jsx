@@ -4,7 +4,6 @@ import './styles/tokens.css'
 import './styles/tokens-phase3-child.css'
 import './styles/tokens-phase4-ops.css'
 import './index.css'
-import './styles/hyeni-theme.css'
 import App from './App.jsx'
 import { initThemeFromCache } from './lib/theme.js'
 
