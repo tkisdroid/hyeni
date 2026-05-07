@@ -51,7 +51,11 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String PREFS_NAME = "hyeni_location_prefs";
     private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
     private static final String SCHEDULE_CHANNEL_ID = NotificationHelper.CHANNEL_SCHEDULE;
-    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v3";
+    // v4_silent: 주변 소리 듣기는 사용자(아이)에게 들키지 않게 깨우는 게 목적이라
+    // 소리/진동/DND 우회 모두 OFF. fullScreenIntent + wakeScreen 만으로 화면만 조용히 켜짐.
+    // 채널 ID 가 v3 → v4 로 바뀌어야 기존 기기에 silent 채널이 새로 만들어짐 (채널은 한 번
+    // 생성되면 sound/vibration 같은 importance 속성이 immutable).
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v4_silent";
     private static final int DEFAULT_REMOTE_LISTEN_DURATION_SEC = 60;
     private static final AtomicInteger notifId = new AtomicInteger(5000);
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
@@ -443,10 +447,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             currentNotifId
         );
 
-        // CATEGORY_ALARM (not CATEGORY_CALL) is what Samsung One UI honours for
-        // 방해금지 모드 bypass on a non-foreground app. setOngoing keeps the
-        // entry in the shade until RemoteListenActivity cancels it (we still
-        // setAutoCancel so the user can swipe it away after the session ends).
+        // 주변 소리 듣기는 아이가 모르게 깨워야 의미가 있어서 알람이 아닌 silent
+        // notification 으로 처리. fullScreenIntent 는 그대로 — 잠금화면에서도
+        // RemoteListenActivity 가 launch 되어 mic FGS 가 시작될 수 있게.
+        // Android 12+ setSilent(true) + 채널 자체 sound=null 로 이중 보장.
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle("주변 소리 연결 요청")
@@ -455,10 +459,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             .setAutoCancel(false)
             .setContentIntent(launchPendingIntent)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setFullScreenIntent(launchPendingIntent, true)
             .setWhen(System.currentTimeMillis());
 
@@ -738,21 +742,17 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         NotificationChannel existing = nm.getNotificationChannel(channelId);
         if (existing != null) return;
 
-        // Channel must be IMPORTANCE_HIGH (or above) for setFullScreenIntent
-        // to actually launch the activity instead of shrinking to a heads-up.
-        // Z Flip 등 폴더블 cover screen 에서 알림이 무음 처리되지 않도록
-        // USAGE_ALARM + bypassDnd=true 사용. CATEGORY_ALARM 알림과 일관.
-        // Samsung One UI 가 cover display 에 alarm 카테고리 알림을 표시 허용.
+        // IMPORTANCE_HIGH 는 setFullScreenIntent 로 잠금화면에서 activity 가 launch
+        // 되도록 유지 (그 미만이면 heads-up 으로만 표시). 단 sound=null + vibration=false
+        // + bypassDnd=false 로 만들어 아이 기기에서 알람/진동 없이 조용히 깨우기만 한다.
+        // 사용자 요청(2026-05-07): "아이 기기를 깨울 때 알림이 울리지 않게".
         NotificationChannel channel = new NotificationChannel(
-            channelId, "원격 듣기 연결", NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("아이 기기에서 주변 소리 연결을 시작해야 할 때 표시되는 알림");
-        channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 250, 150, 250, 150, 250});
-        channel.setBypassDnd(true);
-        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), new android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build());
+            channelId, "원격 듣기 연결 (무음)", NotificationManager.IMPORTANCE_HIGH);
+        channel.setDescription("주변 소리 연결 시 화면만 켜고 소리/진동 없이 동작");
+        channel.enableVibration(false);
+        channel.setVibrationPattern(null);
+        channel.setBypassDnd(false);
+        channel.setSound(null, null);
         channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
         channel.setShowBadge(false);
         nm.createNotificationChannel(channel);
