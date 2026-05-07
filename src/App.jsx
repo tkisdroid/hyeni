@@ -5835,8 +5835,8 @@ export default function KidsScheduler() {
             )}
             {!isNativeApp && pushPermission === "denied" && !pushDeniedDismissed && (
                 <div className="cartoon-push-banner cartoon-push-banner--denied" style={{ maxWidth: contentMaxWidth }}>
-                    <span aria-hidden="true" className="cartoon-push-banner-icon" style={{ width: 28, height: 28, fontSize: 14 }}>🔕</span>
-                    <div className="cartoon-push-banner-text" style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 600 }}>
+                    <span aria-hidden="true" className="cartoon-push-banner-icon">🔕</span>
+                    <div className="cartoon-push-banner-text">
                         알림이 꺼져있어요. 브라우저 설정에서 켤 수 있어요
                     </div>
                     <button
