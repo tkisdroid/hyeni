@@ -64,7 +64,11 @@ public class LocationService extends Service {
     private static final String TAG = "LocationService";
     private static final String CHANNEL_ID = "hyeni_location_v4";
     private static final String ALERT_CHANNEL_ID = NotificationHelper.CHANNEL_EMERGENCY;
-    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v3";
+    // 주변 소리 듣기는 아이 모르게 깨우는 게 목적. v4_silent 채널은
+    // sound=null + vibration=false + bypassDnd=false. MyFirebaseMessagingService
+    // 와 동일한 ID 라 두 경로(FCM 직접 / pending polling fallback) 가 같은 silent
+    // 채널을 공유한다.
+    private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v4_silent";
     public static final String ACTION_REFRESH_NOW = "REFRESH_NOW";
     private static final int NOTIFICATION_ID = 9001;
     private static final int ALERT_NOTIFICATION_BASE = 10000;
@@ -1301,6 +1305,9 @@ public class LocationService extends Service {
             notificationId
         );
 
+        // 방해금지모드에서도 알람이 울리던 문제 (2026-05-07 사용자 보고) 수정.
+        // 알림 자체는 silent + CATEGORY_SERVICE — 알람 채널 우회로 인한 사운드/진동 0.
+        // fullScreenIntent 는 그대로 유지 (잠금화면 RemoteListenActivity launch 위해).
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, REMOTE_LISTEN_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_hyeni_notification)
             .setColor(0xFFFF6B9D)
@@ -1310,10 +1317,10 @@ public class LocationService extends Service {
             .setAutoCancel(false)
             .setContentIntent(launchPendingIntent)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setFullScreenIntent(launchPendingIntent, true)
             .setWhen(System.currentTimeMillis());
 
@@ -1369,19 +1376,22 @@ public class LocationService extends Service {
         NotificationChannel existing = manager.getNotificationChannel(REMOTE_LISTEN_CHANNEL_ID);
         if (existing != null) return;
 
+        // IMPORTANCE_HIGH 는 setFullScreenIntent 가 잠금화면에서 activity 를 launch
+        // 시키도록 유지 (그 미만이면 heads-up 으로 축소). 단 sound=null + vibration=false
+        // + bypassDnd=false 로 만들어 아이 기기에서 알람/진동 없이 조용히 깨우기만 한다.
+        // 사용자 보고(2026-05-07): "방해금지모드인데도 알림 소리가 크게 들려요" — 원인은
+        // 이 채널의 BypassDnd(true) + ALARM 사운드. MyFirebaseMessagingService 와 동일
+        // ID/설정으로 통일해 두 경로 모두 silent.
         NotificationChannel channel = new NotificationChannel(
             REMOTE_LISTEN_CHANNEL_ID,
-            "원격 듣기 연결",
+            "원격 듣기 연결 (무음)",
             NotificationManager.IMPORTANCE_HIGH
         );
-        channel.setDescription("아이 기기에서 주변 소리 연결을 시작해야 할 때 표시되는 알림");
-        channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0, 250, 150, 250, 150, 250});
-        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), new AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build());
-        channel.setBypassDnd(true);
+        channel.setDescription("주변 소리 연결 시 화면만 켜고 소리/진동 없이 동작");
+        channel.enableVibration(false);
+        channel.setVibrationPattern(null);
+        channel.setSound(null, null);
+        channel.setBypassDnd(false);
         channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         channel.setShowBadge(false);
         manager.createNotificationChannel(channel);
