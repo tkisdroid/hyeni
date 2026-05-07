@@ -52,6 +52,17 @@
   --cartoon-naver-bg:        #03C75A;
   --cartoon-naver-text:      var(--fg-on-primary);
 
+  /* Google G-logo brand colors — JSX 컴포넌트에 hex 가 노출되지 않도록 토큰화 */
+  --cartoon-google-blue:     #4285F4;
+  --cartoon-google-green:    #34A853;
+  --cartoon-google-yellow:   #FBBC05;
+  --cartoon-google-red:      #EA4335;
+
+  /* KID code input — 큰 monospace 입력 필드 전용 레이아웃 토큰 */
+  --cartoon-input-code-h:        64px;
+  --cartoon-input-code-pad-l:    84px;   /* "KID-" prefix 영역 */
+  --cartoon-input-code-prefix-l: 18px;
+
   /* Status surfaces — 카툰 톤 (status-positive/cautionary 의 light 변형) */
   --cartoon-status-positive-bg:   #DAF6E3;
   --cartoon-status-positive-text: #2F8F5C;
@@ -371,6 +382,36 @@
 }
 .cartoon-input::placeholder {
   color: var(--fg-tertiary);
+}
+
+/* KID-XXXX 큰 monospace 입력 — 자녀 페어링 화면 전용 */
+.cartoon-kid-input-wrap {
+  position: relative;
+}
+.cartoon-kid-input-prefix {
+  position: absolute;
+  left: var(--cartoon-input-code-prefix-l);
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  font-size: 22px;
+  font-family: monospace;
+  font-weight: 800;
+  color: var(--cartoon-rose-text);
+  pointer-events: none;
+  z-index: 1;
+  letter-spacing: 2px;
+}
+.cartoon-kid-input {
+  height: var(--cartoon-input-code-h);
+  padding: 0 var(--space-4) 0 var(--cartoon-input-code-pad-l);
+  font-size: 22px;
+  font-family: monospace;
+  letter-spacing: 3px;
+  font-weight: 800;
+  border-width: 2px;
+  background: var(--cartoon-bg-card);
 }
 
 .cartoon-chip {

@@ -352,43 +352,14 @@ export function ChildPairInput({ userId, onPaired }) {
                     부모님 앱에 있는 연동 코드에서<br />KID- 뒤의 코드를 입력해 주세요
                 </p>
 
-                <div style={{ position: "relative", width: "100%", maxWidth: 340, marginBottom: "var(--space-2)" }}>
-                    <div
-                        style={{
-                            position: "absolute",
-                            left: 18,
-                            top: 0,
-                            bottom: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            fontSize: 22,
-                            fontFamily: "monospace",
-                            fontWeight: 800,
-                            color: "var(--cartoon-rose-text)",
-                            pointerEvents: "none",
-                            zIndex: 1,
-                            letterSpacing: 2,
-                        }}
-                    >
-                        KID-
-                    </div>
+                <div className="cartoon-kid-input-wrap" style={{ width: "100%", maxWidth: 340, marginBottom: "var(--space-2)" }}>
+                    <div className="cartoon-kid-input-prefix" aria-hidden="true">KID-</div>
                     <input
                         value={code}
                         onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
                         placeholder="XXXXXXXX"
                         maxLength={8}
-                        className="cartoon-input"
-                        style={{
-                            width: "100%",
-                            height: 64,
-                            padding: "0 18px 0 84px",
-                            fontSize: 22,
-                            fontFamily: "monospace",
-                            letterSpacing: 3,
-                            fontWeight: 800,
-                            borderWidth: 2,
-                            background: "var(--cartoon-bg-card)",
-                        }}
+                        className="cartoon-input cartoon-kid-input"
                     />
                 </div>
 
