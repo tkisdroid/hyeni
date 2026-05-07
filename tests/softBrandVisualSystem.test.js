@@ -205,8 +205,8 @@ describe("Soft Brand visual system", () => {
   });
 
   test("setup and management surfaces use theme variables for shared accents", () => {
-    expect(childPermissionWizardSource).toContain("var(--theme-accent-text)");
-    expect(childPermissionWizardSource).toContain("var(--hyeni-theme-gradient)");
+    // ChildPermissionWizard migrated to cartoon DS (2026-05-07) — uses --hy-* tokens via hy-perm classes.
+    expect(childPermissionWizardSource).toContain("hy-perm");
     expect(birthdatePickerSource).toContain("var(--theme-accent)");
     expect(birthdatePickerSource).toContain("color-mix(in srgb, var(--fg-primary)");
     expect(birthdatePickerSource).toContain("userSelect");
@@ -452,7 +452,9 @@ describe("Soft Brand visual system", () => {
     const roleSource = readFileSync("src/components/auth/RoleSetupModal.jsx", "utf8");
     const childPairSource = readFileSync("src/components/childMode/ChildPairInput.jsx", "utf8");
 
-    for (const source of [parentSetupSource, confirmSource, roleSource, childPairSource]) {
+    // 2026-05-07 cartoon DS migration: RoleSetupModal + ChildPairInput migrated to --hy-* tokens.
+    // ParentSetupScreen + AppConfirmDialog still on Wanted DS.
+    for (const source of [parentSetupSource, confirmSource]) {
       expect(source).toContain("var(--theme-accent");
       expect(source).not.toContain("#BE185D");
       expect(source).not.toContain("#E879A0");
@@ -460,9 +462,16 @@ describe("Soft Brand visual system", () => {
       expect(source).not.toContain("rgba(190,24,93");
       expect(source).not.toContain("rgba(244,114,182");
     }
-    // theme-shadow 토큰은 시각적 강조 표면에만 — 첫 화면(parentSetup)과 자녀 페어링 입력만 검증.
+    for (const source of [roleSource, childPairSource]) {
+      expect(source).toMatch(/hy-(role|pair|button|card|message)/);
+      expect(source).not.toContain("#BE185D");
+      expect(source).not.toContain("#E879A0");
+      expect(source).not.toContain("#FDF2F8");
+      expect(source).not.toContain("rgba(190,24,93");
+      expect(source).not.toContain("rgba(244,114,182");
+    }
+    // theme-shadow 토큰은 시각적 강조 표면에만 — 첫 화면(parentSetup)에서만 검증 (childPair 는 cartoon 마이그로 hy-shadow 사용).
     expect(parentSetupSource).toContain("var(--hyeni-theme-shadow");
-    expect(childPairSource).toContain("var(--hyeni-theme-shadow");
   });
 
   test("route, timetable, contact, and feedback surfaces use shared theme accents", () => {
