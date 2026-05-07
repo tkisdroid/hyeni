@@ -4,12 +4,12 @@
 
 import { useState, useEffect } from "react";
 import { AppBrandLogo } from "./AppBrandLogo.jsx";
-import { HyeniMascot } from "./HyeniMascot.jsx";
 import { SplashScreen } from "./SplashScreen.jsx";
 import { ParentAuthScreen } from "./ParentAuthScreen.jsx";
 import { ParentSignupScreen } from "./ParentSignupScreen.jsx";
 import { HeartsBackground } from "../decoration/HeartsBackground.jsx";
 import { HyeniWordmark } from "../decoration/HyeniWordmark.jsx";
+import { HyeniGirl, ParentMomDuo } from "../decoration/CartoonIllustrations.jsx";
 
 export function RoleSetupModal({ onSelect, loading }) {
     const [authView, setAuthView] = useState(null);  // null | "login" | "signup"
@@ -117,20 +117,8 @@ export function RoleSetupModal({ onSelect, loading }) {
                             aria-label="학부모로 시작"
                             className="hyeni-role-card hyeni-role-card-parent"
                         >
-                            <span className="hyeni-role-card-icon">
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    aria-hidden="true"
-                                    style={{ width: 26, height: 26 }}
-                                >
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                    <circle cx="12" cy="7" r="4" />
-                                </svg>
+                            <span className="hyeni-role-card-illust">
+                                <ParentMomDuo size={68} ariaLabel="" />
                             </span>
                             <span style={{ flex: 1, minWidth: 0 }}>
                                 <span className="hyeni-role-card-title">학부모</span>
@@ -150,7 +138,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                             className="hyeni-role-card hyeni-role-card-child"
                         >
                             <span className="hyeni-role-card-mascot">
-                                <HyeniMascot size={52} variant="static" />
+                                <HyeniGirl size={56} ariaLabel="" />
                             </span>
                             <span style={{ flex: 1, minWidth: 0 }}>
                                 <span className="hyeni-role-card-title" style={{ color: "var(--cartoon-rose-text)" }}>아이</span>

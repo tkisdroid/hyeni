@@ -1,13 +1,16 @@
 // src/components/childMode/ChildPairInput.jsx
 // 자녀 첫 페어링 화면 — KID-XXXXXXXX 코드 직접 입력 + QR 스캐너 fallback.
 // Bundles QrPairScanner (BarcodeDetector based camera scanner) for self-containment.
-// Extracted from App.jsx (Phase 5 #4 / B18).
+// Cartoon-warm 적용 (2026-05-08): main UI 만 cartoon 화. QR 스캐너 overlay 는
+// 카메라 표시를 위해 dark 톤 유지 (의도적). 핸들러/state 모두 보존.
 
 import { useEffect, useRef, useState } from "react";
 import { joinFamily } from "../../lib/auth.js";
 import { normalizePairCodeInput } from "../../lib/pairCode.js";
-import { DESIGN, FF, makePrimaryButtonStyle, makeSecondaryButtonStyle } from "../../lib/styleHelpers.js";
+import { FF } from "../../lib/styleHelpers.js";
 import { AppBrandLogo } from "../auth/AppBrandLogo.jsx";
+import { HeartsBackground } from "../decoration/HeartsBackground.jsx";
+import { HyeniGirl, FamilyHome } from "../decoration/CartoonIllustrations.jsx";
 
 const QR_CAMERA_PERMISSION_MESSAGE = "카메라 권한이 필요해요. 권한을 허용한 뒤 다시 시도해 주세요.";
 
@@ -290,40 +293,178 @@ export function ChildPairInput({ userId, onPaired }) {
 
     if (phase === "loading") {
         return (
-            <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF, textAlign: "center" }}>
-                <div style={{ fontSize: 64, marginBottom: 18 }}>🎉</div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 10 }}>연결됐어요!</div>
-                <div style={{ fontSize: 14, color: "var(--fg-secondary)", lineHeight: 1.55 }}>
-                    가족 정보를 불러오는 중이에요...<br />위치 권한을 묻는 창이 뜨면 허용해 주세요.
+            <HeartsBackground style={{ position: "fixed", inset: 0, zIndex: 500, fontFamily: "var(--font-sans)" }}>
+                <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "var(--space-6)", textAlign: "center" }}>
+                    <span
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "flex-end",
+                            justifyContent: "center",
+                            width: 120,
+                            height: 120,
+                            background: "var(--cartoon-bg-chip)",
+                            borderRadius: "50%",
+                            border: "1px solid var(--cartoon-line)",
+                            marginBottom: "var(--space-4)",
+                            overflow: "hidden",
+                        }}
+                    >
+                        <HyeniGirl size={108} ariaLabel="" />
+                    </span>
+                    <h1 className="cartoon-title" style={{ fontSize: 24, marginBottom: "var(--space-2)" }}>연결됐어요!</h1>
+                    <p className="cartoon-subtitle" style={{ fontSize: 14, lineHeight: 1.6 }}>
+                        가족 정보를 불러오는 중이에요<br />위치 권한을 묻는 창이 뜨면 허용해 주세요
+                    </p>
                 </div>
-            </div>
+            </HeartsBackground>
         );
     }
 
     return (
-        <div className="hyeni-app-shell" style={{ position: "fixed", inset: 0, zIndex: 500, background: DESIGN.gradients.shell, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: FF }}>
-            <AppBrandLogo size={78} radius={24} />
-            <div style={{ fontSize: 24, fontWeight: 900, color: "var(--theme-accent-text)", marginTop: 16, marginBottom: 8 }}>부모님과 연결하기</div>
-            <div style={{ fontSize: 14, color: "var(--fg-secondary)", marginBottom: 28, textAlign: "center", lineHeight: 1.6 }}>부모님 앱에 있는<br />연동 코드에서 KID- 뒤의 코드를 입력해 주세요</div>
-            <div style={{ position: "relative", width: "100%", maxWidth: 320, marginBottom: 8 }}>
-                <div style={{ position: "absolute", left: 16, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 20, fontFamily: "monospace", fontWeight: 700, color: "var(--theme-accent-text)", pointerEvents: "none", zIndex: 1 }}>KID-</div>
-                <input value={code} onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
-                    placeholder="XXXXXXXX" maxLength={8}
-                    style={{ width: "100%", padding: "16px 16px 16px 76px", border: "2px solid var(--theme-accent-line)", borderRadius: 20, fontSize: 20, fontFamily: "monospace", outline: "none", boxSizing: "border-box", letterSpacing: 3, fontWeight: 700, color: "var(--fg-primary)", background: "white", boxShadow: "var(--hyeni-theme-shadow-soft)" }} />
-            </div>
-            {error && <div style={{ fontSize: 13, color: "var(--status-cautionary-strong)", fontWeight: 700, marginBottom: 8 }}>{error}</div>}
-            <button onClick={() => { void handleJoin(); }} disabled={busy}
-                style={{ ...makePrimaryButtonStyle({ maxWidth: 320, padding: "16px", fontSize: 16, marginTop: 8, opacity: busy ? 0.7 : 1 }), cursor: busy ? "wait" : "pointer" }}>
-                {busy ? "연결 중..." : "🔗 연결하기"}
-            </button>
-            <button
-                type="button"
-                onClick={() => { if (!busy) setShowScanner(true); }}
-                disabled={busy}
-                style={{ ...makeSecondaryButtonStyle({ maxWidth: 320, padding: "14px", color: "var(--theme-accent-text)", border: "1.5px solid var(--theme-accent-line)", background: "var(--theme-accent-soft)", fontSize: 15, marginTop: 10 }), cursor: busy ? "wait" : "pointer" }}
+        <HeartsBackground style={{ position: "fixed", inset: 0, zIndex: 500, fontFamily: "var(--font-sans)" }}>
+            <div
+                style={{
+                    minHeight: "100dvh",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    padding: "calc(env(safe-area-inset-top, 0px) + var(--space-8)) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-4))",
+                }}
             >
-                📷 QR로 연결하기
-            </button>
+                <div
+                    style={{
+                        display: "inline-flex",
+                        alignItems: "flex-end",
+                        justifyContent: "center",
+                        width: 96,
+                        height: 96,
+                        background: "var(--cartoon-bg-chip)",
+                        borderRadius: "var(--cartoon-radius-frame)",
+                        border: "1px solid var(--cartoon-line)",
+                        marginBottom: "var(--space-3)",
+                        overflow: "hidden",
+                    }}
+                >
+                    <HyeniGirl size={84} ariaLabel="" />
+                </div>
+                <h1 className="cartoon-title" style={{ fontSize: 24, textAlign: "center" }}>부모님과 연결하기</h1>
+                <p className="cartoon-subtitle" style={{ textAlign: "center", marginBottom: "var(--space-5)" }}>
+                    부모님 앱에 있는 연동 코드에서<br />KID- 뒤의 코드를 입력해 주세요
+                </p>
+
+                <div style={{ position: "relative", width: "100%", maxWidth: 340, marginBottom: "var(--space-2)" }}>
+                    <div
+                        style={{
+                            position: "absolute",
+                            left: 18,
+                            top: 0,
+                            bottom: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            fontSize: 22,
+                            fontFamily: "monospace",
+                            fontWeight: 800,
+                            color: "var(--cartoon-rose-text)",
+                            pointerEvents: "none",
+                            zIndex: 1,
+                            letterSpacing: 2,
+                        }}
+                    >
+                        KID-
+                    </div>
+                    <input
+                        value={code}
+                        onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
+                        placeholder="XXXXXXXX"
+                        maxLength={8}
+                        className="cartoon-input"
+                        style={{
+                            width: "100%",
+                            height: 64,
+                            padding: "0 18px 0 84px",
+                            fontSize: 22,
+                            fontFamily: "monospace",
+                            letterSpacing: 3,
+                            fontWeight: 800,
+                            borderWidth: 2,
+                            background: "var(--cartoon-bg-card)",
+                        }}
+                    />
+                </div>
+
+                {error && (
+                    <div className="cartoon-status cartoon-status--cautionary" style={{ width: "100%", maxWidth: 340, marginBottom: "var(--space-2)" }}>
+                        {error}
+                    </div>
+                )}
+
+                <button
+                    type="button"
+                    onClick={() => { void handleJoin(); }}
+                    disabled={busy}
+                    className="cartoon-pill cartoon-pill--rose cartoon-pill--lg"
+                    style={{ width: "100%", maxWidth: 340, marginTop: "var(--space-3)", opacity: busy ? 0.7 : 1, cursor: busy ? "wait" : "pointer" }}
+                >
+                    {busy ? "연결 중..." : "🔗 연결하기"}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { if (!busy) setShowScanner(true); }}
+                    disabled={busy}
+                    className="cartoon-pill cartoon-pill--white"
+                    style={{ width: "100%", maxWidth: 340, marginTop: "var(--space-2)", opacity: busy ? 0.7 : 1, cursor: busy ? "wait" : "pointer" }}
+                >
+                    📷 QR로 연결하기
+                </button>
+
+                {/* Guidance card — KID-XXXX 예시 / 대소문자 안내 */}
+                <div
+                    className="cartoon-card-flat"
+                    style={{
+                        width: "100%",
+                        maxWidth: 340,
+                        marginTop: "var(--space-5)",
+                        padding: "var(--space-3) var(--space-4)",
+                        display: "flex",
+                        gap: "var(--space-3)",
+                        alignItems: "flex-start",
+                        background: "var(--cartoon-bg-chip)",
+                    }}
+                >
+                    <span
+                        style={{
+                            display: "inline-flex",
+                            width: 36,
+                            height: 36,
+                            borderRadius: "50%",
+                            background: "var(--cartoon-bg-card)",
+                            alignItems: "flex-end",
+                            justifyContent: "center",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                        }}
+                    >
+                        <HyeniGirl size={32} ariaLabel="" />
+                    </span>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "var(--cartoon-rose-text)", fontWeight: 600 }}>
+                        <div style={{ fontWeight: 800, marginBottom: 2 }}>연동 코드 안내</div>
+                        <div>형식: KID- 6자리 영문·숫자 조합</div>
+                        <div>예시: KID-A1B2C3</div>
+                        <div>코드는 대소문자를 구분하지 않아요</div>
+                    </div>
+                </div>
+
+                <div style={{ marginTop: "auto", paddingTop: "var(--space-6)", display: "flex", justifyContent: "center" }}>
+                    <FamilyHome width={240} ariaLabel="" />
+                </div>
+
+                {/* Hidden — kept to preserve original AppBrandLogo dependency
+                    while the visual moved into HyeniGirl framing above. */}
+                <span style={{ display: "none" }} aria-hidden="true">
+                    <AppBrandLogo size={1} />
+                </span>
+            </div>
+
             {showScanner && (
                 <QrPairScanner
                     onClose={() => setShowScanner(false)}
@@ -333,6 +474,6 @@ export function ChildPairInput({ userId, onPaired }) {
                     }}
                 />
             )}
-        </div>
+        </HeartsBackground>
     );
 }

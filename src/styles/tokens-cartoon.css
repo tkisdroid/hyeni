@@ -38,14 +38,27 @@
   --cartoon-line-strong:     #FFB3BF;
 
   /* Accents */
-  --cartoon-yellow:          #FFE066;
+  --cartoon-yellow:          #FEE500;                  /* 카카오 공식 brand yellow */
   --cartoon-yellow-text:     #3B2F00;
   --cartoon-mint:            #6FE0A8;
   --cartoon-pin-pink:        #FF7BA0;
 
   /* On-* text colors — hex 값을 클래스 body 에 직접 쓰지 않기 위한 토큰 */
   --cartoon-pill-rose-text:  var(--fg-on-primary);     /* #FFFFFF — Wanted DS 토큰 재사용 */
-  --cartoon-pill-kakao-text: #2A1D00;                  /* 카카오 공식 어두운 갈색 텍스트 */
+  --cartoon-pill-kakao-text: #191919;                  /* 카카오 공식 텍스트 */
+  --cartoon-pill-google-text: #1F1F1F;                 /* 구글 권장 다크 그레이 */
+
+  /* Naver brand */
+  --cartoon-naver-bg:        #03C75A;
+  --cartoon-naver-text:      var(--fg-on-primary);
+
+  /* Status surfaces — 카툰 톤 (status-positive/cautionary 의 light 변형) */
+  --cartoon-status-positive-bg:   #DAF6E3;
+  --cartoon-status-positive-text: #2F8F5C;
+  --cartoon-status-cautionary-bg: #FFF1A8;
+  --cartoon-status-cautionary-text: #6B4F00;
+  --cartoon-status-negative-bg:   #FFD6D6;
+  --cartoon-status-negative-text: #B43A3A;
 
   /* Hearts pattern — BG decoration */
   --cartoon-heart-fill:        rgba(255, 128, 158, 0.10);
@@ -153,6 +166,191 @@
   background: var(--cartoon-yellow);
 }
 
+.cartoon-pill--google {
+  color: var(--cartoon-pill-google-text);
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+}
+
+.cartoon-pill--naver {
+  color: var(--cartoon-naver-text);
+  background: var(--cartoon-naver-bg);
+}
+
+.cartoon-pill--lg {
+  height: 56px;
+  font-size: 16px;
+}
+
+/* "또는" 형태의 분리선 */
+.cartoon-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  color: var(--fg-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.cartoon-divider::before,
+.cartoon-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--cartoon-line);
+}
+
+/* 상태 배너 — 토스트 / 인라인 알림 공용 */
+.cartoon-status {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--cartoon-radius-input);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.cartoon-status--positive {
+  background: var(--cartoon-status-positive-bg);
+  color: var(--cartoon-status-positive-text);
+}
+.cartoon-status--cautionary {
+  background: var(--cartoon-status-cautionary-bg);
+  color: var(--cartoon-status-cautionary-text);
+}
+.cartoon-status--negative {
+  background: var(--cartoon-status-negative-bg);
+  color: var(--cartoon-status-negative-text);
+}
+
+/* Top header bar — back button + brand */
+.cartoon-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+.cartoon-iconbtn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--cartoon-radius-icon);
+  border: 1px solid var(--cartoon-line);
+  background: var(--cartoon-bg-card);
+  color: var(--fg-secondary);
+  font-size: 18px;
+  font-weight: 800;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.cartoon-iconbtn:hover {
+  border-color: var(--cartoon-line-strong);
+  background: var(--cartoon-bg-chip);
+}
+.cartoon-iconbtn:active { transform: scale(0.95); }
+
+/* Display heading (cartoon 타이틀) */
+.cartoon-title {
+  font-family: var(--cartoon-font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--cartoon-rose-text);
+  margin: 0;
+  line-height: 1.2;
+}
+.cartoon-subtitle {
+  margin-top: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  letter-spacing: -0.01em;
+}
+
+/* Form field label */
+.cartoon-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.cartoon-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--fg-secondary);
+  letter-spacing: -0.01em;
+}
+
+/* Role chip (엄마/아빠/보호자) */
+.cartoon-role-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--cartoon-radius-input);
+  border: 1.5px solid var(--cartoon-line);
+  background: var(--cartoon-bg-card);
+  color: var(--fg-secondary);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.cartoon-role-chip:hover { border-color: var(--cartoon-line-strong); }
+.cartoon-role-chip:active { transform: scale(0.97); }
+.cartoon-role-chip[aria-checked="true"] {
+  border-color: var(--cartoon-rose);
+  background: var(--cartoon-bg-chip);
+  color: var(--cartoon-rose-text);
+}
+.cartoon-role-chip[aria-checked="true"] .cartoon-role-chip-frame {
+  background: var(--cartoon-bg-card);
+}
+.cartoon-role-chip-frame {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--cartoon-bg-cream);
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+.cartoon-role-chip:disabled,
+.cartoon-role-chip[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Inline link (가입하기 등) */
+.cartoon-link {
+  background: none;
+  border: none;
+  color: var(--cartoon-rose-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: var(--space-2);
+  text-decoration: underline;
+  text-decoration-color: var(--cartoon-rose-soft);
+  text-underline-offset: 3px;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
 .cartoon-input {
   width: 100%;
   height: 48px;
@@ -245,6 +443,17 @@
   color: var(--cartoon-rose-text);
   border-radius: var(--cartoon-radius-icon);
   flex-shrink: 0;
+}
+.hyeni-role-card-illust {
+  width: 70px;
+  height: 70px;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--cartoon-bg-chip);
+  border-radius: var(--cartoon-radius-icon);
+  flex-shrink: 0;
+  overflow: hidden;
 }
 .hyeni-role-card-mascot {
   flex-shrink: 0;

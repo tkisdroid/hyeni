@@ -1,0 +1,54 @@
+/* CartoonIllustrations — 토큰 정의부 + SVG fill/stroke 클래스.
+   tokens-cartoon.css 의 핑크 팔레트와 짝을 이루는 일러스트 전용 토큰.
+   class 들은 SVG 의 fill/stroke 어트리뷰트 대용으로 사용되어 hex 가
+   컴포넌트 코드에 등장하지 않도록 만든다. */
+
+:root {
+  /* 일러스트 캐릭터 팔레트 */
+  --ci-skin:           #FFD9BD;
+  --ci-skin-shadow:    #F5C2A0;
+  --ci-hair:           #6B4A33;        /* 갈색 */
+  --ci-hair-dark:      #3E2A1E;        /* 짙은 갈색 (아빠) */
+  --ci-hair-grey:      #8B7C70;        /* 회갈색 (보호자) */
+  --ci-blush:          #FFA8B6;
+  --ci-ink:            #2C1B14;        /* 윤곽 / 눈 */
+  --ci-beige:          #E2C7A6;        /* 엄마 가디건 */
+  --ci-beige-strong:   #C9A684;        /* 엄마 팔 */
+  --ci-navy:           #4F6A8B;        /* 아빠 셔츠 */
+  --ci-mint:           #A8DDB7;        /* 보호자 톱 / 나무 */
+  --ci-mint-soft:      #DDF1D7;        /* 잔디 */
+  --ci-cream:          #FFF6E8;        /* 창문 */
+}
+
+.cartoon-illust {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+
+/* fill 클래스 — SVG 요소의 fill 어트리뷰트 대용 */
+.ci-fill-rose         { fill: var(--cartoon-rose); }
+.ci-fill-rose-soft    { fill: var(--cartoon-rose-soft); }
+.ci-fill-skin         { fill: var(--ci-skin); }
+.ci-fill-skin-shadow  { fill: var(--ci-skin-shadow); }
+.ci-fill-hair         { fill: var(--ci-hair); }
+.ci-fill-hair-dark    { fill: var(--ci-hair-dark); }
+.ci-fill-hair-grey    { fill: var(--ci-hair-grey); }
+.ci-fill-blush        { fill: var(--ci-blush); }
+.ci-fill-ink          { fill: var(--ci-ink); }
+.ci-fill-beige        { fill: var(--ci-beige); }
+.ci-fill-navy         { fill: var(--ci-navy); }
+.ci-fill-mint         { fill: var(--ci-mint); }
+.ci-fill-mint-soft    { fill: var(--ci-mint-soft); }
+.ci-fill-cream        { fill: var(--ci-cream); }
+
+/* stroke 클래스 */
+.ci-stroke-ink         { stroke: var(--ci-ink); }
+.ci-stroke-rose        { stroke: var(--cartoon-rose); }
+.ci-stroke-beige-strong { stroke: var(--ci-beige-strong); }
+
+/* text 색 */
+.ci-text-on-rose      { fill: var(--cartoon-pill-rose-text); }
