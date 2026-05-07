@@ -750,6 +750,7 @@ public class LocationService extends Service {
     private JSONArray buildLocationHistoryRows(double lat, double lng, long capturedAtMs) throws Exception {
         List<RoutePoint> points = new ArrayList<>();
         boolean hasPrevious = !Double.isNaN(lastHistoryLat) && !Double.isNaN(lastHistoryLng) && lastHistoryAtMs > 0L;
+        boolean isEstimated = false;
         if (hasPrevious) {
             points.addAll(fetchWalkingRoutePoints(lastHistoryLat, lastHistoryLng, lat, lng));
         }
@@ -765,10 +766,12 @@ public class LocationService extends Service {
         } else if (hasPrevious) {
             // Phase C: Kakao API 실패/빈응답 시 두 점 사이 선형 보간점 생성.
             // 이전엔 endpoint 만 저장 → polyline 이 도로/건물 가로지르는 직선.
-            // 보간점은 추정선 (실제 도보 경로 아님) 이지만, frontend 가 dashed 로
-            // 표시해 추적 vs 추정 구분 가능 (gap > 150m && time > 90s 조건).
+            // Phase D: 보간 row 들에 is_estimated=true 명시 → frontend 가 거리
+            // 임계값과 무관하게 dashed 로 표시 (12m 보간 spacing 으로는 구
+            // dashed 조건 gap>150m 이 절대 트리거 안 되던 사각지대 해소).
             points.clear();
             points.addAll(interpolateLinearPath(lastHistoryLat, lastHistoryLng, lat, lng, 12f));
+            isEstimated = true;
         } else {
             points.clear();
         }
@@ -786,6 +789,9 @@ public class LocationService extends Service {
             row.put("lat", point.lat);
             row.put("lng", point.lng);
             row.put("recorded_at", interpolateRecordedAt(lastHistoryAtMs, capturedAtMs, i, points.size()));
+            if (isEstimated) {
+                row.put("is_estimated", true);
+            }
             rows.put(row);
         }
         return rows;

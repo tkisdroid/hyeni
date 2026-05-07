@@ -473,3 +473,68 @@ describe("constants", () => {
         expect(LOCATION_TRAIL_DWELL_MIN_MS).toBe(10 * 60_000);
     });
 });
+
+describe("is_estimated 플래그 (Phase D)", () => {
+    it("normalizeLocationTrailPoint 가 is_estimated 를 isEstimated 로 보존", () => {
+        const out = normalizeLocationTrailPoint({
+            lat: 37.5, lng: 127.0,
+            recorded_at: "2026-05-07T03:14:15.000Z",
+            is_estimated: true,
+        });
+        expect(out.isEstimated).toBe(true);
+    });
+
+    it("normalizeLocationTrailPoint 는 플래그 없으면 isEstimated=false", () => {
+        const out = normalizeLocationTrailPoint({
+            lat: 37.5, lng: 127.0,
+            recorded_at: "2026-05-07T03:14:15.000Z",
+        });
+        expect(out.isEstimated).toBe(false);
+    });
+
+    it("normalizeLocationTrailPoint 는 camelCase isEstimated 도 인식", () => {
+        const out = normalizeLocationTrailPoint({
+            lat: 37.5, lng: 127.0,
+            recorded_at: "2026-05-07T03:14:15.000Z",
+            isEstimated: true,
+        });
+        expect(out.isEstimated).toBe(true);
+    });
+
+    it("compactLocationTrailPoints 는 jitter 합칠 때 estimated 플래그 보존(OR)", () => {
+        const out = compactLocationTrailPoints([
+            { lat: 37.5, lng: 127.0, recorded_at: "2026-05-07T03:14:15.000Z", is_estimated: true },
+            { lat: 37.50001, lng: 127.00001, recorded_at: "2026-05-07T03:14:20.000Z" },
+        ]);
+        expect(out).toHaveLength(1);
+        expect(out[0].isEstimated).toBe(true);
+    });
+
+    it("buildTrailGradientSegments — estimated 끝점이 있으면 거리 무관 dashed=true", () => {
+        const points = [
+            { lat: 37.5, lng: 127.0, recordedMs: 1715000000000, isEstimated: true },
+            { lat: 37.50011, lng: 127.0, recordedMs: 1715000005000, isEstimated: true },
+        ];
+        const segments = buildTrailGradientSegments(points);
+        expect(segments).toHaveLength(1);
+        expect(segments[0].dashed).toBe(true);
+    });
+
+    it("buildTrailGradientSegments — 정상 매칭 row 는 가까운 거리에서 solid", () => {
+        const points = [
+            { lat: 37.5, lng: 127.0, recordedMs: 1715000000000, isEstimated: false },
+            { lat: 37.50011, lng: 127.0, recordedMs: 1715000005000, isEstimated: false },
+        ];
+        const segments = buildTrailGradientSegments(points);
+        expect(segments[0].dashed).toBe(false);
+    });
+
+    it("buildTrailGradientSegments — estimated 와 정상 점이 인접해도 segment 가 dashed", () => {
+        const points = [
+            { lat: 37.5, lng: 127.0, recordedMs: 1715000000000, isEstimated: false },
+            { lat: 37.50011, lng: 127.0, recordedMs: 1715000005000, isEstimated: true },
+        ];
+        const segments = buildTrailGradientSegments(points);
+        expect(segments[0].dashed).toBe(true);
+    });
+});

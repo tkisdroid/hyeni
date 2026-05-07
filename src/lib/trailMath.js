@@ -71,12 +71,14 @@ export function normalizeLocationTrailPoint(point) {
     if (!routePosition) return null;
     const recordedAt = point?.recorded_at || point?.recordedAt || point?.updated_at || point?.updatedAt || null;
     const recordedMs = recordedAt ? new Date(recordedAt).getTime() : null;
+    const isEstimated = !!(point?.is_estimated || point?.isEstimated);
     return {
         ...routePosition,
         user_id: point?.user_id || point?.userId || null,
         recorded_at: recordedAt,
         recordedAt,
         recordedMs: Number.isFinite(recordedMs) ? recordedMs : null,
+        isEstimated,
     };
 }
 
@@ -92,6 +94,9 @@ export function compactLocationTrailPoints(points) {
                 recorded_at: normalized.recorded_at || prev.recorded_at,
                 recordedAt: normalized.recordedAt || prev.recordedAt,
                 recordedMs: normalized.recordedMs ?? prev.recordedMs,
+                // jitter 합쳐진 cluster 안에 estimated row 가 하나라도 섞여 있으면
+                // cluster 전체를 estimated 로 본다 (직선 보간 segment 보존).
+                isEstimated: prev.isEstimated || normalized.isEstimated,
             };
             return;
         }
@@ -251,12 +256,16 @@ export function buildTrailGradientSegments(points) {
         const gapMs = (Number.isFinite(prev?.recordedMs) && Number.isFinite(point?.recordedMs))
             ? (point.recordedMs - prev.recordedMs)
             : 0;
-        const dashed = gapM > LOCATION_TRAIL_DASHED_GAP_M && gapMs > LOCATION_TRAIL_DASHED_TIME_MS;
+        const gapDashed = gapM > LOCATION_TRAIL_DASHED_GAP_M && gapMs > LOCATION_TRAIL_DASHED_TIME_MS;
+        // Phase D: native 가 Kakao 도보 매칭 실패로 직선 보간한 row 는 12m 간격이라
+        // gap 임계값 (150m) 을 절대 못 넘는다. is_estimated 플래그가 있으면 거리/시간
+        // 임계값과 무관하게 dashed 로 표시해 사용자가 추정 vs 실측 구간 구분 가능.
+        const estimatedDashed = !!point?.isEstimated || !!prev?.isEstimated;
         segments.push({
             key: `trail-gradient-${index}-${point?.recordedMs || index}`,
             color: interpolateTrailColor(getTrailProgress(point, index, points.length, firstMs, lastMs)),
             points: [prev, point],
-            dashed,
+            dashed: estimatedDashed || gapDashed,
         });
     }
     return segments;
