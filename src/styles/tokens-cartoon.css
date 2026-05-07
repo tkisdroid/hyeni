@@ -462,6 +462,103 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────
+   Global input/button class overrides — tokens.css 의 .input, .btn-*
+   를 cartoon 톤으로 통일. body 셀렉터로 specificity (0,0,1,1) 를
+   확보해 항상 우선 적용. 기존 .input/.btn-primary/.btn-secondary 를
+   사용하는 모든 화면이 자동으로 cartoon 무드를 얻는다.
+   ────────────────────────────────────────────────────────────────── */
+body .input {
+  background: var(--cartoon-bg-input);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-input);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--fg-primary);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+body .input:focus-visible {
+  outline: none;
+  border-color: var(--cartoon-line-strong);
+  background: var(--cartoon-bg-card);
+  box-shadow: 0 0 0 4px var(--cartoon-bg-chip);
+}
+body .input:hover { border-color: var(--cartoon-line-strong); }
+body .input::placeholder { color: var(--fg-tertiary); }
+
+body .btn-primary {
+  background: var(--cartoon-rose-gradient);
+  color: var(--cartoon-pill-rose-text);
+  border: none;
+  border-radius: var(--cartoon-radius-button);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  box-shadow: var(--cartoon-shadow-pill);
+  transition: filter 120ms ease, transform 120ms ease;
+}
+body .btn-primary:not(:disabled):hover  { filter: brightness(1.04); background: var(--cartoon-rose-gradient); }
+body .btn-primary:not(:disabled):active { filter: brightness(0.96); background: var(--cartoon-rose-gradient); transform: scale(0.98); }
+body .btn-primary:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--cartoon-shadow-pill),
+    0 0 0 4px var(--cartoon-bg-chip);
+}
+
+body .btn-secondary {
+  background: var(--cartoon-bg-card);
+  color: var(--fg-secondary);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-button);
+  font-weight: 700;
+}
+body .btn-secondary:not(:disabled):hover  { background: var(--cartoon-bg-chip); border-color: var(--cartoon-line-strong); }
+body .btn-secondary:not(:disabled):active { transform: scale(0.98); }
+
+/* Card override — Wanted DS .card 가 .card-elevated 가 아닌 경우 cartoon
+   톤의 stroke + 부드러운 shadow 로 일관화 */
+body .card {
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-card);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Event sheet — bottom modal 가 사용. tokens.css 의 .event-sheet*
+   기본 스타일을 specificity (0,0,1,1) 로 override.
+   ────────────────────────────────────────────────────────────────── */
+body .event-sheet {
+  background: var(--cartoon-bg-card);
+  border-top: 1px solid var(--cartoon-line);
+  box-shadow:
+    0 -2px 4px rgba(245, 96, 130, 0.06),
+    0 -16px 48px rgba(245, 96, 130, 0.16);
+}
+body .event-sheet-backdrop {
+  background: color-mix(in srgb, var(--fg-primary) 38%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body .event-sheet-handle {
+  background: var(--cartoon-line-strong);
+}
+body .event-sheet-header {
+  border-bottom: 1px solid var(--cartoon-line);
+}
+body .event-sheet-header .sheet-title {
+  color: var(--cartoon-rose-text);
+  font-family: var(--cartoon-font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+body .event-sheet-header .sheet-cancel {
+  color: var(--fg-secondary);
+}
+body .event-sheet-header .sheet-save {
+  color: var(--cartoon-rose-text);
+  font-weight: 800;
+}
+
+/* ──────────────────────────────────────────────────────────────────
    Bottom tab bar — App.css 의 .hyeni-v5-tabbar 를 카툰 무드로 override.
    body 셀렉터로 specificity (0,0,1,1) 를 확보해 App.css 의 (0,0,1,0)
    기본 정의보다 항상 우선한다. tab content 자체는 그대로 유지되며 색상/
