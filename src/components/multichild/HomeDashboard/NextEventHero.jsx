@@ -3,6 +3,20 @@
 // 큰 시간 + N분 후 카운트다운 + 자녀 컬러 라인 + 자녀명/위치 inline.
 
 import { pickNextEvent, formatTimeLabel } from "./HomeBigStat.jsx";
+import { HyeniMascot } from "../../auth/HyeniMascot.jsx";
+
+const STYLE_EMPTY_MASCOT = {
+    width: 72,
+    height: 72,
+    margin: "0 auto var(--space-2)",
+    background: "var(--cartoon-bg-chip)",
+    border: "1px solid var(--cartoon-line)",
+    borderRadius: "50%",
+    display: "inline-flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    overflow: "hidden",
+};
 
 function formatCountdown(minutesRemaining) {
     if (!Number.isFinite(minutesRemaining) || minutesRemaining < 0) return null;
@@ -41,7 +55,10 @@ export function NextEventHero({ events, children = [], childLocations = {}, now 
 
     if (!next) {
         return (
-            <div className="hyeni-hero-empty">
+            <div className="hyeni-hero-empty" style={{ alignItems: "center", textAlign: "center" }}>
+                <div className="hyeni-mascot-cheer" style={STYLE_EMPTY_MASCOT}>
+                    <HyeniMascot size={64} variant="wave" aria-label="혜니" />
+                </div>
                 <span className="hyeni-hero-eyebrow">오늘의 다음 일정</span>
                 <p className="hyeni-hero-empty-msg">오늘 일정 모두 마무리됐어요 ✨</p>
             </div>

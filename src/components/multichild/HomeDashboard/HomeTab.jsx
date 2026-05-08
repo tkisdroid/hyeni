@@ -1,5 +1,5 @@
 // src/components/multichild/HomeDashboard/HomeTab.jsx
-// 부모 홈: BigStat(날짜) → NextEventHero → 자녀 status (+ 지도 inline) → 오늘 일정.
+// 부모 홈: HomeGreeting → BigStat(날짜) → NextEventHero → 자녀 status (+ 지도 inline) → 오늘 일정.
 // 다자녀 환경 정보 위계 재구성 — "다음 일정" 시각적 anchor + 자녀 통합 상태.
 import { useState } from "react";
 import { ChildSummaryCard } from "./ChildSummaryCard.jsx";
@@ -7,7 +7,23 @@ import { MiniMap } from "./MiniMap.jsx";
 import { TodayEventsList } from "./TodayEventsList.jsx";
 import { HomeBigStat } from "./HomeBigStat.jsx";
 import { NextEventHero } from "./NextEventHero.jsx";
+import { HomeGreeting } from "./HomeGreeting.jsx";
+import { HyeniMascot } from "../../auth/HyeniMascot.jsx";
 import { formatDeviceDuration } from "../../../lib/deviceFormat.js";
+
+const STYLE_SECTION_HEAD_MASCOT = {
+  width: 36,
+  height: 36,
+  background: "var(--cartoon-bg-chip)",
+  border: "1px solid var(--cartoon-line)",
+  borderRadius: "50%",
+  display: "inline-flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  overflow: "hidden",
+  flexShrink: 0,
+  marginRight: "var(--space-2)",
+};
 
 function deriveSafetyDots(deviceStatus) {
   if (!deviceStatus) return [];
@@ -94,15 +110,22 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
 
   return (
     <div style={{ padding: "var(--space-screen-pad)", display: "flex", flexDirection: "column", gap: "var(--space-screen-gap)" }}>
+      <HomeGreeting />
+
       <HomeBigStat events={events} showNextEvent={false} />
 
       <NextEventHero events={events} children={children} childLocations={childLocations} />
 
       <section>
-        <div className="hyeni-section-head">
-          <h3 className="t-section-label" style={{ marginBottom: 0 }}>
-            아이 {children.length}명{onSelectChild ? " · 지금 어디?" : ""}
-          </h3>
+        <div className="hyeni-section-head" style={{ alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", minWidth: 0, flex: 1 }}>
+            <div style={STYLE_SECTION_HEAD_MASCOT} aria-hidden="true">
+              <HyeniMascot size={32} variant="static" aria-label="" />
+            </div>
+            <h3 className="t-section-label" style={{ marginBottom: 0 }}>
+              아이 {children.length}명{onSelectChild ? " · 지금 어디?" : ""}
+            </h3>
+          </div>
           <button
             type="button"
             className="hyeni-section-toggle"
