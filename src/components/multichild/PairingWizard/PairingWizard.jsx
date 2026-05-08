@@ -22,6 +22,97 @@ const DEVICE_OPTIONS = [
     { id: "kids_phone",  icon: "🎈", label: "키즈폰",         desc: "어린이용 키즈폰이나 워치를 사용해요" },
 ];
 
+// 함수 본문 가독성·길이 제어를 위해 스타일 객체를 module-level로 lift.
+const STYLE_INTRO_WRAP = {
+    display: "flex",
+    gap: "var(--space-3)",
+    alignItems: "flex-start",
+    marginBottom: "var(--space-5)",
+};
+const STYLE_INTRO_AVATAR = {
+    width: 56,
+    height: 56,
+    background: "var(--cartoon-bg-chip)",
+    border: "1px solid var(--cartoon-line)",
+    borderRadius: "50%",
+    display: "inline-flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    overflow: "hidden",
+    flexShrink: 0,
+};
+const STYLE_INTRO_BUBBLE = {
+    flex: 1,
+    minWidth: 0,
+    position: "relative",
+    background: "var(--cartoon-rose-soft)",
+    border: "1px solid var(--cartoon-rose)",
+    borderRadius: "var(--cartoon-radius-card)",
+    padding: "var(--space-3) var(--space-4)",
+};
+const STYLE_INTRO_BUBBLE_TAIL = {
+    position: "absolute",
+    left: -6,
+    top: 18,
+    width: 11,
+    height: 11,
+    background: "var(--cartoon-rose-soft)",
+    borderLeft: "1px solid var(--cartoon-rose)",
+    borderBottom: "1px solid var(--cartoon-rose)",
+    transform: "rotate(45deg)",
+};
+const STYLE_INTRO_TITLE = {
+    margin: 0,
+    fontSize: 16,
+    fontWeight: "var(--weight-bold)",
+    color: "var(--cartoon-rose-text)",
+    lineHeight: "var(--leading-tight)",
+    letterSpacing: 0,
+};
+const STYLE_INTRO_SUBTITLE = {
+    margin: "var(--space-1) 0 0",
+    fontSize: 12,
+    color: "var(--fg-secondary)",
+    lineHeight: "var(--leading-normal)",
+    fontWeight: "var(--weight-medium)",
+};
+
+const STYLE_COMPLETE_WRAP = { textAlign: "center", paddingTop: "var(--space-8)" };
+const STYLE_COMPLETE_CHEER = {
+    width: 96,
+    height: 96,
+    margin: "0 auto var(--space-4)",
+    background: "var(--cartoon-bg-chip)",
+    border: "1px solid var(--cartoon-line)",
+    borderRadius: "50%",
+    display: "inline-flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    overflow: "hidden",
+};
+const STYLE_COMPLETE_HEADLINE = {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: "var(--weight-bold)",
+    color: "var(--cartoon-rose-text)",
+    lineHeight: "var(--leading-tight)",
+    letterSpacing: 0,
+};
+const STYLE_COMPLETE_SUBTEXT = {
+    margin: "var(--space-2) 0 var(--space-6)",
+    fontSize: 13,
+    color: "var(--fg-secondary)",
+    fontWeight: "var(--weight-medium)",
+    lineHeight: "var(--leading-normal)",
+};
+const STYLE_COMPLETE_LINEUP = {
+    display: "flex",
+    gap: "var(--space-3)",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    marginBottom: "var(--space-7)",
+};
+
 async function uploadPendingPhotos(familyId, children) {
     if (!familyId) return;
     const pending = children
@@ -82,81 +173,14 @@ function WizardDots({ current, total }) {
 // 모바일 기준: 마스코트 56px + 말풍선 가변 폭. 좌우 stack으로 narrow viewport에서도 안정.
 function WizardMascotIntro({ title, subtitle, variant = "static", cheer = false }) {
     return (
-        <div
-            style={{
-                display: "flex",
-                gap: "var(--space-3)",
-                alignItems: "flex-start",
-                marginBottom: "var(--space-5)",
-            }}
-        >
-            <div
-                className={cheer ? "hyeni-mascot-cheer" : ""}
-                style={{
-                    width: 56,
-                    height: 56,
-                    background: "var(--cartoon-bg-chip)",
-                    border: "1px solid var(--cartoon-line)",
-                    borderRadius: "50%",
-                    display: "inline-flex",
-                    alignItems: "flex-end",
-                    justifyContent: "center",
-                    overflow: "hidden",
-                    flexShrink: 0,
-                }}
-            >
+        <div role="presentation" style={STYLE_INTRO_WRAP}>
+            <div className={cheer ? "hyeni-mascot-cheer" : ""} style={STYLE_INTRO_AVATAR}>
                 <HyeniMascot size={48} variant={variant} aria-label="혜니" />
             </div>
-            <div
-                style={{
-                    flex: 1,
-                    minWidth: 0,
-                    position: "relative",
-                    background: "var(--cartoon-rose-soft)",
-                    border: "1px solid var(--cartoon-rose)",
-                    borderRadius: "var(--cartoon-radius-card)",
-                    padding: "var(--space-3) var(--space-4)",
-                }}
-            >
-                <span
-                    aria-hidden="true"
-                    style={{
-                        position: "absolute",
-                        left: -6,
-                        top: 18,
-                        width: 11,
-                        height: 11,
-                        background: "var(--cartoon-rose-soft)",
-                        borderLeft: "1px solid var(--cartoon-rose)",
-                        borderBottom: "1px solid var(--cartoon-rose)",
-                        transform: "rotate(45deg)",
-                    }}
-                />
-                <h2
-                    style={{
-                        margin: 0,
-                        fontSize: 16,
-                        fontWeight: "var(--weight-bold)",
-                        color: "var(--cartoon-rose-text)",
-                        lineHeight: "var(--leading-tight)",
-                        letterSpacing: 0,
-                    }}
-                >
-                    {title}
-                </h2>
-                {subtitle && (
-                    <p
-                        style={{
-                            margin: "var(--space-1) 0 0",
-                            fontSize: 12,
-                            color: "var(--fg-secondary)",
-                            lineHeight: "var(--leading-normal)",
-                            fontWeight: "var(--weight-medium)",
-                        }}
-                    >
-                        {subtitle}
-                    </p>
-                )}
+            <div style={STYLE_INTRO_BUBBLE}>
+                <span aria-hidden="true" style={STYLE_INTRO_BUBBLE_TAIL} />
+                <h2 style={STYLE_INTRO_TITLE}>{title}</h2>
+                {subtitle && <p style={STYLE_INTRO_SUBTITLE}>{subtitle}</p>}
             </div>
         </div>
     );
@@ -432,60 +456,14 @@ function Step6Complete({ familyName, childrenList = [], onComplete }) {
     const headline = familyName ? `${familyName} 가족이 시작됐어요!` : "가족이 시작됐어요!";
 
     return (
-        <div style={{ textAlign: "center", paddingTop: "var(--space-8)" }}>
-            <div
-                className="hyeni-mascot-cheer"
-                style={{
-                    width: 96,
-                    height: 96,
-                    margin: "0 auto var(--space-4)",
-                    background: "var(--cartoon-bg-chip)",
-                    border: "1px solid var(--cartoon-line)",
-                    borderRadius: "50%",
-                    display: "inline-flex",
-                    alignItems: "flex-end",
-                    justifyContent: "center",
-                    overflow: "hidden",
-                }}
-            >
+        <div style={STYLE_COMPLETE_WRAP}>
+            <div className="hyeni-mascot-cheer" style={STYLE_COMPLETE_CHEER}>
                 <HyeniMascot size={84} variant="wave" aria-label="혜니" />
             </div>
-
-            <h2
-                style={{
-                    margin: 0,
-                    fontSize: 22,
-                    fontWeight: "var(--weight-bold)",
-                    color: "var(--cartoon-rose-text)",
-                    lineHeight: "var(--leading-tight)",
-                    letterSpacing: 0,
-                }}
-            >
-                {headline}
-            </h2>
-            <p
-                style={{
-                    margin: "var(--space-2) 0 var(--space-6)",
-                    fontSize: 13,
-                    color: "var(--fg-secondary)",
-                    fontWeight: "var(--weight-medium)",
-                    lineHeight: "var(--leading-normal)",
-                }}
-            >
-                이제 가족 일정을 함께 관리해보세요
-            </p>
-
+            <h2 style={STYLE_COMPLETE_HEADLINE}>{headline}</h2>
+            <p style={STYLE_COMPLETE_SUBTEXT}>이제 가족 일정을 함께 관리해보세요</p>
             {list.length > 0 && (
-                <div
-                    aria-label="가족 멤버"
-                    style={{
-                        display: "flex",
-                        gap: "var(--space-3)",
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                        marginBottom: "var(--space-7)",
-                    }}
-                >
+                <div aria-label="가족 멤버" style={STYLE_COMPLETE_LINEUP}>
                     {list.map((child, i) => (
                         <ChildAvatarChip
                             key={i}
@@ -496,12 +474,7 @@ function Step6Complete({ familyName, childrenList = [], onComplete }) {
                     ))}
                 </div>
             )}
-
-            <button
-                type="button"
-                onClick={onComplete}
-                className="wizard-primary"
-            >시작하기</button>
+            <button type="button" onClick={onComplete} className="wizard-primary">시작하기</button>
         </div>
     );
 }
