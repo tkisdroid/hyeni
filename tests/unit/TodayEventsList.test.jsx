@@ -21,16 +21,20 @@ describe("TodayEventsList", () => {
     expect(screen.getByText("15:00")).toBeInTheDocument();
   });
 
-  it("자녀 이벤트는 자녀 색 vertical line", () => {
+  it("자녀 이벤트 marker 는 자녀 색", () => {
     const { container } = render(<TodayEventsList events={events} children={children} />);
     const learn = container.querySelector('[data-event-id="e1"]');
-    expect(learn.style.borderLeftColor).toContain("rgb(247, 121, 168)");
+    const marker = learn.querySelector(".hyeni-today-marker");
+    expect(marker.style.background).toContain("rgb(247, 121, 168)");
+    expect(marker.style.borderStyle).toBe("solid");
   });
 
-  it("가족 이벤트는 dashed border", () => {
+  it("가족 이벤트 marker 는 dashed border + 투명 배경", () => {
     const { container } = render(<TodayEventsList events={events} children={children} />);
     const dinner = container.querySelector('[data-event-id="e2"]');
-    expect(dinner.style.borderLeftStyle).toBe("dashed");
+    const marker = dinner.querySelector(".hyeni-today-marker");
+    expect(marker.style.borderStyle).toBe("dashed");
+    expect(marker.style.background).toBe("transparent");
   });
 
   it("일정 없으면 placeholder", () => {

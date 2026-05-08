@@ -29,30 +29,32 @@ function formatTimeLabel(time) {
     return `${period} ${display}시 ${String(m).padStart(2, "0")}분`;
 }
 
-export function HomeBigStat({ events, now = new Date() }) {
+export function HomeBigStat({ events, now = new Date(), showNextEvent = true }) {
     const dayLabel = `${DAYS_KO[now.getDay()]}요일`;
     const dateLabel = `${now.getMonth() + 1}월 ${now.getDate()}일`;
-    const next = pickNextEvent(events, now);
+    const next = showNextEvent ? pickNextEvent(events, now) : null;
 
     return (
         <header
             style={{
-                paddingBottom: "var(--space-6)",
-                borderBottom: "1px solid var(--cartoon-line)",
-                marginBottom: "var(--space-screen-gap)",
+                paddingBottom: showNextEvent ? "var(--space-6)" : "var(--space-3)",
+                borderBottom: showNextEvent ? "1px solid var(--cartoon-line)" : "none",
+                marginBottom: showNextEvent ? "var(--space-screen-gap)" : 0,
             }}
         >
             <p className="t-bigstat-eyebrow">{dayLabel}</p>
             <h1 className="t-bigstat-date">{dateLabel}</h1>
-            {next ? (
-                <p className="t-bigstat-next">
-                    다음 일정 ·{" "}
-                    <span className="t-bigstat-next-time">
-                        {formatTimeLabel(next.time)} {next.title}
-                    </span>
-                </p>
-            ) : (
-                <p className="t-bigstat-next">오늘 일정 마무리됐어요</p>
+            {showNextEvent && (
+                next ? (
+                    <p className="t-bigstat-next">
+                        다음 일정 ·{" "}
+                        <span className="t-bigstat-next-time">
+                            {formatTimeLabel(next.time)} {next.title}
+                        </span>
+                    </p>
+                ) : (
+                    <p className="t-bigstat-next">오늘 일정 마무리됐어요</p>
+                )
             )}
         </header>
     );

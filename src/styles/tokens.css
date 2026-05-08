@@ -270,6 +270,235 @@
 }
 
 /* --------------------------------------------------------------------------
+   Multi-child parent home — NextEventHero, section head, today timeline
+   -------------------------------------------------------------------------- */
+.hyeni-hero-next {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: linear-gradient(180deg, var(--bg-base), color-mix(in srgb, var(--theme-accent-soft) 32%, var(--bg-base)));
+  border: 1px solid var(--cartoon-line);
+  border-inline-start: 4px solid var(--theme-accent);
+  border-radius: var(--radius-card);
+}
+
+.hyeni-hero-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-base);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--radius-card);
+}
+
+.hyeni-hero-empty-msg {
+  margin: 0;
+  font-size: 14px;
+  font-weight: var(--weight-medium);
+  color: var(--fg-secondary);
+}
+
+.hyeni-hero-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.hyeni-hero-eyebrow {
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--theme-accent-text);
+}
+
+.hyeni-hero-countdown {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--theme-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.hyeni-hero-time {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.hyeni-hero-time-clock {
+  font-size: 32px;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--fg-primary);
+}
+
+.hyeni-hero-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: 18px;
+  font-weight: var(--weight-bold);
+  color: var(--fg-primary);
+  line-height: var(--leading-tight);
+}
+
+.hyeni-hero-emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.hyeni-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  color: var(--fg-secondary);
+  flex-wrap: wrap;
+}
+
+.hyeni-hero-child-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.hyeni-hero-child-name {
+  font-weight: var(--weight-bold);
+  color: var(--fg-primary);
+}
+
+.hyeni-hero-meta-sep {
+  color: var(--fg-tertiary);
+}
+
+.hyeni-hero-meta-location {
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Section head — 자녀 status 헤더 + 지도 inline toggle */
+.hyeni-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.hyeni-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--cartoon-line);
+  border-radius: 999px;
+  background: var(--bg-base);
+  color: var(--theme-accent-text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard),
+              border-color var(--duration-fast) var(--easing-standard);
+}
+
+.hyeni-section-toggle:hover,
+.hyeni-section-toggle[aria-expanded="true"] {
+  background: var(--theme-accent-soft);
+  border-color: var(--cartoon-line-strong);
+}
+
+/* Today timeline — 시간 컬럼 + 자녀 컬러 마커 + 제목/메타 */
+.hyeni-today-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hyeni-today-empty {
+  padding: var(--space-5) 0;
+  text-align: center;
+  color: var(--fg-tertiary);
+  font-size: 14px;
+  font-weight: var(--weight-medium);
+}
+
+.hyeni-today-row {
+  display: grid;
+  grid-template-columns: 56px 16px 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--cartoon-bg-card);
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--radius-md);
+}
+
+.hyeni-today-time {
+  font-size: 15px;
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-primary);
+  letter-spacing: -0.01em;
+}
+
+.hyeni-today-marker {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  border-width: 2px;
+  justify-self: center;
+  flex-shrink: 0;
+}
+
+.hyeni-today-body {
+  min-width: 0;
+}
+
+.hyeni-today-title {
+  font-size: 14px;
+  font-weight: var(--weight-bold);
+  color: var(--fg-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hyeni-today-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --------------------------------------------------------------------------
    Base styles
    -------------------------------------------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; }

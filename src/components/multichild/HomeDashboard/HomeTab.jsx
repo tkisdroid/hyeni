@@ -1,10 +1,12 @@
 // src/components/multichild/HomeDashboard/HomeTab.jsx
-// Phase 2 spec section 3.1 — 부모 홈: BigStat → 오늘 일정 → 자녀 (density) → 위치 (collapsible).
+// 부모 홈: BigStat(날짜) → NextEventHero → 자녀 status (+ 지도 inline) → 오늘 일정.
+// 다자녀 환경 정보 위계 재구성 — "다음 일정" 시각적 anchor + 자녀 통합 상태.
 import { useState } from "react";
 import { ChildSummaryCard } from "./ChildSummaryCard.jsx";
 import { MiniMap } from "./MiniMap.jsx";
 import { TodayEventsList } from "./TodayEventsList.jsx";
 import { HomeBigStat } from "./HomeBigStat.jsx";
+import { NextEventHero } from "./NextEventHero.jsx";
 import { formatDeviceDuration } from "../../../lib/deviceFormat.js";
 
 function deriveSafetyDots(deviceStatus) {
@@ -32,6 +34,7 @@ function pickDensity(count) {
 export function HomeTab({ children, positions, events, childLocations, childDeviceStatusMap, onMapTap, onSelectChild }) {
   const [mapOpen, setMapOpen] = useState(false);
   const density = pickDensity(children.length);
+  const isMultiChild = children.length >= 2;
 
   const childCardCommonProps = (c) => ({
     child: c,
@@ -42,76 +45,86 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
     density,
   });
 
+  const renderChildCards = () => {
+    if (density === "mini") {
+      return (
+        <div
+          style={{
+            display: "flex",
+            gap: "var(--space-3)",
+            overflowX: "auto",
+            paddingBottom: "var(--space-2)",
+            marginInline: "calc(-1 * var(--space-screen-pad))",
+            paddingInline: "var(--space-screen-pad)",
+            scrollSnapType: "x mandatory",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {children.map((c) => (
+            <div key={c.user_id || c.id} style={{ scrollSnapAlign: "start" }}>
+              <ChildSummaryCard {...childCardCommonProps(c)} />
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (density === "row" && isMultiChild) {
+      return (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: "var(--space-2)",
+          }}
+        >
+          {children.map((c) => (
+            <ChildSummaryCard key={c.user_id || c.id} {...childCardCommonProps(c)} />
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+        {children.map((c) => (
+          <ChildSummaryCard key={c.user_id || c.id} {...childCardCommonProps(c)} />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div style={{ padding: "var(--space-screen-pad)", display: "flex", flexDirection: "column", gap: "var(--space-screen-gap)" }}>
-      <HomeBigStat events={events} />
+      <HomeBigStat events={events} showNextEvent={false} />
+
+      <NextEventHero events={events} children={children} childLocations={childLocations} />
+
+      <section>
+        <div className="hyeni-section-head">
+          <h3 className="t-section-label" style={{ marginBottom: 0 }}>
+            아이 {children.length}명{onSelectChild ? " · 지금 어디?" : ""}
+          </h3>
+          <button
+            type="button"
+            className="hyeni-section-toggle"
+            onClick={() => setMapOpen((v) => !v)}
+            aria-expanded={mapOpen}
+            aria-controls="home-map-region"
+          >
+            <span aria-hidden="true">🗺️</span>
+            <span>{mapOpen ? "지도 접기" : "지도 보기"}</span>
+          </button>
+        </div>
+        {mapOpen && (
+          <div id="home-map-region" style={{ marginBottom: "var(--space-3)" }}>
+            <MiniMap children={children} positions={positions} onTap={onMapTap} />
+          </div>
+        )}
+        {renderChildCards()}
+      </section>
 
       <section>
         <h3 className="t-section-label">오늘 일정</h3>
         <TodayEventsList events={events} children={children} />
-      </section>
-
-      <section>
-        <h3 className="t-section-label">
-          아이 {children.length}명{onSelectChild ? " · 카드를 누르면 자세히 봐요" : ""}
-        </h3>
-        {density === "mini" ? (
-          <div
-            style={{
-              display: "flex",
-              gap: "var(--space-3)",
-              overflowX: "auto",
-              paddingBottom: "var(--space-2)",
-              marginInline: "calc(-1 * var(--space-screen-pad))",
-              paddingInline: "var(--space-screen-pad)",
-              scrollSnapType: "x mandatory",
-              WebkitOverflowScrolling: "touch",
-            }}
-          >
-            {children.map((c) => (
-              <div key={c.user_id || c.id} style={{ scrollSnapAlign: "start" }}>
-                <ChildSummaryCard {...childCardCommonProps(c)} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {children.map((c) => (
-              <ChildSummaryCard key={c.user_id || c.id} {...childCardCommonProps(c)} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <button
-          type="button"
-          onClick={() => setMapOpen((v) => !v)}
-          aria-expanded={mapOpen}
-          aria-controls="home-map-region"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-            padding: "var(--space-3) 0",
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            font: "inherit",
-            color: "var(--fg-primary)",
-          }}
-        >
-          <span className="t-section-label" style={{ marginBottom: 0 }}>위치 지도</span>
-          <span aria-hidden="true" style={{ fontSize: 13, color: "var(--fg-tertiary)", fontWeight: "var(--weight-semibold)" }}>
-            {mapOpen ? "접기 ▴" : "펼치기 ▾"}
-          </span>
-        </button>
-        {mapOpen && (
-          <div id="home-map-region" style={{ marginTop: "var(--space-2)" }}>
-            <MiniMap children={children} positions={positions} onTap={onMapTap} />
-          </div>
-        )}
       </section>
     </div>
   );
