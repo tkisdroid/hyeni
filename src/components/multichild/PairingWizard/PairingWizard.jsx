@@ -8,8 +8,11 @@ import { setupFamily } from "../../../lib/auth.js";
 import { supabase } from "../../../lib/supabase.js";
 import { useBackHandler } from "../../../lib/backHandler.js";
 import { autoAssignColor } from "../ChildPalette.js";
+import { HyeniMascot } from "../../auth/HyeniMascot.jsx";
 import { ChildCountStep } from "./ChildCountStep.jsx";
 import { ChildDetailsStep } from "./ChildDetailsStep.jsx";
+
+const ORDINAL_KO = ["첫째", "둘째", "셋째", "넷째", "다섯째"];
 
 const TOTAL_STEPS = 6; // 0:family, 1:device, 2:childCount, 3:childDetails, 4:pairCode, 5:complete
 
@@ -72,6 +75,89 @@ function WizardDots({ current, total }) {
                     data-done={i < current ? "true" : undefined}
                 />
             ))}
+        </div>
+    );
+}
+
+// 모바일 기준: 마스코트 56px + 말풍선 가변 폭. 좌우 stack으로 narrow viewport에서도 안정.
+function WizardMascotIntro({ title, subtitle, variant = "static", cheer = false }) {
+    return (
+        <div
+            style={{
+                display: "flex",
+                gap: "var(--space-3)",
+                alignItems: "flex-start",
+                marginBottom: "var(--space-5)",
+            }}
+        >
+            <div
+                className={cheer ? "hyeni-mascot-cheer" : ""}
+                style={{
+                    width: 56,
+                    height: 56,
+                    background: "var(--cartoon-bg-chip)",
+                    border: "1px solid var(--cartoon-line)",
+                    borderRadius: "50%",
+                    display: "inline-flex",
+                    alignItems: "flex-end",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                }}
+            >
+                <HyeniMascot size={48} variant={variant} aria-label="혜니" />
+            </div>
+            <div
+                style={{
+                    flex: 1,
+                    minWidth: 0,
+                    position: "relative",
+                    background: "var(--cartoon-rose-soft)",
+                    border: "1px solid var(--cartoon-rose)",
+                    borderRadius: "var(--cartoon-radius-card)",
+                    padding: "var(--space-3) var(--space-4)",
+                }}
+            >
+                <span
+                    aria-hidden="true"
+                    style={{
+                        position: "absolute",
+                        left: -6,
+                        top: 18,
+                        width: 11,
+                        height: 11,
+                        background: "var(--cartoon-rose-soft)",
+                        borderLeft: "1px solid var(--cartoon-rose)",
+                        borderBottom: "1px solid var(--cartoon-rose)",
+                        transform: "rotate(45deg)",
+                    }}
+                />
+                <h2
+                    style={{
+                        margin: 0,
+                        fontSize: 16,
+                        fontWeight: "var(--weight-bold)",
+                        color: "var(--cartoon-rose-text)",
+                        lineHeight: "var(--leading-tight)",
+                        letterSpacing: 0,
+                    }}
+                >
+                    {title}
+                </h2>
+                {subtitle && (
+                    <p
+                        style={{
+                            margin: "var(--space-1) 0 0",
+                            fontSize: 12,
+                            color: "var(--fg-secondary)",
+                            lineHeight: "var(--leading-normal)",
+                            fontWeight: "var(--weight-medium)",
+                        }}
+                    >
+                        {subtitle}
+                    </p>
+                )}
+            </div>
         </div>
     );
 }
@@ -149,10 +235,16 @@ export function PairingWizard({ userId, parentName, parentPhone = "", parentGend
                 <Step2DevicePicker value={deviceType} onChange={setDeviceType} onNext={() => setStepIndex(2)} />
             )}
             {stepIndex === 2 && (
-                <ChildCountStep
-                    value={childCount} onChange={setChildCount}
-                    onNext={() => { startChildren(); setStepIndex(3); }}
-                />
+                <>
+                    <WizardMascotIntro
+                        title="자녀가 몇 명이세요?"
+                        subtitle="한 명씩 차근차근 등록할게요"
+                    />
+                    <ChildCountStep
+                        value={childCount} onChange={setChildCount}
+                        onNext={() => { startChildren(); setStepIndex(3); }}
+                    />
+                </>
             )}
             {stepIndex === 3 && (
                 <Step4Children
@@ -166,7 +258,11 @@ export function PairingWizard({ userId, parentName, parentPhone = "", parentGend
                 <Step5PairCode family={family} deviceType={deviceType} onNext={() => setStepIndex(5)} />
             )}
             {stepIndex === 5 && (
-                <Step6Complete onComplete={() => onComplete?.(family)} />
+                <Step6Complete
+                    familyName={familyName}
+                    childrenList={children}
+                    onComplete={() => onComplete?.(family)}
+                />
             )}
         </div>
     );
@@ -175,12 +271,11 @@ export function PairingWizard({ userId, parentName, parentPhone = "", parentGend
 function Step1FamilyName({ value, onChange, onNext }) {
     return (
         <div>
-            <h2 className="t-screen-title" style={{ marginBottom: "var(--space-5)" }}>
-                가족 이름을 알려주세요
-            </h2>
-            <p className="t-screen-subtitle" style={{ marginBottom: "var(--space-3)" }}>
-                홈 화면 인사말에 쓰여요
-            </p>
+            <WizardMascotIntro
+                variant="wave"
+                title="안녕하세요! 가족 이름을 알려주세요"
+                subtitle="홈 화면 인사말에 쓰여요"
+            />
             <input
                 type="text" value={value} onChange={(e) => onChange(e.target.value)}
                 placeholder="예) 혜니네" maxLength={20}
@@ -199,12 +294,10 @@ function Step1FamilyName({ value, onChange, onNext }) {
 function Step2DevicePicker({ value, onChange, onNext }) {
     return (
         <div>
-            <h2 className="t-screen-title" style={{ marginBottom: "var(--space-2)" }}>
-                자녀 디바이스가 어떤 종류인가요?
-            </h2>
-            <p className="t-screen-subtitle" style={{ marginBottom: "var(--space-5)" }}>
-                연동 방식이 디바이스에 따라 달라요
-            </p>
+            <WizardMascotIntro
+                title="자녀는 어떤 폰을 쓰세요?"
+                subtitle="디바이스에 따라 연결 방식이 달라요"
+            />
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                 {DEVICE_OPTIONS.map((opt) => {
                     const active = value === opt.id;
@@ -250,9 +343,14 @@ function Step4Children({ children, onChange, familyId, busy, error, onSubmit }) 
     const [activeIndex, setActiveIndex] = useState(0);
     const usedColors = children.map((c) => c.color_hex).filter(Boolean);
     const allValid = children.every((c) => c.name.trim() && c.birthdate);
+    const ordinal = ORDINAL_KO[activeIndex] || `${activeIndex + 1}번째 자녀`;
 
     return (
         <div>
+            <WizardMascotIntro
+                title={`${ordinal} 자녀 차례예요`}
+                subtitle="이름·생일·색깔·사진을 채워주세요"
+            />
             <ChildDetailsStep
                 child={children[activeIndex]}
                 index={activeIndex}
@@ -298,12 +396,11 @@ function Step5PairCode({ family, deviceType, onNext }) {
     const deviceLabel = DEVICE_OPTIONS.find((d) => d.id === deviceType)?.label || "자녀 디바이스";
     return (
         <div>
-            <h2 className="t-screen-title" style={{ marginBottom: "var(--space-2)" }}>
-                페어링 코드
-            </h2>
-            <p className="t-screen-subtitle" style={{ marginBottom: "var(--space-5)" }}>
-                {deviceLabel}에서 이 코드를 입력하면 연결돼요
-            </p>
+            <WizardMascotIntro
+                variant="wave"
+                title="이 코드를 자녀에게 보여주세요"
+                subtitle={`${deviceLabel}에서 입력하면 연결돼요`}
+            />
             <div style={{
                 background: "var(--cartoon-rose-soft)",
                 border: "2px solid var(--cartoon-rose)",
@@ -330,18 +427,114 @@ function Step5PairCode({ family, deviceType, onNext }) {
     );
 }
 
-function Step6Complete({ onComplete }) {
+function Step6Complete({ familyName, childrenList = [], onComplete }) {
+    const list = Array.isArray(childrenList) ? childrenList : [];
+    const headline = familyName ? `${familyName} 가족이 시작됐어요!` : "가족이 시작됐어요!";
+
     return (
-        <div style={{ textAlign: "center", paddingTop: "var(--space-12)" }}>
-            <div style={{ fontSize: 48, marginBottom: "var(--space-4)" }} aria-hidden="true">🎉</div>
-            <h2 className="t-screen-title" style={{ marginBottom: "var(--space-3)" }}>설정 완료!</h2>
-            <p className="t-screen-subtitle" style={{ marginBottom: "var(--space-6)" }}>
+        <div style={{ textAlign: "center", paddingTop: "var(--space-8)" }}>
+            <div
+                className="hyeni-mascot-cheer"
+                style={{
+                    width: 96,
+                    height: 96,
+                    margin: "0 auto var(--space-4)",
+                    background: "var(--cartoon-bg-chip)",
+                    border: "1px solid var(--cartoon-line)",
+                    borderRadius: "50%",
+                    display: "inline-flex",
+                    alignItems: "flex-end",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                }}
+            >
+                <HyeniMascot size={84} variant="wave" aria-label="혜니" />
+            </div>
+
+            <h2
+                style={{
+                    margin: 0,
+                    fontSize: 22,
+                    fontWeight: "var(--weight-bold)",
+                    color: "var(--cartoon-rose-text)",
+                    lineHeight: "var(--leading-tight)",
+                    letterSpacing: 0,
+                }}
+            >
+                {headline}
+            </h2>
+            <p
+                style={{
+                    margin: "var(--space-2) 0 var(--space-6)",
+                    fontSize: 13,
+                    color: "var(--fg-secondary)",
+                    fontWeight: "var(--weight-medium)",
+                    lineHeight: "var(--leading-normal)",
+                }}
+            >
                 이제 가족 일정을 함께 관리해보세요
             </p>
+
+            {list.length > 0 && (
+                <div
+                    aria-label="가족 멤버"
+                    style={{
+                        display: "flex",
+                        gap: "var(--space-3)",
+                        justifyContent: "center",
+                        flexWrap: "wrap",
+                        marginBottom: "var(--space-7)",
+                    }}
+                >
+                    {list.map((child, i) => (
+                        <ChildAvatarChip
+                            key={i}
+                            name={child.name?.trim() || `${ORDINAL_KO[i] || `${i + 1}번째`}`}
+                            colorHex={child.color_hex}
+                            photoUrl={child.photo_url}
+                        />
+                    ))}
+                </div>
+            )}
+
             <button
-                type="button" onClick={onComplete}
+                type="button"
+                onClick={onComplete}
                 className="wizard-primary"
             >시작하기</button>
+        </div>
+    );
+}
+
+function ChildAvatarChip({ name, colorHex, photoUrl }) {
+    // 사진이 data URL인 경우 우선 사용. 없으면 색상 chip만.
+    const hasPhoto = typeof photoUrl === "string" && photoUrl.startsWith("data:");
+    return (
+        <div style={{ width: 56, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div
+                style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    background: hasPhoto ? `center/cover no-repeat url(${photoUrl})` : (colorHex || "var(--cartoon-bg-chip)"),
+                    border: "2px solid var(--cartoon-line)",
+                    boxSizing: "border-box",
+                }}
+                aria-hidden="true"
+            />
+            <span
+                style={{
+                    fontSize: 11,
+                    fontWeight: "var(--weight-medium)",
+                    color: "var(--fg-secondary)",
+                    maxWidth: 56,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                }}
+            >
+                {name}
+            </span>
         </div>
     );
 }

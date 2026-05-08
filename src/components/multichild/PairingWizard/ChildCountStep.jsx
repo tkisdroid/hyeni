@@ -1,13 +1,8 @@
 // src/components/multichild/PairingWizard/ChildCountStep.jsx
+// 헤더(h2/p)는 PairingWizard의 WizardMascotIntro가 담당.
 export function ChildCountStep({ value, onChange, onNext }) {
   return (
     <div>
-      <h2 style={{ fontSize: 22, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 8 }}>
-        자녀가 몇 명인가요?
-      </h2>
-      <p style={{ fontSize: 14, color: "var(--fg-secondary)", marginBottom: 24 }}>
-        나중에 추가/삭제할 수 있어요.
-      </p>
       <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-7)" }}>
         {[1, 2, 3, 4, 5].map((n) => (
           <button

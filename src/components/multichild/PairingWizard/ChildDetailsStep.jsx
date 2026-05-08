@@ -1,4 +1,5 @@
 // src/components/multichild/PairingWizard/ChildDetailsStep.jsx
+// 헤더(h2/p)는 PairingWizard의 WizardMascotIntro가 담당.
 import { BirthdatePicker } from "../../birthdate/BirthdatePicker.jsx";
 import { ColorPicker } from "./ColorPicker.jsx";
 import { PhotoUpload } from "./PhotoUpload.jsx";
@@ -9,13 +10,6 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 4 }}>
-        {order}번째 자녀
-      </h2>
-      <p style={{ fontSize: 13, color: "var(--fg-secondary)", marginBottom: 20 }}>
-        이름과 생년월일을 입력해 주세요. 생년월일은 자녀별 구독 식별에 사용돼요.
-      </p>
-
       <div style={{ marginBottom: 20 }}>
         <PhotoUpload
           value={child.photo_url}
