@@ -5,17 +5,11 @@
 import { pickNextEvent, formatTimeLabel } from "./HomeBigStat.jsx";
 import { HyeniMascot } from "../../auth/HyeniMascot.jsx";
 
-const STYLE_EMPTY_MASCOT = {
-    width: 72,
-    height: 72,
-    margin: "0 auto var(--space-2)",
-    background: "var(--cartoon-bg-chip)",
-    border: "1px solid var(--cartoon-line)",
-    borderRadius: "50%",
-    display: "inline-flex",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    overflow: "hidden",
+const STYLE_EMPTY_MASCOT_INLINE = { opacity: 0.85, flexShrink: 0 };
+const STYLE_EMPTY_ROW = {
+    display: "flex",
+    alignItems: "center",
+    gap: "var(--space-3)",
 };
 
 function formatCountdown(minutesRemaining) {
@@ -55,12 +49,16 @@ export function NextEventHero({ events, children = [], childLocations = {}, now 
 
     if (!next) {
         return (
-            <div className="hyeni-hero-empty" style={{ alignItems: "center", textAlign: "center" }}>
-                <div className="hyeni-mascot-cheer" style={STYLE_EMPTY_MASCOT}>
-                    <HyeniMascot size={64} variant="wave" aria-label="혜니" />
+            <div className="hyeni-hero-empty">
+                <div style={STYLE_EMPTY_ROW}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <span className="hyeni-hero-eyebrow">오늘의 다음 일정</span>
+                        <p className="hyeni-hero-empty-msg">오늘 일정 모두 마무리됐어요</p>
+                    </div>
+                    <div style={STYLE_EMPTY_MASCOT_INLINE} aria-hidden="true">
+                        <HyeniMascot size={40} variant="static" aria-label="" />
+                    </div>
                 </div>
-                <span className="hyeni-hero-eyebrow">오늘의 다음 일정</span>
-                <p className="hyeni-hero-empty-msg">오늘 일정 모두 마무리됐어요 ✨</p>
             </div>
         );
     }
