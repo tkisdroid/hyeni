@@ -3099,6 +3099,61 @@ a:focus-visible {
   box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-accent) 24%, transparent);
 }
 
+.hyeni-time-direct-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-subtle) 60%, #fff);
+  border: 1px solid var(--hyeni-product-border);
+}
+
+.hyeni-time-direct-field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hyeni-time-direct-field > span {
+  flex: none;
+  color: var(--fg-tertiary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.hyeni-time-direct-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  outline: none;
+  accent-color: var(--theme-accent);
+  color-scheme: light;
+}
+
+.hyeni-time-direct-input:focus {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 18%, transparent);
+}
+
+.hyeni-time-direct-divider {
+  flex: none;
+  color: var(--fg-tertiary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .hyeni-time-rail {
   overflow-x: auto;
   padding: 2px 0 6px;

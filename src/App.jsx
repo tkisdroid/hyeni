@@ -989,6 +989,20 @@ export default function KidsScheduler() {
         setNewEndTime(formatScheduleTimeValue(Math.min(selectedStartMinutes + durationMinutes, SCHEDULE_TIME_LAST_MINUTES)));
     };
 
+    const handleStartTimeInputChange = (value) => {
+        if (!value) return;
+        setNewTime(value);
+        const minutes = parseScheduleTimeMinutes(value);
+        if (newEndTime && parseScheduleTimeMinutes(newEndTime) <= minutes) {
+            setNewEndTime("");
+            setTimeSelectionTarget("end");
+        }
+    };
+
+    const handleEndTimeInputChange = (value) => {
+        setNewEndTime(value || "");
+    };
+
     const notifTimer = useRef(null);
     // Phase 5 · KKUK-02 — receiver-side LRU dedup. Keys are payload.dedup_key
     // UUIDs; values are Date.now() timestamps. Pruned on each new event to
@@ -6944,6 +6958,32 @@ export default function KidsScheduler() {
                                             종료
                                         </button>
                                     </div>
+                                </div>
+                                <div className="hyeni-time-direct-row" role="group" aria-label="시간 직접 입력">
+                                    <label className="hyeni-time-direct-field">
+                                        <span>시작</span>
+                                        <input
+                                            type="time"
+                                            className="hyeni-time-input hyeni-time-direct-input"
+                                            value={newTime || ""}
+                                            step={60}
+                                            onChange={(e) => handleStartTimeInputChange(e.target.value)}
+                                            aria-label="시작 시간 직접 입력"
+                                        />
+                                    </label>
+                                    <span className="hyeni-time-direct-divider" aria-hidden="true">~</span>
+                                    <label className="hyeni-time-direct-field">
+                                        <span>종료</span>
+                                        <input
+                                            type="time"
+                                            className="hyeni-time-input hyeni-time-direct-input"
+                                            value={newEndTime || ""}
+                                            step={60}
+                                            onChange={(e) => handleEndTimeInputChange(e.target.value)}
+                                            aria-label="종료 시간 직접 입력"
+                                            placeholder="--:--"
+                                        />
+                                    </label>
                                 </div>
                                 <div className="hyeni-time-rail" role="group" aria-label="일정 시간대 선택">
                                     <div className="hyeni-time-ruler" aria-hidden="true">
