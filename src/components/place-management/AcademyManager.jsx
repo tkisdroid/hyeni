@@ -2,7 +2,7 @@
 // 장소관리 통합 화면 — 학원/조심할 곳/저장 장소 추가·수정·삭제.
 // Extracted from App.jsx (Phase 5 #4 / B5d).
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { generateUUID } from "../../lib/auth.js";
 import { FF } from "../../lib/styleHelpers.js";
 import { CATEGORIES, ACADEMY_PRESETS } from "../../lib/scheduleCategories.js";
@@ -10,6 +10,35 @@ import { MapPicker } from "../map/MapPicker.jsx";
 import AcademyCard from "./AcademyCard.jsx";
 import DangerCard from "./DangerCard.jsx";
 import SavedPlacesSection from "./SavedPlacesSection.jsx";
+import { AnimalIcon } from "../icons/AnimalIcon.jsx";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+
+function StatTile({ icon, label, count, accent }) {
+    return (
+        <div
+            style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 6,
+                padding: "12px 12px 14px",
+                background: "#FFFFFF",
+                border: "1px solid var(--line-soft, #F1ECEE)",
+                borderRadius: 18,
+                boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31,24,28,0.06))",
+                minWidth: 0,
+            }}
+        >
+            <div style={{ width: 36, height: 36, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                {icon}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#5F6368" }}>{label}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: accent || "#202024", letterSpacing: "-0.02em" }}>
+                {count}<span style={{ fontSize: 12, marginLeft: 2, color: "#5F6368" }}>개</span>
+            </div>
+        </div>
+    );
+}
 
 export function AcademyManager({
     academies,
@@ -30,6 +59,7 @@ export function AcademyManager({
     const [list, setList] = useState(academies);
     const [savedList, setSavedList] = useState(savedPlaces);
     const [dangerList, setDangerList] = useState(dangerZones);
+    const [activeFilter, setActiveFilter] = useState("academy"); // academy | danger | safe | frequent
     const [showForm, setShowForm] = useState(false);
     const [showMap, setShowMap] = useState(false);
     const [editIdx, setEditIdx] = useState(null);
@@ -241,20 +271,186 @@ export function AcademyManager({
         />
     );
 
+    const safePlacesCount = savedList.filter(p => p.is_playdate_safe).length;
+    const frequentPlacesCount = savedList.filter(p => !p.is_playdate_safe).length;
+    const academyCount = list.length;
+    const dangerCount = dangerList.length;
+
+    const FILTER_TABS = [
+        { id: "academy", label: "학원", icon: "calendar-check", color: "var(--brand-mint, #31C48D)", bg: "var(--brand-mint-soft, #DDF7EA)", text: "var(--brand-mint-text, #087653)" },
+        { id: "danger", label: "위험장소", icon: "shield", color: "var(--brand-rose, #F779A8)", bg: "var(--brand-rose-soft, #FFE2EC)", text: "var(--brand-rose-text, #B83262)" },
+        { id: "safe", label: "안전장소", icon: "shield-heart", color: "var(--brand-mint, #31C48D)", bg: "var(--brand-mint-soft, #DDF7EA)", text: "var(--brand-mint-text, #087653)" },
+        { id: "frequent", label: "자주가는장소", icon: "pin-lavender", color: "var(--brand-lavender, #A78BFA)", bg: "var(--brand-lavender-soft, #EFE8FF)", text: "var(--brand-lavender-text, #5F43B2)" },
+    ];
+
+    const handleFilterCta = () => {
+        if (activeFilter === "academy") openNew();
+        else if (activeFilter === "danger") openNewDangerPlace();
+        else if (activeFilter === "safe") openNewSafePlace();
+        else if (activeFilter === "frequent") openNewSavedPlace();
+    };
+
+    const ctaLabel = activeFilter === "academy" ? "새 학원 추가하기"
+        : activeFilter === "danger" ? "새 위험장소 추가하기"
+        : activeFilter === "safe" ? "새 안전장소 추가하기"
+        : "새 자주가는장소 추가하기";
+
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "white", display: "flex", flexDirection: "column", fontFamily: FF }}>
-            <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", borderBottom: "1px solid var(--bg-muted)", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "var(--bg-page-mint, #F1FBF6)", display: "flex", flexDirection: "column", fontFamily: FF }}>
+            {/* Hero header — bunny + title + actions */}
+            <section
+                aria-label="장소관리 헤더"
+                style={{
+                    margin: "calc(env(safe-area-inset-top, 0px) + 12px) 16px 0",
+                    padding: "16px 18px 18px",
+                    background: "linear-gradient(135deg, #FFFFFF 0%, var(--brand-mint-soft, #DDF7EA) 100%)",
+                    borderRadius: 28,
+                    border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                    boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31,24,28,0.06))",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                }}
+            >
                 <button
                     type="button"
                     aria-label="장소관리 닫기"
                     onClick={onClose}
-                    style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: FF }}
+                    style={{
+                        flexShrink: 0,
+                        width: 60,
+                        height: 60,
+                        background: "var(--brand-mint-soft, #DDF7EA)",
+                        border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                        borderRadius: "50%",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                    }}
                 >
-                    ← 뒤로
+                    <AnimalIcon name="rabbit" size={48} aria-label="" />
                 </button>
-                <div style={{ fontWeight: 800, fontSize: 17, color: "var(--fg-primary)" }}>📍 장소관리</div>
+                <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                    <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        학원·장소 관리
+                    </h1>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#5F6368", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        아이 일정과 안전 장소를 정리해요
+                    </p>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <button
+                        type="button"
+                        aria-label="검색"
+                        style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: "50%",
+                            background: "#FFFFFF",
+                            border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                            color: "var(--brand-mint-text, #087653)",
+                            fontSize: 16,
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            fontFamily: FF,
+                        }}
+                    >
+                        🔍
+                    </button>
+                    <button
+                        type="button"
+                        aria-label="새 장소 추가"
+                        onClick={handleFilterCta}
+                        style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: "50%",
+                            background: "var(--brand-mint-soft, #DDF7EA)",
+                            border: "1px solid var(--brand-mint, #31C48D)",
+                            color: "var(--brand-mint-deep, #15936B)",
+                            fontSize: 22,
+                            fontWeight: 900,
+                            cursor: "pointer",
+                            fontFamily: FF,
+                            lineHeight: 1,
+                        }}
+                    >
+                        +
+                    </button>
+                </div>
+            </section>
+
+            {/* Filter tabs */}
+            <div
+                role="tablist"
+                aria-label="장소 필터"
+                style={{
+                    display: "flex",
+                    gap: 8,
+                    overflowX: "auto",
+                    padding: "12px 16px 4px",
+                    scrollbarWidth: "none",
+                }}
+            >
+                {FILTER_TABS.map(tab => {
+                    const active = activeFilter === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            onClick={() => setActiveFilter(tab.id)}
+                            style={{
+                                flexShrink: 0,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "10px 16px 10px 10px",
+                                borderRadius: 999,
+                                border: active ? `2px solid ${tab.color}` : "1px solid var(--line-soft, #F1ECEE)",
+                                background: active ? tab.bg : "#FFFFFF",
+                                color: active ? tab.text : "#5F6368",
+                                fontSize: 13,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                fontFamily: FF,
+                                boxShadow: active ? "0 6px 14px rgba(31,24,28,0.08)" : "none",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            <ThreeDIcon name={tab.icon} size={22} aria-label="" />
+                            {tab.label}
+                        </button>
+                    );
+                })}
             </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px", paddingBottom: hasBottomNavigation ? 16 : "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
+
+            {/* Stats — 3 tiles */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, padding: "12px 16px 4px" }}>
+                <StatTile
+                    icon={<ThreeDIcon name="calendar-check" size={36} aria-label="" />}
+                    label="등록 학원"
+                    count={academyCount}
+                    accent="var(--brand-mint-text, #087653)"
+                />
+                <StatTile
+                    icon={<ThreeDIcon name="shield-heart" size={36} aria-label="" />}
+                    label="안전장소"
+                    count={safePlacesCount}
+                    accent="var(--brand-mint-text, #087653)"
+                />
+                <StatTile
+                    icon={<ThreeDIcon name="shield" size={36} aria-label="" />}
+                    label="위험장소"
+                    count={dangerCount}
+                    accent="var(--brand-rose-text, #B83262)"
+                />
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", paddingBottom: hasBottomNavigation ? 16 : "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}>
 
                 {/* Form */}
                 {showForm && (
@@ -445,31 +641,81 @@ export function AcademyManager({
 
                 {!showForm && !showSavedForm && !showDangerForm && (
                     <>
-                        <AcademyCard
-                            list={list}
-                            presets={ACADEMY_PRESETS}
-                            categories={CATEGORIES}
-                            daysLabel={DAYS_LABEL}
-                            onAddNew={() => openNew()}
-                            onAddPreset={(preset) => openNew(preset)}
-                            onEdit={openEdit}
-                            onRemove={removeItem}
-                        />
-                        <DangerCard
-                            list={dangerList}
-                            locked={dangerZonesLocked}
-                            dangerTypes={DANGER_TYPES}
-                            onAddNew={openNewDangerPlace}
-                            onRemove={removeDangerPlace}
-                        />
-                        <SavedPlacesSection
-                            list={savedList}
-                            locked={savedPlacesLocked}
-                            onAddNew={openNewSavedPlace}
-                            onAddSafe={openNewSafePlace}
-                            onEdit={openSavedPlaceEdit}
-                            onRemove={removeSavedPlace}
-                        />
+                        <button
+                            type="button"
+                            onClick={handleFilterCta}
+                            style={{
+                                width: "100%",
+                                marginBottom: 14,
+                                padding: "16px 18px",
+                                background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #FFFDF8 100%)",
+                                border: "2px solid var(--brand-mint, #31C48D)",
+                                borderRadius: 22,
+                                color: "var(--brand-mint-text, #087653)",
+                                fontSize: 15,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                fontFamily: FF,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 10,
+                                boxShadow: "0 8px 20px rgba(49,196,141,0.18)",
+                                letterSpacing: "-0.01em",
+                            }}
+                        >
+                            <span
+                                aria-hidden="true"
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: "50%",
+                                    background: "var(--brand-mint, #31C48D)",
+                                    color: "#FFFFFF",
+                                    fontSize: 18,
+                                    fontWeight: 900,
+                                    lineHeight: 1,
+                                }}
+                            >
+                                +
+                            </span>
+                            {ctaLabel}
+                        </button>
+
+                        {activeFilter === "academy" && (
+                            <AcademyCard
+                                list={list}
+                                presets={ACADEMY_PRESETS}
+                                categories={CATEGORIES}
+                                daysLabel={DAYS_LABEL}
+                                onAddNew={() => openNew()}
+                                onAddPreset={(preset) => openNew(preset)}
+                                onEdit={openEdit}
+                                onRemove={removeItem}
+                            />
+                        )}
+                        {activeFilter === "danger" && (
+                            <DangerCard
+                                list={dangerList}
+                                locked={dangerZonesLocked}
+                                dangerTypes={DANGER_TYPES}
+                                onAddNew={openNewDangerPlace}
+                                onRemove={removeDangerPlace}
+                            />
+                        )}
+                        {(activeFilter === "safe" || activeFilter === "frequent") && (
+                            <SavedPlacesSection
+                                list={savedList}
+                                locked={savedPlacesLocked}
+                                onAddNew={openNewSavedPlace}
+                                onAddSafe={openNewSafePlace}
+                                onEdit={openSavedPlaceEdit}
+                                onRemove={removeSavedPlace}
+                            />
+                        )}
                     </>
                 )}
             </div>
