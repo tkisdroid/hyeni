@@ -5,6 +5,7 @@
 
 import { useBackHandler } from "../../lib/backHandler.js";
 import { THEME_PALETTE as THEME_DICT } from "../../lib/theme.js";
+import { AnimalIcon } from "../icons/AnimalIcon.jsx";
 
 const THEME_OPTIONS = Object.entries(THEME_DICT).map(([hex, t]) => ({
     color: hex,
@@ -219,7 +220,7 @@ export function ChildSettingsScreen({
                                             gap: 4,
                                         }}
                                     >
-                                        <span aria-hidden="true" style={{ fontSize: 28, lineHeight: 1 }}>{option.emoji}</span>
+                                        <AnimalIcon emoji={option.emoji} size={44} aria-label={option.label} />
                                         <span style={{ fontSize: 11 }}>{option.label}</span>
                                     </button>
                                 );

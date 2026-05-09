@@ -14,6 +14,7 @@ import { ChildPermissionWizard } from "./components/onboarding/ChildPermissionWi
 import { SplashScreen } from "./components/auth/SplashScreen.jsx";
 import { ChildEntryTransition } from "./components/auth/ChildEntryTransition.jsx";
 import { HyeniMascot } from "./components/auth/HyeniMascot.jsx";
+import { ThreeDIcon } from "./components/icons/ThreeDIcon.jsx";
 import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { EventSheet } from "./components/multichild/EventModal/EventSheet.jsx";
@@ -5897,8 +5898,9 @@ export default function KidsScheduler() {
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
                     {isParent && (
                         <button onClick={() => { setShowAlertPanel(true); loadParentAlerts(); }}
-                            style={{ position: "relative", fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}>
-                            🔔
+                            style={{ position: "relative", fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}
+                            aria-label="알림">
+                            <ThreeDIcon name="bell" size={22} aria-label="알림" />
                             {parentAlerts.filter(a => !a.read).length > 0 && (
                                 <span style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "var(--status-negative)", color: "white", fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     {Math.min(parentAlerts.filter(a => !a.read).length, 9)}
@@ -5928,8 +5930,8 @@ export default function KidsScheduler() {
                             WebkitTouchCallout: "none",
                         }}
                         title="꾹 보내기"
-                        aria-label="💗 꾹">
-                        💗 꾹
+                        aria-label="꾹 보내기">
+                        <ThreeDIcon name="heart" size={isParent ? 14 : 16} aria-label="꾹" /> 꾹
                     </button>
                 </div>
             </div>
