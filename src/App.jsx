@@ -651,13 +651,20 @@ export default function KidsScheduler() {
         setSelectedChildId(pairedChildren[0].id);
       }
     }, [isParent, pairedChildren, selectedChildId]);
-    // Force-route multi-child parents back to home whenever no child is
-    // selected — every per-child tab needs a context. "오늘" (activeView ===
-    // "calendar") is exempt: it has its own multi-child aggregate view that
-    // groups events under each child and lets the parent dive in by tap.
+    // 다자녀 부모가 '오늘' 진입 시 자동으로 첫 아이를 선택해 단일자녀 뷰로 진입.
+    // ('홈' = HomeTab 다자녀 종합 뷰, '오늘' = 한 명 상세) 분리 정책.
     useEffect(() => {
       if (isParent && isMultiChild && !selectedChildId
-          && activeView !== "home" && activeView !== "calendar") {
+          && activeView === "calendar"
+          && pairedChildren.length > 0) {
+        setSelectedChildId(pairedChildren[0].id);
+      }
+    }, [isParent, isMultiChild, selectedChildId, activeView, pairedChildren]);
+    // Force-route multi-child parents back to home whenever no child is
+    // selected — every per-child tab needs a context. '홈'에서만 미선택 허용.
+    useEffect(() => {
+      if (isParent && isMultiChild && !selectedChildId
+          && activeView !== "home") {
         setActiveView("home");
         setMultiChildHint("상세 기능은 아이별로 확인할 수 있어요. 위에서 아이를 먼저 선택해주세요.");
       }
@@ -6313,23 +6320,10 @@ export default function KidsScheduler() {
                 </div>
               );
             })()}
-            {/* Multi-child + no selection: show the per-child today aggregate
-                instead of the single-child dashboard. Tapping a child card
-                drops into the regular per-child view via setSelectedChildId. */}
-            {activeView === "calendar" && isParent && isMultiChild && !selectedChildId && (
-                <>
-                    <TodayMultiChildView
-                        children={pairedChildren}
-                        todayEvents={todayEvents}
-                        childDeviceStatusMap={childDeviceStatusMap}
-                        onSelectChild={(childId) => setSelectedChildId(childId)}
-                        onRefreshDevices={handleParentDeviceRefreshClick}
-                        deviceRefreshPending={Boolean(deviceStatusRefreshRequestedAt)}
-                    />
-                    {renderParentBottomTabbar("today", "hyeni-v5-tabbar-fixed")}
-                </>
-            )}
-            {activeView === "calendar" && !(isParent && isMultiChild && !selectedChildId) && (isParent ? (
+            {/* '오늘' 메뉴는 한 명의 상세만. 다자녀 종합 뷰는 '홈'(HomeTab)으로 분리.
+                useEffect 가 다자녀 + 미선택 진입 시 첫 아이를 auto-select 하므로
+                여기서는 항상 단일자녀 레이아웃이 렌더된다. */}
+            {activeView === "calendar" && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
                     {/* hero — 상단 공통 hero 로 이동, 여기서는 빈 placeholder 유지 (이전 중복 제거) */}
                     {false && (() => {
