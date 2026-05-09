@@ -8,6 +8,7 @@ import { getParentMemoQuickReplies } from "../../lib/memoDisplay.js";
 import { MemoBubble } from "../childMode/MemoBubble.jsx";
 import { AnimalIcon } from "../icons/AnimalIcon.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 const DAYS_KO = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -60,9 +61,10 @@ function MineBubble({ text, time, sender = "나" }) {
                         alignItems: "center",
                         justifyContent: "center",
                         flexShrink: 0,
+                        overflow: "hidden",
                     }}
                 >
-                    <AnimalIcon name="rabbit" size={28} aria-label="" />
+                    <HyeniMascot variant="static" size={32} aria-label="" />
                 </span>
             </div>
             <div style={{ marginRight: 44, fontSize: 11, fontWeight: 700, color: "var(--fg-tertiary, #9A9AA0)" }}>
@@ -125,7 +127,7 @@ function TheirBubble({ text, time, sender }) {
     );
 }
 
-export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName, onReplyRef, mode = "parent", quickReplies, emptyCopy, stickerCopy }) {
+export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName, onReplyRef, mode = "parent", quickReplies, emptyCopy, stickerCopy, bottomNavigation = null }) {
     const [inputText, setInputText] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [sendError, setSendError] = useState("");
@@ -260,7 +262,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                         justifyContent: "center",
                     }}
                 >
-                    <AnimalIcon name="rabbit" size={88} aria-label="" />
+                    <HyeniMascot variant="static" size={92} aria-label="" />
                     <span style={{ position: "absolute", left: -10, top: 28, fontSize: 16, opacity: 0.85 }}>💗</span>
                     <span style={{ position: "absolute", left: -2, top: 56, fontSize: 12, opacity: 0.75 }}>💗</span>
                 </div>
@@ -456,9 +458,6 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                             background: !inputText.trim() || isSending
                                 ? "var(--brand-mint-soft, #DDF7EA)"
                                 : "linear-gradient(135deg, var(--brand-mint, #31C48D) 0%, var(--brand-mint-deep, #15936B) 100%)",
-                            color: !inputText.trim() || isSending ? "var(--brand-mint-text, #087653)" : "#FFFFFF",
-                            fontSize: 18,
-                            fontWeight: 800,
                             cursor: !inputText.trim() || isSending ? "default" : "pointer",
                             display: "inline-flex",
                             alignItems: "center",
@@ -466,12 +465,15 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                             flexShrink: 0,
                             boxShadow: !inputText.trim() || isSending ? "none" : "0 6px 14px rgba(49,196,141,0.28)",
                             fontFamily: FF,
+                            opacity: !inputText.trim() || isSending ? 0.5 : 1,
+                            padding: 0,
                         }}
                     >
-                        ➤
+                        <ThreeDIcon name="send" size={26} aria-label="" />
                     </button>
                 </div>
             </footer>
+            {bottomNavigation}
         </main>
     );
 }

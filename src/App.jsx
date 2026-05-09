@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Sun, Sparkles, Home, Calendar, MapPin } from "lucide-react";
+import { Sun, Sparkles, Home, Calendar, MapPin, MessageCircle, Users } from "lucide-react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
@@ -4267,32 +4267,32 @@ export default function KidsScheduler() {
                 onClick={handleParentHomeTabClick}
                 aria-pressed={activeTab === "home"}
                 className={activeTab === "home" ? "active" : undefined}
-                style={{ fontFamily: FF }}
+                style={{ fontFamily: FF, whiteSpace: "nowrap" }}
               >
                 <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Home size={16} strokeWidth={1.75} /></span>홈
               </button>
             )}
-            <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
+            <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
                 <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Sun size={16} strokeWidth={1.75} /></span>오늘
             </button>
-            <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentCalendarTabClick, "일정 보기")} style={{ fontFamily: FF }}>
+            <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentCalendarTabClick, "일정 보기")} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
                 <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Calendar size={16} strokeWidth={1.75} /></span>일정
             </button>
             {parentCapabilities.canManagePlaces && (
-                <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentMapTabClick, "장소 관리")} style={{ fontFamily: FF }}>
-                    <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><MapPin size={16} strokeWidth={1.75} /></span>장소관리
+                <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentMapTabClick, "장소 관리")} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
+                    <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><MapPin size={16} strokeWidth={1.75} /></span>장소
                 </button>
             )}
             <button
                 type="button"
                 className={activeTab === "memo" ? "active" : undefined}
                 onClick={requireSelectedChildOrHint(handleParentMemoOpen, "메모")}
-                style={{ fontFamily: FF }}
+                style={{ fontFamily: FF, whiteSpace: "nowrap" }}
             >
-                <span aria-hidden="true">💬</span>메모
+                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><MessageCircle size={16} strokeWidth={1.75} /></span>메모
             </button>
-            <button type="button" className={activeTab === "family" ? "active" : undefined} onClick={handleParentFamilyTabClick} style={{ fontFamily: FF }}>
-                <span aria-hidden="true">👨‍👩‍👧</span>가족
+            <button type="button" className={activeTab === "family" ? "active" : undefined} onClick={handleParentFamilyTabClick} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
+                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Users size={16} strokeWidth={1.75} /></span>가족
             </button>
         </nav>
     );
@@ -5546,8 +5546,8 @@ export default function KidsScheduler() {
                 partnerName={selectedChild?.name || pairedChildren[0]?.name || "아이"}
                 onClose={() => setShowParentMemoPage(false)}
                 onReplyRef={registerMemoReplyNode}
+                bottomNavigation={renderParentBottomTabbar("memo", "hyeni-v5-tabbar-fixed")}
             />
-            {renderParentBottomTabbar("memo", "hyeni-v5-tabbar-fixed")}
         </div>
     );
 
@@ -6202,21 +6202,22 @@ export default function KidsScheduler() {
                   : `오늘 ${todayEventCount}개의 일정이 있어요`;
               const dateLabel = `${currentMonth + 1}월 ${selectedDate}일 ${DAYS_KO[(new Date(currentYear, currentMonth, selectedDate)).getDay()]}요일`;
               return (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, padding: "0 14px" }}>
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, padding: "0 16px", boxSizing: "border-box" }}>
                   <section
                     aria-label={`${childName} 오늘 요약`}
                     style={{
                       position: "relative",
                       background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #F0FBF5 60%, var(--brand-rose-soft, #FFF0F5) 100%)",
                       borderRadius: 28,
-                      padding: "22px 18px 22px 22px",
+                      padding: "20px 16px 20px 18px",
                       marginBottom: 14,
                       overflow: "hidden",
                       boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
-                      minHeight: 220,
+                      minHeight: 200,
                       display: "flex",
                       alignItems: "stretch",
-                      gap: 12,
+                      gap: 8,
+                      boxSizing: "border-box",
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 12, position: "relative", zIndex: 1 }}>
@@ -6255,21 +6256,23 @@ export default function KidsScheduler() {
                           marginTop: "auto",
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: 8,
-                          padding: "12px 18px",
+                          gap: 6,
+                          padding: "10px 14px",
                           border: "none",
                           background: "linear-gradient(135deg, var(--brand-mint, #31C48D) 0%, var(--brand-mint-deep, #15936B) 100%)",
                           color: "#FFFFFF",
                           borderRadius: 999,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: 800,
                           cursor: "pointer",
                           fontFamily: FF,
-                          boxShadow: "0 8px 18px rgba(49, 196, 141, 0.32)",
+                          boxShadow: "0 6px 14px rgba(49, 196, 141, 0.28)",
                           letterSpacing: "-0.01em",
+                          whiteSpace: "nowrap",
+                          maxWidth: "100%",
                         }}
                       >
-                        <span aria-hidden="true" style={{ fontSize: 16 }}>🗓</span>
+                        <ThreeDIcon name="calendar-heart" size={18} aria-label="" />
                         오늘 일정 보기
                         <span aria-hidden="true" style={{ fontWeight: 700 }}>›</span>
                       </button>
@@ -6279,16 +6282,16 @@ export default function KidsScheduler() {
                       style={{
                         position: "relative",
                         flexShrink: 0,
-                        width: 148,
+                        width: 120,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <span style={{ position: "absolute", top: 4, left: -2, fontSize: 22, opacity: 0.85 }}>☁️</span>
-                      <span style={{ position: "absolute", top: 18, right: 6, fontSize: 16, opacity: 0.7 }}>✨</span>
-                      <span style={{ position: "absolute", bottom: 6, left: 8, fontSize: 14, opacity: 0.7 }}>💗</span>
-                      <HyeniMascot variant="static" size={144} aria-label="" />
+                      <span style={{ position: "absolute", top: 0, left: -4, fontSize: 18, opacity: 0.85 }}>☁️</span>
+                      <span style={{ position: "absolute", top: 14, right: 0, fontSize: 14, opacity: 0.7 }}>✨</span>
+                      <span style={{ position: "absolute", bottom: 4, left: 4, fontSize: 12, opacity: 0.7 }}>💗</span>
+                      <HyeniMascot variant="static" size={116} aria-label="" />
                     </div>
                     <button
                       type="button"
@@ -6508,7 +6511,10 @@ export default function KidsScheduler() {
                                             <span aria-hidden="true">{childIsLive ? "📍" : "🕘"}</span>
                                             <span>{childLocationLabel}</span>
                                         </span>
-                                        <span className={`hyeni-v5-kid-next${nextTodayEvent ? " has-event" : ""}`}>
+                                        <span
+                                            className={`hyeni-v5-kid-next${nextTodayEvent ? " has-event" : ""}`}
+                                            style={!nextTodayEvent ? { textAlign: "center", display: "block", width: "100%" } : undefined}
+                                        >
                                             {nextLabel}
                                         </span>
                                     </span>

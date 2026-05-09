@@ -22,7 +22,7 @@ export function ChildDeviceCard({ child, status }) {
             padding: 14,
             borderRadius: 14,
             background: "white",
-            border: `1.5px solid ${color}30`,
+            border: "none",
             textAlign: "left",
             cursor: "pointer",
             font: "inherit",

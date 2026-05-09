@@ -129,13 +129,14 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                 style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 12,
-                    padding: 12,
+                    gap: 8,
+                    padding: "10px 10px",
                     background: "#FFFFFF",
                     border: "1px solid #EFEEEA",
                     borderRadius: 16,
                     textAlign: "left",
                     width: "100%",
+                    minWidth: 0,
                     font: "inherit",
                     cursor: interactive ? "pointer" : "default",
                     boxSizing: "border-box",
@@ -147,8 +148,8 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        width: 48,
-                        height: 48,
+                        width: 40,
+                        height: 40,
                         borderRadius: "50%",
                         border: `2px solid ${childColor}`,
                         background: "#FFFFFF",
@@ -157,14 +158,14 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                         boxSizing: "border-box",
                     }}
                 >
-                    <ChildAvatar child={child} size={42} fontSize={16} />
+                    <ChildAvatar child={child} size={34} fontSize={14} />
                 </span>
 
                 <span
                     style={{
                         flex: 1,
                         minWidth: 0,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: 800,
                         color: "#1F2A24",
                         letterSpacing: "-0.01em",
@@ -180,15 +181,15 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                     style={{
                         display: "inline-flex",
                         alignItems: "center",
-                        gap: 4,
-                        fontSize: 12,
+                        gap: 2,
+                        fontSize: 11,
                         fontWeight: 700,
                         color: "#595959",
                         flexShrink: 0,
                         whiteSpace: "nowrap",
                     }}
                 >
-                    <span aria-hidden="true">🔋</span>
+                    <span aria-hidden="true" style={{ fontSize: 12 }}>🔋</span>
                     {batteryLevel != null ? `${batteryLevel}%` : "—"}
                 </span>
 
@@ -196,12 +197,12 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                     aria-label={`안전 상태 ${safeStateLabel}`}
                     title={safeStateLabel}
                     style={{
-                        width: 14,
-                        height: 14,
+                        width: 12,
+                        height: 12,
                         borderRadius: "50%",
                         background: statusFill,
                         flexShrink: 0,
-                        boxShadow: "0 0 0 3px rgba(255,255,255,1), 0 0 0 4px rgba(0,0,0,0.04)",
+                        boxShadow: "0 0 0 2px rgba(255,255,255,1), 0 0 0 3px rgba(0,0,0,0.04)",
                     }}
                 />
             </Wrapper>

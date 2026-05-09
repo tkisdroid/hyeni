@@ -22,6 +22,17 @@ import starMedalIcon from "../../assets/3d/ui/star-medal.webp";
 import starFaceIcon from "../../assets/3d/ui/star-face.webp";
 import safetyMascotIcon from "../../assets/3d/ui/safety-mascot.webp";
 import sosShieldIcon from "../../assets/3d/ui/sos-shield.webp";
+import sendIcon from "../../assets/3d/ui/send.webp";
+import megaphoneIcon from "../../assets/3d/ui/megaphone.webp";
+import giftIcon from "../../assets/3d/ui/gift.webp";
+import cloverIcon from "../../assets/3d/ui/clover.webp";
+import rainbowIcon from "../../assets/3d/ui/rainbow.webp";
+import backIcon from "../../assets/3d/ui/back.webp";
+import plusIcon from "../../assets/3d/ui/plus.webp";
+import closeIcon from "../../assets/3d/ui/close.webp";
+import refreshIcon from "../../assets/3d/ui/refresh.webp";
+import searchIcon from "../../assets/3d/ui/search.webp";
+import settingsIcon from "../../assets/3d/ui/settings.webp";
 
 const SOURCES = {
     bell: bellIcon,
@@ -43,6 +54,17 @@ const SOURCES = {
     "star-face": starFaceIcon,
     "safety-mascot": safetyMascotIcon,
     "sos-shield": sosShieldIcon,
+    send: sendIcon,
+    megaphone: megaphoneIcon,
+    gift: giftIcon,
+    clover: cloverIcon,
+    rainbow: rainbowIcon,
+    back: backIcon,
+    plus: plusIcon,
+    close: closeIcon,
+    refresh: refreshIcon,
+    search: searchIcon,
+    settings: settingsIcon,
 };
 
 const FALLBACK_EMOJI = {
@@ -65,6 +87,17 @@ const FALLBACK_EMOJI = {
     "star-face": "⭐",
     "safety-mascot": "🛡️",
     "sos-shield": "🚨",
+    send: "✈️",
+    megaphone: "📣",
+    gift: "🎁",
+    clover: "🍀",
+    rainbow: "🌈",
+    back: "←",
+    plus: "+",
+    close: "✕",
+    refresh: "↻",
+    search: "🔍",
+    settings: "⚙️",
 };
 
 export function ThreeDIcon({
