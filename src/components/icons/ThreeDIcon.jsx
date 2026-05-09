@@ -15,6 +15,7 @@ import calendarCheckIcon from "../../assets/3d/ui/calendar-check.webp";
 import checkIcon from "../../assets/3d/ui/check.webp";
 import noteIcon from "../../assets/3d/ui/note.webp";
 import chatHeartIcon from "../../assets/3d/ui/chat-heart.webp";
+import friendIcon from "../../assets/3d/category/friend.webp";
 
 const SOURCES = {
     bell: bellIcon,
@@ -29,6 +30,7 @@ const SOURCES = {
     check: checkIcon,
     note: noteIcon,
     "chat-heart": chatHeartIcon,
+    friend: friendIcon,
 };
 
 const FALLBACK_EMOJI = {
@@ -44,6 +46,7 @@ const FALLBACK_EMOJI = {
     check: "✅",
     note: "📝",
     "chat-heart": "💬",
+    friend: "👫",
 };
 
 export function ThreeDIcon({

@@ -4796,6 +4796,7 @@ export default function KidsScheduler() {
         isParent && parentCapabilities.canWriteSchedule ? {
             key: "quick-schedule",
             icon: "🤖",
+            iconKey: "calendar-check",
             label: "빠른일정",
             ariaLabel: "빠른 일정입력",
             palette: quickThemePalette,
@@ -4804,6 +4805,7 @@ export default function KidsScheduler() {
         activeView !== "calendar" ? {
             key: "home",
             icon: "⌂",
+            iconKey: "calendar-heart",
             label: "홈",
             ariaLabel: "홈",
             palette: quickThemePalette,
@@ -4812,6 +4814,7 @@ export default function KidsScheduler() {
         isParent && parentCapabilities.canRequestChildLocation ? {
             key: "child-tracker",
             icon: "⌖",
+            iconKey: "pin-heart",
             label: "우리아이",
             ariaLabel: "📍 우리아이",
             palette: quickThemePalette,
@@ -4820,6 +4823,7 @@ export default function KidsScheduler() {
         isParent && parentCapabilities.canManagePlaces ? {
             key: "academy",
             icon: "□",
+            iconKey: "pin-lavender",
             label: "장소관리",
             ariaLabel: "📍 장소관리",
             palette: quickThemePalette,
@@ -4828,6 +4832,7 @@ export default function KidsScheduler() {
         isParent && parentCapabilities.canManageFamily ? {
             key: "friend-playdate",
             icon: "◇",
+            iconKey: "friend",
             label: "친구놀이",
             ariaLabel: "친구놀이 관리",
             palette: quickThemePalette,
@@ -4842,6 +4847,7 @@ export default function KidsScheduler() {
         isParent && parentCapabilities.canUseForceRing ? {
             key: "force-ring",
             icon: "!",
+            iconKey: "bell",
             label: "응급알림",
             ariaLabel: "응급 강제 알림",
             palette: quickDangerPalette,
@@ -4856,6 +4862,7 @@ export default function KidsScheduler() {
         {
             key: "stickers",
             icon: "★",
+            iconKey: "heart",
             label: isParent ? "스티커" : "스티커북",
             ariaLabel: isParent ? "🏆 스티커" : "스티커북",
             description: isParent ? "" : "오늘 받은 칭찬 보기",
@@ -4871,6 +4878,7 @@ export default function KidsScheduler() {
         isParent && parentCapabilities.canManageSubscription ? {
             key: "subscription",
             icon: "◆",
+            iconKey: "shield-heart",
             label: "구독",
             ariaLabel: "💎 구독",
             palette: quickThemePalette,
@@ -4879,6 +4887,7 @@ export default function KidsScheduler() {
         isParent && parentCapabilities.canEditParentPhones ? {
             key: "contacts",
             icon: "☎",
+            iconKey: "chat-heart",
             label: "연락처",
             ariaLabel: "📞 연락처",
             palette: quickThemePalette,
@@ -4887,6 +4896,7 @@ export default function KidsScheduler() {
         isParent && parentCapabilities.canUseRemoteListen ? {
             key: "remote-audio",
             icon: "◉",
+            iconKey: "shield",
             label: "주변소리",
             ariaLabel: "🎙️ 주변소리",
             palette: quickThemePalette,
@@ -4905,6 +4915,7 @@ export default function KidsScheduler() {
         isParent ? {
             key: "feedback",
             icon: "✉",
+            iconKey: "note",
             label: "피드백",
             ariaLabel: "💌 피드백 보내기",
             palette: quickThemePalette,
@@ -6776,7 +6787,11 @@ export default function KidsScheduler() {
                                 style={{ color: action.palette?.color || DESIGN.colors.ink, fontFamily: FF }}
                                 aria-label={action.ariaLabel}
                             >
-                                <span aria-hidden="true">{action.icon}</span>
+                                {action.iconKey ? (
+                                    <ThreeDIcon name={action.iconKey} size={28} aria-label="" />
+                                ) : (
+                                    <span aria-hidden="true">{action.icon}</span>
+                                )}
                                 <span>{action.label}</span>
                             </button>
                         ))}
