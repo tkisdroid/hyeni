@@ -6195,9 +6195,14 @@ export default function KidsScheduler() {
             )}
             {activeView === "calendar" && !(isParent && isMultiChild && !selectedChildId) && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
-                    {selectedChild && (() => {
-                      const childName = selectedChild?.name || "아이";
-                      const todayEventCount = (todayEvents || []).filter(e => Array.isArray(e.child_ids) ? e.child_ids.includes(selectedChild.id) : true).length;
+                    {(() => {
+                      const heroChild = selectedChild || pairedChildren[0] || null;
+                      const childName = heroChild?.name || "우리 아이";
+                      const todayEventCount = (todayEvents || []).filter(e => {
+                        if (!heroChild?.id) return true;
+                        if (!Array.isArray(e.child_ids)) return true;
+                        return e.child_ids.includes(heroChild.id);
+                      }).length;
                       const moodLine = todayEventCount === 0
                         ? "오늘은 여유로워요"
                         : todayEventCount === 1
@@ -6209,29 +6214,42 @@ export default function KidsScheduler() {
                           aria-label={`${childName} 오늘 요약`}
                           style={{
                             position: "relative",
-                            background: "linear-gradient(135deg, #DDF7EA 0%, #F0FBF5 60%, #FFF7FA 100%)",
+                            background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #F0FBF5 60%, var(--brand-rose-soft, #FFF0F5) 100%)",
                             borderRadius: 28,
-                            border: "1px solid rgba(49, 196, 141, 0.20)",
-                            padding: "20px",
+                            padding: "22px 18px 22px 22px",
                             marginBottom: 18,
                             overflow: "hidden",
-                            boxShadow: "0 8px 24px rgba(31, 24, 28, 0.06)",
-                            minHeight: 200,
+                            boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
+                            minHeight: 220,
                             display: "flex",
+                            alignItems: "stretch",
+                            gap: 12,
                           }}
                         >
-                          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 10, position: "relative", zIndex: 1, maxWidth: "60%" }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "#5F6368" }}>{dateLabel}</span>
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 12, position: "relative", zIndex: 1 }}>
+                            <span style={{
+                              alignSelf: "flex-start",
+                              padding: "4px 10px",
+                              borderRadius: 999,
+                              background: "rgba(255,255,255,0.85)",
+                              border: "1px solid rgba(49,196,141,0.18)",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "var(--brand-mint-text, #087653)",
+                              letterSpacing: "-0.01em",
+                            }}>
+                              {dateLabel}
+                            </span>
                             <h2 style={{
                               margin: 0,
-                              fontSize: 26,
-                              fontWeight: 800,
+                              fontSize: 24,
+                              fontWeight: 900,
                               color: "#202024",
                               letterSpacing: "-0.03em",
-                              lineHeight: 1.25,
+                              lineHeight: 1.22,
                             }}>
                               {childName},<br />
-                              <span style={{ color: "#087653" }}>{moodLine}</span>
+                              <span style={{ color: "var(--brand-mint-text, #087653)" }}>{moodLine}</span>
                             </h2>
                             <button
                               type="button"
@@ -6241,43 +6259,43 @@ export default function KidsScheduler() {
                               }}
                               style={{
                                 alignSelf: "flex-start",
-                                marginTop: 4,
+                                marginTop: "auto",
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: 6,
-                                padding: "10px 16px",
+                                gap: 8,
+                                padding: "12px 18px",
                                 border: "none",
-                                background: "linear-gradient(135deg, #31C48D 0%, #15936B 100%)",
+                                background: "linear-gradient(135deg, var(--brand-mint, #31C48D) 0%, var(--brand-mint-deep, #15936B) 100%)",
                                 color: "#FFFFFF",
                                 borderRadius: 999,
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: 800,
                                 cursor: "pointer",
                                 fontFamily: FF,
-                                boxShadow: "0 6px 16px rgba(49, 196, 141, 0.28)",
+                                boxShadow: "0 8px 18px rgba(49, 196, 141, 0.32)",
+                                letterSpacing: "-0.01em",
                               }}
                             >
-                              <span aria-hidden="true">🗓</span>
-                              오늘 일정 확인
+                              <span aria-hidden="true" style={{ fontSize: 16 }}>🗓</span>
+                              오늘 일정 보기
                               <span aria-hidden="true" style={{ fontWeight: 700 }}>›</span>
                             </button>
                           </div>
                           <div
                             aria-hidden="true"
                             style={{
-                              position: "absolute",
-                              right: 8,
-                              top: "50%",
-                              transform: "translateY(-50%)",
+                              position: "relative",
+                              flexShrink: 0,
+                              width: 148,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              width: 168,
-                              height: 168,
                             }}
                           >
-                            <span style={{ position: "absolute", top: -2, left: 18, fontSize: 28, opacity: 0.85 }}>☁️</span>
-                            <HyeniMascot variant="static" size={150} aria-label="" />
+                            <span style={{ position: "absolute", top: 4, left: -2, fontSize: 22, opacity: 0.85 }}>☁️</span>
+                            <span style={{ position: "absolute", top: 18, right: 6, fontSize: 16, opacity: 0.7 }}>✨</span>
+                            <span style={{ position: "absolute", bottom: 6, left: 8, fontSize: 14, opacity: 0.7 }}>💗</span>
+                            <HyeniMascot variant="static" size={144} aria-label="" />
                           </div>
                           <button
                             type="button"

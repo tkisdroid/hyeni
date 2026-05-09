@@ -121,7 +121,20 @@ export function ChildAvatar({
       )}
       {/* 색상 기반 glyph — fallback 또는 photoUrl 없음 */}
       {showGlyph && (
-        <span aria-hidden="true" style={{ opacity: 1, transition: "opacity 120ms ease" }}>
+        <span
+          aria-hidden="true"
+          style={{
+            opacity: 1,
+            transition: "opacity 120ms ease",
+            fontSize: child?.emoji ? Math.round(size * 0.86) : fontSize,
+            lineHeight: 1,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            height: "100%",
+          }}
+        >
           {getFallbackGlyph(child)}
         </span>
       )}

@@ -66,12 +66,13 @@ export function AnimalIcon({
                 aria-label={label}
                 className={className}
                 style={{
-                    fontSize: size,
+                    fontSize: Math.round(size * 0.92),
                     lineHeight: 1,
-                    display: "inline-block",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     width: size,
                     height: size,
-                    textAlign: "center",
                 }}
             >
                 {fallbackEmoji}
