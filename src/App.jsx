@@ -6389,7 +6389,7 @@ export default function KidsScheduler() {
                   childLocations={homeChildLocationLabels}
                   childDeviceStatusMap={childDeviceStatusMap}
                   onMapTap={() => setShowChildTracker(true)}
-                  onSelectChild={(childId) => setChildDetailId(childId)}
+                  onSelectChild={(childId) => { setSelectedChildId(childId); setActiveView("calendar"); }}
                 />
                 {renderParentBottomTabbar("home", "hyeni-v5-tabbar-fixed")}
               </div>
@@ -6414,6 +6414,119 @@ export default function KidsScheduler() {
             )}
             {activeView === "calendar" && !(isParent && isMultiChild && !selectedChildId) && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
+                    {selectedChild && (() => {
+                      const childName = selectedChild?.name || "아이";
+                      const todayEventCount = (todayEvents || []).filter(e => Array.isArray(e.child_ids) ? e.child_ids.includes(selectedChild.id) : true).length;
+                      const moodLine = todayEventCount === 0
+                        ? "오늘은 여유로워요"
+                        : todayEventCount === 1
+                          ? "오늘 한 개의 일정이 있어요"
+                          : `오늘 ${todayEventCount}개의 일정이 있어요`;
+                      const dateLabel = `${currentMonth + 1}월 ${selectedDate}일 ${DAYS_KO[(new Date(currentYear, currentMonth, selectedDate)).getDay()]}요일`;
+                      return (
+                        <section
+                          aria-label={`${childName} 오늘 요약`}
+                          style={{
+                            position: "relative",
+                            background: "linear-gradient(135deg, #DDF7EA 0%, #F0FBF5 60%, #FFF7FA 100%)",
+                            borderRadius: 28,
+                            border: "1px solid rgba(49, 196, 141, 0.20)",
+                            padding: "20px",
+                            marginBottom: 18,
+                            overflow: "hidden",
+                            boxShadow: "0 8px 24px rgba(31, 24, 28, 0.06)",
+                            minHeight: 200,
+                            display: "flex",
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 10, position: "relative", zIndex: 1, maxWidth: "60%" }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#5F6368" }}>{dateLabel}</span>
+                            <h2 style={{
+                              margin: 0,
+                              fontSize: 26,
+                              fontWeight: 800,
+                              color: "#202024",
+                              letterSpacing: "-0.03em",
+                              lineHeight: 1.25,
+                            }}>
+                              {childName},<br />
+                              <span style={{ color: "#087653" }}>{moodLine}</span>
+                            </h2>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const calendarSection = document.getElementById("parent-calendar-section");
+                                if (calendarSection?.scrollIntoView) calendarSection.scrollIntoView({ behavior: "smooth", block: "start" });
+                              }}
+                              style={{
+                                alignSelf: "flex-start",
+                                marginTop: 4,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "10px 16px",
+                                border: "none",
+                                background: "linear-gradient(135deg, #31C48D 0%, #15936B 100%)",
+                                color: "#FFFFFF",
+                                borderRadius: 999,
+                                fontSize: 13,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                fontFamily: FF,
+                                boxShadow: "0 6px 16px rgba(49, 196, 141, 0.28)",
+                              }}
+                            >
+                              <span aria-hidden="true">🗓</span>
+                              오늘 일정 확인
+                              <span aria-hidden="true" style={{ fontWeight: 700 }}>›</span>
+                            </button>
+                          </div>
+                          <div
+                            aria-hidden="true"
+                            style={{
+                              position: "absolute",
+                              right: 8,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: 168,
+                              height: 168,
+                            }}
+                          >
+                            <span style={{ position: "absolute", top: -2, left: 18, fontSize: 28, opacity: 0.85 }}>☁️</span>
+                            <HyeniMascot variant="static" size={150} aria-label="" />
+                          </div>
+                          <button
+                            type="button"
+                            aria-label="설정"
+                            onClick={() => setActiveView("parentSettings")}
+                            style={{
+                              position: "absolute",
+                              top: 12,
+                              right: 12,
+                              width: 36,
+                              height: 36,
+                              borderRadius: "50%",
+                              background: "#FFFFFF",
+                              border: "1px solid rgba(49, 196, 141, 0.18)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 16,
+                              color: "#5F6368",
+                              cursor: "pointer",
+                              zIndex: 2,
+                              fontFamily: FF,
+                              boxShadow: "0 2px 8px rgba(31, 24, 28, 0.06)",
+                            }}
+                          >
+                            ⚙
+                          </button>
+                        </section>
+                      );
+                    })()}
                     <div className="hyeni-v5-section-head">
                         <span>아이 현황</span>
                         <span className="hyeni-v5-section-meta hyeni-v1-live-meta">
@@ -6465,20 +6578,20 @@ export default function KidsScheduler() {
                             style={{
                                 marginTop: 12,
                                 marginBottom: 12,
-                                background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))",
-                                border: "1px solid var(--theme-accent-line)",
-                                borderRadius: 16,
-                                padding: "12px 14px",
-                                boxShadow: "var(--hyeni-theme-shadow-soft)",
+                                background: "linear-gradient(135deg,#EAF9F1,#FBFAF6)",
+                                border: "1px solid #BCEBD8",
+                                borderRadius: 22,
+                                padding: "14px 16px",
+                                boxShadow: "0 8px 24px rgba(31, 24, 28, 0.06)",
                                 fontFamily: FF
                             }}
                         >
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--theme-accent-text)" }}>📱 아이 기기 안전 지표</div>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: "#087653" }}>📱 아이 기기 안전 지표</div>
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "1px solid var(--theme-accent-line)", background: "white", color: "var(--theme-accent-text)", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "none", background: "linear-gradient(135deg,#31C48D,#15936B)", color: "white", borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0, boxShadow: "0 4px 12px rgba(49, 196, 141, 0.18)" }}
                                 >
                                     {deviceStatusRefreshPending ? "요청 중" : "지금 갱신"}
                                 </button>
@@ -6499,20 +6612,20 @@ export default function KidsScheduler() {
                             style={{
                                 marginTop: 12,
                                 marginBottom: 12,
-                                background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))",
-                                border: "1px solid var(--theme-accent-line)",
-                                borderRadius: 16,
-                                padding: "12px 14px",
-                                boxShadow: "var(--hyeni-theme-shadow-soft)",
+                                background: "linear-gradient(135deg,#EAF9F1,#FBFAF6)",
+                                border: "1px solid #BCEBD8",
+                                borderRadius: 22,
+                                padding: "14px 16px",
+                                boxShadow: "0 8px 24px rgba(31, 24, 28, 0.06)",
                                 fontFamily: FF
                             }}
                         >
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--theme-accent-text)" }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: "#087653" }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
                                 <button
                                     type="button"
                                     onClick={() => setDeviceStatusExpanded(prev => !prev)}
-                                    style={{ border: "1px solid var(--theme-accent-line)", background: "white", color: "var(--theme-accent-text)", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "1px solid #BCEBD8", background: "white", color: "#087653", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     {deviceStatusExpanded ? "접기" : "상세"}
                                 </button>
@@ -6550,15 +6663,15 @@ export default function KidsScheduler() {
                                     </>
                                 )}
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
-                                <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 600 }}>
-                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#059669" : "var(--status-cautionary-strong)", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, gap: 8 }}>
+                                <div style={{ fontSize: 11, color: "#5F6368", fontWeight: 600 }}>
+                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#087653" : "#9A6500", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
                                     {deviceStatusRefreshPending && <span> · 요청 중</span>}
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "1px solid var(--theme-accent-line)", background: "white", color: "var(--theme-accent-text)", borderRadius: 10, padding: "5px 9px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "none", background: "linear-gradient(135deg,#31C48D,#15936B)", color: "white", borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0, boxShadow: "0 4px 12px rgba(49, 196, 141, 0.18)" }}
                                 >
                                     {deviceStatusRefreshPending ? "요청 중" : "지금 갱신"}
                                 </button>
@@ -6612,7 +6725,12 @@ export default function KidsScheduler() {
                     </div>
                     <div className="hyeni-v5-event-list hyeni-v1-home-event-list">
                         {selectedEventsSorted.length > 0 ? selectedEventsSorted.slice(0, 5).map(renderParentScheduleCard) : (
-                            <div className="hyeni-v5-empty">
+                            <div className="hyeni-v5-empty" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "20px 16px 22px" }}>
+                                <div aria-hidden="true" style={{ position: "relative", width: 132, height: 132, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <span style={{ position: "absolute", top: -2, left: 4, fontSize: 26, opacity: 0.8 }}>☁️</span>
+                                    <span style={{ position: "absolute", top: 6, right: 0, fontSize: 18, opacity: 0.7 }}>☁️</span>
+                                    <HyeniMascot variant="static" size={116} aria-label="" />
+                                </div>
                                 <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
                                 <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{parentCapabilities.canWriteSchedule ? "날짜를 눌러 일정을 추가해 주세요." : "가족 연동 후 일정을 추가할 수 있어요."}</div>
                             </div>
@@ -6791,7 +6909,12 @@ export default function KidsScheduler() {
 
                     <div className="hyeni-v5-event-list hyeni-v5-timeline-list">
                         {selectedEventsSorted.length > 0 ? selectedEventsSorted.map(renderParentScheduleCard) : (
-                            <div className="hyeni-v5-empty">
+                            <div className="hyeni-v5-empty" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "20px 16px 22px" }}>
+                                <div aria-hidden="true" style={{ position: "relative", width: 132, height: 132, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <span style={{ position: "absolute", top: -2, left: 4, fontSize: 26, opacity: 0.8 }}>☁️</span>
+                                    <span style={{ position: "absolute", top: 6, right: 0, fontSize: 18, opacity: 0.7 }}>☁️</span>
+                                    <HyeniMascot variant="static" size={116} aria-label="" />
+                                </div>
                                 <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
                                 <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{parentCapabilities.canWriteSchedule ? "날짜를 누르거나 오른쪽 위 + 버튼으로 일정을 추가해 주세요." : "가족 연동 후 일정을 추가할 수 있어요."}</div>
                             </div>

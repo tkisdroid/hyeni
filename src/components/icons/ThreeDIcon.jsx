@@ -6,6 +6,7 @@
 import bellIcon from "../../assets/3d/ui/bell.webp";
 import heartIcon from "../../assets/3d/ui/heart.webp";
 import pinIcon from "../../assets/3d/ui/pin.webp";
+import pinHeartIcon from "../../assets/3d/ui/pin-heart.webp";
 import shieldIcon from "../../assets/3d/ui/shield.webp";
 import calendarHeartIcon from "../../assets/3d/ui/calendar-heart.webp";
 import calendarCheckIcon from "../../assets/3d/ui/calendar-check.webp";
@@ -14,6 +15,7 @@ const SOURCES = {
     bell: bellIcon,
     heart: heartIcon,
     pin: pinIcon,
+    "pin-heart": pinHeartIcon,
     shield: shieldIcon,
     "calendar-heart": calendarHeartIcon,
     "calendar-check": calendarCheckIcon,
@@ -23,6 +25,7 @@ const FALLBACK_EMOJI = {
     bell: "🔔",
     heart: "💗",
     pin: "📍",
+    "pin-heart": "📍",
     shield: "🛡️",
     "calendar-heart": "📅",
     "calendar-check": "✅",

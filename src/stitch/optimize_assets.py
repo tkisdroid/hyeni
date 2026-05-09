@@ -34,6 +34,7 @@ SHEET_STEMS = {
     "12_59_52_9": "ChatGPT Image 2026년 5월 9일 오전 12_59_52 (9)",
     "12_59_52_10": "ChatGPT Image 2026년 5월 9일 오전 12_59_52 (10)",
     "01_54_51_5": "ChatGPT Image 2026년 5월 9일 오전 01_54_51 (5)",
+    "01_54_52_6": "ChatGPT Image 2026년 5월 9일 오전 01_54_52 (6)",
     "01_54_53_10": "ChatGPT Image 2026년 5월 9일 오전 01_54_53 (10)",
     "01_54_50_1": "ChatGPT Image 2026년 5월 9일 오전 01_54_50 (1)",
 }
@@ -49,6 +50,7 @@ ASSETS = [
     ("ui/shield.webp", "12_59_52_7", 1),
     ("ui/calendar-heart.webp", "12_59_52_3", 1),
     ("ui/calendar-check.webp", "12_59_52_2", 1),
+    ("ui/pin-heart.webp", "01_54_52_6", 1),
 
     ("category/school.webp", "01_54_51_5", 5),
     ("category/sports.webp", "01_54_51_5", 3),

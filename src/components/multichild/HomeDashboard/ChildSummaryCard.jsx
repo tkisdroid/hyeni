@@ -3,6 +3,7 @@
 // 자녀 수에 따라 변형: 1자녀 = full, 2-3 = row, 4+ = mini.
 
 import { ChildAvatar } from "./ChildAvatar.jsx";
+import { ThreeDIcon } from "../../icons/ThreeDIcon.jsx";
 
 const DOT_COLORS = { green: "var(--status-positive)", yellow: "var(--status-cautionary)", red: "var(--status-negative)" };
 const DOT_LABELS = ["배터리", "최근 위치", "앱 사용 가능"];
@@ -48,7 +49,7 @@ function deriveWorstColor(safetyDots = []) {
     return "green";
 }
 
-export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel, onClick, density = "full" }) {
+export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel, batteryLevel = null, onClick, density = "full" }) {
     const interactive = typeof onClick === "function";
     const Wrapper = interactive ? "button" : "div";
     const worstColor = deriveWorstColor(safetyDots);
@@ -120,61 +121,89 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
     }
 
     if (density === "row") {
-        // 2-3 자녀 — 1줄 row
+        const safeStateLabel = DOT_STATE_LABELS[worstColor] || "정상";
+        const statusFill = DOT_COLORS[worstColor] || "var(--status-positive)";
         return (
             <Wrapper
                 {...commonProps}
-                className={interactive ? "card card-interactive" : "card"}
                 style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "var(--space-3)",
-                    height: "var(--child-card-row-height)",
-                    padding: "0 var(--space-4)",
+                    gap: 12,
+                    padding: 12,
+                    background: "#FFFFFF",
+                    border: "1px solid #EFEEEA",
+                    borderRadius: 16,
                     textAlign: "left",
                     width: "100%",
                     font: "inherit",
-                    borderLeft: `4px solid ${childColor}`,
-                    transition: "transform 0.12s ease",
+                    cursor: interactive ? "pointer" : "default",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
                 }}
             >
-                <ChildAvatar child={child} size={36} fontSize={14} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>{child.name}</div>
-                    <div
-                        style={{
-                            fontSize: 12,
-                            color: "var(--fg-secondary)",
-                            marginTop: 1,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            fontWeight: "var(--weight-medium)",
-                        }}
-                    >
-                        📍 {displayLocation || "위치 확인 중"}{screenLabel ? ` · 화면 ${screenLabel}` : ""}
-                    </div>
-                </div>
-                {safetyDots.length > 0 && (
-                    <div
-                        aria-label={`안전 상태 ${DOT_STATE_LABELS[worstColor]}`}
-                        title={safetyDots.map((c, i) => `${DOT_LABELS[i]}: ${DOT_STATE_LABELS[c] || "확인 불가"}`).join("\n")}
-                        style={{ display: "flex", gap: 4, flexShrink: 0 }}
-                    >
-                        {safetyDots.map((color, i) => (
-                            <div
-                                key={i}
-                                data-safety-dot
-                                style={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: "var(--radius-full)",
-                                    background: DOT_COLORS[color] || "var(--line-default)",
-                                }}
-                            />
-                        ))}
-                    </div>
-                )}
+                <span
+                    style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 48,
+                        height: 48,
+                        borderRadius: "50%",
+                        border: `2px solid ${childColor}`,
+                        background: "#FFFFFF",
+                        flexShrink: 0,
+                        overflow: "hidden",
+                        boxSizing: "border-box",
+                    }}
+                >
+                    <ChildAvatar child={child} size={42} fontSize={16} />
+                </span>
+
+                <span
+                    style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: 15,
+                        fontWeight: 800,
+                        color: "#1F2A24",
+                        letterSpacing: "-0.01em",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                    }}
+                >
+                    {child.name}
+                </span>
+
+                <span
+                    style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#595959",
+                        flexShrink: 0,
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    <span aria-hidden="true">🔋</span>
+                    {batteryLevel != null ? `${batteryLevel}%` : "—"}
+                </span>
+
+                <span
+                    aria-label={`안전 상태 ${safeStateLabel}`}
+                    title={safeStateLabel}
+                    style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: "50%",
+                        background: statusFill,
+                        flexShrink: 0,
+                        boxShadow: "0 0 0 3px rgba(255,255,255,1), 0 0 0 4px rgba(0,0,0,0.04)",
+                    }}
+                />
             </Wrapper>
         );
     }

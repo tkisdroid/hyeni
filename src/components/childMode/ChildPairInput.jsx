@@ -9,8 +9,8 @@ import { joinFamily } from "../../lib/auth.js";
 import { normalizePairCodeInput } from "../../lib/pairCode.js";
 import { FF } from "../../lib/styleHelpers.js";
 import { AppBrandLogo } from "../auth/AppBrandLogo.jsx";
-import { HeartsBackground } from "../decoration/HeartsBackground.jsx";
-import { HyeniGirl, FamilyHome } from "../decoration/CartoonIllustrations.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 const QR_CAMERA_PERMISSION_MESSAGE = "카메라 권한이 필요해요. 권한을 허용한 뒤 다시 시도해 주세요.";
 
@@ -293,147 +293,243 @@ export function ChildPairInput({ userId, onPaired }) {
 
     if (phase === "loading") {
         return (
-            <HeartsBackground style={{ position: "fixed", inset: 0, zIndex: 500, fontFamily: "var(--font-sans)" }}>
-                <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "var(--space-6)", textAlign: "center" }}>
-                    <span
-                        style={{
-                            display: "inline-flex",
-                            alignItems: "flex-end",
-                            justifyContent: "center",
-                            width: 120,
-                            height: 120,
-                            background: "var(--cartoon-bg-chip)",
-                            borderRadius: "50%",
-                            border: "1px solid var(--cartoon-line)",
-                            marginBottom: "var(--space-4)",
-                            overflow: "hidden",
-                        }}
-                    >
-                        <HyeniGirl size={108} ariaLabel="" />
-                    </span>
-                    <h1 className="cartoon-title" style={{ fontSize: 24, marginBottom: "var(--space-2)" }}>연결됐어요!</h1>
-                    <p className="cartoon-subtitle" style={{ fontSize: 14, lineHeight: 1.6 }}>
+            <div
+                style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 500,
+                    fontFamily: "var(--font-sans)",
+                    background: "linear-gradient(180deg, #FFE7EE 0%, #FFF6F2 50%, #F4E4FB 100%)",
+                }}
+            >
+                <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
+                    <HyeniMascot variant="wave" size={180} aria-label="혜니" />
+                    <h1 style={{ marginTop: 24, fontSize: 26, fontWeight: 800, color: "#2A1A20", letterSpacing: "-0.03em" }}>
+                        연결됐어요!
+                        <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 16, color: "#F779A8" }}>♥</span>
+                    </h1>
+                    <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: "#7A6770", lineHeight: 1.6 }}>
                         가족 정보를 불러오는 중이에요<br />위치 권한을 묻는 창이 뜨면 허용해 주세요
                     </p>
                 </div>
-            </HeartsBackground>
+            </div>
         );
     }
 
     return (
-        <HeartsBackground style={{ position: "fixed", inset: 0, zIndex: 500, fontFamily: "var(--font-sans)" }}>
+        <div
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 500,
+                fontFamily: "var(--font-sans)",
+                background: "linear-gradient(180deg, #FFE7EE 0%, #FFF6F2 50%, #F4E4FB 100%)",
+                overflowY: "auto",
+            }}
+        >
             <div
                 style={{
                     minHeight: "100dvh",
                     display: "flex",
                     flexDirection: "column",
-                    alignItems: "center",
-                    padding: "calc(env(safe-area-inset-top, 0px) + var(--space-8)) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-4))",
+                    padding: "calc(env(safe-area-inset-top, 0px) + 24px) 20px calc(env(safe-area-inset-bottom, 0px) + 16px)",
                 }}
             >
-                <div
-                    style={{
-                        display: "inline-flex",
-                        alignItems: "flex-end",
-                        justifyContent: "center",
-                        width: 96,
-                        height: 96,
-                        background: "var(--cartoon-bg-chip)",
-                        borderRadius: "var(--cartoon-radius-frame)",
-                        border: "1px solid var(--cartoon-line)",
-                        marginBottom: "var(--space-3)",
-                        overflow: "hidden",
-                    }}
-                >
-                    <HyeniGirl size={84} ariaLabel="" />
-                </div>
-                <h1 className="cartoon-title" style={{ fontSize: 24, textAlign: "center" }}>부모님과 연결하기</h1>
-                <p className="cartoon-subtitle" style={{ textAlign: "center", marginBottom: "var(--space-5)" }}>
-                    부모님 앱에 있는 연동 코드에서<br />KID- 뒤의 코드를 입력해 주세요
-                </p>
-
-                <div className="cartoon-kid-input-wrap" style={{ width: "100%", maxWidth: 340, marginBottom: "var(--space-2)" }}>
-                    <div className="cartoon-kid-input-prefix" aria-hidden="true">KID-</div>
-                    <input
-                        value={code}
-                        onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
-                        placeholder="XXXXXXXX"
-                        maxLength={8}
-                        className="cartoon-input cartoon-kid-input"
-                    />
-                </div>
-
-                {error && (
-                    <div className="cartoon-status cartoon-status--cautionary" style={{ width: "100%", maxWidth: 340, marginBottom: "var(--space-2)" }}>
-                        {error}
+                <div style={{ width: "100%", maxWidth: 400, margin: "0 auto", display: "flex", flexDirection: "column", flex: 1 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <AppBrandLogo size={64} radius={18} shadow={false} />
+                        <h2
+                            style={{
+                                marginTop: 12,
+                                fontSize: 18,
+                                fontWeight: 800,
+                                color: "var(--theme-accent-text, #C3325B)",
+                                letterSpacing: "-0.02em",
+                            }}
+                        >
+                            혜니캘린더
+                            <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
+                        </h2>
                     </div>
-                )}
 
-                <button
-                    type="button"
-                    onClick={() => { void handleJoin(); }}
-                    disabled={busy}
-                    className="cartoon-pill cartoon-pill--rose cartoon-pill--lg"
-                    style={{ width: "100%", maxWidth: 340, marginTop: "var(--space-3)", opacity: busy ? 0.7 : 1, cursor: busy ? "wait" : "pointer" }}
-                >
-                    {busy ? "연결 중..." : "🔗 연결하기"}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => { if (!busy) setShowScanner(true); }}
-                    disabled={busy}
-                    className="cartoon-pill cartoon-pill--white"
-                    style={{ width: "100%", maxWidth: 340, marginTop: "var(--space-2)", opacity: busy ? 0.7 : 1, cursor: busy ? "wait" : "pointer" }}
-                >
-                    📷 QR로 연결하기
-                </button>
+                    <div style={{ textAlign: "center", marginTop: 16 }}>
+                        <h1
+                            style={{
+                                margin: 0,
+                                fontSize: 30,
+                                fontWeight: 800,
+                                lineHeight: 1.2,
+                                color: "#2A1A20",
+                                letterSpacing: "-0.03em",
+                            }}
+                        >
+                            부모님과 <span style={{ color: "var(--theme-accent, #F779A8)" }}>연결하기</span>
+                            <span aria-hidden="true" style={{ fontSize: 16, color: "var(--theme-accent, #F779A8)", marginLeft: 4 }}>♥</span>
+                        </h1>
+                        <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: "#7A6770" }}>
+                            부모님 앱에 있는 연동 코드를 입력해 주세요
+                        </p>
+                    </div>
 
-                {/* Guidance card — KID-XXXX 예시 / 대소문자 안내 */}
-                <div
-                    className="cartoon-card-flat"
-                    style={{
-                        width: "100%",
-                        maxWidth: 340,
-                        marginTop: "var(--space-5)",
-                        padding: "var(--space-3) var(--space-4)",
-                        display: "flex",
-                        gap: "var(--space-3)",
-                        alignItems: "flex-start",
-                        background: "var(--cartoon-bg-chip)",
-                    }}
-                >
-                    <span
+                    {/* Code input card */}
+                    <div
                         style={{
-                            display: "inline-flex",
-                            width: 36,
-                            height: 36,
-                            borderRadius: "50%",
-                            background: "var(--cartoon-bg-card)",
-                            alignItems: "flex-end",
-                            justifyContent: "center",
-                            overflow: "hidden",
-                            flexShrink: 0,
+                            marginTop: 20,
+                            padding: "20px 16px",
+                            background: "linear-gradient(180deg, rgba(255,247,250,0.9) 0%, rgba(255,235,242,0.9) 100%)",
+                            border: "1px solid #FFD6DD",
+                            borderRadius: 24,
+                            boxShadow: "0 4px 14px rgba(247, 121, 168, 0.10)",
                         }}
                     >
-                        <HyeniGirl size={32} ariaLabel="" />
-                    </span>
-                    <div style={{ fontSize: 12.5, lineHeight: 1.6, color: "var(--cartoon-rose-text)", fontWeight: 600 }}>
-                        <div style={{ fontWeight: 800, marginBottom: 2 }}>연동 코드 안내</div>
-                        <div>형식: KID- 6자리 영문·숫자 조합</div>
-                        <div>예시: KID-A1B2C3</div>
-                        <div>코드는 대소문자를 구분하지 않아요</div>
+                        <CodeInput code={code} onChange={setCode} onSubmit={() => { void handleJoin(); }} />
+
+                        <div style={{ height: 1, background: "#FFD6DD", margin: "16px 4px 12px", opacity: 0.7 }} />
+
+                        <button
+                            type="button"
+                            onClick={() => { if (!busy) setShowScanner(true); }}
+                            disabled={busy}
+                            style={{
+                                width: "100%",
+                                height: 48,
+                                borderRadius: 16,
+                                border: "1px solid #FFD6DD",
+                                background: "rgba(255,255,255,0.85)",
+                                fontFamily: "var(--font-sans)",
+                                fontSize: 14,
+                                fontWeight: 700,
+                                color: "var(--theme-accent-text, #C3325B)",
+                                cursor: busy ? "wait" : "pointer",
+                                opacity: busy ? 0.6 : 1,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 8,
+                            }}
+                        >
+                            <span aria-hidden="true" style={{
+                                display: "inline-flex",
+                                width: 22,
+                                height: 22,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "var(--theme-accent, #F779A8)",
+                                fontSize: 18,
+                            }}>⌗</span>
+                            QR로 연결하기
+                        </button>
                     </div>
-                </div>
 
-                <div style={{ marginTop: "auto", paddingTop: "var(--space-6)", display: "flex", justifyContent: "center" }}>
-                    <FamilyHome width={240} ariaLabel="" />
-                </div>
+                    {error && (
+                        <div style={{
+                            marginTop: 12,
+                            padding: "10px 14px",
+                            borderRadius: 12,
+                            border: "1px solid #F8D58C",
+                            background: "#FFF7E6",
+                            color: "#B87A00",
+                            fontSize: 13,
+                            fontWeight: 600,
+                        }}>
+                            {error}
+                        </div>
+                    )}
 
-                {/* Hidden — kept to preserve original AppBrandLogo dependency
-                    while the visual moved into HyeniGirl framing above. */}
-                <span style={{ display: "none" }} aria-hidden="true">
-                    <AppBrandLogo size={1} />
-                </span>
+                    {/* Lavender info card */}
+                    <div
+                        style={{
+                            marginTop: 16,
+                            padding: 16,
+                            background: "rgba(242, 235, 254, 0.85)",
+                            border: "1px solid #E0D2FB",
+                            borderRadius: 20,
+                            display: "flex",
+                            gap: 12,
+                            alignItems: "flex-start",
+                        }}
+                    >
+                        <ThreeDIcon name="shield" size={36} aria-label="" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#2A1A20", lineHeight: 1.4 }}>
+                                코드는 <span style={{ color: "var(--theme-accent-text, #C3325B)" }}>24시간</span> 동안만 사용할 수 있어요.
+                            </div>
+                            <div style={{ marginTop: 4, fontSize: 12, fontWeight: 500, color: "#7A6770", lineHeight: 1.5 }}>
+                                새 코드는 부모님 앱에서<br />언제든 다시 발급받을 수 있어요.
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Mascot hero */}
+                    <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200, marginTop: 12 }}>
+                        <div aria-hidden="true" style={{ position: "absolute", left: "4%", top: "30%" }}>
+                            <ThreeDIcon name="calendar-check" size={48} />
+                        </div>
+                        <div aria-hidden="true" style={{ position: "absolute", left: "10%", bottom: 0 }}>
+                            <ThreeDIcon name="heart" size={26} />
+                        </div>
+                        <div aria-hidden="true" style={{ position: "absolute", right: "8%", top: "20%" }}>
+                            <span style={{
+                                display: "inline-flex",
+                                width: 56,
+                                height: 56,
+                                background: "#FFFFFF",
+                                borderRadius: 18,
+                                border: "1px solid #FFD6DD",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxShadow: "0 4px 12px rgba(247, 121, 168, 0.12)",
+                            }}>
+                                <ThreeDIcon name="bell" size={28} />
+                            </span>
+                        </div>
+                        <div aria-hidden="true" style={{ position: "absolute", right: "12%", bottom: 8 }}>
+                            <ThreeDIcon name="heart" size={22} />
+                        </div>
+                        <HyeniMascot variant="wave" size={200} aria-label="혜니" />
+                    </div>
+
+                    <p style={{ textAlign: "center", marginTop: 4, fontSize: 13, fontWeight: 600, color: "#7A6770" }}>
+                        연결되면 <span style={{ color: "var(--theme-accent-text, #C3325B)" }}>내 일정과 알림</span>을 바로 볼 수 있어!
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() => { void handleJoin(); }}
+                        disabled={busy}
+                        style={{
+                            marginTop: 16,
+                            height: 56,
+                            borderRadius: 999,
+                            border: "none",
+                            background: busy
+                                ? "linear-gradient(90deg, #F8C8D5 0%, #EFB6C7 100%)"
+                                : "linear-gradient(90deg, #FFA5C4 0%, #F779A8 100%)",
+                            color: "#FFFFFF",
+                            fontSize: 16,
+                            fontWeight: 700,
+                            fontFamily: "var(--font-sans)",
+                            letterSpacing: "-0.02em",
+                            cursor: busy ? "wait" : "pointer",
+                            opacity: busy ? 0.7 : 1,
+                            boxShadow: "0 6px 18px rgba(247, 121, 168, 0.28)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                        }}
+                        aria-label="연결하기"
+                    >
+                        {busy ? "연결 중..." : "연결하기"}
+                        {!busy && <span aria-hidden="true" style={{ fontWeight: 600, fontSize: 18 }}>›</span>}
+                    </button>
+
+                    <p style={{ marginTop: 12, textAlign: "center", fontSize: 12, fontWeight: 500, color: "#A892A0" }}>
+                        <span aria-hidden="true" style={{ color: "#F779A8", marginRight: 6 }}>♥</span>
+                        소중한 우리 가족을 위한 캘린더
+                        <span aria-hidden="true" style={{ color: "#F779A8", marginLeft: 6 }}>♥</span>
+                    </p>
+                </div>
             </div>
 
             {showScanner && (
@@ -445,6 +541,106 @@ export function ChildPairInput({ userId, onPaired }) {
                     }}
                 />
             )}
-        </HeartsBackground>
+        </div>
+    );
+}
+
+function CodeInput({ code, onChange, onSubmit }) {
+    const inputRef = useRef(null);
+    const [focused, setFocused] = useState(false);
+    const handleClick = () => inputRef.current?.focus();
+    const handleKey = (event) => {
+        if (event.key === "Enter" && code.length === 8) onSubmit();
+    };
+
+    return (
+        <div
+            onClick={handleClick}
+            style={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                cursor: "text",
+            }}
+        >
+            <span
+                aria-hidden="true"
+                style={{
+                    fontSize: 22,
+                    fontWeight: 800,
+                    color: "var(--theme-accent-text, #C3325B)",
+                    fontFamily: FF,
+                    letterSpacing: "-0.02em",
+                }}
+            >
+                KID-
+            </span>
+            <div
+                style={{
+                    flex: 1,
+                    display: "grid",
+                    gridTemplateColumns: "repeat(8, 1fr)",
+                    gap: 4,
+                }}
+            >
+                {Array.from({ length: 8 }).map((_, i) => {
+                    const isActive = focused && code.length === i;
+                    const filled = !!code[i];
+                    return (
+                        <span
+                            key={i}
+                            style={{
+                                aspectRatio: "3 / 4",
+                                background: "#FFFFFF",
+                                border: isActive
+                                    ? "2px solid #F779A8"
+                                    : filled
+                                        ? "1px solid #FFC1CF"
+                                        : "1px solid #FFE0E6",
+                                borderRadius: 10,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontFamily: "ui-monospace, 'SF Mono', monospace",
+                                fontSize: 20,
+                                fontWeight: 800,
+                                color: "#2A1A20",
+                                textTransform: "uppercase",
+                            }}
+                        >
+                            {code[i] || ""}
+                        </span>
+                    );
+                })}
+            </div>
+            <input
+                ref={inputRef}
+                value={code}
+                onChange={(e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                onKeyDown={handleKey}
+                maxLength={8}
+                inputMode="text"
+                autoCapitalize="characters"
+                autoComplete="off"
+                aria-label="페어링 코드 8자리"
+                style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    border: "none",
+                    background: "transparent",
+                    color: "transparent",
+                    caretColor: "transparent",
+                    outline: "none",
+                    fontFamily: FF,
+                    fontSize: 16,
+                    cursor: "text",
+                }}
+            />
+        </div>
     );
 }
