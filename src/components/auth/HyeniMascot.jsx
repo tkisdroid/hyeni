@@ -10,6 +10,8 @@ import mascotWave from "../../assets/3d/mascot/wave.webp";
 import mascotPhone from "../../assets/3d/mascot/phone.webp";
 import mascotCheer from "../../assets/3d/mascot/cheer.webp";
 import mascotThinking from "../../assets/3d/mascot/thinking.webp";
+import mascotSad from "../../assets/3d/mascot/sad.webp";
+import mascotDiary from "../../assets/3d/mascot/diary.webp";
 
 const SOURCES = {
     static: mascotStatic,
@@ -17,6 +19,8 @@ const SOURCES = {
     phone: mascotPhone,
     cheer: mascotCheer,
     thinking: mascotThinking,
+    sad: mascotSad,
+    diary: mascotDiary,
 };
 
 export function HyeniMascot({

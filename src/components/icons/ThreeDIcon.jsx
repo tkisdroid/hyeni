@@ -16,6 +16,12 @@ import checkIcon from "../../assets/3d/ui/check.webp";
 import noteIcon from "../../assets/3d/ui/note.webp";
 import chatHeartIcon from "../../assets/3d/ui/chat-heart.webp";
 import friendIcon from "../../assets/3d/category/friend.webp";
+import crownIcon from "../../assets/3d/ui/crown.webp";
+import crownBadgeIcon from "../../assets/3d/ui/crown-badge.webp";
+import starMedalIcon from "../../assets/3d/ui/star-medal.webp";
+import starFaceIcon from "../../assets/3d/ui/star-face.webp";
+import safetyMascotIcon from "../../assets/3d/ui/safety-mascot.webp";
+import sosShieldIcon from "../../assets/3d/ui/sos-shield.webp";
 
 const SOURCES = {
     bell: bellIcon,
@@ -31,6 +37,12 @@ const SOURCES = {
     note: noteIcon,
     "chat-heart": chatHeartIcon,
     friend: friendIcon,
+    crown: crownIcon,
+    "crown-badge": crownBadgeIcon,
+    "star-medal": starMedalIcon,
+    "star-face": starFaceIcon,
+    "safety-mascot": safetyMascotIcon,
+    "sos-shield": sosShieldIcon,
 };
 
 const FALLBACK_EMOJI = {
@@ -47,6 +59,12 @@ const FALLBACK_EMOJI = {
     note: "📝",
     "chat-heart": "💬",
     friend: "👫",
+    crown: "👑",
+    "crown-badge": "👑",
+    "star-medal": "⭐",
+    "star-face": "⭐",
+    "safety-mascot": "🛡️",
+    "sos-shield": "🚨",
 };
 
 export function ThreeDIcon({

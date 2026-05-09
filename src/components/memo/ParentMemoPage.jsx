@@ -338,7 +338,9 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                         overflow: "hidden",
                     }}
                 >
-                    <span aria-hidden="true" style={{ fontSize: 56, lineHeight: 1, flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(255,200,80,0.32))" }}>⭐</span>
+                    <span aria-hidden="true" style={{ flexShrink: 0, filter: "drop-shadow(0 4px 8px rgba(255,200,80,0.32))" }}>
+                        <ThreeDIcon name="star-face" size={56} aria-label="" />
+                    </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <strong style={{ display: "block", fontSize: 15, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>{stickerTitle}</strong>
                         <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 600, color: "#5F6368" }}>{stickerDescription}</p>

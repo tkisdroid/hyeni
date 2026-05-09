@@ -350,7 +350,9 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                         >
                             추천
                         </span>
-                        <span aria-hidden="true" style={{ position: "absolute", top: -10, right: -4, fontSize: 26, transform: "rotate(8deg)", lineHeight: 1, pointerEvents: "none" }}>👑</span>
+                        <span aria-hidden="true" style={{ position: "absolute", top: -14, right: -6, transform: "rotate(8deg)", lineHeight: 1, pointerEvents: "none" }}>
+                            <ThreeDIcon name="crown" size={36} aria-label="" />
+                        </span>
                         <span style={{ fontSize: 13, fontWeight: 800, color: "#202024" }}>년 플랜</span>
                         <span style={{ fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
                             {fmtKrw(annualPricePerChild)}
@@ -379,7 +381,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                 }}
             >
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 800, color: "#202024" }}>
-                    <span aria-hidden="true" style={{ fontSize: 22 }}>⭐</span>
+                    <ThreeDIcon name="star-medal" size={28} aria-label="" />
                     합계
                 </span>
                 <span style={{ fontSize: 16, fontWeight: 900, color: subscribedCount === 0 ? "var(--brand-rose-text, #B83262)" : "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>

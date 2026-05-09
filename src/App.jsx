@@ -6534,7 +6534,7 @@ export default function KidsScheduler() {
                         >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                                 <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>
-                                    <ThreeDIcon name="shield-heart" size={22} aria-label="" />
+                                    <ThreeDIcon name="safety-mascot" size={28} aria-label="" />
                                     아이 기기 안전 지표
                                 </div>
                                 <button
@@ -6571,7 +6571,7 @@ export default function KidsScheduler() {
                         >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
                                 <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em", minWidth: 0 }}>
-                                    <ThreeDIcon name="shield-heart" size={22} aria-label="" />
+                                    <ThreeDIcon name="safety-mascot" size={28} aria-label="" />
                                     <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>안전 지표 · {primaryDeviceChildName}</span>
                                 </div>
                                 <button
