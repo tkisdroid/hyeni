@@ -6177,6 +6177,142 @@ export default function KidsScheduler() {
             )}
 
             {/* ── CALENDAR VIEW ── */}
+            {/* Parent hero — 모든 부모 calendar 뷰 공통(다자녀 미선택 + 선택/단일자녀) */}
+            {activeView === "calendar" && isParent && (() => {
+              const heroChild = selectedChild || pairedChildren[0] || null;
+              const childName = isMultiChild && !selectedChildId
+                ? "우리 아이들"
+                : (heroChild?.name || "우리 아이");
+              const todayEventCount = (todayEvents || []).filter(e => {
+                if (!heroChild?.id || (isMultiChild && !selectedChildId)) return true;
+                if (!Array.isArray(e.child_ids)) return true;
+                return e.child_ids.includes(heroChild.id);
+              }).length;
+              const moodLine = todayEventCount === 0
+                ? "오늘은 여유로워요"
+                : todayEventCount === 1
+                  ? "오늘 한 개의 일정이 있어요"
+                  : `오늘 ${todayEventCount}개의 일정이 있어요`;
+              const dateLabel = `${currentMonth + 1}월 ${selectedDate}일 ${DAYS_KO[(new Date(currentYear, currentMonth, selectedDate)).getDay()]}요일`;
+              return (
+                <div style={{ width: "100%", maxWidth: contentMaxWidth, padding: "0 14px" }}>
+                  <section
+                    aria-label={`${childName} 오늘 요약`}
+                    style={{
+                      position: "relative",
+                      background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #F0FBF5 60%, var(--brand-rose-soft, #FFF0F5) 100%)",
+                      borderRadius: 28,
+                      padding: "22px 18px 22px 22px",
+                      marginBottom: 14,
+                      overflow: "hidden",
+                      boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
+                      minHeight: 220,
+                      display: "flex",
+                      alignItems: "stretch",
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 12, position: "relative", zIndex: 1 }}>
+                      <span style={{
+                        alignSelf: "flex-start",
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.85)",
+                        border: "1px solid rgba(49,196,141,0.18)",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: "var(--brand-mint-text, #087653)",
+                        letterSpacing: "-0.01em",
+                      }}>
+                        {dateLabel}
+                      </span>
+                      <h2 style={{
+                        margin: 0,
+                        fontSize: 24,
+                        fontWeight: 900,
+                        color: "#202024",
+                        letterSpacing: "-0.03em",
+                        lineHeight: 1.22,
+                      }}>
+                        {childName},<br />
+                        <span style={{ color: "var(--brand-mint-text, #087653)" }}>{moodLine}</span>
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const calendarSection = document.getElementById("parent-calendar-section");
+                          if (calendarSection?.scrollIntoView) calendarSection.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                        style={{
+                          alignSelf: "flex-start",
+                          marginTop: "auto",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "12px 18px",
+                          border: "none",
+                          background: "linear-gradient(135deg, var(--brand-mint, #31C48D) 0%, var(--brand-mint-deep, #15936B) 100%)",
+                          color: "#FFFFFF",
+                          borderRadius: 999,
+                          fontSize: 14,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          fontFamily: FF,
+                          boxShadow: "0 8px 18px rgba(49, 196, 141, 0.32)",
+                          letterSpacing: "-0.01em",
+                        }}
+                      >
+                        <span aria-hidden="true" style={{ fontSize: 16 }}>🗓</span>
+                        오늘 일정 보기
+                        <span aria-hidden="true" style={{ fontWeight: 700 }}>›</span>
+                      </button>
+                    </div>
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: "relative",
+                        flexShrink: 0,
+                        width: 148,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <span style={{ position: "absolute", top: 4, left: -2, fontSize: 22, opacity: 0.85 }}>☁️</span>
+                      <span style={{ position: "absolute", top: 18, right: 6, fontSize: 16, opacity: 0.7 }}>✨</span>
+                      <span style={{ position: "absolute", bottom: 6, left: 8, fontSize: 14, opacity: 0.7 }}>💗</span>
+                      <HyeniMascot variant="static" size={144} aria-label="" />
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="설정"
+                      onClick={() => setActiveView("parentSettings")}
+                      style={{
+                        position: "absolute",
+                        top: 12,
+                        right: 12,
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        background: "#FFFFFF",
+                        border: "1px solid rgba(49, 196, 141, 0.18)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 16,
+                        color: "#5F6368",
+                        cursor: "pointer",
+                        zIndex: 2,
+                        fontFamily: FF,
+                        boxShadow: "0 2px 8px rgba(31, 24, 28, 0.06)",
+                      }}
+                    >
+                      ⚙
+                    </button>
+                  </section>
+                </div>
+              );
+            })()}
             {/* Multi-child + no selection: show the per-child today aggregate
                 instead of the single-child dashboard. Tapping a child card
                 drops into the regular per-child view via setSelectedChildId. */}
@@ -6195,7 +6331,8 @@ export default function KidsScheduler() {
             )}
             {activeView === "calendar" && !(isParent && isMultiChild && !selectedChildId) && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
-                    {(() => {
+                    {/* hero — 상단 공통 hero 로 이동, 여기서는 빈 placeholder 유지 (이전 중복 제거) */}
+                    {false && (() => {
                       const heroChild = selectedChild || pairedChildren[0] || null;
                       const childName = heroChild?.name || "우리 아이";
                       const todayEventCount = (todayEvents || []).filter(e => {
