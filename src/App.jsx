@@ -4490,11 +4490,20 @@ export default function KidsScheduler() {
             <section
                 className="hyeni-v5-movement-summary"
                 aria-label="선택한 날짜 이동경로 요약"
+                style={{
+                    marginTop: 18,
+                    background: "linear-gradient(135deg, var(--brand-lavender-soft, #EFE8FF) 0%, #FFFDF8 100%)",
+                    border: "1px solid var(--brand-lavender-line, #DDD1FF)",
+                    borderRadius: 24,
+                    padding: "16px 16px 14px",
+                    boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
+                }}
             >
-                <div className="hyeni-v5-movement-summary__head">
-                    <div>
-                        <span className="hyeni-v5-movement-summary__kicker">{selectedCalendarDateLabel}</span>
-                        <h3>{childName} 하루 이동경로</h3>
+                <div className="hyeni-v5-movement-summary__head" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <ThreeDIcon name="pin-lavender" size={36} aria-label="" />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
+                        <span className="hyeni-v5-movement-summary__kicker" style={{ fontSize: 11, fontWeight: 700, color: "var(--brand-lavender-text, #5F43B2)" }}>{selectedCalendarDateLabel}</span>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>{childName} 하루 이동경로</h3>
                     </div>
                 </div>
 
@@ -6527,11 +6536,27 @@ export default function KidsScheduler() {
                         </section>
                       );
                     })()}
-                    <div className="hyeni-v5-section-head">
-                        <span>아이 현황</span>
-                        <span className="hyeni-v5-section-meta hyeni-v1-live-meta">
-                            {displayChildPos ? "실시간" : "연결 준비 중"}
-                            {displayChildPos && <span aria-hidden="true">●</span>}
+                    <div className="hyeni-v5-section-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 22, marginBottom: 10, padding: "0 4px" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
+                            <ThreeDIcon name="pin-heart" size={20} aria-label="" />
+                            아이 현황
+                        </span>
+                        <span
+                            className="hyeni-v5-section-meta hyeni-v1-live-meta"
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "4px 10px",
+                                borderRadius: 999,
+                                background: displayChildPos ? "var(--brand-mint-soft, #DDF7EA)" : "#FFF3C7",
+                                color: displayChildPos ? "var(--brand-mint-text, #087653)" : "#9A6500",
+                                fontSize: 11,
+                                fontWeight: 800,
+                            }}
+                        >
+                            {displayChildPos && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 999, background: "var(--brand-mint, #31C48D)" }} />}
+                            {displayChildPos ? "실시간 연결" : "연결 준비 중"}
                         </span>
                     </div>
                     <div className="hyeni-v5-kids-grid">
@@ -6576,22 +6601,25 @@ export default function KidsScheduler() {
                         <section
                             aria-label="아이 기기 사용 지표"
                             style={{
-                                marginTop: 12,
-                                marginBottom: 12,
-                                background: "linear-gradient(135deg,#EAF9F1,#FBFAF6)",
-                                border: "1px solid #BCEBD8",
-                                borderRadius: 22,
-                                padding: "14px 16px",
-                                boxShadow: "0 8px 24px rgba(31, 24, 28, 0.06)",
+                                marginTop: 18,
+                                marginBottom: 14,
+                                background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #FBFAF6 100%)",
+                                border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                                borderRadius: 24,
+                                padding: "16px 18px",
+                                boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
                                 fontFamily: FF
                             }}
                         >
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: "#087653" }}>📱 아이 기기 안전 지표</div>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>
+                                    <ThreeDIcon name="shield-heart" size={22} aria-label="" />
+                                    아이 기기 안전 지표
+                                </div>
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "none", background: "linear-gradient(135deg,#31C48D,#15936B)", color: "white", borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0, boxShadow: "0 4px 12px rgba(49, 196, 141, 0.18)" }}
+                                    style={{ border: "none", background: "linear-gradient(135deg, var(--brand-mint, #31C48D), var(--brand-mint-deep, #15936B))", color: "#FFFFFF", borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0, boxShadow: "0 4px 12px rgba(49, 196, 141, 0.18)" }}
                                 >
                                     {deviceStatusRefreshPending ? "요청 중" : "지금 갱신"}
                                 </button>
@@ -6610,22 +6638,25 @@ export default function KidsScheduler() {
                         <section
                             aria-label="아이 기기 사용 지표"
                             style={{
-                                marginTop: 12,
-                                marginBottom: 12,
-                                background: "linear-gradient(135deg,#EAF9F1,#FBFAF6)",
-                                border: "1px solid #BCEBD8",
-                                borderRadius: 22,
-                                padding: "14px 16px",
-                                boxShadow: "0 8px 24px rgba(31, 24, 28, 0.06)",
+                                marginTop: 18,
+                                marginBottom: 14,
+                                background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #FBFAF6 100%)",
+                                border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                                borderRadius: 24,
+                                padding: "16px 18px",
+                                boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
                                 fontFamily: FF
                             }}
                         >
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-                                <div style={{ fontSize: 13, fontWeight: 800, color: "#087653" }}>📱 아이 기기 안전 지표 · {primaryDeviceChildName}</div>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em", minWidth: 0 }}>
+                                    <ThreeDIcon name="shield-heart" size={22} aria-label="" />
+                                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>안전 지표 · {primaryDeviceChildName}</span>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={() => setDeviceStatusExpanded(prev => !prev)}
-                                    style={{ border: "1px solid #BCEBD8", background: "white", color: "#087653", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "1px solid var(--brand-mint-line, #BCEBD8)", background: "#FFFFFF", color: "var(--brand-mint-text, #087653)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     {deviceStatusExpanded ? "접기" : "상세"}
                                 </button>
@@ -6682,18 +6713,58 @@ export default function KidsScheduler() {
                     <button
                         type="button"
                         className="hyeni-v5-memo-mini"
-                        style={{ width: "100%", fontFamily: FF }}
+                        style={{
+                            width: "100%",
+                            fontFamily: FF,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 14,
+                            padding: "16px 18px",
+                            background: "linear-gradient(135deg, #FFFDF8 0%, var(--brand-rose-soft, #FFE2EC) 100%)",
+                            border: "1px solid var(--brand-rose-line, #FFD0DD)",
+                            borderRadius: 24,
+                            boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            marginTop: 14,
+                        }}
                         onClick={handleParentMemoOpen}
                     >
-                        <span className="hyeni-v5-memo-icon">💌</span>
-                        <span className="hyeni-v5-memo-body">
-                            <span className="hyeni-v5-memo-label">오늘의 메모</span>
-                            <span className="hyeni-v5-memo-text">{memoPreviewText}</span>
-                            {memoPreviewMeta && <span className="hyeni-v5-memo-meta">{memoPreviewMeta}</span>}
+                        <span className="hyeni-v5-memo-icon" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, flexShrink: 0 }}>
+                            <ThreeDIcon name="chat-heart" size={42} aria-label="" />
                         </span>
-                        <span className="hyeni-v5-memo-count">{memoPreviewCount}</span>
+                        <span className="hyeni-v5-memo-body" style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+                            <span className="hyeni-v5-memo-label" style={{ fontSize: 12, fontWeight: 800, color: "var(--brand-rose-text, #B83262)", letterSpacing: "-0.01em" }}>오늘의 메모</span>
+                            <span className="hyeni-v5-memo-text" style={{ fontSize: 14, fontWeight: 700, color: "#202024", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{memoPreviewText}</span>
+                            {memoPreviewMeta && <span className="hyeni-v5-memo-meta" style={{ fontSize: 11, fontWeight: 600, color: "#9A9AA0" }}>{memoPreviewMeta}</span>}
+                        </span>
+                        <span
+                            className="hyeni-v5-memo-count"
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                minWidth: 28,
+                                height: 28,
+                                padding: "0 8px",
+                                borderRadius: 999,
+                                background: "var(--brand-rose, #F779A8)",
+                                color: "#FFFFFF",
+                                fontSize: 12,
+                                fontWeight: 800,
+                                flexShrink: 0,
+                            }}
+                        >
+                            {memoPreviewCount}
+                        </span>
                     </button>
 
+                    <div className="hyeni-v5-section-head" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 22, marginBottom: 10, padding: "0 4px" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
+                            <ThreeDIcon name="check" size={20} aria-label="" />
+                            바로가기
+                        </span>
+                    </div>
                     <div className="hyeni-v5-action-rail" aria-label="관리 바로가기">
                         {quickUtilityActions.map(action => (
                             <button
@@ -6711,6 +6782,15 @@ export default function KidsScheduler() {
                         ))}
                     </div>
 
+                    <div className="hyeni-v5-section-head" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 22, marginBottom: 10, padding: "0 4px" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
+                            <ThreeDIcon name="calendar-heart" size={20} aria-label="" />
+                            캘린더
+                        </span>
+                        <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "var(--fg-tertiary, #9A9AA0)" }}>
+                            {currentYear}년 {MONTHS_KO[currentMonth]}
+                        </span>
+                    </div>
                     <section ref={parentCalendarRef} id="parent-calendar-section" aria-label="캘린더">
                         {renderParentCalendarGrid("parent-main")}
                     </section>

@@ -7,18 +7,28 @@ import bellIcon from "../../assets/3d/ui/bell.webp";
 import heartIcon from "../../assets/3d/ui/heart.webp";
 import pinIcon from "../../assets/3d/ui/pin.webp";
 import pinHeartIcon from "../../assets/3d/ui/pin-heart.webp";
+import pinLavenderIcon from "../../assets/3d/ui/pin-lavender.webp";
 import shieldIcon from "../../assets/3d/ui/shield.webp";
+import shieldHeartIcon from "../../assets/3d/ui/shield-heart.webp";
 import calendarHeartIcon from "../../assets/3d/ui/calendar-heart.webp";
 import calendarCheckIcon from "../../assets/3d/ui/calendar-check.webp";
+import checkIcon from "../../assets/3d/ui/check.webp";
+import noteIcon from "../../assets/3d/ui/note.webp";
+import chatHeartIcon from "../../assets/3d/ui/chat-heart.webp";
 
 const SOURCES = {
     bell: bellIcon,
     heart: heartIcon,
     pin: pinIcon,
     "pin-heart": pinHeartIcon,
+    "pin-lavender": pinLavenderIcon,
     shield: shieldIcon,
+    "shield-heart": shieldHeartIcon,
     "calendar-heart": calendarHeartIcon,
     "calendar-check": calendarCheckIcon,
+    check: checkIcon,
+    note: noteIcon,
+    "chat-heart": chatHeartIcon,
 };
 
 const FALLBACK_EMOJI = {
@@ -26,9 +36,14 @@ const FALLBACK_EMOJI = {
     heart: "💗",
     pin: "📍",
     "pin-heart": "📍",
+    "pin-lavender": "📍",
     shield: "🛡️",
+    "shield-heart": "🛡️",
     "calendar-heart": "📅",
     "calendar-check": "✅",
+    check: "✅",
+    note: "📝",
+    "chat-heart": "💬",
 };
 
 export function ThreeDIcon({
