@@ -706,16 +706,40 @@ export function AcademyManager({
                                 onRemove={removeDangerPlace}
                             />
                         )}
-                        {(activeFilter === "safe" || activeFilter === "frequent") && (
-                            <SavedPlacesSection
-                                list={savedList}
-                                locked={savedPlacesLocked}
-                                onAddNew={openNewSavedPlace}
-                                onAddSafe={openNewSafePlace}
-                                onEdit={openSavedPlaceEdit}
-                                onRemove={removeSavedPlace}
-                            />
-                        )}
+                        {activeFilter === "safe" && (() => {
+                            const filtered = savedList
+                                .map((place, originalIdx) => ({ place, originalIdx }))
+                                .filter(({ place }) => place.is_playdate_safe);
+                            const filteredList = filtered.map(({ place }) => place);
+                            const mapIdx = (i) => filtered[i]?.originalIdx ?? i;
+                            return (
+                                <SavedPlacesSection
+                                    list={filteredList}
+                                    locked={savedPlacesLocked}
+                                    onAddNew={openNewSafePlace}
+                                    onAddSafe={openNewSafePlace}
+                                    onEdit={(i) => openSavedPlaceEdit(mapIdx(i))}
+                                    onRemove={(i) => removeSavedPlace(mapIdx(i))}
+                                />
+                            );
+                        })()}
+                        {activeFilter === "frequent" && (() => {
+                            const filtered = savedList
+                                .map((place, originalIdx) => ({ place, originalIdx }))
+                                .filter(({ place }) => !place.is_playdate_safe);
+                            const filteredList = filtered.map(({ place }) => place);
+                            const mapIdx = (i) => filtered[i]?.originalIdx ?? i;
+                            return (
+                                <SavedPlacesSection
+                                    list={filteredList}
+                                    locked={savedPlacesLocked}
+                                    onAddNew={openNewSavedPlace}
+                                    onAddSafe={openNewSavedPlace}
+                                    onEdit={(i) => openSavedPlaceEdit(mapIdx(i))}
+                                    onRemove={(i) => removeSavedPlace(mapIdx(i))}
+                                />
+                            );
+                        })()}
                     </>
                 )}
             </div>
