@@ -6824,7 +6824,7 @@ export default function KidsScheduler() {
                                 <div aria-hidden="true" style={{ position: "relative", width: 132, height: 132, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <span style={{ position: "absolute", top: -2, left: 4, fontSize: 26, opacity: 0.8 }}>☁️</span>
                                     <span style={{ position: "absolute", top: 6, right: 0, fontSize: 18, opacity: 0.7 }}>☁️</span>
-                                    <HyeniMascot variant="static" size={116} aria-label="" />
+                                    <HyeniMascot variant="thinking" size={116} aria-label="" />
                                 </div>
                                 <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
                                 <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{parentCapabilities.canWriteSchedule ? "날짜를 눌러 일정을 추가해 주세요." : "가족 연동 후 일정을 추가할 수 있어요."}</div>
@@ -7008,7 +7008,7 @@ export default function KidsScheduler() {
                                 <div aria-hidden="true" style={{ position: "relative", width: 132, height: 132, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                     <span style={{ position: "absolute", top: -2, left: 4, fontSize: 26, opacity: 0.8 }}>☁️</span>
                                     <span style={{ position: "absolute", top: 6, right: 0, fontSize: 18, opacity: 0.7 }}>☁️</span>
-                                    <HyeniMascot variant="static" size={116} aria-label="" />
+                                    <HyeniMascot variant="thinking" size={116} aria-label="" />
                                 </div>
                                 <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
                                 <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{parentCapabilities.canWriteSchedule ? "날짜를 누르거나 오른쪽 위 + 버튼으로 일정을 추가해 주세요." : "가족 연동 후 일정을 추가할 수 있어요."}</div>

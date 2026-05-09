@@ -8,14 +8,15 @@
 import mascotStatic from "../../assets/3d/mascot/static.webp";
 import mascotWave from "../../assets/3d/mascot/wave.webp";
 import mascotPhone from "../../assets/3d/mascot/phone.webp";
+import mascotCheer from "../../assets/3d/mascot/cheer.webp";
+import mascotThinking from "../../assets/3d/mascot/thinking.webp";
 
 const SOURCES = {
     static: mascotStatic,
     wave: mascotWave,
     phone: mascotPhone,
-    // Cheer asset not yet curated — alias to wave so PairingWizard step-5 and
-    // kkuk overlay still receive a valid mascot image.
-    cheer: mascotWave,
+    cheer: mascotCheer,
+    thinking: mascotThinking,
 };
 
 export function HyeniMascot({
