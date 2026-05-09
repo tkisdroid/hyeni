@@ -7699,21 +7699,24 @@ export default function KidsScheduler() {
                             role={isParent ? "parent" : "child"}
                             familyId={familyId}
                             childList={pairedChildren}
+                            onClose={() => setShowSubscriptionSettings(false)}
                         />
                         <button
                             type="button"
                             onClick={() => setShowSubscriptionSettings(false)}
                             style={{
                                 width: "100%",
-                                marginTop: 10,
-                                padding: "12px 14px",
-                                borderRadius: 16,
-                                border: "none",
-                                background: "white",
-                                color: "var(--fg-secondary)",
-                                fontWeight: 700,
+                                marginTop: 12,
+                                padding: "16px 14px",
+                                borderRadius: 999,
+                                border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                                background: "#FFFFFF",
+                                color: "var(--brand-mint-text, #087653)",
+                                fontSize: 16,
+                                fontWeight: 800,
+                                fontFamily: FF,
                                 cursor: "pointer",
-                                boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
+                                boxShadow: "0 8px 24px rgba(31, 24, 28, 0.08)",
                             }}
                         >
                             닫기

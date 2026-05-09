@@ -1,12 +1,13 @@
 // src/components/settings/SubscriptionManagement.jsx
-// Phase 4 spec section 4.2 — plan-grid (월/년) + avatar stepper.
-// 기존 Qonversion 핸들러 보존, 시각만 Minimal-Pro 톤으로 정비.
+// Premium Kawaii redesign — bunny mascot hero + plan grid + summary row.
+// 기능(Qonversion 토글, deriveChildEntitlements, 가족 단위 합계) 보존.
 
 import { useMemo, useState } from "react";
 import { useChildSubscriptions, deriveChildEntitlements, totalMonthlyPrice } from "../../lib/childSubscriptions.js";
 import { purchaseChildSlot } from "../../lib/qonversion.js";
 import { CHILD_DEVICE_NOTE } from "../../lib/paywallCopy.js";
-import { PriceSummary } from "../multichild/SubscriptionScreen/PriceSummary.jsx";
+import { AnimalIcon } from "../icons/AnimalIcon.jsx";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 const PRICE_PER_CHILD_MONTHLY = 1500;
 const ANNUAL_DISCOUNT_RATE = 0.33; // 4 months free 기준
@@ -15,7 +16,85 @@ function fmtKrw(n) {
     return `₩${Math.round(n).toLocaleString("ko-KR")}`;
 }
 
-export function SubscriptionManagement({ role, familyId, childList = [] }) {
+function ChildSlot({ child, subscribed, busy, onToggle }) {
+    const childName = child.name || "아이";
+    const animalEmoji = child.emoji || "🐰";
+    return (
+        <button
+            type="button"
+            onClick={() => onToggle(child)}
+            disabled={busy}
+            aria-label={`${childName} ${subscribed ? "구독 해지" : "구독 시작"}`}
+            style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 14px 10px 10px",
+                background: "transparent",
+                border: "none",
+                borderRadius: 18,
+                cursor: busy ? "default" : "pointer",
+                fontFamily: "inherit",
+                opacity: busy ? 0.5 : 1,
+                flex: 1,
+                minWidth: 0,
+            }}
+        >
+            <span
+                aria-hidden="true"
+                style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    background: subscribed ? "var(--brand-mint-soft, #DDF7EA)" : "#F0F7F2",
+                    boxShadow: subscribed ? "0 4px 12px rgba(49,196,141,0.18)" : "none",
+                    flexShrink: 0,
+                }}
+            >
+                <AnimalIcon emoji={animalEmoji} size={42} aria-label="" />
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0 }}>
+                <span style={{ fontSize: 15, fontWeight: 800, color: "#202024", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>
+                    {childName}
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: subscribed ? "var(--brand-mint-text, #087653)" : "#9A9AA0", marginTop: 2 }}>
+                    {subscribed ? `${fmtKrw(PRICE_PER_CHILD_MONTHLY)}/월` : "무료"}
+                </span>
+            </span>
+        </button>
+    );
+}
+
+function PlanFeatureItem({ children }) {
+    return (
+        <li style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: "#202024" }}>
+            <span
+                aria-hidden="true"
+                style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    background: "var(--brand-mint, #31C48D)",
+                    color: "#FFFFFF",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    flexShrink: 0,
+                }}
+            >
+                ✓
+            </span>
+            <span>{children}</span>
+        </li>
+    );
+}
+
+export function SubscriptionManagement({ role, familyId, childList = [], onClose }) {
     if (role === "child") {
         return (
             <section
@@ -60,109 +139,250 @@ export function SubscriptionManagement({ role, familyId, childList = [] }) {
         }
     }
 
+    const annualPricePerChild = Math.round(PRICE_PER_CHILD_MONTHLY * 12 * (1 - ANNUAL_DISCOUNT_RATE));
     const monthlyPriceForCount = subscribedCount * PRICE_PER_CHILD_MONTHLY;
-    const annualPriceForCount = Math.round(monthlyPriceForCount * 12 * (1 - ANNUAL_DISCOUNT_RATE));
+    const annualPriceForCount = subscribedCount * annualPricePerChild;
+    const summaryPrice = selectedPlan === "annual" ? annualPriceForCount : monthlyPriceForCount;
+    const summaryLabel = subscribedCount === 0
+        ? "구독 없음"
+        : `${fmtKrw(summaryPrice)}${selectedPlan === "annual" ? "/년" : "/월"}`;
 
     return (
         <section
-            className="cartoon-card-flat"
+            aria-label="혜니 프리미엄 구독"
             style={{
-                padding: "var(--space-5) var(--space-4)",
+                position: "relative",
+                background: "linear-gradient(165deg, #FFFDF8 0%, var(--brand-rose-soft, #FFE2EC) 100%)",
+                borderRadius: 28,
+                padding: "26px 22px 22px",
+                boxShadow: "0 18px 44px rgba(31, 24, 28, 0.12)",
+                fontFamily: "inherit",
                 display: "flex",
                 flexDirection: "column",
-                gap: "var(--space-5)",
+                gap: 22,
+                overflow: "hidden",
             }}
         >
-            <div>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>혜니 프리미엄</h2>
-                <p style={{ margin: "var(--space-1) 0 0", fontSize: 13, color: "var(--fg-secondary)", fontWeight: "var(--weight-medium)" }}>
-                    자녀 1인당 {fmtKrw(PRICE_PER_CHILD_MONTHLY)}/월 · 가족 단위 결제
-                </p>
-            </div>
+            {/* 닫기 X — 좌상단 */}
+            {onClose && (
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="닫기"
+                    style={{
+                        position: "absolute",
+                        top: 16,
+                        left: 16,
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        border: "none",
+                        background: "linear-gradient(135deg, #FFFFFF 0%, var(--brand-rose-soft, #FFE2EC) 100%)",
+                        color: "var(--brand-rose-text, #B83262)",
+                        fontSize: 14,
+                        fontWeight: 900,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 4px 12px rgba(31,24,28,0.08)",
+                        zIndex: 2,
+                        fontFamily: "inherit",
+                    }}
+                >
+                    ✕
+                </button>
+            )}
 
-            {/* avatar stepper — 우리 가족 아이 */}
-            <div>
-                <h3 className="settings-section-header" style={{ margin: "0 0 var(--space-2)" }}>우리 가족 아이</h3>
-                <div className="avatar-stepper">
-                    {childList.map((c) => {
-                        const subscribed = subscribedSet.has(c.id);
-                        const busy = busyChildId === c.id;
-                        const initial = (c.name || "?").slice(0, 1);
-                        const color = c.color_hex || "var(--theme-accent)";
-                        const childName = c.name || "아이";
-                        return (
-                            <div
-                                key={c.id}
-                                className="avatar-stepper-cell"
-                                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}
-                            >
-                                <button
-                                    type="button"
-                                    className="avatar-stepper-slot"
-                                    data-child-id={c.id}
-                                    data-filled={subscribed ? "true" : "false"}
-                                    style={{ "--child-color": color, opacity: busy ? 0.6 : 1 }}
-                                    onClick={() => handleToggleChild(c)}
-                                    disabled={busy}
-                                    aria-label={`${childName} ${subscribed ? "구독 해지" : "구독 시작"}`}
-                                    title={`${childName}${subscribed ? " · 구독중" : ""}`}
-                                >
-                                    {initial}
-                                </button>
-                                <span style={{ fontSize: 12, fontWeight: "var(--weight-medium)", color: "var(--fg-primary)" }}>{childName}</span>
-                                <span style={{ fontSize: 10, color: subscribed ? "var(--theme-accent-text)" : "var(--fg-tertiary)", fontWeight: "var(--weight-medium)" }}>
-                                    {subscribed ? `${fmtKrw(PRICE_PER_CHILD_MONTHLY)}/월` : "무료"}
-                                </span>
-                            </div>
-                        );
-                    })}
+            {/* Hero — 타이틀 + 마스코트 */}
+            <header style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 12, paddingLeft: 56, minHeight: 110 }}>
+                <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        혜니 프리미엄
+                        <span aria-hidden="true" style={{ fontSize: 16, opacity: 0.85 }}>✨</span>
+                    </h2>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#5F6368", letterSpacing: "-0.01em" }}>
+                        자녀 1인당 {fmtKrw(PRICE_PER_CHILD_MONTHLY)}/월 · 가족 단위 결제
+                    </p>
                 </div>
-                <p style={{ margin: "var(--space-2) 0 0", fontSize: 11, color: "var(--fg-tertiary)", fontWeight: "var(--weight-medium)" }}>
+                <div
+                    aria-hidden="true"
+                    style={{
+                        position: "absolute",
+                        right: -6,
+                        top: -8,
+                        width: 120,
+                        height: 120,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    }}
+                >
+                    <AnimalIcon name="rabbit" size={108} aria-label="" />
+                    <span style={{ position: "absolute", bottom: -2, left: 6, transform: "rotate(-8deg)" }}>
+                        <ThreeDIcon name="heart" size={36} aria-label="" />
+                    </span>
+                </div>
+            </header>
+
+            {/* 우리 가족 아이 */}
+            <div>
+                <h3 style={{ margin: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>
+                    <span aria-hidden="true" style={{ fontSize: 18 }}>👥</span>
+                    우리 가족 아이
+                </h3>
+                <div
+                    style={{
+                        display: "flex",
+                        gap: 6,
+                        padding: 10,
+                        background: "#FFFFFF",
+                        border: "1px solid var(--line-soft, #F1ECEE)",
+                        borderRadius: 22,
+                        boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
+                        flexWrap: "wrap",
+                    }}
+                >
+                    {childList.length === 0 && (
+                        <div style={{ flex: 1, padding: "12px 14px", fontSize: 13, color: "#9A9AA0", fontWeight: 700, textAlign: "center" }}>
+                            연동된 자녀가 없어요
+                        </div>
+                    )}
+                    {childList.map((c) => (
+                        <ChildSlot
+                            key={c.id}
+                            child={c}
+                            subscribed={subscribedSet.has(c.id)}
+                            busy={busyChildId === c.id}
+                            onToggle={handleToggleChild}
+                        />
+                    ))}
+                </div>
+                <p style={{ margin: "8px 0 0", fontSize: 11, fontWeight: 600, color: "#5F6368", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <ThreeDIcon name="heart" size={14} aria-label="" />
                     아이 아이콘을 눌러 구독을 켜고 끌 수 있어요
                 </p>
             </div>
 
-            {/* Plan grid */}
+            {/* 플랜 */}
             <div>
-                <h3 className="settings-section-header" style={{ margin: "0 0 var(--space-2)" }}>플랜</h3>
-                <div className="plan-grid">
+                <h3 style={{ margin: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
+                    <span aria-hidden="true" style={{ fontSize: 18 }}>👑</span>
+                    플랜
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                    {/* 월 플랜 */}
                     <button
                         type="button"
-                        className="plan-card"
-                        data-selected={selectedPlan === "monthly" ? "true" : "false"}
                         onClick={() => setSelectedPlan("monthly")}
+                        aria-pressed={selectedPlan === "monthly"}
+                        style={{
+                            position: "relative",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 8,
+                            padding: "16px 14px",
+                            background: "#FFFFFF",
+                            border: selectedPlan === "monthly" ? "2px solid var(--brand-rose, #F779A8)" : "1px solid var(--line-soft, #F1ECEE)",
+                            borderRadius: 20,
+                            boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            textAlign: "left",
+                        }}
                     >
-                        <span className="plan-card-name">월 플랜</span>
-                        <span className="plan-card-price">{fmtKrw(PRICE_PER_CHILD_MONTHLY)}</span>
-                        <span className="plan-card-price-period">/ 자녀 1인 · 월</span>
-                        <ul className="plan-card-features">
-                            <li className="plan-card-feature">언제든 해지</li>
-                            <li className="plan-card-feature">월 단위 청구</li>
+                        <span aria-hidden="true" style={{ position: "absolute", top: 12, right: 12 }}>
+                            <ThreeDIcon name="heart" size={20} aria-label="" />
+                        </span>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: "#202024" }}>월 플랜</span>
+                        <span style={{ fontSize: 24, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em" }}>
+                            {fmtKrw(PRICE_PER_CHILD_MONTHLY)}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#9A9AA0" }}>/ 자녀 1인 · 월</span>
+                        <span aria-hidden="true" style={{ display: "block", height: 1, background: "var(--line-soft, #F1ECEE)", margin: "4px 0" }} />
+                        <ul style={{ display: "flex", flexDirection: "column", gap: 6, margin: 0, padding: 0, listStyle: "none" }}>
+                            <PlanFeatureItem>언제든 해지</PlanFeatureItem>
+                            <PlanFeatureItem>월 단위 청구</PlanFeatureItem>
                         </ul>
                     </button>
+
+                    {/* 년 플랜 — 추천 */}
                     <button
                         type="button"
-                        className="plan-card"
-                        data-recommended="true"
-                        data-selected={selectedPlan === "annual" ? "true" : "false"}
                         onClick={() => setSelectedPlan("annual")}
+                        aria-pressed={selectedPlan === "annual"}
+                        style={{
+                            position: "relative",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 8,
+                            padding: "16px 14px",
+                            background: "var(--brand-mint-soft, #DDF7EA)",
+                            border: `2px solid ${selectedPlan === "annual" ? "var(--brand-mint, #31C48D)" : "var(--brand-mint-line, #BCEBD8)"}`,
+                            borderRadius: 20,
+                            boxShadow: "0 12px 30px rgba(49, 196, 141, 0.18)",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            textAlign: "left",
+                        }}
                     >
-                        <span className="plan-card-badge">추천</span>
-                        <span className="plan-card-name">년 플랜</span>
-                        <span className="plan-card-price">{fmtKrw(PRICE_PER_CHILD_MONTHLY * 12 * (1 - ANNUAL_DISCOUNT_RATE))}</span>
-                        <span className="plan-card-price-period">/ 자녀 1인 · 년</span>
-                        <ul className="plan-card-features">
-                            <li className="plan-card-feature">월 대비 33% 할인</li>
-                            <li className="plan-card-feature">4개월 무료</li>
+                        <span
+                            style={{
+                                position: "absolute",
+                                top: -10,
+                                left: 12,
+                                padding: "3px 10px",
+                                background: "var(--brand-mint-deep, #15936B)",
+                                color: "#FFFFFF",
+                                borderRadius: 999,
+                                fontSize: 11,
+                                fontWeight: 800,
+                                letterSpacing: "-0.01em",
+                                boxShadow: "0 4px 10px rgba(21, 147, 107, 0.30)",
+                            }}
+                        >
+                            추천
+                        </span>
+                        <span aria-hidden="true" style={{ position: "absolute", top: -14, right: -2, fontSize: 32, transform: "rotate(8deg)" }}>👑</span>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: "#202024" }}>년 플랜</span>
+                        <span style={{ fontSize: 24, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em" }}>
+                            {fmtKrw(annualPricePerChild)}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--brand-mint-text, #087653)" }}>/ 자녀 1인 · 년</span>
+                        <span aria-hidden="true" style={{ display: "block", height: 1, background: "var(--brand-mint-line, #BCEBD8)", margin: "4px 0" }} />
+                        <ul style={{ display: "flex", flexDirection: "column", gap: 6, margin: 0, padding: 0, listStyle: "none" }}>
+                            <PlanFeatureItem>월 대비 33% 할인</PlanFeatureItem>
+                            <PlanFeatureItem>4개월 무료</PlanFeatureItem>
                         </ul>
                     </button>
                 </div>
             </div>
 
-            {/* Price summary preserved (기존 PriceSummary) */}
-            <PriceSummary totalKrw={selectedPlan === "annual" ? annualPriceForCount : monthlyPriceForCount} subscribedCount={subscribedCount} />
+            {/* 합계 */}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 16px",
+                    background: "linear-gradient(135deg, var(--brand-rose-soft, #FFE2EC) 0%, #FFFDF8 100%)",
+                    border: "1px solid var(--brand-rose-line, #FFD0DD)",
+                    borderRadius: 999,
+                    gap: 12,
+                }}
+            >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 800, color: "#202024" }}>
+                    <span aria-hidden="true" style={{ fontSize: 22 }}>⭐</span>
+                    합계
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 900, color: subscribedCount === 0 ? "var(--brand-rose-text, #B83262)" : "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>
+                    {summaryLabel}
+                </span>
+            </div>
 
-            <p style={{ margin: 0, fontSize: 12, color: "var(--fg-tertiary)", textAlign: "center", fontWeight: "var(--weight-medium)", lineHeight: "var(--leading-normal)" }}>
+            {/* footer 안내 */}
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: "#5F6368", textAlign: "center", lineHeight: 1.5, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <ThreeDIcon name="heart" size={14} aria-label="" />
                 자동 갱신은 언제든 해지할 수 있어요 · 갱신 24시간 전 알림
             </p>
         </section>
