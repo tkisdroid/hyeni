@@ -441,15 +441,15 @@ export function ChildPairInput({ userId, onPaired }) {
                         style={{
                             marginTop: 16,
                             padding: 16,
-                            background: "rgba(242, 235, 254, 0.85)",
-                            border: "1px solid #E0D2FB",
+                            background: "linear-gradient(135deg, var(--brand-lavender-soft, #EFE8FF) 0%, rgba(255,247,250,0.85) 100%)",
+                            border: "1px solid var(--brand-lavender-line, #DDD1FF)",
                             borderRadius: 20,
                             display: "flex",
                             gap: 12,
                             alignItems: "flex-start",
                         }}
                     >
-                        <ThreeDIcon name="shield" size={36} aria-label="" />
+                        <ThreeDIcon name="shield-heart" size={42} aria-label="" />
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: "#2A1A20", lineHeight: 1.4 }}>
                                 코드는 <span style={{ color: "var(--theme-accent-text, #C3325B)" }}>24시간</span> 동안만 사용할 수 있어요.
@@ -461,32 +461,35 @@ export function ChildPairInput({ userId, onPaired }) {
                     </div>
 
                     {/* Mascot hero */}
-                    <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200, marginTop: 12 }}>
-                        <div aria-hidden="true" style={{ position: "absolute", left: "4%", top: "30%" }}>
-                            <ThreeDIcon name="calendar-check" size={48} />
+                    <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220, marginTop: 12 }}>
+                        <span aria-hidden="true" style={{ position: "absolute", left: "16%", top: "8%", fontSize: 16, opacity: 0.7 }}>✨</span>
+                        <span aria-hidden="true" style={{ position: "absolute", right: "20%", top: "6%", fontSize: 14, opacity: 0.7 }}>✨</span>
+                        <div aria-hidden="true" style={{ position: "absolute", left: "2%", top: "38%" }}>
+                            <ThreeDIcon name="calendar-check" size={56} />
                         </div>
-                        <div aria-hidden="true" style={{ position: "absolute", left: "10%", bottom: 0 }}>
+                        <div aria-hidden="true" style={{ position: "absolute", left: "12%", bottom: "8%" }}>
                             <ThreeDIcon name="heart" size={26} />
                         </div>
-                        <div aria-hidden="true" style={{ position: "absolute", right: "8%", top: "20%" }}>
+                        <div aria-hidden="true" style={{ position: "absolute", right: "2%", top: "26%" }}>
                             <span style={{
                                 display: "inline-flex",
-                                width: 56,
+                                width: 64,
                                 height: 56,
                                 background: "#FFFFFF",
-                                borderRadius: 18,
+                                borderRadius: "26px 26px 26px 8px",
                                 border: "1px solid #FFD6DD",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                boxShadow: "0 4px 12px rgba(247, 121, 168, 0.12)",
+                                boxShadow: "0 6px 16px rgba(247, 121, 168, 0.16)",
+                                position: "relative",
                             }}>
-                                <ThreeDIcon name="bell" size={28} />
+                                <ThreeDIcon name="bell" size={32} />
                             </span>
                         </div>
-                        <div aria-hidden="true" style={{ position: "absolute", right: "12%", bottom: 8 }}>
+                        <div aria-hidden="true" style={{ position: "absolute", right: "14%", bottom: "10%" }}>
                             <ThreeDIcon name="heart" size={22} />
                         </div>
-                        <HyeniMascot variant="wave" size={200} aria-label="혜니" />
+                        <HyeniMascot variant="wave" size={216} aria-label="혜니" />
                     </div>
 
                     <p style={{ textAlign: "center", marginTop: 4, fontSize: 13, fontWeight: 600, color: "#7A6770" }}>
