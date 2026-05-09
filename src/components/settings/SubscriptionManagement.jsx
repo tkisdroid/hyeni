@@ -70,26 +70,26 @@ function ChildSlot({ child, subscribed, busy, onToggle }) {
 
 function PlanFeatureItem({ children }) {
     return (
-        <li style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: "#202024" }}>
+        <li style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#202024", minWidth: 0 }}>
             <span
                 aria-hidden="true"
                 style={{
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    width: 18,
-                    height: 18,
+                    width: 16,
+                    height: 16,
                     borderRadius: "50%",
                     background: "var(--brand-mint, #31C48D)",
                     color: "#FFFFFF",
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: 900,
                     flexShrink: 0,
                 }}
             >
                 ✓
             </span>
-            <span>{children}</span>
+            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{children}</span>
         </li>
     );
 }
@@ -270,7 +270,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                     <span aria-hidden="true" style={{ fontSize: 18 }}>👑</span>
                     플랜
                 </h3>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, paddingTop: 14 }}>
                     {/* 월 플랜 */}
                     <button
                         type="button"
@@ -280,8 +280,8 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                             position: "relative",
                             display: "flex",
                             flexDirection: "column",
-                            gap: 8,
-                            padding: "16px 14px",
+                            gap: 6,
+                            padding: "14px 12px",
                             background: "#FFFFFF",
                             border: selectedPlan === "monthly" ? "2px solid var(--brand-rose, #F779A8)" : "1px solid var(--line-soft, #F1ECEE)",
                             borderRadius: 20,
@@ -289,18 +289,21 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                             cursor: "pointer",
                             fontFamily: "inherit",
                             textAlign: "left",
+                            overflow: "visible",
+                            minWidth: 0,
+                            boxSizing: "border-box",
                         }}
                     >
-                        <span aria-hidden="true" style={{ position: "absolute", top: 12, right: 12 }}>
-                            <ThreeDIcon name="heart" size={20} aria-label="" />
+                        <span aria-hidden="true" style={{ position: "absolute", top: 10, right: 10 }}>
+                            <ThreeDIcon name="heart" size={18} aria-label="" />
                         </span>
-                        <span style={{ fontSize: 14, fontWeight: 800, color: "#202024" }}>월 플랜</span>
-                        <span style={{ fontSize: 24, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em" }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "#202024" }}>월 플랜</span>
+                        <span style={{ fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
                             {fmtKrw(PRICE_PER_CHILD_MONTHLY)}
                         </span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#9A9AA0" }}>/ 자녀 1인 · 월</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "#9A9AA0", whiteSpace: "nowrap" }}>/ 자녀 1인 · 월</span>
                         <span aria-hidden="true" style={{ display: "block", height: 1, background: "var(--line-soft, #F1ECEE)", margin: "4px 0" }} />
-                        <ul style={{ display: "flex", flexDirection: "column", gap: 6, margin: 0, padding: 0, listStyle: "none" }}>
+                        <ul style={{ display: "flex", flexDirection: "column", gap: 5, margin: 0, padding: 0, listStyle: "none" }}>
                             <PlanFeatureItem>언제든 해지</PlanFeatureItem>
                             <PlanFeatureItem>월 단위 청구</PlanFeatureItem>
                         </ul>
@@ -315,8 +318,8 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                             position: "relative",
                             display: "flex",
                             flexDirection: "column",
-                            gap: 8,
-                            padding: "16px 14px",
+                            gap: 6,
+                            padding: "14px 12px",
                             background: "var(--brand-mint-soft, #DDF7EA)",
                             border: `2px solid ${selectedPlan === "annual" ? "var(--brand-mint, #31C48D)" : "var(--brand-mint-line, #BCEBD8)"}`,
                             borderRadius: 20,
@@ -324,13 +327,16 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                             cursor: "pointer",
                             fontFamily: "inherit",
                             textAlign: "left",
+                            overflow: "visible",
+                            minWidth: 0,
+                            boxSizing: "border-box",
                         }}
                     >
                         <span
                             style={{
                                 position: "absolute",
                                 top: -10,
-                                left: 12,
+                                left: 10,
                                 padding: "3px 10px",
                                 background: "var(--brand-mint-deep, #15936B)",
                                 color: "#FFFFFF",
@@ -339,18 +345,19 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                                 fontWeight: 800,
                                 letterSpacing: "-0.01em",
                                 boxShadow: "0 4px 10px rgba(21, 147, 107, 0.30)",
+                                whiteSpace: "nowrap",
                             }}
                         >
                             추천
                         </span>
-                        <span aria-hidden="true" style={{ position: "absolute", top: -14, right: -2, fontSize: 32, transform: "rotate(8deg)" }}>👑</span>
-                        <span style={{ fontSize: 14, fontWeight: 800, color: "#202024" }}>년 플랜</span>
-                        <span style={{ fontSize: 24, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em" }}>
+                        <span aria-hidden="true" style={{ position: "absolute", top: -10, right: -4, fontSize: 26, transform: "rotate(8deg)", lineHeight: 1, pointerEvents: "none" }}>👑</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "#202024" }}>년 플랜</span>
+                        <span style={{ fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
                             {fmtKrw(annualPricePerChild)}
                         </span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--brand-mint-text, #087653)" }}>/ 자녀 1인 · 년</span>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--brand-mint-text, #087653)", whiteSpace: "nowrap" }}>/ 자녀 1인 · 년</span>
                         <span aria-hidden="true" style={{ display: "block", height: 1, background: "var(--brand-mint-line, #BCEBD8)", margin: "4px 0" }} />
-                        <ul style={{ display: "flex", flexDirection: "column", gap: 6, margin: 0, padding: 0, listStyle: "none" }}>
+                        <ul style={{ display: "flex", flexDirection: "column", gap: 5, margin: 0, padding: 0, listStyle: "none" }}>
                             <PlanFeatureItem>월 대비 33% 할인</PlanFeatureItem>
                             <PlanFeatureItem>4개월 무료</PlanFeatureItem>
                         </ul>
