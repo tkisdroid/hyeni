@@ -4146,23 +4146,24 @@ export default function KidsScheduler() {
         setShowPlaceManager(false);
     }, []);
     const handleParentEventAddTabClick = () => {
-      closeParentManagementPanels();
-      setShowParentMemoPage(false);
-      const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-      setEditingEventId(null);
-      setAddEventDateKey(todayKey);
-      setNewTitle("");
-      setNewTime("");
-      setNewEndTime("");
-      setNewLocation(null);
-      setSelectedPreset(null);
-      setActiveView(PARENT_VIEWS.EVENT_ADD);
+        closeParentManagementPanels();
+        setShowParentMemoPage(false);
+        const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+        setEditingEventId(null);
+        setAddEventDateKey(todayKey);
+        setNewTitle("");
+        setNewTime("");
+        setNewEndTime("");
+        setNewLocation(null);
+        setSelectedPreset(null);
+        setActiveView(PARENT_VIEWS.EVENT_ADD);
     };
 
+    // 메모 view 분기는 Task 4에서 추가 — 현재는 setActiveView 호출만 (transition state)
     const handleParentMemoTabClick = () => {
-      closeParentManagementPanels();
-      setShowParentMemoPage(false);
-      setActiveView(PARENT_VIEWS.MEMO);
+        closeParentManagementPanels();
+        setShowParentMemoPage(false);
+        setActiveView(PARENT_VIEWS.MEMO);
     };
     const handleParentTodayTabClick = () => {
         closeParentManagementPanels();
@@ -4217,9 +4218,9 @@ export default function KidsScheduler() {
         });
     };
     const handleParentFamilyTabClick = () => {
-      closeParentManagementPanels();
-      setShowParentMemoPage(false);
-      setActiveView(PARENT_VIEWS.FAMILY);
+        closeParentManagementPanels();
+        setShowParentMemoPage(false);
+        setActiveView(PARENT_VIEWS.FAMILY);
     };
     const handleParentHomeTabClick = () => {
         closeParentManagementPanels();
@@ -4283,7 +4284,8 @@ export default function KidsScheduler() {
             <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
                 <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Sun size={16} strokeWidth={1.75} /></span>오늘
             </button>
-            <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentCalendarTabClick, "일정 보기")} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
+            <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={() => {}} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
+                {/* Task 6에서 handleParentEventAddTabClick으로 교체 */}
                 <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Calendar size={16} strokeWidth={1.75} /></span>일정
             </button>
             {parentCapabilities.canManagePlaces && (
@@ -6896,58 +6898,6 @@ export default function KidsScheduler() {
                 </div>
             </>)}
 
-            {/* ── PARENT CALENDAR PAGE ── */}
-            {activeView === "parentCalendar" && isParent && (
-                <section className="hyeni-v5-calendar-page" aria-label="부모 캘린더">
-                    <div className="hyeni-v5-page-head">
-                        <div>
-                            <h2>일정</h2>
-                        </div>
-                        {parentCapabilities.canWriteSchedule && (
-                        <button
-                            type="button"
-                            className="hyeni-v5-page-add"
-                            onClick={openManualAddEventModal}
-                            style={{ fontFamily: FF }}
-                            aria-label="+"
-                        >
-                            +
-                        </button>
-                        )}
-                    </div>
-
-                    {renderParentCalendarGrid("parent-page")}
-
-                    {renderSelectedDateMovementSummary()}
-
-                    <div className="hyeni-v5-calendar-list-head">
-                        <div>
-                            <span>일정 리스트</span>
-                            <strong>{selectedCalendarDateLabel}</strong>
-                        </div>
-                        <span className="hyeni-v5-section-meta hyeni-v5-date-count">
-                            <strong className="hyeni-v5-count-accent">{selectedEventsSorted.length}개</strong>
-                            <span>일정</span>
-                        </span>
-                    </div>
-
-                    <div className="hyeni-v5-event-list hyeni-v5-timeline-list">
-                        {selectedEventsSorted.length > 0 ? selectedEventsSorted.map(renderParentScheduleCard) : (
-                            <div className="hyeni-v5-empty" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "20px 16px 22px" }}>
-                                <div aria-hidden="true" style={{ position: "relative", width: 132, height: 132, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                    <span style={{ position: "absolute", top: -2, left: 4, fontSize: 26, opacity: 0.8 }}>☁️</span>
-                                    <span style={{ position: "absolute", top: 6, right: 0, fontSize: 18, opacity: 0.7 }}>☁️</span>
-                                    <HyeniMascot variant="sad" size={116} aria-label="" />
-                                </div>
-                                <div style={{ fontWeight: 800 }}>선택한 날짜에 등록된 일정이 없어요.</div>
-                                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{parentCapabilities.canWriteSchedule ? "날짜를 누르거나 오른쪽 위 + 버튼으로 일정을 추가해 주세요." : "가족 연동 후 일정을 추가할 수 있어요."}</div>
-                            </div>
-                        )}
-                    </div>
-
-                    {renderParentBottomTabbar("calendar", "hyeni-v5-tabbar-fixed")}
-                </section>
-            )}
 
             {/* ── FRIEND PLAYDATE SETTINGS PAGE ── */}
             {activeView === "friendPlaydateSettings" && isParent && (
