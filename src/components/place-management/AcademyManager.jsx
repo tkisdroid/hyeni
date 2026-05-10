@@ -276,6 +276,25 @@ export function AcademyManager({
     const academyCount = list.length;
     const dangerCount = dangerList.length;
 
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+    const matchesQuery = (...fields) => {
+        if (!trimmedQuery) return true;
+        return fields.some(field => String(field || "").toLowerCase().includes(trimmedQuery));
+    };
+    const filteredAcademyList = trimmedQuery
+        ? list.filter(item => matchesQuery(item.name, item.location?.address, item.category))
+        : list;
+    const filteredDangerList = trimmedQuery
+        ? dangerList.filter(item => matchesQuery(item.name, item.zone_type))
+        : dangerList;
+    const toggleSearch = () => {
+        setShowSearch(prev => {
+            const next = !prev;
+            if (!next) setSearchQuery("");
+            return next;
+        });
+    };
+
     const FILTER_TABS = [
         { id: "academy", label: "학원", icon: "calendar-check", color: "var(--brand-mint, #31C48D)", bg: "var(--brand-mint-soft, #DDF7EA)", text: "var(--brand-mint-text, #087653)" },
         { id: "danger", label: "위험장소", icon: "shield", color: "var(--brand-rose, #F779A8)", bg: "var(--brand-rose-soft, #FFE2EC)", text: "var(--brand-rose-text, #B83262)" },
@@ -343,21 +362,23 @@ export function AcademyManager({
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                     <button
                         type="button"
-                        aria-label="검색"
+                        aria-label={showSearch ? "검색 닫기" : "검색"}
+                        aria-pressed={showSearch}
+                        onClick={toggleSearch}
                         style={{
                             width: 40,
                             height: 40,
                             borderRadius: "50%",
-                            background: "#FFFFFF",
+                            background: showSearch ? "var(--brand-mint, #31C48D)" : "#FFFFFF",
                             border: "1px solid var(--brand-mint-line, #BCEBD8)",
-                            color: "var(--brand-mint-text, #087653)",
+                            color: showSearch ? "#FFFFFF" : "var(--brand-mint-text, #087653)",
                             fontSize: 16,
                             fontWeight: 800,
                             cursor: "pointer",
                             fontFamily: FF,
                         }}
                     >
-                        🔍
+                        {showSearch ? "✕" : "🔍"}
                     </button>
                     <button
                         type="button"
@@ -381,6 +402,68 @@ export function AcademyManager({
                     </button>
                 </div>
             </section>
+
+            {showSearch && (
+                <div style={{ padding: "12px 16px 0", display: "flex", gap: 8, alignItems: "center" }}>
+                    <div
+                        style={{
+                            flex: 1,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "10px 14px",
+                            background: "#FFFFFF",
+                            border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                            borderRadius: 16,
+                            boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31,24,28,0.06))",
+                        }}
+                    >
+                        <span aria-hidden="true" style={{ fontSize: 14 }}>🔍</span>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder={
+                                activeFilter === "academy" ? "학원 이름·주소·카테고리"
+                                : activeFilter === "danger" ? "위험장소 이름·종류"
+                                : activeFilter === "safe" ? "안전장소 이름"
+                                : "자주가는장소 이름"
+                            }
+                            autoFocus
+                            aria-label="장소 검색"
+                            style={{
+                                flex: 1,
+                                border: "none",
+                                outline: "none",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                color: "var(--fg-primary)",
+                                fontFamily: FF,
+                                background: "transparent",
+                                minWidth: 0,
+                            }}
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                aria-label="검색어 지우기"
+                                onClick={() => setSearchQuery("")}
+                                style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "var(--fg-tertiary)",
+                                    fontSize: 14,
+                                    cursor: "pointer",
+                                    padding: 0,
+                                    lineHeight: 1,
+                                }}
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Filter tabs */}
             <div
@@ -687,7 +770,7 @@ export function AcademyManager({
 
                         {activeFilter === "academy" && (
                             <AcademyCard
-                                list={list}
+                                list={filteredAcademyList}
                                 presets={ACADEMY_PRESETS}
                                 categories={CATEGORIES}
                                 daysLabel={DAYS_LABEL}
@@ -699,7 +782,7 @@ export function AcademyManager({
                         )}
                         {activeFilter === "danger" && (
                             <DangerCard
-                                list={dangerList}
+                                list={filteredDangerList}
                                 locked={dangerZonesLocked}
                                 dangerTypes={DANGER_TYPES}
                                 onAddNew={openNewDangerPlace}
@@ -709,7 +792,7 @@ export function AcademyManager({
                         {activeFilter === "safe" && (() => {
                             const filtered = savedList
                                 .map((place, originalIdx) => ({ place, originalIdx }))
-                                .filter(({ place }) => place.is_playdate_safe);
+                                .filter(({ place }) => place.is_playdate_safe && matchesQuery(place.name, place.location?.address));
                             const filteredList = filtered.map(({ place }) => place);
                             const mapIdx = (i) => filtered[i]?.originalIdx ?? i;
                             return (
@@ -726,7 +809,7 @@ export function AcademyManager({
                         {activeFilter === "frequent" && (() => {
                             const filtered = savedList
                                 .map((place, originalIdx) => ({ place, originalIdx }))
-                                .filter(({ place }) => !place.is_playdate_safe);
+                                .filter(({ place }) => !place.is_playdate_safe && matchesQuery(place.name, place.location?.address));
                             const filteredList = filtered.map(({ place }) => place);
                             const mapIdx = (i) => filtered[i]?.originalIdx ?? i;
                             return (

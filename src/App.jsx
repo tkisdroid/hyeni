@@ -6055,6 +6055,7 @@ export default function KidsScheduler() {
                         characterEmoji={currentChildCharacter}
                         onSettings={() => setShowChildSettings(true)}
                         now={today}
+                        colorHex={activeThemeColor}
                     />
                     {nextTodayEvent && (
                         <button

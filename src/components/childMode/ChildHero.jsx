@@ -2,6 +2,8 @@
 // Phase 3 spec section 4.2 — 자녀 홈 hero (mascot + 동적 copy).
 // 일정 수에 따라 hero copy 자동 분기 — "오늘 뭐 해?" / "{N}개 일정 있어" / "자유시간!"
 
+import { getThemeColors } from "../../lib/theme.js";
+
 function pickHeroCopy(eventCount) {
     if (eventCount === 0) return { title: "오늘은 자유시간!", sub: "마음껏 놀아도 돼" };
     if (eventCount === 1) return { title: "오늘 1개 일정 있어", sub: "준비됐어?" };
@@ -16,13 +18,19 @@ function formatNowTime(now = new Date()) {
     return `${period} ${display}시 ${m}분`;
 }
 
-export function ChildHero({ eventCount = 0, showMascot = true, characterEmoji = "🐰", onSettings, now = new Date() }) {
+export function ChildHero({ eventCount = 0, showMascot = true, characterEmoji = "🐰", onSettings, now = new Date(), colorHex = null }) {
     const { title, sub } = pickHeroCopy(eventCount);
     const timeLabel = formatNowTime(now);
     const displayCharacter = characterEmoji || "🐰";
+    const palette = getThemeColors(colorHex);
+    const heroStyle = {
+        position: "relative",
+        background: `linear-gradient(135deg, ${palette.soft} 0%, color-mix(in srgb, ${palette.accent} 8%, var(--bg-base)) 100%)`,
+        borderColor: palette.line,
+    };
 
     return (
-        <header className="child-hero" role="region" aria-label="오늘은 뭐해?" style={{ position: "relative" }}>
+        <header className="child-hero" role="region" aria-label="오늘은 뭐해?" style={heroStyle}>
             {showMascot && (
                 <div className="child-hero-mascot">
                     <span className="child-hero-character" role="img" aria-label={`${displayCharacter} 캐릭터`}>

@@ -89,19 +89,6 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                 }}
             >
                 <ChildAvatar child={child} size={36} fontSize={14} />
-                <div
-                    style={{
-                        fontSize: 11,
-                        fontWeight: "var(--weight-semibold)",
-                        color: "var(--fg-primary)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        width: "100%",
-                    }}
-                >
-                    {child.name}
-                </div>
                 {safetyDots.length > 0 && (
                     <div
                         aria-label={`안전 상태 ${DOT_STATE_LABELS[worstColor]}`}
@@ -163,29 +150,14 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
 
                 <span
                     style={{
-                        flex: 1,
-                        minWidth: 0,
-                        fontSize: 14,
-                        fontWeight: 800,
-                        color: "#1F2A24",
-                        letterSpacing: "-0.01em",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                    }}
-                >
-                    {child.name}
-                </span>
-
-                <span
-                    style={{
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 2,
                         fontSize: 11,
                         fontWeight: 700,
                         color: "#595959",
-                        flexShrink: 0,
+                        flexShrink: 1,
+                        marginLeft: "auto",
                         whiteSpace: "nowrap",
                     }}
                 >
