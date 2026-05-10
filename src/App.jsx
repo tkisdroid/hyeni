@@ -1093,14 +1093,12 @@ export default function KidsScheduler() {
         const cached = readMemoRepliesCache(familyId, dateKey);
         setMemoReplies(cached);
         let cancelled = false;
-        fetchMemoReplies(familyId, dateKey)
+        // child_id server-side filter: 부모 → selectedChild.id, 자녀 → 본인 myFamilyMemberId
+        const fetchChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
+        fetchMemoReplies(familyId, dateKey, fetchChildId)
             .then((rows) => {
                 if (!cancelled) {
-                    // Multichild isolation: filter to selected child's thread only.
-                    const filtered = (isParent && selectedChild?.user_id)
-                        ? rows.filter(r => isMemoForSelectedChild(r, selectedChild.user_id, authUser?.id))
-                        : rows;
-                    setMemoReplies(filtered);
+                    setMemoReplies(rows);
                 }
             })
             .catch(() => {});
@@ -1125,8 +1123,10 @@ export default function KidsScheduler() {
         if (!familyId || !dateKey) return;
 
         let cancelled = false;
+        // child_id server-side filter: 부모 → selectedChild.id, 자녀 → myFamilyMemberId
+        const threadChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
         const reconcileMemoReplies = () => {
-            fetchMemoRepliesForDateKeys(familyId, memoThreadDateKeys)
+            fetchMemoRepliesForDateKeys(familyId, memoThreadDateKeys, threadChildId)
                 .then((rows) => {
                     if (cancelled || dateKeyRef.current !== dateKey) return;
                     const dbRows = Array.isArray(rows) ? rows : [];
@@ -1148,7 +1148,7 @@ export default function KidsScheduler() {
             cancelled = true;
             window.clearInterval(timer);
         };
-    }, [familyId, dateKey, memoThreadDateKeys, activeView, showChildMemoPage]);
+    }, [familyId, dateKey, memoThreadDateKeys, activeView, showChildMemoPage, isParent, selectedChild?.id, myFamilyMemberId]);
 
     // ── MEMO-02: 3-second viewport read observer ─────────────────────────────
     // One observer instance, module-lifetime. Each reply bubble passes its
@@ -1927,16 +1927,16 @@ export default function KidsScheduler() {
 
                 // INSERT: ignore self-echo so optimistic state isn't doubled.
                 if (newRow.user_id === authUser?.id) return;
-                // Multichild isolation: parent only accepts rows belonging to
-                // the currently selected child's thread. Single-child and child
-                // users skip this guard (selectedChild is always set for them).
-                if (isParent && selectedChild?.user_id &&
-                    !isMemoForSelectedChild(newRow, selectedChild.user_id, authUser?.id)) {
+                // Multichild isolation: child_id 기반 2차 검증.
+                // 부모 → selectedChild.id 기준, 자녀 → myFamilyMemberId 기준.
+                // selectedChild가 없는 경우(multi-child 홈 미선택) INSERT 무시.
+                const realtimeChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
+                if (realtimeChildId && !isMemoForSelectedChild(newRow, realtimeChildId)) {
                     return;
                 }
                 setMemoReplies(prev => {
                     if (prev.some(r => r.id === newRow.id)) return prev;
-                    return [...prev, { id: newRow.id, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at, read_by: newRow.read_by ?? [] }];
+                    return [...prev, { id: newRow.id, child_id: newRow.child_id ?? null, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at, read_by: newRow.read_by ?? [] }];
                 });
             },
             onFamilyMembersChange: async () => {
@@ -4250,12 +4250,11 @@ export default function KidsScheduler() {
         setShowChildMemoPage(true);
         if (familyId) {
             const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-            fetchMemoReplies(familyId, todayKey)
+            // child_id server-side filter: 부모 → selectedChild.id, 자녀 → myFamilyMemberId
+            const openChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
+            fetchMemoReplies(familyId, todayKey, openChildId)
                 .then((rows) => {
-                    const filtered = (isParent && selectedChild?.user_id)
-                        ? rows.filter(r => isMemoForSelectedChild(r, selectedChild.user_id, authUser?.id))
-                        : rows;
-                    setMemoReplies(filtered);
+                    setMemoReplies(rows);
                 })
                 .catch((err) => console.warn("[memo] open refetch failed:", err));
         }
@@ -4764,12 +4763,16 @@ export default function KidsScheduler() {
     const memoPreviewCount = memoPreview.count;
     const handleMemoReplySubmit = useCallback((content) => {
         if (!familyId || !authUser) return Promise.resolve();
+        // child_id: 부모 모드 → 선택된 자녀의 family_members.id
+        //           자녀 모드 → 본인의 family_members.id (myFamilyMemberId)
+        const memoChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
         const origin = (memoReplies && memoReplies.length > 0) ? "reply" : "original";
         const optimisticId = "temp-" + Date.now();
         const optimisticReply = {
             id: optimisticId,
             family_id: familyId,
             date_key: dateKey,
+            child_id: memoChildId,
             user_id: authUser.id,
             user_role: myRole,
             content,
@@ -4782,7 +4785,7 @@ export default function KidsScheduler() {
         if (memoPageOpen) {
             setMemoThreadReplies(prev => [...(prev || []), optimisticReply]);
         }
-        const sendPromise = sendMemo(familyId, dateKey, content, authUser.id, myRole, origin)
+        const sendPromise = sendMemo(familyId, dateKey, memoChildId, content, authUser.id, myRole, origin)
             .then((insertedReply) => {
                 const channel = realtimeChannel.current;
                 if (insertedReply && channel?.send) {
@@ -4810,15 +4813,11 @@ export default function KidsScheduler() {
                         analyzeMemoSentiment(content, "");
                     } catch (_) { /* ignore */ }
                 }
-                return fetchMemoReplies(familyId, dateKey)
+                return fetchMemoReplies(familyId, dateKey, memoChildId)
                     .then((rows) => {
-                        // Multichild isolation: filter to selected child's thread only.
-                        const filtered = (isParent && selectedChild?.user_id)
-                            ? rows.filter(r => isMemoForSelectedChild(r, selectedChild.user_id, authUser?.id))
-                            : rows;
-                        setMemoReplies(filtered);
+                        setMemoReplies(rows);
                         if (!memoPageOpen) return rows;
-                        return fetchMemoRepliesForDateKeys(familyId, memoThreadDateKeys)
+                        return fetchMemoRepliesForDateKeys(familyId, memoThreadDateKeys, memoChildId)
                             .then((threadRows) => {
                                 setMemoThreadReplies(threadRows);
                                 return rows;

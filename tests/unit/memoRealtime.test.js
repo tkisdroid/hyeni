@@ -14,25 +14,23 @@ describe("memo realtime channel key", () => {
   });
 });
 
-describe("isMemoForSelectedChild — client-side isolation filter", () => {
-  it("returns true when row.user_id matches selectedChild user_id", () => {
-    const row = { user_id: "child-user-1", user_role: "child" };
-    expect(isMemoForSelectedChild(row, "child-user-1", "parent-user-1")).toBe(true);
+describe("isMemoForSelectedChild — child_id based isolation filter", () => {
+  it("matches when row.child_id === selectedChildId", () => {
+    expect(isMemoForSelectedChild({ child_id: "c1" }, "c1")).toBe(true);
   });
-  it("returns true when row from parent (so child sees parent reply too)", () => {
-    const row = { user_id: "parent-user-1", user_role: "parent" };
-    expect(isMemoForSelectedChild(row, "child-user-1", "parent-user-1")).toBe(true);
+  it("rejects when row.child_id !== selectedChildId", () => {
+    expect(isMemoForSelectedChild({ child_id: "c1" }, "c2")).toBe(false);
   });
-  it("returns false when row from another child", () => {
-    const row = { user_id: "child-user-2", user_role: "child" };
-    expect(isMemoForSelectedChild(row, "child-user-1", "parent-user-1")).toBe(false);
+  it("accepts legacy null child_id (backfill 포함, single-child row)", () => {
+    expect(isMemoForSelectedChild({ child_id: null }, "c1")).toBe(true);
   });
-  it("returns false when both ids null", () => {
-    const row = { user_id: "x", user_role: "child" };
-    expect(isMemoForSelectedChild(row, null, null)).toBe(false);
+  it("returns false when selectedChildId missing", () => {
+    expect(isMemoForSelectedChild({ child_id: "c1" }, null)).toBe(false);
   });
-  it("legacy row (user_id null) ignored", () => {
-    const row = { user_id: null, user_role: "legacy" };
-    expect(isMemoForSelectedChild(row, "child-user-1", "parent-user-1")).toBe(false);
+  it("returns false when row is null", () => {
+    expect(isMemoForSelectedChild(null, "c1")).toBe(false);
+  });
+  it("returns false when both null", () => {
+    expect(isMemoForSelectedChild({ child_id: null }, null)).toBe(false);
   });
 });

@@ -480,41 +480,50 @@ export async function upsertDailySupplies(familyId, dateKey, content, userId) {
 // All new organic writes go through sendMemo() / insertMemoReply() with an
 // explicit origin — the default 'reply' DB-side default still catches any
 // pre-Phase-4 code path that somehow slips through.
-export async function fetchMemoReplies(familyId, dateKey) {
-  const { data, error } = await supabase
+// fetchMemoReplies — child_id filter 추가 (multichild isolation).
+// childId: family_members.id (UUID). null이면 child_id filter 없이 전체 반환.
+// 필터 로직: child_id 일치 OR child_id is null (legacy single-child row 포함).
+export async function fetchMemoReplies(familyId, dateKey, childId = null) {
+  let q = supabase
     .from("memo_replies")
-    .select("id, family_id, date_key, user_id, user_role, content, created_at, origin, read_by")
+    .select("id, family_id, date_key, child_id, user_id, user_role, content, created_at, origin, read_by")
     .eq("family_id", familyId)
-    .eq("date_key", dateKey)
-    .order("created_at", { ascending: true });
+    .eq("date_key", dateKey);
+  if (childId) {
+    q = q.or(`child_id.eq.${childId},child_id.is.null`);
+  }
+  const { data, error } = await q.order("created_at", { ascending: true });
   if (error) throw error;
   return data || [];
 }
 
-export async function fetchMemoRepliesForDateKeys(familyId, dateKeys) {
+// fetchMemoRepliesForDateKeys — child_id filter 추가 (multichild isolation).
+export async function fetchMemoRepliesForDateKeys(familyId, dateKeys, childId = null) {
   const keys = [...new Set((dateKeys || []).filter(Boolean))];
   if (!familyId || keys.length === 0) return [];
-  const { data, error } = await supabase
+  let q = supabase
     .from("memo_replies")
-    .select("id, family_id, date_key, user_id, user_role, content, created_at, origin, read_by")
+    .select("id, family_id, date_key, child_id, user_id, user_role, content, created_at, origin, read_by")
     .eq("family_id", familyId)
-    .in("date_key", keys)
-    .order("created_at", { ascending: true });
+    .in("date_key", keys);
+  if (childId) {
+    q = q.or(`child_id.eq.${childId},child_id.is.null`);
+  }
+  const { data, error } = await q.order("created_at", { ascending: true });
   if (error) throw error;
   return data || [];
 }
 
-// Back-compat wrapper — keeps the 5-arg signature that App.jsx already uses.
-// Phase 4 adds an optional `origin` parameter. New call sites should pass
-// 'original' for the first post of the day or 'reply' for subsequent posts
-// on the same (family_id, date_key). The DB default is 'reply' if omitted.
-export async function insertMemoReply(familyId, dateKey, userId, userRole, content, origin) {
+// insertMemoReply — child_id 파라미터 추가.
+// childId: family_members.id (UUID). 자녀 모드는 본인 id, 부모 모드는 selectedChild.id.
+export async function insertMemoReply(familyId, dateKey, childId, userId, userRole, content, origin) {
   const row = { family_id: familyId, date_key: dateKey, user_id: userId, user_role: userRole, content };
+  if (childId) row.child_id = childId;
   if (origin) row.origin = origin;
   const { data, error } = await supabase
     .from("memo_replies")
     .insert(row)
-    .select("id, family_id, date_key, user_id, user_role, content, created_at, origin, read_by")
+    .select("id, family_id, date_key, child_id, user_id, user_role, content, created_at, origin, read_by")
     .single();
   if (error) throw error;
   return data;
@@ -522,11 +531,9 @@ export async function insertMemoReply(familyId, dateKey, userId, userRole, conte
 
 // sendMemo — the Phase 4 unified send path. Writes go ONLY to memo_replies
 // from here on; public.memos is read-mostly and will be DROPPED in v1.1
-// (MEMO-CLEANUP-01). The origin distinction between 'original' and 'reply'
-// is non-critical for v1.0 semantics; we default to 'reply' so legacy
-// sort/filter logic (origin != 'legacy_memo') keeps working.
-export async function sendMemo(familyId, dateKey, content, userId, userRole, origin = "reply") {
-  return insertMemoReply(familyId, dateKey, userId, userRole, content, origin);
+// (MEMO-CLEANUP-01). childId: family_members.id — multichild thread isolation.
+export async function sendMemo(familyId, dateKey, childId, content, userId, userRole, origin = "reply") {
+  return insertMemoReply(familyId, dateKey, childId, userId, userRole, content, origin);
 }
 
 // ── Memo Read Status ────────────────────────────────────────────────────────
