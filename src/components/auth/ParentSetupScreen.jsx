@@ -99,12 +99,14 @@ export function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                 {!mode && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <button onClick={() => setMode("create")}
-                            style={{ ...makePrimaryButtonStyle({ padding: "16px 18px" }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                            className="btn btn-primary-mint"
+                            style={{ width: "100%", justifyContent: "space-between", padding: "0 var(--space-5)" }}>
                             <span>새 가족 만들기</span>
                             <span aria-hidden="true">→</span>
                         </button>
                         <button onClick={() => setMode("join")}
-                            style={{ ...makeSecondaryButtonStyle({ padding: "16px 18px", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", border: "1.5px solid var(--theme-accent-line)" }), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                            className="btn btn-secondary"
+                            style={{ width: "100%", justifyContent: "space-between", padding: "0 var(--space-5)" }}>
                             <span>기존 가족에 합류</span>
                             <span aria-hidden="true">→</span>
                         </button>
@@ -117,7 +119,7 @@ export function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                             새 가족을 만들면 연동코드가 생성됩니다.<br/>이 코드로 배우자와 아이가 합류할 수 있어요.
                         </div>
                         <button disabled={busy} onClick={handleCreateClick}
-                            style={{ padding: "14px 32px", background: "var(--theme-accent)", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: FF, opacity: busy ? 0.6 : 1, boxShadow: busy ? "none" : "var(--hyeni-theme-shadow-soft)" }}>
+                            className="btn btn-primary-mint">
                             {busy ? "생성 중..." : "가족 만들기"}
                         </button>
                         <div style={{ marginTop: 12 }}>
@@ -134,11 +136,11 @@ export function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
                         <div style={{ marginBottom: joinError ? 8 : 12 }}>
                             <input value={joinCode} onChange={handleJoinCodeChange}
                                 placeholder="KID-804DF582 또는 804DF582"
-                                style={{ width: "100%", padding: "11px 14px", border: `2px solid ${joinError ? "#FCA5A5" : "#E5E7EB"}`, borderRadius: 12, fontSize: 16, fontWeight: 800, fontFamily: "monospace", textAlign: "center", letterSpacing: 1, boxSizing: "border-box", outline: "none", color: "var(--fg-primary)", background: "white" }} />
+                                style={{ width: "100%", padding: "11px 14px", border: `2px solid ${joinError ? "var(--status-danger)" : "var(--line-default)"}`, borderRadius: "var(--radius-input)", fontSize: 16, fontWeight: 800, fontFamily: "monospace", textAlign: "center", letterSpacing: 1, boxSizing: "border-box", outline: "none", color: "var(--fg-primary)", background: "var(--bg-card)" }} />
                         </div>
                         {joinError && <div style={{ fontSize: 13, color: "var(--status-cautionary-strong)", fontWeight: 700, marginBottom: 12 }}>{joinError}</div>}
                         <button disabled={!canJoin} onClick={handleJoinClick}
-                            style={{ padding: "14px 32px", background: "#2563EB", color: "white", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 800, cursor: canJoin ? "pointer" : "default", fontFamily: FF, opacity: canJoin ? 1 : 0.6, boxShadow: canJoin ? "0 10px 22px rgba(37,99,235,0.18)" : "none" }}>
+                            className="btn btn-primary-mint">
                             {busy ? "합류 중..." : "합류하기"}
                         </button>
                         <div style={{ marginTop: 12 }}>

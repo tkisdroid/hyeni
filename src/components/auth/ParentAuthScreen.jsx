@@ -119,17 +119,8 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                         type="button"
                         onClick={onBack}
                         aria-label="뒤로"
-                        style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 12,
-                            border: "none",
-                            background: "transparent",
-                            color: "#2A1A20",
-                            fontSize: 22,
-                            cursor: "pointer",
-                            fontFamily: "var(--font-sans)",
-                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: 40, height: 40, minHeight: 40, padding: 0, background: "transparent", border: "none", fontSize: 22, color: "var(--fg-primary)" }}
                     >
                         ←
                     </button>
@@ -241,28 +232,14 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                         <button
                             type="button"
                             onClick={() => setShowIdPw(true)}
-                            style={{
-                                width: "100%",
-                                height: 56,
-                                borderRadius: 999,
-                                border: "1px solid #FFD6DD",
-                                background: "rgba(255,255,255,0.85)",
-                                fontFamily: "var(--font-sans)",
-                                fontSize: 15,
-                                fontWeight: 600,
-                                color: "#7A6770",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "0 20px",
-                            }}
+                            className="btn btn-secondary"
+                            style={{ width: "100%", minHeight: 56, justifyContent: "space-between", padding: "0 20px" }}
                         >
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                                 <ThreeDIcon name="shield" size={18} aria-label="" />
                                 아이디 · 비밀번호로 로그인
                             </span>
-                            <span style={{ color: "#A892A0", fontSize: 14 }}>▾</span>
+                            <span style={{ color: "var(--fg-tertiary)", fontSize: 14 }}>▾</span>
                         </button>
                     ) : (
                         <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 10 }}>

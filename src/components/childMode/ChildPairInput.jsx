@@ -390,23 +390,8 @@ export function ChildPairInput({ userId, onPaired }) {
                             type="button"
                             onClick={() => { if (!busy) setShowScanner(true); }}
                             disabled={busy}
-                            style={{
-                                width: "100%",
-                                height: 48,
-                                borderRadius: 16,
-                                border: "1px solid #FFD6DD",
-                                background: "rgba(255,255,255,0.85)",
-                                fontFamily: "var(--font-sans)",
-                                fontSize: 14,
-                                fontWeight: 700,
-                                color: "var(--theme-accent-text, #C3325B)",
-                                cursor: busy ? "wait" : "pointer",
-                                opacity: busy ? 0.6 : 1,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 8,
-                            }}
+                            className="btn btn-secondary"
+                            style={{ width: "100%" }}
                         >
                             <span aria-hidden="true" style={{
                                 display: "inline-flex",
@@ -414,7 +399,7 @@ export function ChildPairInput({ userId, onPaired }) {
                                 height: 22,
                                 alignItems: "center",
                                 justifyContent: "center",
-                                color: "var(--theme-accent, #F779A8)",
+                                color: "var(--brand-rose-text)",
                                 fontSize: 18,
                             }}>⌗</span>
                             QR로 연결하기
@@ -500,27 +485,8 @@ export function ChildPairInput({ userId, onPaired }) {
                         type="button"
                         onClick={() => { void handleJoin(); }}
                         disabled={busy}
-                        style={{
-                            marginTop: 16,
-                            height: 56,
-                            borderRadius: 999,
-                            border: "none",
-                            background: busy
-                                ? "linear-gradient(90deg, #F8C8D5 0%, #EFB6C7 100%)"
-                                : "linear-gradient(90deg, #FFA5C4 0%, #F779A8 100%)",
-                            color: "#FFFFFF",
-                            fontSize: 16,
-                            fontWeight: 700,
-                            fontFamily: "var(--font-sans)",
-                            letterSpacing: "-0.02em",
-                            cursor: busy ? "wait" : "pointer",
-                            opacity: busy ? 0.7 : 1,
-                            boxShadow: "0 6px 18px rgba(247, 121, 168, 0.28)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 8,
-                        }}
+                        className="btn btn-primary"
+                        style={{ marginTop: 16, width: "100%" }}
                         aria-label="연결하기"
                     >
                         {busy ? "연결 중..." : "연결하기"}

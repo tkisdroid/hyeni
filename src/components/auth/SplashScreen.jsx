@@ -138,25 +138,8 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) 
             <button
                 type="button"
                 onClick={finish}
-                style={{
-                    marginTop: 16,
-                    height: 56,
-                    borderRadius: 999,
-                    border: "none",
-                    background: "linear-gradient(90deg, #FFA5C4 0%, #F779A8 100%)",
-                    color: "#FFFFFF",
-                    fontSize: 16,
-                    fontWeight: 700,
-                    fontFamily: "var(--font-sans)",
-                    letterSpacing: "-0.02em",
-                    cursor: "pointer",
-                    boxShadow: "0 6px 18px rgba(247, 121, 168, 0.28)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    flex: "0 0 auto",
-                }}
+                className="btn btn-primary"
+                style={{ marginTop: 16, width: "100%", flex: "0 0 auto" }}
                 aria-label="시작하기"
             >
                 시작하기

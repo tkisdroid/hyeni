@@ -146,25 +146,11 @@ export function RoleSetupModal({ onSelect, loading }) {
                         <button
                             type="button"
                             onClick={handleLastRole}
-                            style={{
-                                marginTop: 24,
-                                alignSelf: "center",
-                                background: "rgba(255,255,255,0.85)",
-                                border: "1px solid #FFD6DD",
-                                borderRadius: 999,
-                                padding: "10px 18px",
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: "#7A6770",
-                                cursor: "pointer",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 8,
-                                fontFamily: "var(--font-sans)",
-                            }}
+                            className="chip chip-rose"
+                            style={{ marginTop: 24, alignSelf: "center", padding: "10px 18px", minHeight: 38 }}
                         >
                             <ThreeDIcon name="calendar-check" size={18} />
-                            지난번엔 <b style={{ color: "var(--theme-accent-text, #C3325B)" }}>{lastRole === "parent" ? "부모" : "자녀"}</b>로 사용했어요
+                            지난번엔 <b>{lastRole === "parent" ? "부모" : "자녀"}</b>로 사용했어요
                         </button>
                     )}
 
@@ -174,28 +160,8 @@ export function RoleSetupModal({ onSelect, loading }) {
                         type="button"
                         onClick={proceed}
                         disabled={!selected}
-                        style={{
-                            marginTop: 20,
-                            height: 56,
-                            borderRadius: 999,
-                            border: "none",
-                            background: selected
-                                ? "linear-gradient(90deg, #FFA5C4 0%, #F779A8 100%)"
-                                : "linear-gradient(90deg, #F8C8D5 0%, #EFB6C7 100%)",
-                            color: "#FFFFFF",
-                            fontSize: 16,
-                            fontWeight: 700,
-                            fontFamily: "var(--font-sans)",
-                            letterSpacing: "-0.02em",
-                            cursor: selected ? "pointer" : "not-allowed",
-                            opacity: selected ? 1 : 0.7,
-                            boxShadow: selected ? "0 6px 18px rgba(247, 121, 168, 0.28)" : "none",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 8,
-                            transition: "all 200ms",
-                        }}
+                        className="btn btn-primary"
+                        style={{ marginTop: 20, width: "100%" }}
                         aria-label="다음"
                     >
                         다음
