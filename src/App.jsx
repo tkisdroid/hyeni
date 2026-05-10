@@ -7052,7 +7052,9 @@ export default function KidsScheduler() {
                         })()}
 
                         <div style={{ marginBottom: 14 }}>
-                            <label style={labelSt}>⚡ 빠른 선택</label>
+                            <label style={{ ...labelSt, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <ThreeDIcon name="lightning" size={14} aria-label="" /> 빠른 선택
+                            </label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                                 {SCHEDULE_PRESETS.map(p => {
                                     const active = selectedPreset?.label === p.label;
@@ -7071,11 +7073,17 @@ export default function KidsScheduler() {
                             </div>
                         </div>
                         <div style={{ marginBottom: 14 }}>
-                            <label style={labelSt}>📌 일정 이름 {selectedPreset && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(비워두면 "{selectedPreset.label}")</span>}</label>
+                            <label style={{ ...labelSt, display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                                <ThreeDIcon name="pin" size={14} aria-label="" /> 일정 이름
+                                {selectedPreset && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(비워두면 "{selectedPreset.label}")</span>}
+                            </label>
                             <input style={inputSt} placeholder={selectedPreset ? `${selectedPreset.emoji} ${selectedPreset.label}` : "예) 영어 학원, 태권도..."} value={newTitle} onChange={e => setNewTitle(e.target.value)} />
                         </div>
                         <div style={{ marginBottom: 14 }}>
-                            <label style={labelSt}>⏰ 시간 {selectedPreset && findLastEventByTitle(selectedPreset.label) && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(지난번 시간)</span>}</label>
+                            <label style={{ ...labelSt, display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                                <ThreeDIcon name="clock" size={14} aria-label="" /> 시간
+                                {selectedPreset && findLastEventByTitle(selectedPreset.label) && <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: 500 }}>(지난번 시간)</span>}
+                            </label>
                             <div className="hyeni-schedule-time-card">
                                 <div className="hyeni-schedule-time-head">
                                     <div>

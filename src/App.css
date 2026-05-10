@@ -3158,6 +3158,16 @@ a:focus-visible {
   overflow-x: auto;
   padding: 2px 0 6px;
   scrollbar-width: none;
+  /* 트랙이 viewport 보다 넓어 좌우로 스크롤 가능함을 시각적으로 hint —
+     양 끝 12% 를 fade out 처리해 "잘림" 이 의도된 scroll 영역임을 알림. */
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%, black 5%, black 88%, transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%, black 5%, black 88%, transparent 100%
+  );
 }
 
 .hyeni-time-rail::-webkit-scrollbar {
