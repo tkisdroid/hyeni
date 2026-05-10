@@ -5,6 +5,7 @@
 import { ChildAvatar } from "../HomeDashboard/ChildAvatar.jsx";
 import { HomeBigStat, pickNextEvent, formatTimeLabel } from "../HomeDashboard/HomeBigStat.jsx";
 import { useBackHandler } from "../../../lib/backHandler.js";
+import { ThreeDIcon } from "../../icons/ThreeDIcon.jsx";
 
 const DOT_COLORS = {
     green: "var(--status-positive)",
@@ -109,7 +110,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                             aria-label="자녀 설정"
                             className="btn-icon-circle"
                         >
-                            ⚙
+                            <ThreeDIcon name="settings" size={20} aria-label="" />
                         </button>
                     )}
                 </div>
@@ -169,7 +170,11 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                     }}
                     aria-label="자녀 위치 지도"
                 >
-                    {locationLabel ? `📍 ${locationLabel}` : "위치 정보 없음 · 권한 확인"}
+                    {locationLabel ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <ThreeDIcon name="pin" size={16} aria-label="" /> {locationLabel}
+                        </span>
+                    ) : "위치 정보 없음 · 권한 확인"}
                 </section>
 
                 {/* 오늘 일정 */}

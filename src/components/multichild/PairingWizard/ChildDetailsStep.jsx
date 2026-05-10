@@ -3,6 +3,7 @@
 import { BirthdatePicker } from "../../birthdate/BirthdatePicker.jsx";
 import { ColorPicker } from "./ColorPicker.jsx";
 import { PhotoUpload } from "./PhotoUpload.jsx";
+import { ThreeDIcon } from "../../icons/ThreeDIcon.jsx";
 
 export function ChildDetailsStep({ child, index, onChange, usedColors, familyId }) {
   const update = (patch) => onChange({ ...child, ...patch });
@@ -19,7 +20,9 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
       </div>
 
       <label style={{ display: "block", fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--fg-primary)" }}>
-        이름
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <ThreeDIcon name="heart" size={16} aria-label="" /> 이름
+        </span>
         <input
           type="text" value={child.name} maxLength={20} placeholder="자녀 이름"
           onChange={(e) => update({ name: e.target.value })}
@@ -29,7 +32,9 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
       </label>
 
       <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--fg-primary)" }}>생년월일</div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--fg-primary)" }}>
+          <ThreeDIcon name="calendar-heart" size={16} aria-label="" /> 생년월일
+        </div>
         <BirthdatePicker
           value={child.birthdate}
           onChange={(yyyymmdd) => update({ birthdate: yyyymmdd })}
@@ -41,7 +46,9 @@ export function ChildDetailsStep({ child, index, onChange, usedColors, familyId 
       </div>
 
       <div style={{ marginTop: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--fg-primary)" }}>앱 테마 색상</div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, marginBottom: 6, color: "var(--fg-primary)" }}>
+          <ThreeDIcon name="rainbow" size={16} aria-label="" /> 앱 테마 색상
+        </div>
         <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", lineHeight: 1.45 }}>
           선택한 색은 자녀 표시와 앱 전체에 반영돼요.
         </p>

@@ -7200,8 +7200,8 @@ export default function KidsScheduler() {
                         {(isParent || schedulePlaceOptions.length > 0 || newLocation) && (
                             <div style={{ marginBottom: 14 }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-                                    <label style={{ ...labelSt, marginBottom: 0 }}>
-                                        📍 학원/자주가는 장소 {newLocation && <span style={{ fontSize: 11, color: "#059669", fontWeight: 500 }}>(일정 위치로 적용)</span>}
+                                    <label style={{ ...labelSt, marginBottom: 0, display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                                        <ThreeDIcon name="pin" size={14} aria-label="" /> 학원/자주가는 장소 {newLocation && <span style={{ fontSize: 11, color: "#059669", fontWeight: 500 }}>(일정 위치로 적용)</span>}
                                     </label>
                                     {isParent && (
                                         <button
@@ -7286,7 +7286,9 @@ export default function KidsScheduler() {
                         <div style={{ marginBottom: 14 }}><label style={labelSt}>📝 메모 (선택)</label><input style={inputSt} placeholder="준비물, 장소 등..." value={newMemo} onChange={e => setNewMemo(e.target.value)} /></div>
                         {!editingEventId && <div style={{ marginBottom: 14 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                                <label style={{ ...labelSt, marginBottom: 0, flex: 1 }}>🔁 매주 같은 날에 반복</label>
+                                <label style={{ ...labelSt, marginBottom: 0, flex: 1, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                    <ThreeDIcon name="refresh" size={14} aria-label="" /> 매주 같은 날에 반복
+                                </label>
                                 <div onClick={() => setWeeklyRepeat(p => !p)} style={{ width: 52, height: 30, borderRadius: 15, background: weeklyRepeat ? "var(--theme-accent)" : "#E5E7EB", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
                                     <div style={{ width: 24, height: 24, borderRadius: 12, background: "white", position: "absolute", top: 3, left: weeklyRepeat ? 25 : 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }} />
                                 </div>
