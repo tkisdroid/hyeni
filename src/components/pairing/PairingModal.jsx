@@ -12,6 +12,7 @@ import { getDeviceLabelFromUA } from "../../lib/deviceInfo.js";
 import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
 import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "../../lib/remoteListenHealth.js";
 import { supabase } from "../../lib/supabase.js";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 export function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, onConfirm = null }) {
     const [showCode, setShowCode] = useState(childrenCount === 0);
@@ -46,25 +47,27 @@ export function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMe
         await run();
     };
     const ttlLine = ttlLabel ? (
-        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 10, color: ttlLabel.expired ? "var(--status-cautionary-strong)" : "var(--status-positive-strong)" }}>
-            ⏱️ {ttlLabel.text}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, marginTop: 10, color: ttlLabel.expired ? "var(--status-cautionary-strong)" : "var(--status-positive-strong)" }}>
+            <ThreeDIcon name="clock" size={14} aria-label="" /> {ttlLabel.text}
         </div>
     ) : null;
     const regenerateBtn = onRegenerate ? (
         <button type="button" onClick={handleRegenerate}
-            style={{ marginTop: 10, width: "100%", padding: "10px", background: "white", color: "#059669", border: "1.5px solid #86EFAC", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF }}>
-            🔄 새로고침 (새 연동 코드)
+            style={{ marginTop: 10, width: "100%", padding: "10px", background: "white", color: "var(--brand-mint-deep, #059669)", border: "1.5px solid var(--brand-mint-line, #86EFAC)", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: FF, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <ThreeDIcon name="refresh" size={14} aria-label="" /> 새로고침 (새 연동 코드)
         </button>
     ) : null;
 
     if (childrenCount === 0) {
         return (
-            <div style={{ background: "#F0FDF4", border: "1.5px solid #86EFAC", borderRadius: 16, padding: "16px", marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 6 }}>📋 아이에게 공유할 연동 코드</div>
+            <div style={{ background: "var(--brand-mint-soft, #F0FDF4)", border: "1.5px solid var(--brand-mint-line, #86EFAC)", borderRadius: 16, padding: "16px", marginBottom: 20 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--brand-mint-text, #166534)", marginBottom: 6 }}>
+                    <ThreeDIcon name="pin" size={14} aria-label="" /> 아이에게 공유할 연동 코드
+                </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontWeight: 900, fontSize: 22, color: "#059669", letterSpacing: 2, flex: 1, fontFamily: "monospace" }}>{pairCode}</div>
+                    <div style={{ fontWeight: 900, fontSize: 22, color: "var(--brand-mint-deep, #059669)", letterSpacing: 2, flex: 1, fontFamily: "monospace" }}>{pairCode}</div>
                     <button onClick={() => navigator.clipboard?.writeText(pairCode)}
-                        style={{ background: "#059669", color: "white", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>복사</button>
+                        style={{ background: "var(--brand-mint-deep, #059669)", color: "white", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>복사</button>
                 </div>
                 <div style={{ marginTop: 14, borderRadius: 18, background: "white", padding: "14px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                     <img
@@ -86,7 +89,7 @@ export function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMe
     }
 
     return (
-        <div style={{ background: showCode ? "#F0FDF4" : "var(--bg-subtle)", border: showCode ? "1.5px solid #86EFAC" : "1.5px solid #E5E7EB", borderRadius: 16, padding: "12px 16px", marginBottom: 20 }}>
+        <div style={{ background: showCode ? "var(--brand-mint-soft, #F0FDF4)" : "var(--bg-subtle)", border: showCode ? "1.5px solid var(--brand-mint-line, #86EFAC)" : "1.5px solid var(--line-soft, #E5E7EB)", borderRadius: 16, padding: "12px 16px", marginBottom: 20 }}>
             <button onClick={() => setShowCode(v => !v)}
                 style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%", padding: 0, fontFamily: FF }}>
                 <span style={{ fontSize: 14 }}>{showCode ? "🔓" : "🔑"}</span>
@@ -96,9 +99,9 @@ export function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMe
             {showCode && (
                 <div style={{ marginTop: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontWeight: 900, fontSize: 22, color: "#059669", letterSpacing: 2, flex: 1, fontFamily: "monospace" }}>{pairCode}</div>
+                        <div style={{ fontWeight: 900, fontSize: 22, color: "var(--brand-mint-deep, #059669)", letterSpacing: 2, flex: 1, fontFamily: "monospace" }}>{pairCode}</div>
                         <button onClick={() => navigator.clipboard?.writeText(pairCode)}
-                            style={{ background: "#059669", color: "white", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>복사</button>
+                            style={{ background: "var(--brand-mint-deep, #059669)", color: "white", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: FF }}>복사</button>
                     </div>
                     <div style={{ marginTop: 14, borderRadius: 18, background: "white", padding: "14px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                         <img
@@ -151,8 +154,8 @@ export function ChildRemoteListenReadiness({ health }) {
     }
     const missingLabels = summary.blockers.map((s) => s.label).join(" · ");
     return (
-        <div style={{ marginTop: 4, fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, fontFamily: FF }}>
-            ⚠️ 원격 청취 설정 필요 — {missingLabels}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, fontFamily: FF }}>
+            <ThreeDIcon name="warning" size={12} aria-label="" /> 원격 청취 설정 필요 — {missingLabels}
         </div>
     );
 }
@@ -248,7 +251,10 @@ export function PairingModal({ myRole, pairCode, pairedMembers, familyId: _famil
             <div style={makeSheetStyle({ padding: "28px 24px 40px", width: "100%", maxWidth: 460, maxHeight: "80vh", overflowY: "auto" })}>
 
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "var(--fg-primary)" }}>🔗 {isParent ? "아이 연동 관리" : "부모님 연동"}</div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 20, fontWeight: 800, color: "var(--fg-primary)" }}>
+                        <ThreeDIcon name="friend-pair" size={24} aria-label="" />
+                        {isParent ? "아이 연동 관리" : "부모님 연동"}
+                    </div>
                     <button onClick={handleClose} style={{ background: "var(--bg-muted)", border: "none", borderRadius: 12, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontFamily: FF }}>닫기</button>
                 </div>
 
@@ -265,10 +271,12 @@ export function PairingModal({ myRole, pairCode, pairedMembers, familyId: _famil
                             onConfirm={onConfirm}
                         />
                     ) : children.length === 0 ? (
-                        <div style={{ background: "var(--status-cautionary-subtle)", border: "1.5px solid #FCD34D", borderRadius: 16, padding: "16px", marginBottom: 20, textAlign: "center" }}>
-                            <div style={{ fontSize: 28, marginBottom: 8 }}>🔐</div>
+                        <div style={{ background: "var(--status-cautionary-subtle)", border: "1.5px solid var(--status-cautionary)", borderRadius: 16, padding: "16px", marginBottom: 20, textAlign: "center" }}>
+                            <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>
+                                <ThreeDIcon name="shield" size={36} aria-label="" />
+                            </div>
                             <div style={{ fontSize: 14, fontWeight: 700, color: "var(--status-cautionary-strong)", marginBottom: 4 }}>카카오 로그인이 필요해요</div>
-                            <div style={{ fontSize: 12, color: "#A16207", lineHeight: 1.6 }}>로그인하면 연동 코드가 생성되고<br/>아이 기기와 연결할 수 있어요</div>
+                            <div style={{ fontSize: 12, color: "var(--status-cautionary-strong)", lineHeight: 1.6, opacity: 0.85 }}>로그인하면 연동 코드가 생성되고<br/>아이 기기와 연결할 수 있어요</div>
                         </div>
                     ) : null
                 )}
@@ -315,9 +323,11 @@ export function PairingModal({ myRole, pairCode, pairedMembers, familyId: _famil
                                                     </button>
                                                     <label
                                                         htmlFor={`pmodal-photo-${child.id}`}
-                                                        style={{ padding: "6px 10px", borderRadius: 10, background: photoUploadingId === child.id ? "var(--status-cautionary-subtle)" : "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", border: "1px solid #FED7AA", fontSize: 12, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
+                                                        style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 10, background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", border: "1px solid var(--status-cautionary)", fontSize: 12, fontWeight: 800, cursor: photoUploadingId === child.id ? "wait" : "pointer", fontFamily: FF, whiteSpace: "nowrap", flexShrink: 0 }}
                                                     >
-                                                        {photoUploadingId === child.id ? "⏳ 업로드 중" : "📷 사진 변경"}
+                                                        {photoUploadingId === child.id
+                                                            ? <>⏳ 업로드 중</>
+                                                            : <><ThreeDIcon name="camera" size={14} aria-label="" /> 사진 변경</>}
                                                     </label>
                                                     <input
                                                         id={`pmodal-photo-${child.id}`}
@@ -399,10 +409,12 @@ export function PairingModal({ myRole, pairCode, pairedMembers, familyId: _famil
 
                 {/* Child view: show parent */}
                 {!isParent && parent && (
-                    <div style={{ background: "var(--status-positive-subtle)", border: "2px solid #6EE7B7", borderRadius: 20, padding: "20px", marginBottom: 20, textAlign: "center" }}>
-                        <div style={{ fontSize: 40, marginBottom: 8 }}>👨‍👩‍👧</div>
-                        <div style={{ fontWeight: 800, fontSize: 18, color: "#065F46" }}>연동 완료</div>
-                        <div style={{ fontSize: 14, color: "var(--status-positive-strong)", marginTop: 4 }}>{parent.name} (부모님)</div>
+                    <div style={{ background: "var(--status-positive-subtle)", border: "2px solid var(--status-positive)", borderRadius: 20, padding: "20px", marginBottom: 20, textAlign: "center" }}>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>
+                            <ThreeDIcon name="friend-pair" size={48} aria-label="" />
+                        </div>
+                        <div style={{ fontWeight: 800, fontSize: 18, color: "var(--status-positive-strong)" }}>연동 완료</div>
+                        <div style={{ fontSize: 14, color: "var(--status-positive-strong)", marginTop: 4, opacity: 0.85 }}>{parent.name} (부모님)</div>
                     </div>
                 )}
 
