@@ -7011,7 +7011,7 @@ export default function KidsScheduler() {
                     if (activeView === PARENT_VIEWS.EVENT_ADD) setActiveView(PARENT_VIEWS.CALENDAR);
                 }}
             >
-                {showAddModal && (
+                {(showAddModal || activeView === PARENT_VIEWS.EVENT_ADD) && (
                     <>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px 14px", marginBottom: 4 }}>
                             <HyeniMascot variant={editingEventId ? "diary" : "phone"} size={56} aria-label="" />
