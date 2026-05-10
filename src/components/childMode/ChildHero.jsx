@@ -4,6 +4,7 @@
 
 import { getThemeColors } from "../../lib/theme.js";
 import { HyeniMascot } from "../auth/HyeniMascot.jsx";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 function pickHeroCopy(eventCount) {
     if (eventCount === 0) return { title: "오늘은 자유시간!", sub: "마음껏 놀아도 돼" };
@@ -53,7 +54,7 @@ export function ChildHero({ eventCount = 0, showMascot = true, onSettings, now =
                         right: "var(--space-3)",
                     }}
                 >
-                    ⚙
+                    <ThreeDIcon name="settings" size={22} aria-label="" />
                 </button>
             )}
         </header>

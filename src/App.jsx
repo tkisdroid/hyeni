@@ -15,6 +15,7 @@ import { SplashScreen } from "./components/auth/SplashScreen.jsx";
 import { ChildEntryTransition } from "./components/auth/ChildEntryTransition.jsx";
 import { HyeniMascot } from "./components/auth/HyeniMascot.jsx";
 import { ThreeDIcon } from "./components/icons/ThreeDIcon.jsx";
+import { CategoryIcon } from "./components/icons/CategoryIcon.jsx";
 import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { EventSheet } from "./components/multichild/EventModal/EventSheet.jsx";
@@ -6062,7 +6063,11 @@ export default function KidsScheduler() {
                             }}
                             aria-label={`다음 일정 · ${nextTodayEvent.time || ""} ${nextTodayEvent.title || ""} 길찾기`}
                         >
-                            <span style={{ fontSize: 28 }} aria-hidden="true">{(CATEGORIES.find((c) => c.id === nextTodayEvent.category)?.emoji) || "📌"}</span>
+                            <CategoryIcon
+                                categoryId={nextTodayEvent.category || "other"}
+                                size={36}
+                                aria-label=""
+                            />
                             <span style={{ flex: 1, minWidth: 0 }}>
                                 <span style={{ display: "block", fontSize: 12, color: "var(--fg-secondary)", fontWeight: "var(--weight-semibold)" }}>다음 일정 · {nextTodayEvent.time || ""}</span>
                                 <span style={{ display: "block", fontSize: 16, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nextTodayEvent.title}</span>

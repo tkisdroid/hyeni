@@ -168,13 +168,13 @@ export function ChildSettingsScreen({
                     <Row icon={<ThreeDIcon name="bell" size={20} aria-label="" />} label="소리·진동">
                         <Toggle value={soundEnabled} onChange={onChangeSound || (() => {})} ariaLabel="소리·진동" />
                     </Row>
-                    <Row icon="🐰" label="마스코트 보여주기">
+                    <Row icon={<ThreeDIcon name="star-face" size={20} aria-label="" />} label="마스코트 보여주기">
                         <Toggle value={showMascot} onChange={onChangeShowMascot || (() => {})} ariaLabel="마스코트 보여주기" />
                     </Row>
                 </Section>
 
                 <Section title="계정">
-                    <Row icon="👤" label="이름">
+                    <Row icon={<ThreeDIcon name="crown" size={20} aria-label="" />} label="이름">
                         <span style={{ fontSize: 14, color: "var(--fg-secondary)", fontWeight: "var(--weight-medium)" }}>{childName || "—"}</span>
                     </Row>
                     <Row icon={<ThreeDIcon name="friend-pair" size={20} aria-label="" />} label="부모">
