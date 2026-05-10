@@ -485,6 +485,16 @@ export default function KidsScheduler() {
     const today = new Date();
     const roleStorage = typeof window !== "undefined" && window.sessionStorage ? window.sessionStorage : (typeof window !== "undefined" ? window.localStorage : null);
 
+    // view name 상수 — Single source of truth
+    const PARENT_VIEWS = {
+      HOME: "home",
+      CALENDAR: "calendar",   // = "오늘" 탭
+      EVENT_ADD: "eventAdd",  // 신규
+      MAPLIST: "maplist",
+      MEMO: "memo",           // 신규 (showParentMemoPage 대체)
+      FAMILY: "family",       // 신규 (showPairing 대체)
+    };
+
     // ── Auth & family state (Supabase) ──────────────────────────────────────────
     const [authUser, setAuthUser] = useState(null);       // supabase auth user
     // Lazy init from localStorage to give the first paint immediate access to
@@ -651,15 +661,6 @@ export default function KidsScheduler() {
         setSelectedChildId(pairedChildren[0].id);
       }
     }, [isParent, pairedChildren, selectedChildId]);
-    // 다자녀 부모가 '오늘' 진입 시 자동으로 첫 아이를 선택해 단일자녀 뷰로 진입.
-    // ('홈' = HomeTab 다자녀 종합 뷰, '오늘' = 한 명 상세) 분리 정책.
-    useEffect(() => {
-      if (isParent && isMultiChild && !selectedChildId
-          && activeView === "calendar"
-          && pairedChildren.length > 0) {
-        setSelectedChildId(pairedChildren[0].id);
-      }
-    }, [isParent, isMultiChild, selectedChildId, activeView, pairedChildren]);
     // Force-route multi-child parents back to home whenever no child is
     // selected — every per-child tab needs a context. '홈'에서만 미선택 허용.
     useEffect(() => {
@@ -4144,16 +4145,24 @@ export default function KidsScheduler() {
         setShowDangerZones(false);
         setShowPlaceManager(false);
     }, []);
-    const handleParentCalendarTabClick = () => {
-        closeParentManagementPanels();
-        setShowParentMemoPage(false);
-        setActiveView("parentCalendar");
-        setCurrentYear(today.getFullYear());
-        setCurrentMonth(today.getMonth());
-        setSelectedDate(today.getDate());
-        window.requestAnimationFrame(() => {
-            window.scrollTo({ top: 0, behavior: "auto" });
-        });
+    const handleParentEventAddTabClick = () => {
+      closeParentManagementPanels();
+      setShowParentMemoPage(false);
+      const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+      setEditingEventId(null);
+      setAddEventDateKey(todayKey);
+      setNewTitle("");
+      setNewTime("");
+      setNewEndTime("");
+      setNewLocation(null);
+      setSelectedPreset(null);
+      setActiveView(PARENT_VIEWS.EVENT_ADD);
+    };
+
+    const handleParentMemoTabClick = () => {
+      closeParentManagementPanels();
+      setShowParentMemoPage(false);
+      setActiveView(PARENT_VIEWS.MEMO);
     };
     const handleParentTodayTabClick = () => {
         closeParentManagementPanels();
@@ -4208,10 +4217,9 @@ export default function KidsScheduler() {
         });
     };
     const handleParentFamilyTabClick = () => {
-        closeParentManagementPanels();
-        setShowParentMemoPage(false);
-        if (familyId) setShowPairing(true);
-        else setShowParentSetup(true);
+      closeParentManagementPanels();
+      setShowParentMemoPage(false);
+      setActiveView(PARENT_VIEWS.FAMILY);
     };
     const handleParentHomeTabClick = () => {
         closeParentManagementPanels();
