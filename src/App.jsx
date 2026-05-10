@@ -6104,8 +6104,8 @@ export default function KidsScheduler() {
                             aria-label={`부모님 메모 ${memoPreviewCount || 0}개`}
                         >
                             <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                                <span aria-hidden="true" style={{ fontSize: 22 }}>💌</span>
-                                <span className="t-child-quick-label">메모</span>
+                                <ThreeDIcon name="chat-heart" size={26} aria-label="메시지" />
+                                <span className="t-child-quick-label">메시지</span>
                             </span>
                             <span className="t-child-quick-meta">
                                 {memoPreviewCount > 0 ? `${memoPreviewCount}개 · 눌러서 보기` : "눌러서 답장하기"}
@@ -6117,13 +6117,13 @@ export default function KidsScheduler() {
                             className="child-quick-card"
                             data-tone="sticker"
                             onClick={() => setShowSendStickerSheet(true)}
-                            aria-label="스티커 보내기"
+                            aria-label="받은 스티커 보기"
                         >
                             <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                                <span aria-hidden="true" style={{ fontSize: 22 }}>🎁</span>
-                                <span className="t-child-quick-label">스티커 보내기</span>
+                                <ThreeDIcon name="gift" size={26} aria-label="받은 스티커" />
+                                <span className="t-child-quick-label">받은 스티커 보기</span>
                             </span>
-                            <span className="t-child-quick-meta">부모님께 마음 전하기</span>
+                            <span className="t-child-quick-meta">부모님이 보낸 응원 확인</span>
                         </button>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>

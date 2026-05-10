@@ -6,6 +6,7 @@
 import { haversineM } from "../../lib/trailMath.js";
 import { FF } from "../../lib/styleHelpers.js";
 import { MemoSection } from "../memo/MemoSection.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 export function DayTimetable({ events, dateLabel, isToday = false, isFuture = false, childPos, mapReady: _mapReady, arrivedSet, firedEmergencies, onRoute, onDelete, onEditLoc, stickers, memoReplies, onReplySubmit, memoReadBy, myUserId, isParentMode, onReplyRef, showInlineMemo = true }) {
     const now = new Date();
@@ -14,9 +15,11 @@ export function DayTimetable({ events, dateLabel, isToday = false, isFuture = fa
     if (events.length === 0) return (
         <div style={{ fontFamily: FF }}>
             <div style={{ textAlign: "center", padding: "40px 0" }}>
-                <div style={{ fontSize: 56, marginBottom: 12 }}>{isParentMode ? "🌙" : "🎉"}</div>
+                <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
+                    {isParentMode ? <span style={{ fontSize: 56 }} aria-hidden="true">🌙</span> : <HyeniMascot variant="cheer" size={88} aria-label="신난 혜니" />}
+                </div>
                 <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "var(--fg-tertiary)" : "var(--theme-accent-text)" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
-                <div style={{ fontSize: isParentMode ? 13 : 14, color: "var(--fg-tertiary)", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~ 🐰"}</div>
+                <div style={{ fontSize: isParentMode ? 13 : 14, color: "var(--fg-tertiary)", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~"}</div>
             </div>
             {showInlineMemo && <MemoSection replies={memoReplies} onReplySubmit={onReplySubmit} readBy={memoReadBy} myUserId={myUserId} isParentMode={isParentMode} onReplyRef={onReplyRef} />}
         </div>

@@ -3,6 +3,7 @@
 // Extracted from App.jsx (Phase 5 #4 / B20).
 
 import { DESIGN, FF } from "../../lib/styleHelpers.js";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 export function ChildCallCard({ phones = {} }) {
     const cleanNumber = (num) => (num || "").replace(/[^0-9+]/g, "");
@@ -14,7 +15,7 @@ export function ChildCallCard({ phones = {} }) {
 
     return (
         <div
-            aria-label={hasTargets ? "전화연결" : "등록된 전화번호 없음"}
+            aria-label={hasTargets ? "부모님께 전화하기" : "등록된 전화번호 없음"}
             style={{
                 minHeight: 132,
                 padding: "14px",
@@ -32,9 +33,11 @@ export function ChildCallCard({ phones = {} }) {
         >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 14, background: "rgba(255,255,255,0.86)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.7)" }}>☎</div>
+                    <div style={{ width: 36, height: 36, borderRadius: 14, background: "rgba(255,255,255,0.86)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.7)" }}>
+                        <ThreeDIcon name="phone-lavender" size={28} aria-label="전화" />
+                    </div>
                     <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15, color: hasTargets ? "var(--theme-accent-text)" : "#9CA3AF" }}>전화연결</div>
+                        <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.15, color: hasTargets ? "var(--theme-accent-text)" : "#9CA3AF" }}>부모님께 전화하기</div>
                         <div style={{ fontSize: 10, fontWeight: 800, color: hasTargets ? "var(--fg-secondary)" : "#9CA3AF", marginTop: 3 }}>
                             {hasTargets ? "엄마 · 아빠" : "연락처 없음"}
                         </div>

@@ -25,6 +25,8 @@ import sosShieldIcon from "../../assets/3d/ui/sos-shield.webp";
 import sendIcon from "../../assets/3d/ui/send.webp";
 import megaphoneIcon from "../../assets/3d/ui/megaphone.webp";
 import giftIcon from "../../assets/3d/ui/gift.webp";
+import phoneLavenderIcon from "../../assets/3d/ui/phone-lavender.webp";
+import friendPairIcon from "../../assets/3d/ui/friend-pair.webp";
 import cloverIcon from "../../assets/3d/ui/clover.webp";
 import rainbowIcon from "../../assets/3d/ui/rainbow.webp";
 import backIcon from "../../assets/3d/ui/back.webp";
@@ -57,6 +59,8 @@ const SOURCES = {
     send: sendIcon,
     megaphone: megaphoneIcon,
     gift: giftIcon,
+    "phone-lavender": phoneLavenderIcon,
+    "friend-pair": friendPairIcon,
     clover: cloverIcon,
     rainbow: rainbowIcon,
     back: backIcon,
@@ -90,6 +94,8 @@ const FALLBACK_EMOJI = {
     send: "✈️",
     megaphone: "📣",
     gift: "🎁",
+    "phone-lavender": "📞",
+    "friend-pair": "👫",
     clover: "🍀",
     rainbow: "🌈",
     back: "←",
