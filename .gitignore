@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# QA / design verify artifacts (local-only)
+QA-VERIFY-*.md
+QA-REPORT-*.md
+c3a_verify/
+screenshots/verify/
+
 # Local agent/workspace caches
 .agents/
 .codex/
