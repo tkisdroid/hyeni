@@ -283,7 +283,9 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                     <>
                         <DateDivider label={dateLabel} />
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "20px 16px 28px" }}>
-                            <div aria-hidden="true" style={{ fontSize: 44, marginBottom: 8 }}>💗</div>
+                            <div aria-hidden="true" style={{ marginBottom: 8 }}>
+                                <ThreeDIcon name="heart" size={56} aria-label="" />
+                            </div>
                             <strong style={{ fontSize: 15, fontWeight: 800, color: "#202024" }}>{emptyTitle}</strong>
                             <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600, color: "#5F6368", lineHeight: 1.5, maxWidth: 280 }}>{emptyDescription}</p>
                         </div>
