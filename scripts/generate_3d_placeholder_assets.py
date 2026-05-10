@@ -79,22 +79,38 @@ def fill_shape_with_gradient(canvas, mask_img, top, bottom):
     return Image.alpha_composite(canvas, full)
 
 
-def add_top_highlight(canvas, cx, cy, rx, ry, alpha=180, blur=30):
-    """위쪽에 부드러운 흰색 highlight blob 1 개 추가."""
+def add_top_highlight(canvas, cx, cy, rx, ry, alpha=180, blur=30, clip_mask=None):
+    """위쪽에 부드러운 흰색 highlight blob 1 개 추가.
+    clip_mask 가 주어지면 그 영역 안에서만 보이도록 한다 (shape 밖 누출 방지).
+    """
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     d.ellipse((cx - rx, cy - ry, cx + rx, cy + ry),
               fill=(255, 255, 255, alpha))
     layer = layer.filter(ImageFilter.GaussianBlur(radius=blur))
+    if clip_mask is not None:
+        # alpha 채널을 clip_mask 와 곱셈으로 클립
+        a = layer.split()[3]
+        clipped_a = Image.new("L", a.size, 0)
+        for y in range(a.size[1]):
+            pass  # 픽셀 루프 대신 ImageChops 사용
+        from PIL import ImageChops
+        clipped_a = ImageChops.multiply(a, clip_mask)
+        layer.putalpha(clipped_a)
     return Image.alpha_composite(canvas, layer)
 
 
-def add_sparkle_dot(canvas, x, y, r=14, alpha=255):
-    """작은 흰 sparkle dot."""
+def add_sparkle_dot(canvas, x, y, r=14, alpha=255, clip_mask=None):
+    """작은 흰 sparkle dot. clip_mask 가 주어지면 shape 안에서만 보임."""
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     d.ellipse((x - r, y - r, x + r, y + r), fill=(255, 255, 255, alpha))
     layer = layer.filter(ImageFilter.GaussianBlur(radius=4))
+    if clip_mask is not None:
+        from PIL import ImageChops
+        a = layer.split()[3]
+        clipped_a = ImageChops.multiply(a, clip_mask)
+        layer.putalpha(clipped_a)
     return Image.alpha_composite(canvas, layer)
 
 
@@ -136,6 +152,7 @@ def draw_battery():
     img = new_canvas()
     body_bbox = (PAD + 30, PAD + 130, SIZE - PAD - 60, SIZE - PAD - 130)
     notch_bbox = (SIZE - PAD - 60, SIZE / 2 - 50, SIZE - PAD - 12, SIZE / 2 + 50)
+    bx0, by0, bx1, by1 = body_bbox
 
     # outline (옅은 darker shadow 로 입체감)
     outline = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -144,31 +161,44 @@ def draw_battery():
     od.rounded_rectangle(notch_bbox, radius=14, fill=(190, 180, 195, 255))
     img = Image.alpha_composite(img, outline)
 
-    # body — vertical gradient (white-light → soft gray)
-    bx0, by0, bx1, by1 = body_bbox
-    inner_body_bbox = (bx0 + 8, by0 + 8, bx1 - 8, by1 - 8)
-    body_mask = make_rounded_rect_mask(SIZE, SIZE, inner_body_bbox, 62)
+    # body 외곽 전체 mask (clip 용)
+    full_body_mask = Image.new("L", (SIZE, SIZE), 0)
+    fbd = ImageDraw.Draw(full_body_mask)
+    fbd.rounded_rectangle(body_bbox, radius=70, fill=255)
+    fbd.rounded_rectangle(notch_bbox, radius=14, fill=255)
+
+    # body — vertical gradient (white → soft gray)
+    inner_body_bbox = (bx0 + 4, by0 + 4, bx1 - 4, by1 - 4)
+    body_mask = make_rounded_rect_mask(SIZE, SIZE, inner_body_bbox, 66)
     img = fill_shape_with_gradient(img, body_mask, WHITE, GRAY_LIGHT)
 
-    # notch
-    notch_mask = make_rounded_rect_mask(SIZE, SIZE,
-                                        (notch_bbox[0] + 4, notch_bbox[1] + 4,
-                                         notch_bbox[2] - 4, notch_bbox[3] - 4),
-                                        10)
+    # notch inner
+    notch_mask = make_rounded_rect_mask(
+        SIZE, SIZE,
+        (notch_bbox[0] + 4, notch_bbox[1] + 4, notch_bbox[2] - 2, notch_bbox[3] - 4),
+        10)
     img = fill_shape_with_gradient(img, notch_mask, GRAY_LIGHT, (200, 195, 200, 255))
 
     # 충전 영역 — vertical gradient (mint top → mint-deep bottom)
     fill_bbox = (bx0 + 32, by0 + 32, bx1 - 36, by1 - 32)
     fill_mask = make_rounded_rect_mask(SIZE, SIZE, fill_bbox, 44)
     img = fill_shape_with_gradient(img, fill_mask, MINT_LIGHT, MINT_DEEP)
+    # 충전 영역 위쪽 광택 stripe (mint 안쪽만)
+    img = add_top_highlight(
+        img, SIZE / 2 - 30, by0 + 60, 110, 18, alpha=210, blur=8,
+        clip_mask=fill_mask,
+    )
 
-    # 충전 영역 안 위쪽 highlight stripe (mint 광택)
-    img = add_top_highlight(img, SIZE / 2, by0 + 70, 130, 24, alpha=200, blur=10)
-
-    # 본체 위쪽 큰 highlight blob
-    img = add_top_highlight(img, SIZE / 2 - 50, by0 + 30, 180, 50, alpha=220, blur=30)
-    # sparkle dot
-    img = add_sparkle_dot(img, bx0 + 80, by0 + 40, r=18, alpha=240)
+    # 본체 전체 위쪽 큰 highlight (body mask 안에서만)
+    img = add_top_highlight(
+        img, SIZE / 2 - 60, by0 + 25, 200, 36, alpha=200, blur=22,
+        clip_mask=full_body_mask,
+    )
+    # sparkle dot (body 안)
+    img = add_sparkle_dot(
+        img, bx0 + 90, by0 + 50, r=16, alpha=240,
+        clip_mask=full_body_mask,
+    )
 
     return add_soft_shadow(img)
 
@@ -217,9 +247,15 @@ def draw_warning():
     dot_mask = make_ellipse_mask(SIZE, SIZE, dot_bbox)
     img = fill_shape_with_gradient(img, dot_mask, ROSE_LIGHT, ROSE_DEEP)
 
-    # 위쪽 highlight (큰)
-    img = add_top_highlight(img, cx - 30, cy - 80, 120, 32, alpha=180, blur=24)
-    img = add_sparkle_dot(img, cx - 110, cy - 30, r=14, alpha=220)
+    # 위쪽 highlight (삼각형 안에서만)
+    img = add_top_highlight(
+        img, cx - 30, cy - 80, 100, 30, alpha=170, blur=22,
+        clip_mask=body_mask,
+    )
+    img = add_sparkle_dot(
+        img, cx - 90, cy - 40, r=12, alpha=210,
+        clip_mask=body_mask,
+    )
 
     return add_soft_shadow(img)
 
@@ -264,9 +300,15 @@ def draw_sparkle():
         sm_mask = make_polygon_mask(SIZE, SIZE, small_pts)
         img = fill_shape_with_gradient(img, sm_mask, CREAM_LIGHT, CREAM_DEEP)
 
-    # 위쪽 highlight + sparkle
-    img = add_top_highlight(img, cx - 30, cy - 70, 110, 30, alpha=200, blur=22)
-    img = add_sparkle_dot(img, cx - 60, cy - 100, r=16, alpha=230)
+    # 위쪽 highlight + sparkle (큰 별 mask 안에서만)
+    img = add_top_highlight(
+        img, cx - 20, cy - 60, 90, 26, alpha=190, blur=18,
+        clip_mask=star_mask,
+    )
+    img = add_sparkle_dot(
+        img, cx - 50, cy - 90, r=14, alpha=220,
+        clip_mask=star_mask,
+    )
 
     return add_soft_shadow(img)
 
@@ -344,9 +386,20 @@ def draw_school():
         win_mask = make_rounded_rect_mask(SIZE, SIZE, win_bbox, 10)
         img = fill_shape_with_gradient(img, win_mask, CREAM_LIGHT, CREAM_DEEP)
 
-    # 지붕 위쪽 큰 highlight
-    img = add_top_highlight(img, SIZE / 2 - 60, PAD + 80, 160, 28, alpha=180, blur=18)
-    img = add_sparkle_dot(img, PAD + 100, PAD + 100, r=12, alpha=220)
+    # 지붕 위쪽 큰 highlight (지붕 mask 안에서만)
+    img = add_top_highlight(
+        img, SIZE / 2 - 40, PAD + 90, 140, 24, alpha=180, blur=14,
+        clip_mask=roof_mask,
+    )
+    # 본관 위쪽 작은 highlight
+    img = add_top_highlight(
+        img, SIZE / 2 - 60, PAD + 200, 120, 16, alpha=160, blur=10,
+        clip_mask=body_mask,
+    )
+    img = add_sparkle_dot(
+        img, PAD + 130, PAD + 130, r=12, alpha=220,
+        clip_mask=roof_mask,
+    )
     return add_soft_shadow(img)
 
 
@@ -376,8 +429,14 @@ def draw_lightning():
 
     bolt_mask = make_polygon_mask(SIZE, SIZE, pts)
     img = fill_shape_with_gradient(img, bolt_mask, CREAM_LIGHT, CREAM_DEEP)
-    img = add_top_highlight(img, cx - 30, cy - 100, 80, 60, alpha=200, blur=18)
-    img = add_sparkle_dot(img, cx + 10, cy - 180, r=14, alpha=230)
+    img = add_top_highlight(
+        img, cx - 10, cy - 130, 60, 40, alpha=200, blur=14,
+        clip_mask=bolt_mask,
+    )
+    img = add_sparkle_dot(
+        img, cx + 5, cy - 170, r=12, alpha=220,
+        clip_mask=bolt_mask,
+    )
     return add_soft_shadow(img)
 
 
@@ -417,8 +476,14 @@ def draw_clock():
     # 중심점
     d.ellipse((cx - 16, cy - 16, cx + 16, cy + 16), fill=ROSE_DARK)
 
-    img = add_top_highlight(img, cx - 50, cy - 80, 120, 30, alpha=180, blur=22)
-    img = add_sparkle_dot(img, cx - 120, cy - 50, r=14, alpha=220)
+    img = add_top_highlight(
+        img, cx - 40, cy - 80, 100, 22, alpha=180, blur=14,
+        clip_mask=face_mask,
+    )
+    img = add_sparkle_dot(
+        img, cx - 100, cy - 70, r=12, alpha=210,
+        clip_mask=face_mask,
+    )
     return add_soft_shadow(img)
 
 
@@ -473,8 +538,15 @@ def draw_camera():
     d2.ellipse((SIZE - PAD - 96, PAD + 96, SIZE - PAD - 56, PAD + 132),
                fill=ROSE_DEEP)
 
-    img = add_top_highlight(img, SIZE / 2 - 80, PAD + 130, 160, 30, alpha=190, blur=22)
-    img = add_sparkle_dot(img, PAD + 100, PAD + 200, r=12, alpha=220)
+    # 카메라 본체 highlight (body mask 안)
+    img = add_top_highlight(
+        img, SIZE / 2 - 60, PAD + 175, 140, 22, alpha=180, blur=14,
+        clip_mask=body_mask,
+    )
+    img = add_sparkle_dot(
+        img, PAD + 90, PAD + 200, r=12, alpha=210,
+        clip_mask=body_mask,
+    )
     return add_soft_shadow(img)
 
 
