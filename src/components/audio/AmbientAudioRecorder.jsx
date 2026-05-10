@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { generateUUID } from "../../lib/auth.js";
 import { sendBroadcastWhenReady } from "../../lib/realtime.js";
 import { sendInstantPush } from "../../lib/instantPush.js";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 import {
     summarizeRemoteListenHealth,
     resolveChildRemoteListenHealth,
@@ -413,9 +414,9 @@ export function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUse
         pushing: { icon: "📡", title: "연결 요청 전송 중", description: "아이 기기에 FCM 요청을 보내고 있어요", hint: "잠시만 기다려 주세요." },
         auto_waking_child: { icon: "📲", title: "아이 기기 자동 연결 시도 중", description: "전체화면 연결 화면을 자동으로 띄우고 있어요", hint: "기기 상태에 따라 몇 초 걸릴 수 있어요." },
         waiting_for_child_notification: { icon: "🔔", title: "아이 기기 응답 대기 중", description: "아이 기기에 알림이 도착했어요. 화면을 깨우면 즉시 연결됩니다", hint: "1분 이상 응답이 없으면 잠금화면 알림이나 배터리 제한 설정을 확인해 주세요." },
-        listening: { icon: "🔊", title: "아이 주변 소리 듣는 중...", description: `${duration}초 수신 중`, hint: "" },
-        failed: { icon: "⚠️", title: "연결 요청 실패", description: "네트워크 또는 권한 상태를 확인한 뒤 다시 시도해 주세요", hint: "" },
-    }[status] || { icon: "🎤", title: "주변 소리 듣기", description: "", hint: "" };
+        listening: { icon: <ThreeDIcon name="broadcast" size={48} aria-label="" />, title: "아이 주변 소리 듣는 중...", description: `${duration}초 수신 중`, hint: "" },
+        failed: { icon: <ThreeDIcon name="warning" size={48} aria-label="" />, title: "연결 요청 실패", description: "네트워크 또는 권한 상태를 확인한 뒤 다시 시도해 주세요", hint: "" },
+    }[status] || { icon: <ThreeDIcon name="broadcast" size={48} aria-label="" />, title: "주변 소리 듣기", description: "", hint: "" };
 
     return (
         <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, fontFamily: FF }}

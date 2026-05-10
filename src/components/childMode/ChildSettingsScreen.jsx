@@ -6,6 +6,7 @@
 import { useBackHandler } from "../../lib/backHandler.js";
 import { THEME_PALETTE as THEME_DICT } from "../../lib/theme.js";
 import { AnimalIcon } from "../icons/AnimalIcon.jsx";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 const THEME_OPTIONS = Object.entries(THEME_DICT).map(([hex, t]) => ({
     color: hex,
@@ -230,7 +231,7 @@ export function ChildSettingsScreen({
                 </Section>
 
                 <Section title="앱 설정">
-                    <Row icon="🔔" label="소리·진동">
+                    <Row icon={<ThreeDIcon name="bell" size={20} aria-label="" />} label="소리·진동">
                         <Toggle value={soundEnabled} onChange={onChangeSound || (() => {})} ariaLabel="소리·진동" />
                     </Row>
                     <Row icon="🐰" label="마스코트 보여주기">
@@ -242,7 +243,7 @@ export function ChildSettingsScreen({
                     <Row icon="👤" label="이름">
                         <span style={{ fontSize: 14, color: "var(--fg-secondary)", fontWeight: "var(--weight-medium)" }}>{childName || "—"}</span>
                     </Row>
-                    <Row icon="👨‍👩‍👧" label="부모">
+                    <Row icon={<ThreeDIcon name="friend-pair" size={20} aria-label="" />} label="부모">
                         <span style={{ fontSize: 14, color: "var(--fg-secondary)", fontWeight: "var(--weight-medium)" }}>{parentNames || "—"}</span>
                     </Row>
                     {typeof onRequestParentChange === "function" && (

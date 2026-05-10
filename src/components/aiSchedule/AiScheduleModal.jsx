@@ -7,6 +7,8 @@ import { generateUUID, getSession } from "../../lib/auth.js";
 import { insertEvent, saveEventWithChildren } from "../../lib/sync.js";
 import { sendInstantPush } from "../../lib/instantPush.js";
 import { DESIGN, FF, makeSheetStyle, modalBackdropStyle } from "../../lib/styleHelpers.js";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -177,7 +179,7 @@ export function AiScheduleModal({ academies, currentDate, familyId, authUser, ev
                     <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 16 }}>
                         <button onClick={startVoiceInput}
                             style={{ ...btnSt, background: voiceListening ? "var(--theme-accent)" : "var(--hyeni-theme-gradient)", color: "white", boxShadow: "var(--hyeni-theme-shadow-soft)", animation: voiceListening ? "pulse 1s infinite" : "none" }}>
-                            <span style={{ fontSize: 24 }}>🎤</span>
+                            <ThreeDIcon name="broadcast" size={22} aria-label="" />
                             {voiceListening ? "듣는 중..." : "말하기"}
                         </button>
                         <button onClick={() => fileInputRef.current?.click()}
@@ -255,7 +257,9 @@ export function AiScheduleModal({ academies, currentDate, familyId, authUser, ev
                 )}
                 {results && results.action === "unknown" && (
                     <div style={{ marginTop: 16, textAlign: "center", padding: 20, background: "var(--status-cautionary-subtle)", borderRadius: 16 }}>
-                        <div style={{ fontSize: 28, marginBottom: 8 }}>🤔</div>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>
+                            <HyeniMascot variant="thinking" size={64} aria-label="" />
+                        </div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--status-cautionary-strong)" }}>{results.message}</div>
                     </div>
                 )}

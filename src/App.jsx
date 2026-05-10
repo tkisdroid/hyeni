@@ -6597,17 +6597,17 @@ export default function KidsScheduler() {
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
                                     <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>배터리</div>
-                                    <div style={{ fontSize: 16, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>🔋 {primaryDeviceBatteryLabel}</div>
+                                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 16, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}><ThreeDIcon name="battery" size={16} aria-label="" /> {primaryDeviceBatteryLabel}</div>
                                 </div>
                                 <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
                                     <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 시간</div>
-                                    <div style={{ fontSize: 15, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>⏱️ {primaryDeviceScreenLabel}</div>
+                                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 15, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}><ThreeDIcon name="clock" size={14} aria-label="" /> {primaryDeviceScreenLabel}</div>
                                 </div>
                                 {deviceStatusExpanded && (
                                     <>
                                         <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
                                             <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>충전 상태</div>
-                                            <div style={{ fontSize: 15, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>⚡ {primaryDeviceChargingLabel}</div>
+                                            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 15, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}><ThreeDIcon name="lightning" size={14} aria-label="" /> {primaryDeviceChargingLabel}</div>
                                         </div>
                                         <div style={{ background: "white", borderRadius: 12, padding: "9px 10px" }}>
                                             <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>네트워크</div>

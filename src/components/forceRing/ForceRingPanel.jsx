@@ -5,6 +5,7 @@ import { ForceRingActiveStatus } from './ForceRingActiveStatus.jsx';
 import { ForceRingHistory } from './ForceRingHistory.jsx';
 import { triggerForceRing, fetchActiveForceRing } from '../../lib/forceRing.js';
 import { supabase } from '../../lib/supabase.js';
+import { ThreeDIcon } from '../icons/ThreeDIcon.jsx';
 
 export function ForceRingPanel({ familyId, hasChild = true, compact = false, childList = [] }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -242,8 +243,8 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false, chi
             )}
           </div>
           <div className="hyeni-tool-status__actions">
-            <a href="tel:" className="hyeni-tool-tel">📞 직접 통화</a>
-            <a href="tel:119" className="hyeni-tool-tel hyeni-tool-tel--emergency">🚨 119</a>
+            <a href="tel:" className="hyeni-tool-tel" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ThreeDIcon name="phone-lavender" size={16} aria-label="" /> 직접 통화</a>
+            <a href="tel:119" className="hyeni-tool-tel hyeni-tool-tel--emergency" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ThreeDIcon name="sos-shield" size={16} aria-label="" /> 119</a>
           </div>
         </div>
       ) : (

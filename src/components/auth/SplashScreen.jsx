@@ -114,7 +114,7 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) 
                         <ThreeDIcon name="heart" size={26} />
                     </span>
                 </div>
-                <HyeniMascot variant="static" size={260} aria-label="혜니" />
+                <HyeniMascot variant="wave" size={260} aria-label="혜니" />
             </div>
 
             <div

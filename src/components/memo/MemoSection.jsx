@@ -106,7 +106,7 @@ export function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParent
             {/* UI-SPEC §2 — Header bar */}
             <div style={{ padding: "14px 18px", background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", borderBottom: "1px solid var(--theme-accent-line)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 {/* UI-SPEC §2 — section title: fontSize 14, fontWeight 700 (corrected from 800) */}
-                <div style={{ fontSize: 17, fontWeight: 900, color: "var(--theme-accent-text)", letterSpacing: 0 }}>💬 오늘의 메모</div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 17, fontWeight: 900, color: "var(--theme-accent-text)", letterSpacing: 0 }}><ThreeDIcon name="chat-heart" size={20} aria-label="" /> 오늘의 메모</div>
                 {/* UI-SPEC §2 — conditional ✓ 읽음 badge */}
                 {hasMessages && othersRead && (
                     <div style={{ fontSize: 12, color: "#059669", fontWeight: 800, background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 999, padding: "4px 10px" }}>✓ 읽음</div>
