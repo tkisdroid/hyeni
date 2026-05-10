@@ -6141,11 +6141,11 @@ export default function KidsScheduler() {
                 )}
                 <HomeTab
                   children={pairedChildren}
-                  positions={displayChildPositions}
-                  events={todayEvents}
-                  childLocations={homeChildLocationLabels}
-                  childDeviceStatusMap={childDeviceStatusMap}
-                  onMapTap={() => setShowChildTracker(true)}
+                  deviceStatusByChildId={childDeviceStatusMap}
+                  locationByChildId={Object.fromEntries(
+                    Object.entries(homeChildLocationLabels).map(([uid, v]) => [uid, v?.label || v?.shortLabel || null])
+                  )}
+                  nextEventByChildId={{}}
                   onSelectChild={(childId) => { setSelectedChildId(childId); setActiveView("calendar"); }}
                 />
                 {renderParentBottomTabbar("home", "hyeni-v5-tabbar-fixed")}
