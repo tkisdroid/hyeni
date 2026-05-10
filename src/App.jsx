@@ -6584,7 +6584,7 @@ export default function KidsScheduler() {
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
                                 <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em", minWidth: 0 }}>
                                     <ThreeDIcon name="safety-mascot" size={28} aria-label="" />
-                                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>안전 지표 · {primaryDeviceChildName}</span>
+                                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>안전 지표</span>
                                 </div>
                                 <button
                                     type="button"
