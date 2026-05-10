@@ -234,12 +234,10 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                             type="button"
                             onClick={() => setShowIdPw(true)}
                             className="btn btn-secondary"
-                            style={{ width: "100%", minHeight: 56, justifyContent: "space-between", padding: "0 20px" }}
+                            style={{ width: "100%", minHeight: 56, justifyContent: "center", gap: 10, padding: "0 20px" }}
                         >
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-                                <ThreeDIcon name="shield" size={18} aria-label="" />
-                                아이디 · 비밀번호로 로그인
-                            </span>
+                            <ThreeDIcon name="shield" size={18} aria-label="" />
+                            <span>아이디 · 비밀번호로 로그인</span>
                             <span style={{ color: "var(--fg-tertiary)", fontSize: 14 }}>▾</span>
                         </button>
                     ) : (
