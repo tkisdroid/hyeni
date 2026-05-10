@@ -84,7 +84,8 @@ export function EventSheet({
         const dragZone = event.target?.closest?.(".event-sheet-header, .event-sheet-handle");
         if (dragZone) return true;
         const rect = sheetRef.current?.getBoundingClientRect?.();
-        return !!rect && event.clientY >= rect.top && event.clientY <= rect.top + 92;
+        // 상단 108px(handle+header 영역) 내 어디서든 드래그 시작 허용
+        return !!rect && event.clientY >= rect.top && event.clientY <= rect.top + 108;
     };
 
     const handleDragPointerDown = (event) => {
@@ -216,7 +217,7 @@ export function EventSheet({
                     onPointerDown={handleDragPointerDown}
                     onMouseDown={handleDragMouseDown}
                     aria-label="아래로 끌어 닫기"
-                    style={{ border: "none", padding: 0, cursor: "grab" }}
+                    style={{ border: "none", background: "transparent" }}
                 />
                 <div
                     className="event-sheet-header"

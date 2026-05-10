@@ -261,8 +261,8 @@
   /* Bottom sheet */
   --sheet-bg:               var(--bg-base);
   --sheet-radius-top:       var(--radius-2xl);
-  --sheet-handle-width:     32px;
-  --sheet-handle-height:    4px;
+  --sheet-handle-width:     40px;
+  --sheet-handle-height:    5px;
   --sheet-handle-color:     var(--line-default);
   --sheet-padding-x:        var(--space-screen-pad);
   --sheet-shadow:           var(--shadow-lg);
@@ -983,9 +983,14 @@ body {
   height: var(--sheet-handle-height);
   background: var(--sheet-handle-color);
   border-radius: var(--radius-full);
-  margin: var(--space-3) auto var(--space-2);
+  margin: var(--space-2) auto 0;
   flex-shrink: 0;
   touch-action: none;
+  /* 터치 hit target 확장 — 시각적 bar 바깥 12px 영역까지 드래그 감지 */
+  padding: 12px 24px;
+  box-sizing: content-box;
+  display: block;
+  cursor: grab;
 }
 .event-sheet-header {
   display: flex;
