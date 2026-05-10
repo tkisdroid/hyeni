@@ -35,6 +35,15 @@ import closeIcon from "../../assets/3d/ui/close.webp";
 import refreshIcon from "../../assets/3d/ui/refresh.webp";
 import searchIcon from "../../assets/3d/ui/search.webp";
 import settingsIcon from "../../assets/3d/ui/settings.webp";
+import batteryIcon from "../../assets/3d/ui/battery.webp";
+import warningIcon from "../../assets/3d/ui/warning.webp";
+import sparkleIcon from "../../assets/3d/ui/sparkle.webp";
+import schoolIcon from "../../assets/3d/ui/school.webp";
+import lightningIcon from "../../assets/3d/ui/lightning.webp";
+import clockIcon from "../../assets/3d/ui/clock.webp";
+import cameraIcon from "../../assets/3d/ui/camera.webp";
+import broadcastIcon from "../../assets/3d/ui/broadcast.webp";
+import bellOffIcon from "../../assets/3d/ui/bell-off.webp";
 
 const SOURCES = {
     bell: bellIcon,
@@ -69,6 +78,15 @@ const SOURCES = {
     refresh: refreshIcon,
     search: searchIcon,
     settings: settingsIcon,
+    battery: batteryIcon,
+    warning: warningIcon,
+    sparkle: sparkleIcon,
+    school: schoolIcon,
+    lightning: lightningIcon,
+    clock: clockIcon,
+    camera: cameraIcon,
+    broadcast: broadcastIcon,
+    "bell-off": bellOffIcon,
 };
 
 const FALLBACK_EMOJI = {
@@ -104,6 +122,15 @@ const FALLBACK_EMOJI = {
     refresh: "↻",
     search: "🔍",
     settings: "⚙️",
+    battery: "🔋",
+    warning: "⚠️",
+    sparkle: "✨",
+    school: "🏫",
+    lightning: "⚡",
+    clock: "⏰",
+    camera: "📷",
+    broadcast: "📡",
+    "bell-off": "🔕",
 };
 
 export function ThreeDIcon({
