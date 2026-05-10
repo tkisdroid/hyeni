@@ -67,6 +67,47 @@ def vertical_gradient_image(w, h, top, bottom):
     return img
 
 
+def vertical_gradient_3stop_image(w, h, top, mid, bottom):
+    """3-stop vertical gradient: 0→top, 0.5→mid, 1→bottom (자연스러운 색 전이)."""
+    img = Image.new("RGBA", (w, h), top)
+    px = img.load()
+    for y in range(h):
+        t = y / max(h - 1, 1)
+        if t < 0.5:
+            tt = t * 2.0
+            col = tuple(int(top[i] * (1 - tt) + mid[i] * tt) for i in range(4))
+        else:
+            tt = (t - 0.5) * 2.0
+            col = tuple(int(mid[i] * (1 - tt) + bottom[i] * tt) for i in range(4))
+        for x in range(w):
+            px[x, y] = col
+    return img
+
+
+def fill_shape_with_3stop(canvas, mask_img, top, mid, bottom):
+    """mask shape 안에 3-stop vertical gradient 채움."""
+    bbox = mask_img.getbbox() or (0, 0, *mask_img.size)
+    x0, y0, x1, y1 = bbox
+    grad = vertical_gradient_3stop_image(x1 - x0, y1 - y0, top, mid, bottom)
+    full = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    full.paste(grad, (x0, y0))
+    full.putalpha(mask_img)
+    return Image.alpha_composite(canvas, full)
+
+
+def add_inner_shadow(canvas, shape_mask, color=(140, 80, 110, 130), blur=10, inset=4):
+    """shape mask 의 안쪽 가장자리에 darker rim shadow 추가 (3D 깊이감)."""
+    from PIL import ImageChops
+    # 마스크 erosion 흉내 — gaussian blur 후 threshold 로 작은 mask 만들기
+    eroded = shape_mask.filter(ImageFilter.MinFilter(size=2 * inset + 1))
+    # 큰 mask - 작은 mask = rim 영역
+    rim = ImageChops.subtract(shape_mask, eroded)
+    rim = rim.filter(ImageFilter.GaussianBlur(radius=blur))
+    layer = Image.new("RGBA", canvas.size, color)
+    layer.putalpha(rim)
+    return Image.alpha_composite(canvas, layer)
+
+
 def fill_shape_with_gradient(canvas, mask_img, top, bottom):
     """mask_img(L mode) 의 shape 를 vertical gradient 로 채워 canvas 에 합성."""
     bbox = mask_img.getbbox() or (0, 0, *mask_img.size)
@@ -189,6 +230,8 @@ def draw_battery():
         clip_mask=fill_mask,
     )
 
+    # 본체 안쪽 rim shadow (3D 깊이)
+    img = add_inner_shadow(img, full_body_mask, color=(140, 80, 110, 90), blur=8, inset=3)
     # 본체 전체 위쪽 큰 highlight (body mask 안에서만)
     img = add_top_highlight(
         img, SIZE / 2 - 60, by0 + 25, 200, 36, alpha=200, blur=22,
@@ -247,6 +290,8 @@ def draw_warning():
     dot_mask = make_ellipse_mask(SIZE, SIZE, dot_bbox)
     img = fill_shape_with_gradient(img, dot_mask, ROSE_LIGHT, ROSE_DEEP)
 
+    # 삼각형 안쪽 rim shadow
+    img = add_inner_shadow(img, body_mask, color=(180, 120, 30, 100), blur=8, inset=3)
     # 위쪽 highlight (삼각형 안에서만)
     img = add_top_highlight(
         img, cx - 30, cy - 80, 100, 30, alpha=170, blur=22,
@@ -300,6 +345,8 @@ def draw_sparkle():
         sm_mask = make_polygon_mask(SIZE, SIZE, small_pts)
         img = fill_shape_with_gradient(img, sm_mask, CREAM_LIGHT, CREAM_DEEP)
 
+    # 별 안쪽 rim shadow
+    img = add_inner_shadow(img, star_mask, color=(180, 120, 30, 100), blur=6, inset=2)
     # 위쪽 highlight + sparkle (큰 별 mask 안에서만)
     img = add_top_highlight(
         img, cx - 20, cy - 60, 90, 26, alpha=190, blur=18,
@@ -386,6 +433,9 @@ def draw_school():
         win_mask = make_rounded_rect_mask(SIZE, SIZE, win_bbox, 10)
         img = fill_shape_with_gradient(img, win_mask, CREAM_LIGHT, CREAM_DEEP)
 
+    # 지붕 + 본관 안쪽 rim shadow
+    img = add_inner_shadow(img, roof_mask, color=(160, 60, 100, 100), blur=6, inset=2)
+    img = add_inner_shadow(img, body_mask, color=(180, 130, 150, 80), blur=8, inset=3)
     # 지붕 위쪽 큰 highlight (지붕 mask 안에서만)
     img = add_top_highlight(
         img, SIZE / 2 - 40, PAD + 90, 140, 24, alpha=180, blur=14,
@@ -429,6 +479,7 @@ def draw_lightning():
 
     bolt_mask = make_polygon_mask(SIZE, SIZE, pts)
     img = fill_shape_with_gradient(img, bolt_mask, CREAM_LIGHT, CREAM_DEEP)
+    img = add_inner_shadow(img, bolt_mask, color=(180, 120, 30, 100), blur=6, inset=2)
     img = add_top_highlight(
         img, cx - 10, cy - 130, 60, 40, alpha=200, blur=14,
         clip_mask=bolt_mask,
@@ -476,6 +527,7 @@ def draw_clock():
     # 중심점
     d.ellipse((cx - 16, cy - 16, cx + 16, cy + 16), fill=ROSE_DARK)
 
+    img = add_inner_shadow(img, face_mask, color=(170, 90, 130, 90), blur=8, inset=3)
     img = add_top_highlight(
         img, cx - 40, cy - 80, 100, 22, alpha=180, blur=14,
         clip_mask=face_mask,
@@ -538,6 +590,8 @@ def draw_camera():
     d2.ellipse((SIZE - PAD - 96, PAD + 96, SIZE - PAD - 56, PAD + 132),
                fill=ROSE_DEEP)
 
+    # 본체 안쪽 rim shadow
+    img = add_inner_shadow(img, body_mask, color=(110, 90, 180, 90), blur=8, inset=3)
     # 카메라 본체 highlight (body mask 안)
     img = add_top_highlight(
         img, SIZE / 2 - 60, PAD + 175, 140, 22, alpha=180, blur=14,
