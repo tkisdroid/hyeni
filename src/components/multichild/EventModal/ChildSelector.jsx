@@ -48,7 +48,7 @@ export function ChildSelector({ children, value, onChange }) {
       </div>
       <button
         type="button" onClick={pickFamily}
-        className={`cartoon-pill ${familyAll ? "cartoon-pill--rose" : "cartoon-pill--white"}`}
+        className={`btn ${familyAll ? "btn-primary" : "btn-secondary"}`}
         style={{
           marginTop: "var(--space-3)",
           width: "100%",

@@ -33,7 +33,7 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
           <button
             type="button"
             onClick={onConfirm}
-            className="cartoon-pill cartoon-pill--rose cartoon-pill--lg"
+            className="btn btn-primary"
             style={{ flex: 1 }}
           >
             {AUTO_RENEWAL_DISCLOSURE.confirm}
@@ -41,7 +41,7 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="cartoon-pill cartoon-pill--white cartoon-pill--lg"
+            className="btn btn-secondary"
             style={{ flexShrink: 0, padding: "0 var(--space-5)" }}
           >
             {AUTO_RENEWAL_DISCLOSURE.cancel}

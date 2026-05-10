@@ -138,7 +138,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                         onClick={handleAllowAll}
                         disabled={running}
                         aria-label="모든 권한을 한 번에 허용하기"
-                        className="cartoon-pill cartoon-pill--rose"
+                        className="btn btn-primary"
                         style={{
                             marginTop: "var(--space-4)",
                             width: "100%",
@@ -180,7 +180,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                                         type="button"
                                         onClick={() => onAction?.(step)}
                                         aria-label={`${step.title} ${step.actionLabel || "허용하기"}`}
-                                        className="cartoon-pill cartoon-pill--rose"
+                                        className="btn btn-primary"
                                         style={{
                                             flexShrink: 0,
                                             height: 36,
@@ -209,7 +209,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                 <button
                     type="button"
                     onClick={onDismiss}
-                    className={`cartoon-pill ${allReady ? "cartoon-pill--rose" : "cartoon-pill--white"}`}
+                    className={`btn ${allReady ? "btn-primary" : "btn-secondary"}`}
                     style={{
                         width: "100%",
                         minHeight: 56,

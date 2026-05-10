@@ -250,7 +250,7 @@ export function ChildSettingsScreen({
                             <button
                                 type="button"
                                 onClick={onRequestParentChange}
-                                className="cartoon-pill cartoon-pill--rose"
+                                className="btn btn-primary btn-sm"
                                 style={{ width: "100%", height: 40, fontSize: 13 }}
                             >
                                 부모님께 변경 요청

@@ -40,7 +40,7 @@ export function TrialEndingBanner({ trialDaysLeft, isTrial, onContinue, isChild 
       <button
         type="button"
         onClick={onContinue}
-        className="cartoon-pill cartoon-pill--rose"
+        className="btn btn-primary btn-sm"
         style={{
           height: 36,
           padding: "0 var(--space-4)",

@@ -59,7 +59,7 @@ function Section({ id, icon, label, caution, places, color, openId, onToggle, on
                             <button
                                 type="button"
                                 onClick={() => onAdd(id)}
-                                className="cartoon-pill cartoon-pill--white"
+                                className="btn btn-secondary btn-sm"
                                 style={{
                                     width: "100%",
                                     height: 40,

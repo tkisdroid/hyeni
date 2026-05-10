@@ -63,7 +63,7 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
           <button
             type="button"
             onClick={onStart}
-            className="cartoon-pill cartoon-pill--rose"
+            className="btn btn-primary"
             style={{ flex: 1 }}
           >
             {TRIAL_INVITE.ctaPrimary}
@@ -71,7 +71,7 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
           <button
             type="button"
             onClick={onDismiss}
-            className="cartoon-pill cartoon-pill--white"
+            className="btn btn-secondary"
             style={{ flexShrink: 0, padding: "0 var(--space-5)" }}
           >
             {TRIAL_INVITE.ctaSecondary}

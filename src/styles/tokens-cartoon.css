@@ -506,7 +506,7 @@ body .hyeni-app-shell .btn-primary {
   background: var(--cartoon-rose-gradient);
   color: var(--cartoon-pill-rose-text);
   border: none;
-  border-radius: var(--cartoon-radius-button);
+  border-radius: var(--cartoon-radius-pill);
   font-weight: 800;
   letter-spacing: -0.02em;
   box-shadow: var(--cartoon-shadow-pill);
@@ -536,7 +536,7 @@ body .hyeni-app-shell .btn-secondary {
   background: var(--cartoon-bg-card);
   color: var(--fg-secondary);
   border: 1px solid var(--cartoon-line);
-  border-radius: var(--cartoon-radius-button);
+  border-radius: var(--cartoon-radius-pill);
   font-weight: 700;
 }
 body .btn-secondary:not(:disabled):hover,

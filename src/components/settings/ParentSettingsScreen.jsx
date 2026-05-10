@@ -98,7 +98,7 @@ function MinutesBeforeSelector({ value = [15, 5], onChange }) {
                         type="button"
                         onClick={() => toggle(opt.value)}
                         aria-pressed={active}
-                        className={`cartoon-pill ${active ? "cartoon-pill--rose" : "cartoon-pill--white"}`}
+                        className={`btn btn-sm ${active ? "btn-primary" : "btn-secondary"}`}
                         style={{ height: 32, padding: "0 var(--space-3)", fontSize: 13 }}
                     >
                         {opt.label}

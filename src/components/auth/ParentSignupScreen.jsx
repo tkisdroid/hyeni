@@ -251,7 +251,7 @@ export function ParentSignupScreen({ onBack }) {
                         <button
                             type="submit"
                             disabled={!!busy}
-                            className="cartoon-pill cartoon-pill--rose cartoon-pill--lg"
+                            className="btn btn-primary"
                             style={{ width: "100%", marginTop: "var(--space-2)", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" }}
                         >
                             {busy === "signup" ? "인증번호 요청 중..." : busy === "verify" ? "확인 중..." : codeSent ? "인증번호 확인 후 가입" : "인증번호 받기"}
@@ -261,7 +261,7 @@ export function ParentSignupScreen({ onBack }) {
                                 type="button"
                                 disabled={!!busy}
                                 onClick={handleRequestCode}
-                                className="cartoon-pill cartoon-pill--white"
+                                className="btn btn-secondary"
                                 style={{ width: "100%", opacity: busy ? 0.65 : 1, cursor: busy ? "wait" : "pointer" }}
                             >
                                 인증번호 다시 받기

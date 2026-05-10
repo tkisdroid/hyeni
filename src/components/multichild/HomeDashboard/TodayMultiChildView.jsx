@@ -54,7 +54,7 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
             <button
               type="button"
               onClick={() => onRefreshDevices?.("device_status_manual_refresh")}
-              className="cartoon-pill cartoon-pill--white"
+              className="btn btn-secondary btn-sm"
               style={{ height: 32, padding: "0 var(--space-3)", fontSize: 12 }}
             >
               {deviceRefreshPending ? "요청 중" : "지금 갱신"}

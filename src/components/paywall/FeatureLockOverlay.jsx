@@ -67,7 +67,7 @@ export function FeatureLockOverlay({
           <button
             type="button"
             onClick={onStart}
-            className="cartoon-pill cartoon-pill--rose"
+            className="btn btn-primary"
             style={{ flex: 1 }}
           >
             7일 무료 체험 시작
@@ -75,7 +75,7 @@ export function FeatureLockOverlay({
           <button
             type="button"
             onClick={onClose}
-            className="cartoon-pill cartoon-pill--white"
+            className="btn btn-secondary"
             style={{ flexShrink: 0, padding: "0 var(--space-5)" }}
           >
             닫기
