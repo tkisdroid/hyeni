@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Sun, Sparkles, Home, Calendar, MapPin, MessageCircle, Users } from "lucide-react";
+import { Sun, Sparkles, Home, Calendar, CalendarPlus, MapPin, MessageCircle, Users } from "lucide-react";
 import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
@@ -4255,9 +4255,15 @@ export default function KidsScheduler() {
             <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
                 <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Sun size={16} strokeWidth={1.75} /></span>오늘
             </button>
-            <button type="button" className={activeTab === "calendar" ? "active" : undefined} onClick={() => {}} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
-                {/* Task 6에서 handleParentEventAddTabClick으로 교체 */}
-                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Calendar size={16} strokeWidth={1.75} /></span>일정
+            <button
+              type="button"
+              className={activeTab === "eventAdd" ? "active" : undefined}
+              onClick={requireSelectedChildOrHint(handleParentEventAddTabClick, "일정 등록")}
+              style={{ fontFamily: FF, whiteSpace: "nowrap" }}
+            >
+              <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}>
+                <CalendarPlus size={16} strokeWidth={1.75} />
+              </span>일정등록
             </button>
             {parentCapabilities.canManagePlaces && (
                 <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentMapTabClick, "장소 관리")} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
