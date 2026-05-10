@@ -73,6 +73,8 @@ export function AcademyManager({
     const [dangerSaving, setDangerSaving] = useState(false);
     const [managerSaving, setManagerSaving] = useState(false);
     const [dangerForm, setDangerForm] = useState({ name: "", location: null, radius_m: 200, zone_type: "custom" });
+    const [showSearch, setShowSearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const DAYS_LABEL = ["일", "월", "화", "수", "목", "금", "토"];
     const DANGER_TYPES = [
         { id: "construction", label: "공사장", emoji: "🚧", color: "var(--status-cautionary)" },
