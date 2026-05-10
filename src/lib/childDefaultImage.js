@@ -8,7 +8,7 @@ export const HYENI_DEFAULT_CHILD_IMAGE_STYLE = {
   width: "185%",
   height: "185%",
   left: "-42.5%",
-  top: "-6%",
+  top: "-22%",
   maxWidth: "none",
   objectFit: "cover",
   pointerEvents: "none",
@@ -16,4 +16,4 @@ export const HYENI_DEFAULT_CHILD_IMAGE_STYLE = {
   WebkitUserSelect: "none",
 };
 
-export const HYENI_DEFAULT_CHILD_IMAGE_STYLE_HTML = "position:absolute;width:185%;height:185%;left:-42.5%;top:-6%;max-width:none;object-fit:cover;pointer-events:none;user-select:none;-webkit-user-select:none;";
+export const HYENI_DEFAULT_CHILD_IMAGE_STYLE_HTML = "position:absolute;width:185%;height:185%;left:-42.5%;top:-22%;max-width:none;object-fit:cover;pointer-events:none;user-select:none;-webkit-user-select:none;";
