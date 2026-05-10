@@ -7138,6 +7138,28 @@ export default function KidsScheduler() {
 
                         <div style={{ marginBottom: 14 }}>
                             <label style={{ ...labelSt, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <ThreeDIcon name="calendar-heart" size={14} aria-label="" /> 날짜
+                            </label>
+                            <input
+                                type="date"
+                                style={inputSt}
+                                value={(() => {
+                                    if (!addEventDateKey) return "";
+                                    const [y, m, d] = addEventDateKey.split("-").map(Number);
+                                    return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                                })()}
+                                onChange={(e) => {
+                                    const val = e.target.value; // "YYYY-MM-DD"
+                                    if (!val) return;
+                                    const [y, mm, dd] = val.split("-").map(Number);
+                                    setAddEventDateKey(`${y}-${mm - 1}-${dd}`);
+                                }}
+                                aria-label="일정 날짜"
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: 14 }}>
+                            <label style={{ ...labelSt, display: "inline-flex", alignItems: "center", gap: 4 }}>
                                 <ThreeDIcon name="lightning" size={14} aria-label="" /> 빠른 선택
                             </label>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
