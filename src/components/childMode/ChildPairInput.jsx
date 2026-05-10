@@ -336,9 +336,10 @@ export function ChildPairInput({ userId, onPaired }) {
                 }}
             >
                 <div style={{ width: "100%", maxWidth: 400, margin: "0 auto", display: "flex", flexDirection: "column", flex: 1 }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <div role="banner" aria-label="혜니캘린더" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                         <AppBrandLogo size={64} radius={18} shadow={false} />
-                        <h2
+                        <div
+                            aria-hidden="true"
                             style={{
                                 marginTop: 12,
                                 fontSize: 18,
@@ -348,8 +349,8 @@ export function ChildPairInput({ userId, onPaired }) {
                             }}
                         >
                             혜니캘린더
-                            <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
-                        </h2>
+                            <span style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
+                        </div>
                     </div>
 
                     <div style={{ textAlign: "center", marginTop: 16 }}>
@@ -531,6 +532,7 @@ function CodeInput({ code, onChange, onSubmit }) {
                 alignItems: "center",
                 gap: 10,
                 cursor: "text",
+                minHeight: 48,
             }}
         >
             <span

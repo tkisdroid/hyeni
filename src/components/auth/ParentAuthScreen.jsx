@@ -120,14 +120,14 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                         onClick={onBack}
                         aria-label="뒤로"
                         className="btn btn-secondary btn-sm"
-                        style={{ width: 40, height: 40, minHeight: 40, padding: 0, background: "transparent", border: "none", fontSize: 22, color: "var(--fg-primary)" }}
+                        style={{ width: 44, height: 44, minHeight: 44, padding: 0, background: "transparent", border: "none", fontSize: 22, color: "var(--fg-primary)" }}
                     >
                         ←
                     </button>
                     <div style={{ flex: 1 }} />
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 16 }}>
+                <div role="banner" aria-label="혜니캘린더" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 16 }}>
                     <span
                         style={{
                             display: "inline-flex",
@@ -143,7 +143,8 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                     >
                         <HyeniMascot variant="wave" size={56} aria-label="" />
                     </span>
-                    <h2
+                    <div
+                        aria-hidden="true"
                         style={{
                             marginTop: 12,
                             fontSize: 18,
@@ -153,8 +154,8 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                         }}
                     >
                         혜니캘린더
-                        <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
-                    </h2>
+                        <span style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
+                    </div>
                 </div>
 
                 <div style={{ textAlign: "center", marginTop: 16 }}>

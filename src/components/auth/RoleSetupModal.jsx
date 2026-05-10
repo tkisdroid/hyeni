@@ -86,9 +86,10 @@ export function RoleSetupModal({ onSelect, loading }) {
                 }}
             >
                 <div style={{ width: "100%", maxWidth: 400, margin: "0 auto", display: "flex", flexDirection: "column", flex: 1 }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+                    <div role="banner" aria-label="혜니캘린더" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
                         <AppBrandLogo size={64} radius={18} shadow={false} />
-                        <h1
+                        <div
+                            aria-hidden="true"
                             style={{
                                 marginTop: 12,
                                 fontSize: 18,
@@ -98,12 +99,12 @@ export function RoleSetupModal({ onSelect, loading }) {
                             }}
                         >
                             혜니캘린더
-                            <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
-                        </h1>
+                            <span style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
+                        </div>
                     </div>
 
                     <div style={{ textAlign: "center", marginBottom: 28 }}>
-                        <h2
+                        <h1
                             style={{
                                 margin: 0,
                                 fontSize: 30,
@@ -115,7 +116,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                         >
                             누구로 <span style={{ color: "var(--theme-accent, #F779A8)" }}>시작</span>할까요?
                             <span aria-hidden="true" style={{ fontSize: 16, color: "var(--theme-accent, #F779A8)", marginLeft: 4 }}>♥</span>
-                        </h2>
+                        </h1>
                         <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: "#7A6770" }}>
                             가족 일정 관리 또는 부모님 코드 연결을 선택해 주세요
                         </p>
@@ -156,12 +157,29 @@ export function RoleSetupModal({ onSelect, loading }) {
 
                     <div style={{ flex: 1 }} />
 
+                    {!selected && (
+                        <p
+                            id="role-cta-hint"
+                            style={{
+                                margin: "20px 0 0",
+                                textAlign: "center",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: "var(--theme-accent-text, #C3325B)",
+                                letterSpacing: "-0.01em",
+                            }}
+                        >
+                            역할을 선택하면 시작할 수 있어요
+                        </p>
+                    )}
+
                     <button
                         type="button"
                         onClick={proceed}
                         disabled={!selected}
+                        aria-describedby={!selected ? "role-cta-hint" : undefined}
                         className="btn btn-primary"
-                        style={{ marginTop: 20, width: "100%" }}
+                        style={{ marginTop: !selected ? 12 : 20, width: "100%" }}
                         aria-label="다음"
                     >
                         다음
@@ -183,8 +201,10 @@ function RoleCard({ active, onSelect, badgeIcon, title, subtitle, mascot }) {
             style={{
                 position: "relative",
                 width: "100%",
-                background: "rgba(255,255,255,0.78)",
-                border: active ? "2px solid #F779A8" : "1px solid #FFD6DD",
+                background: active ? "var(--cartoon-bg-card, #FFFFFF)" : "rgba(255,255,255,0.92)",
+                border: active
+                    ? "2px solid var(--theme-accent, #F779A8)"
+                    : "1px solid var(--cartoon-line, #FFD6DD)",
                 borderRadius: 24,
                 padding: 16,
                 cursor: "pointer",
@@ -195,8 +215,8 @@ function RoleCard({ active, onSelect, badgeIcon, title, subtitle, mascot }) {
                 gap: 12,
                 minHeight: 140,
                 boxShadow: active
-                    ? "0 6px 18px rgba(247, 121, 168, 0.18)"
-                    : "0 2px 8px rgba(247, 121, 168, 0.06)",
+                    ? "var(--cartoon-shadow-pill, 0 6px 18px rgba(247, 121, 168, 0.18))"
+                    : "var(--cartoon-shadow-card, 0 2px 8px rgba(247, 121, 168, 0.06))",
                 transition: "all 200ms",
                 overflow: "hidden",
             }}

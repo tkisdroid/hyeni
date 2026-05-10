@@ -46,9 +46,10 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) 
             role="status"
             aria-live="polite"
         >
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
+            <div role="banner" aria-label="혜니캘린더" style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto" }}>
                 {AppBrandLogo ? <AppBrandLogo size={64} radius={18} /> : null}
-                <h1
+                <div
+                    aria-hidden="true"
                     style={{
                         marginTop: 12,
                         fontSize: 18,
@@ -58,12 +59,12 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) 
                     }}
                 >
                     혜니캘린더
-                    <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
-                </h1>
+                    <span style={{ marginLeft: 4, fontSize: 12 }}>♥</span>
+                </div>
             </div>
 
             <div style={{ textAlign: "center", marginTop: 20, flex: "0 0 auto" }}>
-                <h2
+                <h1
                     style={{
                         margin: 0,
                         fontSize: 30,
@@ -76,7 +77,7 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) 
                     가족의 하루를<br />
                     더 <span style={{ color: "var(--theme-accent, #F779A8)" }}>다정하게</span>
                     <span aria-hidden="true" style={{ fontSize: 16, color: "var(--theme-accent, #F779A8)", marginLeft: 4 }}>♥</span>
-                </h2>
+                </h1>
                 <p
                     style={{
                         marginTop: 12,

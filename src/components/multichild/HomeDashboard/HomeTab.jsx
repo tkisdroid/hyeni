@@ -134,12 +134,12 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
   const nextEventChip = formatNextEventChip(nextEvent);
 
   return (
-    <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 20, background: "#FAFAF7" }}>
+    <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 20, background: "var(--bg-card-soft, #FAFAF7)" }}>
       <section
         aria-label="오늘"
         style={{
           position: "relative",
-          background: "linear-gradient(160deg, #DDF3E5 0%, #C9EBD7 100%)",
+          background: "linear-gradient(160deg, var(--brand-mint-soft, #DDF3E5) 0%, var(--brand-mint-soft, #C9EBD7) 100%)",
           borderRadius: 24,
           padding: "20px",
           overflow: "hidden",
@@ -147,8 +147,8 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative", zIndex: 1, maxWidth: "55%" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#2D7C53", letterSpacing: "-0.01em" }}>{weekday}</div>
-          <div style={{ fontSize: 36, fontWeight: 800, color: "#1F2A24", lineHeight: 1.1, letterSpacing: "-0.03em" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--brand-mint-text, #2D7C53)", letterSpacing: "-0.01em" }}>{weekday}</div>
+          <div style={{ fontSize: 36, fontWeight: 800, color: "var(--fg-primary, #1F2A24)", lineHeight: 1.1, letterSpacing: "-0.03em" }}>
             {monthDay}
           </div>
           {nextEventChip && (
@@ -164,14 +164,14 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
                 borderRadius: 999,
                 fontSize: 13,
                 fontWeight: 600,
-                color: "#1F2A24",
+                color: "var(--fg-primary, #1F2A24)",
                 width: "fit-content",
                 maxWidth: "100%",
               }}
             >
               <ThreeDIcon name="calendar-check" size={16} aria-label="" />
-              <span style={{ color: "#3A8862" }}>다음 일정</span>
-              <span aria-hidden="true" style={{ color: "#A892A0" }}>·</span>
+              <span style={{ color: "var(--brand-mint-text, #3A8862)" }}>다음 일정</span>
+              <span aria-hidden="true" style={{ color: "var(--fg-tertiary, #A892A0)" }}>·</span>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nextEventChip}</span>
             </div>
           )}
@@ -196,7 +196,7 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
 
       <section>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#1F2A24", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--fg-primary, #1F2A24)", display: "inline-flex", alignItems: "center", gap: 8 }}>
             <ThreeDIcon name="calendar-heart" size={20} aria-label="" />
             오늘 일정
           </h3>
@@ -204,8 +204,8 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
             style={{
               padding: "6px 12px",
               borderRadius: 999,
-              background: "#E5F5EC",
-              color: "#2D7C53",
+              background: "var(--brand-mint-soft, #E5F5EC)",
+              color: "var(--brand-mint-text, #2D7C53)",
               fontSize: 12,
               fontWeight: 700,
             }}
@@ -223,7 +223,7 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
               margin: 0,
               fontSize: 15,
               fontWeight: 800,
-              color: "#1F2A24",
+              color: "var(--fg-primary, #1F2A24)",
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
@@ -249,7 +249,7 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
               borderRadius: 999,
               background: "transparent",
               border: "none",
-              color: "#3A8862",
+              color: "var(--brand-mint-text, #3A8862)",
               fontSize: 12,
               fontWeight: 700,
               cursor: "pointer",
@@ -270,7 +270,7 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
 
       <section>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#1F2A24", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--fg-primary, #1F2A24)", display: "inline-flex", alignItems: "center", gap: 8 }}>
             <ThreeDIcon name="pin" size={20} aria-label="" />
             위치 지도
           </h3>
@@ -281,9 +281,9 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
             style={{
               padding: "6px 12px",
               borderRadius: 999,
-              background: "#E5F5EC",
+              background: "var(--brand-mint-soft, #E5F5EC)",
               border: "none",
-              color: "#2D7C53",
+              color: "var(--brand-mint-text, #2D7C53)",
               fontSize: 12,
               fontWeight: 700,
               cursor: "pointer",
