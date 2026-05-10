@@ -6241,13 +6241,14 @@ export default function KidsScheduler() {
                       </span>
                       <h2 style={{
                         margin: 0,
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: 900,
                         color: "#202024",
                         letterSpacing: "-0.03em",
-                        lineHeight: 1.22,
+                        lineHeight: 1.25,
+                        wordBreak: "keep-all",
                       }}>
-                        {childName},<br />
+                        {childName},{" "}
                         <span style={{ color: "var(--brand-mint-text, #087653)" }}>{moodLine}</span>
                       </h2>
                       <button
