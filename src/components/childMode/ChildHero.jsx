@@ -39,7 +39,7 @@ export function ChildHero({ eventCount = 0, showMascot = true, characterEmoji = 
                     type="button"
                     onClick={onSettings}
                     aria-label="설정"
-                    className="cartoon-iconbtn"
+                    className="btn-icon-circle"
                     style={{
                         position: "absolute",
                         top: "var(--space-3)",

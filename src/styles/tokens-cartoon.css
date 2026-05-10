@@ -562,6 +562,20 @@ body .card.card-interactive:hover {
   border-color: var(--cartoon-line-strong);
 }
 
+/* Icon-only round button override — cartoon squircle (18px radius) + line.
+   Phase D 에서 .btn-icon-circle (canonical, radius-full 50%) 정의가 추가되었으나
+   현 cartoon 무드는 18px squircle 이므로 override 로 유지. 진짜 원형이 필요하면
+   사용처에서 인라인 borderRadius:'50%' 로 덮어쓰면 됨. */
+body .btn-icon-circle {
+  border: 1px solid var(--cartoon-line);
+  border-radius: var(--cartoon-radius-icon);
+  background: var(--cartoon-bg-card);
+}
+body .btn-icon-circle:hover {
+  border-color: var(--cartoon-line-strong);
+  background: var(--cartoon-bg-chip);
+}
+
 /* ──────────────────────────────────────────────────────────────────
    Event sheet — bottom modal 가 사용. tokens.css 의 .event-sheet*
    기본 스타일을 specificity (0,0,1,1) 로 override.

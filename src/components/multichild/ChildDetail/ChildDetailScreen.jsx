@@ -94,7 +94,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                         type="button"
                         onClick={onBack}
                         aria-label="뒤로"
-                        className="cartoon-iconbtn"
+                        className="btn-icon-circle"
                     >
                         ←
                     </button>
@@ -107,7 +107,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                             type="button"
                             onClick={() => onSettings(child)}
                             aria-label="자녀 설정"
-                            className="cartoon-iconbtn"
+                            className="btn-icon-circle"
                         >
                             ⚙
                         </button>

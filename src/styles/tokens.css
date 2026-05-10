@@ -802,6 +802,58 @@ body {
   font-size: 14px;
 }
 
+/* ─── Icon-only round button — back/close/icon FAB ──────────────────── */
+.btn-icon-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  color: var(--fg-secondary);
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    background var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+}
+.btn-icon-circle:hover {
+  border-color: var(--line-strong);
+  background: var(--bg-muted);
+}
+.btn-icon-circle:active { transform: scale(0.95); }
+.btn-icon-circle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-icon-circle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring-halo);
+}
+.btn-icon-circle-sm {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  font-size: 14px;
+}
+.btn-icon-circle-lg {
+  width: 52px;
+  height: 52px;
+  min-height: 52px;
+  font-size: 22px;
+}
+
 /* ─── Chip — DESIGN_revision §11.9 ───────────────────────────────────── */
 .chip {
   display: inline-flex;

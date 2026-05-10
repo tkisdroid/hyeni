@@ -139,7 +139,7 @@ export function ChildSettingsScreen({
                     type="button"
                     onClick={onBack}
                     aria-label="뒤로"
-                    className="cartoon-iconbtn"
+                    className="btn-icon-circle"
                 >
                     ←
                 </button>
