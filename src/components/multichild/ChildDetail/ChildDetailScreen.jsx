@@ -206,7 +206,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                 {/* 안전 메트릭 */}
                 <section style={{ marginTop: "var(--space-5)", paddingTop: "var(--space-5)", borderTop: "1px solid var(--cartoon-line)" }}>
                     <h2 className="t-section-label">안전 메트릭</h2>
-                    <div className="cartoon-card-flat">
+                    <div className="card">
                         <MetricRow label="배터리" value={deviceStatus?.battery_pct != null ? `${deviceStatus.battery_pct}%` : "—"} meta={deviceStatus?.battery_updated_minutes_ago != null ? formatLastSeen(deviceStatus.battery_updated_minutes_ago) : null} />
                         <MetricRow label="위치" value={locationLabel || "확인 불가"} meta={deviceStatus?.last_seen_minutes_ago != null ? `${formatLastSeen(deviceStatus.last_seen_minutes_ago)} 갱신` : null} />
                         <MetricRow label="화면" value={screenLabel} meta="오늘" />

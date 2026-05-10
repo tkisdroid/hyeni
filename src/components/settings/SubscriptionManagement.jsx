@@ -98,7 +98,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
     if (role === "child") {
         return (
             <section
-                className="cartoon-card-flat"
+                className="card"
                 style={{
                     padding: "var(--space-5) var(--space-4)",
                 }}

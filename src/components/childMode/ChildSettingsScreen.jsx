@@ -83,7 +83,7 @@ function Section({ title, children }) {
             >
                 {title}
             </h2>
-            <div className="cartoon-card-flat" style={{ overflow: "hidden" }}>
+            <div className="card" style={{ overflow: "hidden" }}>
                 {children}
             </div>
         </section>
