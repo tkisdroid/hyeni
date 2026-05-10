@@ -618,7 +618,12 @@ export default function KidsScheduler() {
     // Per-child UI selection. For 2+ child families, all non-home tabs operate
     // within a single selected child's context. For 1-child families, this is
     // auto-set so existing single-child UX is preserved.
-    const [selectedChildId, setSelectedChildId] = useState(null);
+    const [selectedChildId, setSelectedChildId] = useState(() => {
+      try {
+        const v = localStorage.getItem("hyeni-selected-child-id");
+        return v && v !== "null" && v !== "undefined" ? v : null;
+      } catch { return null; }
+    });
     // Phase 2 — 자녀 상세 overlay (Life360식). null이면 닫힘.
     const [childDetailId, setChildDetailId] = useState(null);
     // Phase 3 — 자녀 모드 설정 / 스티커 보내기 / 마스코트 표시 토글
@@ -647,6 +652,13 @@ export default function KidsScheduler() {
       const t = setTimeout(() => setMultiChildHint(null), 6000);
       return () => clearTimeout(t);
     }, [multiChildHint]);
+    // Persist selected child across reloads / app restarts.
+    useEffect(() => {
+      try {
+        if (selectedChildId) localStorage.setItem("hyeni-selected-child-id", selectedChildId);
+        else localStorage.removeItem("hyeni-selected-child-id");
+      } catch { /* ignore */ }
+    }, [selectedChildId]);
     // Single-child families pin selectedChildId automatically so existing
     // single-child rendering paths see a non-null value with no UX delta.
     // Multi-child families clear it whenever the chosen child disappears.
