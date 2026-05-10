@@ -308,8 +308,8 @@ function Step1FamilyName({ value, onChange, onNext }) {
             />
             <button
                 type="button" onClick={onNext} disabled={!value.trim()}
-                className="wizard-primary"
-                style={{ marginTop: "var(--space-6)" }}
+                className="btn btn-primary"
+                style={{ marginTop: "var(--space-6)", width: "100%" }}
             >다음</button>
         </div>
     );
@@ -356,8 +356,8 @@ function Step2DevicePicker({ value, onChange, onNext }) {
             </div>
             <button
                 type="button" onClick={onNext} disabled={!value}
-                className="wizard-primary"
-                style={{ marginTop: "var(--space-6)" }}
+                className="btn btn-primary"
+                style={{ marginTop: "var(--space-6)", width: "100%" }}
             >다음</button>
         </div>
     );
@@ -400,13 +400,13 @@ function Step4Children({ children, onChange, familyId, busy, error, onSubmit }) 
                         type="button"
                         onClick={() => setActiveIndex(activeIndex + 1)}
                         disabled={!children[activeIndex].name.trim() || !children[activeIndex].birthdate}
-                        className="wizard-primary"
+                        className="btn btn-primary"
                         style={{ flex: 1 }}
                     >다음 자녀</button>
                 ) : (
                     <button
                         type="button" onClick={onSubmit} disabled={!allValid || busy}
-                        className="wizard-primary"
+                        className="btn btn-primary"
                         style={{ flex: 1 }}
                     >{busy ? "저장 중..." : "다음"}</button>
                 )}
@@ -444,8 +444,8 @@ function Step5PairCode({ family, deviceType, onNext }) {
             </p>
             <button
                 type="button" onClick={onNext}
-                className="wizard-primary"
-                style={{ marginTop: "var(--space-6)" }}
+                className="btn btn-primary"
+                style={{ marginTop: "var(--space-6)", width: "100%" }}
             >모든 자녀 페어링 완료</button>
         </div>
     );
@@ -474,7 +474,7 @@ function Step6Complete({ familyName, childrenList = [], onComplete }) {
                     ))}
                 </div>
             )}
-            <button type="button" onClick={onComplete} className="wizard-primary">시작하기</button>
+            <button type="button" onClick={onComplete} className="btn btn-primary" style={{ width: "100%" }}>시작하기</button>
         </div>
     );
 }

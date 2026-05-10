@@ -377,7 +377,8 @@ export function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParent
                     type="button"
                     aria-label="메시지 전송 다시 시도"
                     onClick={handleRetry}
-                    style={{ background: "transparent", border: "1px solid var(--status-cautionary-strong)", borderRadius: 12, color: "var(--status-cautionary-strong)", fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", marginLeft: 8 }}
+                    className="btn btn-sm btn-secondary"
+                    style={{ marginLeft: 8 }}
                 >
                     다시 시도
                 </button>

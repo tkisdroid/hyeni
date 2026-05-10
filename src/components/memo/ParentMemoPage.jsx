@@ -359,24 +359,12 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                             key={item.text}
                             type="button"
                             onClick={() => setPreset(item.text)}
+                            className="chip"
                             style={{
                                 flex: "1 1 auto",
                                 minWidth: 0,
-                                padding: "10px 16px",
-                                borderRadius: 999,
-                                border: "1px solid var(--line-soft, #F1ECEE)",
-                                background: "#FFFFFF",
-                                color: "var(--brand-mint-text, #087653)",
-                                fontSize: 13,
-                                fontWeight: 800,
-                                cursor: "pointer",
-                                fontFamily: FF,
-                                display: "inline-flex",
-                                alignItems: "center",
                                 justifyContent: "center",
-                                gap: 6,
-                                boxShadow: "0 4px 10px rgba(31,24,28,0.04)",
-                                whiteSpace: "nowrap",
+                                minHeight: 36,
                             }}
                         >
                             <span aria-hidden="true" style={{ fontSize: 16 }}>{item.icon}</span>
@@ -400,7 +388,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                             type="button"
                             onClick={handleRetry}
                             disabled={isSending}
-                            style={{ border: "none", background: "#FFFFFF", color: "#9A6500", padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF }}
+                            className="btn btn-sm btn-secondary"
                         >
                             다시 시도
                         </button>
