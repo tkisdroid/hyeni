@@ -1024,6 +1024,8 @@ async function handleInstantNotification(
     for (const sub of subs) {
       if (sub.user_id === senderUserId) continue;
       if (sub.user_id && nativeRecipientIds.has(sub.user_id)) continue;
+      // memo multichild isolation: 의도된 자녀 + 부모만 알림.
+      if (memoRecipientIds && (!sub.user_id || !memoRecipientIds.has(sub.user_id))) continue;
       try {
         await webpush.sendNotification(sub.subscription, JSON.stringify(payload));
         webSent++;
@@ -1039,6 +1041,35 @@ async function handleInstantNotification(
 
     if (expiredIds.length > 0) {
       await supabase.from("push_subscriptions").delete().in("id", expiredIds);
+    }
+  }
+
+  // ── Memo recipient routing (multichild isolation) ────────────────────
+  // new_memo: 의도된 자녀(targetChildUserId) + 가족 내 모든 부모만 알림 받음.
+  // 다른 자녀 device 는 알림에서 제외되어 알림음/배지가 울리지 않는다.
+  // sender 본인은 sendFcmToFamily / web-push 분기에서 senderUserId 로 별도 제외.
+  let memoRecipientIds: Set<string> | null = null;
+  if (!isChildNativeCommand && action === "new_memo") {
+    const targetChildUserId = typeof body.targetChildUserId === "string" && body.targetChildUserId
+      ? body.targetChildUserId
+      : null;
+    if (targetChildUserId) {
+      const { data: parentMembers, error: parentMembersErr } = await supabase
+        .from("family_members")
+        .select("user_id")
+        .eq("family_id", familyId)
+        .eq("role", "parent");
+      if (parentMembersErr) {
+        console.error("push-notify memo-routing query failed:", parentMembersErr);
+      } else {
+        const ids = new Set<string>();
+        for (const m of (parentMembers || [])) {
+          const uid = (m as { user_id?: string | null }).user_id;
+          if (uid) ids.add(uid);
+        }
+        ids.add(targetChildUserId);
+        memoRecipientIds = ids;
+      }
     }
   }
 
@@ -1083,7 +1114,7 @@ async function handleInstantNotification(
     message,
     action,
     fcmExtraData,
-    childNativeRecipientIds ?? parentRecipientIds,
+    childNativeRecipientIds ?? memoRecipientIds ?? parentRecipientIds,
   );
 
   // ── PUSH-03 / PUSH-04 (D-A04): always record pending_notifications with

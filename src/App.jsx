@@ -4835,12 +4835,18 @@ export default function KidsScheduler() {
                 throw err;
             });
         const senderDisplayName = familyInfo?.myName || (myRole === "parent" ? "부모님" : "아이");
+        // multichild routing: 부모 → selectedChild의 user_id (의도된 자녀만 알림)
+        // 자녀 → 본인 user_id (다른 자녀 device에 알림 가지 않게)
+        const memoTargetChildUserId = isParent
+            ? (selectedChild?.user_id ?? pairedChildren[0]?.user_id ?? null)
+            : authUser.id;
         sendInstantPush({
             action: "new_memo",
             familyId,
             senderUserId: authUser.id,
             title: `💬 ${senderDisplayName}의 새 메모`,
             message: content.length > 50 ? content.substring(0, 50) + "..." : content,
+            targetChildUserId: memoTargetChildUserId,
         });
         return sendPromise;
     }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName, memoThreadDateKeys, activeView, showChildMemoPage]);
