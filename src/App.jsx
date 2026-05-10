@@ -153,6 +153,7 @@ import { StickerBookModal } from "./components/sticker/StickerBookModal.jsx";
 import { SavedPlaceManager } from "./components/place-management/SavedPlaceManager.jsx";
 import { ChildPairInput } from "./components/childMode/ChildPairInput.jsx";
 import { ParentMemoPage } from "./components/memo/ParentMemoPage.jsx";
+import { ParentFamilyView } from "./components/parent/ParentFamilyView.jsx";
 import { ChildCallCard } from "./components/contact/ChildCallCard.jsx";
 import { ChildDeviceCard } from "./components/contact/ChildDeviceCard.jsx";
 import { PhoneSettingsModal } from "./components/dialogs/PhoneSettingsModal.jsx";
@@ -506,7 +507,6 @@ export default function KidsScheduler() {
         try { return roleStorage?.getItem("hyeni-my-role") || null; } catch { return null; }
     });           // "parent" | "child" | null (role selection)
     const [showChildEntry, setShowChildEntry] = useState(false);  // Phase 1 §3.4 자녀 첫 인사 transition
-    const [showPairing, setShowPairing] = useState(false);
     const [showTrialInvite, setShowTrialInvite] = useState(false);
     const [featureLock, setFeatureLock] = useState({ open: false, feature: null, title: "", body: "" });
     const [showDisclosure, setShowDisclosure] = useState(false);
@@ -2712,7 +2712,7 @@ export default function KidsScheduler() {
             routeEvent, showChildTracker, showMapPicker, showAddModal,
             showChildMemoPage,
             showAcademyMgr, showSavedPlaceMgr, showPhoneSettings, showFeedbackModal, showParentSetup, showMicPermissionHelp, editingLocForEvent,
-            voicePreview, activeView, showPairing, showAlertPanel,
+            voicePreview, activeView, showAlertPanel,
         };
     });
     useEffect(() => {
@@ -2740,7 +2740,6 @@ export default function KidsScheduler() {
                     if (s.editingLocForEvent)  { setEditingLocForEvent(null);   return; }
                     if (s.voicePreview)        { setVoicePreview(null);         return; }
                     if (s.activeView !== "calendar") { setActiveView("calendar"); return; }
-                    if (s.showPairing)         { setShowPairing(false);         return; }
                     // 닫을 화면 없으면 앱 최소화 (종료 X)
                     CapApp.minimizeApp();
                 });
@@ -4998,7 +4997,7 @@ export default function KidsScheduler() {
                 setFamilyInfo(fam);
                 setMyRole(fam.myRole);
                 setShowParentSetup(false);
-                setShowPairing(true);
+                setActiveView(PARENT_VIEWS.FAMILY);
                 showNotif("가족이 생성되었어요! 아래 연동코드를 공유해 주세요 🎉");
             }
         } catch (err) {
@@ -5028,9 +5027,9 @@ export default function KidsScheduler() {
     };
 
     useEffect(() => {
-        // Show pairing modal if parent is logged in but no other family members exist
+        // 가족이 생성됐지만 연동된 자녀가 없는 경우 가족 탭으로 자동 이동
         if (familyInfo?.myRole === "parent" && familyInfo?.members?.length === 1) {
-            setShowPairing(true);
+            setActiveView(PARENT_VIEWS.FAMILY);
         }
     }, [familyInfo]);
 
@@ -5877,8 +5876,7 @@ export default function KidsScheduler() {
                                     학부모 모드
                                 </span>
                                 <button onClick={() => {
-                                    if (familyId) setShowPairing(true);
-                                    else setShowParentSetup(true);
+                                    setActiveView(PARENT_VIEWS.FAMILY);
                                 }}
                                     style={{ fontSize: 11, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "none", cursor: "pointer", fontFamily: FF, background: pairedChildren.length > 0 ? "var(--status-positive-subtle)" : "var(--status-cautionary-subtle)", color: pairedChildren.length > 0 ? "#065F46" : "var(--status-cautionary-strong)", whiteSpace: "nowrap" }}>
                                     {pairedChildren.length > 0 ? `🔗 연동 (${pairedChildren.length}명)` : (familyId ? "🔗 연동하기" : "👨‍👩‍👧 가족 만들기")}
@@ -6951,6 +6949,115 @@ export default function KidsScheduler() {
                 />
             )}
 
+            {/* ── FAMILY VIEW ── */}
+            {activeView === PARENT_VIEWS.FAMILY && isParent && (
+                <ParentFamilyView
+                    bottomNavigation={renderParentBottomTabbar(PARENT_VIEWS.FAMILY, "hyeni-v5-tabbar-fixed")}
+                >
+                    {familyId ? (
+                        <PairingModal myRole={familyInfo?.myRole || myRole} pairCode={pairCode} pairedMembers={familyInfo?.members}
+                            familyId={familyId}
+                            activeThemeColor={activeThemeColor}
+                            childDeviceStatusMap={childDeviceStatusMap}
+                            maxChildren={entitlement.canUse(FEATURES.MULTI_CHILD) ? 2 : 1}
+                            lockedMessage={!entitlement.canUse(FEATURES.MULTI_CHILD) ? "두 번째 아이를 추가하려면 프리미엄을 시작해 주세요" : ""}
+                            pairCodeExpiresAt={familyInfo?.pairCodeExpiresAt || null}
+                            canManageFamily={parentCapabilities.canManageFamily}
+                            onRegenerate={async () => {
+                                if (!parentCapabilities.canManageFamily) {
+                                    showNotif("보조 보호자는 연동 코드를 바꿀 수 없어요.", "error");
+                                    throw new Error("co-parent regenerate blocked");
+                                }
+                                try {
+                                    await regeneratePairCode(familyId);
+                                    const fam = await getMyFamily(authUser.id);
+                                    if (fam) setFamilyInfo(fam);
+                                    showNotif("새 연동 코드가 생성됐어요");
+                                } catch (err) {
+                                    console.error("[regenerate]", err);
+                                    showNotif("새 코드 생성 실패: " + (err?.message || err), "error");
+                                    throw err;
+                                }
+                            }}
+                            onUnpair={async (childUserId) => {
+                                if (!parentCapabilities.canManageFamily) {
+                                    showNotif("보조 보호자는 연동을 끊을 수 없어요.", "error");
+                                    return;
+                                }
+                                try {
+                                    await unpairChild(familyId, childUserId);
+                                    const fam = await getMyFamily(authUser.id);
+                                    if (fam) setFamilyInfo(fam);
+                                    showNotif("연동이 해제됐어요");
+                                } catch (err) { console.error("[unpair]", err); showNotif("해제 실패", "error"); }
+                            }}
+                            onRename={async (memberId, newName) => {
+                                try {
+                                    const { error } = await supabase.rpc("rename_family_member_by_id", { p_family_id: familyId, p_member_id: memberId, p_new_name: newName });
+                                    if (error) throw error;
+                                    const fam = await getMyFamily(authUser.id);
+                                    if (fam) setFamilyInfo(fam);
+                                    showNotif(`이름이 "${newName}"으로 변경됐어요`);
+                                    return true;
+                                } catch (err) { console.error("[rename]", err); showNotif("이름 변경 실패: " + (err.message || err), "error"); return false; }
+                            }}
+                            onProfileChange={async (memberId, profile) => {
+                                try {
+                                    const { error } = await supabase.rpc("set_family_member_profile_by_id", {
+                                        p_family_id: familyId,
+                                        p_member_id: memberId,
+                                        p_new_name: profile.name,
+                                        p_color_hex: profile.colorHex,
+                                    });
+                                    if (error) throw error;
+                                    const fam = await getMyFamily(authUser.id);
+                                    if (fam) setFamilyInfo(fam);
+                                    const activeMemberId = isParent
+                                        ? (selectedChild?.id || pairedChildren[0]?.id || null)
+                                        : (pairedChildren.find(child => child.user_id === authUser?.id)?.id || null);
+                                    if (activeMemberId === memberId) {
+                                        applyThemeColor(profile.colorHex);
+                                    } else {
+                                        applyThemeColor(activeThemeColor || null);
+                                    }
+                                    showNotif(`프로필이 "${profile.name}"으로 저장됐어요`);
+                                    return true;
+                                } catch (err) {
+                                    console.error("[profile update]", err);
+                                    if (isMissingProfileThemeRpcError(err)) {
+                                        showNotif(PROFILE_THEME_RPC_MISSING_MESSAGE, "error");
+                                    } else {
+                                        showNotif("프로필 저장 실패: " + (err.message || err), "error");
+                                    }
+                                    return false;
+                                }
+                            }}
+                            onPhotoChange={async (memberId, photoUrl) => {
+                                try {
+                                    const { error } = await supabase.rpc("set_family_member_photo_url_by_id", {
+                                        p_family_id: familyId,
+                                        p_member_id: memberId,
+                                        p_url: photoUrl,
+                                    });
+                                    if (error) throw error;
+                                    const fam = await getMyFamily(authUser.id);
+                                    if (fam) setFamilyInfo(fam);
+                                    showNotif("사진이 변경됐어요");
+                                    return true;
+                                } catch (err) {
+                                    console.error("[photo update]", err);
+                                    showNotif("사진 변경 실패: " + (err.message || err), "error");
+                                    return false;
+                                }
+                            }}
+                            onConfirm={openConfirmDialog}
+                            onClose={() => setActiveView(PARENT_VIEWS.CALENDAR)} />
+                    ) : (
+                        <ParentSetupScreen onCreateFamily={() => setShowCreateWizard(true)} onJoinAsParent={handleJoinAsParent} />
+                    )}
+                </ParentFamilyView>
+            )}
+
             {/* ── EVENT SHEET (Phase 2) ── */}
             <EventSheet
                 open={showAddModal || activeView === PARENT_VIEWS.EVENT_ADD}
@@ -7356,8 +7463,8 @@ export default function KidsScheduler() {
                     parentPhone={(familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.phone) || ""}
                     childCount={(pairedChildren || []).length}
                     onEditAccount={() => setShowPhoneSettings(true)}
-                    onAddChild={() => { setShowParentSettings(false); setShowPairing(true); }}
-                    onManageChildren={() => { setShowParentSettings(false); setShowPairing(true); }}
+                    onAddChild={() => { setShowParentSettings(false); setActiveView(PARENT_VIEWS.FAMILY); }}
+                    onManageChildren={() => { setShowParentSettings(false); setActiveView(PARENT_VIEWS.FAMILY); }}
                     onOpenPhoneSettings={() => setShowPhoneSettings(true)}
                     onOpenPlaceManager={() => { setShowParentSettings(false); setShowPlaceManager(true); }}
                     onOpenSubscription={() => { setShowParentSettings(false); setShowSubscriptionSettings(true); }}
@@ -7425,107 +7532,6 @@ export default function KidsScheduler() {
                     currentPos={childPos}
                     onClose={() => setShowMapPicker(false)}
                     onConfirm={loc => { if (editingLocForEvent) updateEvField(editingLocForEvent, "location", loc); else setNewLocation(loc); setShowMapPicker(false); }} />
-            )}
-
-            {/* Pairing Modal (only when family exists) */}
-            {showPairing && familyId && (
-                <PairingModal myRole={familyInfo?.myRole || myRole} pairCode={pairCode} pairedMembers={familyInfo?.members}
-                    familyId={familyId}
-                    activeThemeColor={activeThemeColor}
-                    childDeviceStatusMap={childDeviceStatusMap}
-                    maxChildren={entitlement.canUse(FEATURES.MULTI_CHILD) ? 2 : 1}
-                    lockedMessage={!entitlement.canUse(FEATURES.MULTI_CHILD) ? "두 번째 아이를 추가하려면 프리미엄을 시작해 주세요" : ""}
-                    pairCodeExpiresAt={familyInfo?.pairCodeExpiresAt || null}
-                    canManageFamily={parentCapabilities.canManageFamily}
-                    onRegenerate={async () => {
-                        if (!parentCapabilities.canManageFamily) {
-                            showNotif("보조 보호자는 연동 코드를 바꿀 수 없어요.", "error");
-                            throw new Error("co-parent regenerate blocked");
-                        }
-                        try {
-                            await regeneratePairCode(familyId);
-                            const fam = await getMyFamily(authUser.id);
-                            if (fam) setFamilyInfo(fam);
-                            showNotif("새 연동 코드가 생성됐어요");
-                        } catch (err) {
-                            console.error("[regenerate]", err);
-                            showNotif("새 코드 생성 실패: " + (err?.message || err), "error");
-                            throw err; // let PairCodeSection's alert fire too
-                        }
-                    }}
-                    onUnpair={async (childUserId) => {
-                        if (!parentCapabilities.canManageFamily) {
-                            showNotif("보조 보호자는 연동을 끊을 수 없어요.", "error");
-                            return;
-                        }
-                        try {
-                            await unpairChild(familyId, childUserId);
-                            const fam = await getMyFamily(authUser.id);
-                            if (fam) setFamilyInfo(fam);
-                            showNotif("연동이 해제됐어요");
-                        } catch (err) { console.error("[unpair]", err); showNotif("해제 실패", "error"); }
-                    }}
-                    onRename={async (memberId, newName) => {
-                        try {
-                            const { error } = await supabase.rpc("rename_family_member_by_id", { p_family_id: familyId, p_member_id: memberId, p_new_name: newName });
-                            if (error) throw error;
-                            const fam = await getMyFamily(authUser.id);
-                            if (fam) setFamilyInfo(fam);
-                            showNotif(`이름이 "${newName}"으로 변경됐어요`);
-                            return true;
-                        } catch (err) { console.error("[rename]", err); showNotif("이름 변경 실패: " + (err.message || err), "error"); return false; }
-                    }}
-                    onProfileChange={async (memberId, profile) => {
-                        try {
-                            const { error } = await supabase.rpc("set_family_member_profile_by_id", {
-                                p_family_id: familyId,
-                                p_member_id: memberId,
-                                p_new_name: profile.name,
-                                p_color_hex: profile.colorHex,
-                            });
-                            if (error) throw error;
-                            const fam = await getMyFamily(authUser.id);
-                            if (fam) setFamilyInfo(fam);
-                            const activeMemberId = isParent
-                                ? (selectedChild?.id || pairedChildren[0]?.id || null)
-                                : (pairedChildren.find(child => child.user_id === authUser?.id)?.id || null);
-                            if (activeMemberId === memberId) {
-                                applyThemeColor(profile.colorHex);
-                            } else {
-                                applyThemeColor(activeThemeColor || null);
-                            }
-                            showNotif(`프로필이 "${profile.name}"으로 저장됐어요`);
-                            return true;
-                        } catch (err) {
-                            console.error("[profile update]", err);
-                            if (isMissingProfileThemeRpcError(err)) {
-                                showNotif(PROFILE_THEME_RPC_MISSING_MESSAGE, "error");
-                            } else {
-                                showNotif("프로필 저장 실패: " + (err.message || err), "error");
-                            }
-                            return false;
-                        }
-                    }}
-                    onPhotoChange={async (memberId, photoUrl) => {
-                        try {
-                            const { error } = await supabase.rpc("set_family_member_photo_url_by_id", {
-                                p_family_id: familyId,
-                                p_member_id: memberId,
-                                p_url: photoUrl,
-                            });
-                            if (error) throw error;
-                            const fam = await getMyFamily(authUser.id);
-                            if (fam) setFamilyInfo(fam);
-                            showNotif("사진이 변경됐어요");
-                            return true;
-                        } catch (err) {
-                            console.error("[photo update]", err);
-                            showNotif("사진 변경 실패: " + (err.message || err), "error");
-                            return false;
-                        }
-                    }}
-                    onConfirm={openConfirmDialog}
-                    onClose={() => setShowPairing(false)} />
             )}
 
             {/* Phase 5 GATE-01/02: ChildPairInput overlay removed — pre-pair
