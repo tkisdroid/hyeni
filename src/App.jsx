@@ -7035,6 +7035,18 @@ export default function KidsScheduler() {
             >
                 {showAddModal && (
                     <>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px 14px", marginBottom: 4 }}>
+                            <HyeniMascot variant={editingEventId ? "diary" : "phone"} size={56} aria-label="" />
+                            <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                                <strong style={{ fontSize: 15, fontWeight: 800, color: "var(--fg-primary)", letterSpacing: "-0.01em" }}>
+                                    {editingEventId ? "일정을 다듬어볼까요?" : "오늘 뭐 할까요?"}
+                                </strong>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--fg-secondary)" }}>
+                                    {editingEventId ? "변경할 부분만 수정해도 돼요 ✏️" : "빠른 선택 또는 직접 입력해보세요 ✨"}
+                                </span>
+                            </div>
+                        </div>
+
                         {isParent && pairedChildren.length > 0 && (() => {
                             // ChildSelector stores family_members.id values in childIds (events_children FK target).
                             const selectedNames = pairedChildren

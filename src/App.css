@@ -3101,8 +3101,8 @@ a:focus-visible {
 
 .hyeni-time-direct-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
+  gap: 10px;
   margin-bottom: 12px;
   padding: 10px;
   border-radius: 12px;
@@ -3113,8 +3113,9 @@ a:focus-visible {
 .hyeni-time-direct-field {
   display: flex;
   flex: 1;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -3124,22 +3125,24 @@ a:focus-visible {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.02em;
+  padding-left: 2px;
 }
 
 .hyeni-time-direct-input {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 10px 8px;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: #fff;
   color: var(--fg-primary);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   outline: none;
   accent-color: var(--theme-accent);
   color-scheme: light;
+  text-align: center;
 }
 
 .hyeni-time-direct-input:focus {
@@ -3149,8 +3152,10 @@ a:focus-visible {
 
 .hyeni-time-direct-divider {
   flex: none;
+  align-self: center;
+  margin-top: 18px;
   color: var(--fg-tertiary);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
 }
 
