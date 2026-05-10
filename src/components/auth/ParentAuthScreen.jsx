@@ -141,7 +141,7 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                             boxShadow: "0 4px 12px rgba(247, 121, 168, 0.18)",
                         }}
                     >
-                        <HyeniMascot variant="static" size={56} aria-label="" />
+                        <HyeniMascot variant="wave" size={56} aria-label="" />
                     </span>
                     <h2
                         style={{

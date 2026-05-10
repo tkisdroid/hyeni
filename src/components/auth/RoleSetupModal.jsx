@@ -138,7 +138,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                             badgeIcon="heart"
                             title="자녀로 시작"
                             subtitle="부모님 코드로 연결 · 내 일정 확인"
-                            mascot={<HyeniMascot variant="static" size={120} aria-label="" />}
+                            mascot={<HyeniMascot variant="wave" size={120} aria-label="" />}
                         />
                     </div>
 

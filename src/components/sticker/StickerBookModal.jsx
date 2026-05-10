@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { DESIGN, FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
 import { StickerIcon } from "../../lib/stickerIcons.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 export function StickerBookModal({ stickers, summary, dateLabel, onClose, isParentMode, onGiveSticker }) {
     const earlyCount = summary?.early_count || 0;
@@ -59,7 +60,7 @@ export function StickerBookModal({ stickers, summary, dateLabel, onClose, isPare
                     {stickers.length === 0 ? (
                         <div style={{ textAlign: "center", padding: "20px 0", color: "var(--fg-tertiary)" }}>
                             <div style={{ marginBottom: 6, display: "flex", justifyContent: "center" }}>
-                                <StickerIcon emoji="🌙" size={32} />
+                                <HyeniMascot variant="sad" size={64} aria-label="" />
                             </div>
                             <div style={{ fontSize: 13, fontWeight: 700 }}>아직 스티커가 없어요</div>
                         </div>

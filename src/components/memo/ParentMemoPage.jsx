@@ -263,7 +263,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                         justifyContent: "center",
                     }}
                 >
-                    <HyeniMascot variant="static" size={92} aria-label="" />
+                    <HyeniMascot variant="diary" size={92} aria-label="" />
                     <span style={{ position: "absolute", left: -10, top: 28, fontSize: 16, opacity: 0.85 }}>💗</span>
                     <span style={{ position: "absolute", left: -2, top: 56, fontSize: 12, opacity: 0.75 }}>💗</span>
                 </div>
