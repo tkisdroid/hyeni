@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
 import { useReverseGeocodedLabel } from "../../lib/reverseGeocode.js";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDelete, onClose }) {
     const [showAdd, setShowAdd] = useState(false);
@@ -83,7 +84,9 @@ export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd,
                 {/* Zone list */}
                 {zones.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "24px 0", color: "#D1D5DB" }}>
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>🛡️</div>
+                        <div style={{ marginBottom: 8 }}>
+                            <ThreeDIcon name="shield" size={48} aria-label="" />
+                        </div>
                         <div style={{ fontSize: 14, fontWeight: 700 }}>설정된 위험지역이 없어요</div>
                     </div>
                 ) : zones.map(z => (
