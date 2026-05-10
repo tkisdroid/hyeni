@@ -16,7 +16,7 @@ export function DayTimetable({ events, dateLabel, isToday = false, isFuture = fa
         <div style={{ fontFamily: FF }}>
             <div style={{ textAlign: "center", padding: "40px 0" }}>
                 <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
-                    {isParentMode ? <span style={{ fontSize: 56 }} aria-hidden="true">🌙</span> : <HyeniMascot variant="cheer" size={88} aria-label="신난 혜니" />}
+                    {isParentMode ? <HyeniMascot variant="sad" size={72} aria-label="비어있는 일정" /> : <HyeniMascot variant="cheer" size={88} aria-label="신난 혜니" />}
                 </div>
                 <div style={{ fontSize: isParentMode ? 16 : 18, fontWeight: 800, color: isParentMode ? "var(--fg-tertiary)" : "var(--theme-accent-text)" }}>{isParentMode ? "아직 일정이 없어요" : "오늘은 자유시간이야!"}</div>
                 <div style={{ fontSize: isParentMode ? 13 : 14, color: "var(--fg-tertiary)", marginTop: 4 }}>{isParentMode ? "위에서 추가해 보세요!" : "신나게 놀자~"}</div>

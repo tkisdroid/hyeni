@@ -261,7 +261,7 @@ export function HomeTab({ children, positions, events, childLocations, childDevi
               flexShrink: 0,
             }}
           >
-            <span aria-hidden="true">↻</span>
+            <ThreeDIcon name="refresh" size={14} aria-label="" />
             지금 새로고침
           </button>
         </div>

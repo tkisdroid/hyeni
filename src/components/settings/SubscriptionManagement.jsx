@@ -228,7 +228,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
             {/* 우리 가족 아이 */}
             <div>
                 <h3 style={{ margin: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>
-                    <span aria-hidden="true" style={{ fontSize: 18 }}>👥</span>
+                    <ThreeDIcon name="friend-pair" size={20} aria-label="" />
                     우리 가족 아이
                 </h3>
                 <div
@@ -267,7 +267,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
             {/* 플랜 */}
             <div>
                 <h3 style={{ margin: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
-                    <span aria-hidden="true" style={{ fontSize: 18 }}>👑</span>
+                    <ThreeDIcon name="crown" size={20} aria-label="" />
                     플랜
                 </h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, paddingTop: 14 }}>
