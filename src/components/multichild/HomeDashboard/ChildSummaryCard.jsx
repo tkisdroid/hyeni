@@ -200,12 +200,10 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
         >
             <ChildAvatar child={child} size={52} fontSize={18} />
             <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>{child.name}</div>
                 <div
                     style={{
                         fontSize: 13,
                         color: "var(--fg-secondary)",
-                        marginTop: 3,
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
