@@ -5853,7 +5853,9 @@ export default function KidsScheduler() {
             )}
             {!isNativeApp && pushPermission !== "granted" && pushPermission !== "unsupported" && pushPermission !== "denied" && (
                 <div className="cartoon-push-banner" style={{ maxWidth: contentMaxWidth }}>
-                    <span aria-hidden="true" className="cartoon-push-banner-icon">🔔</span>
+                    <span aria-hidden="true" className="cartoon-push-banner-icon">
+                        <ThreeDIcon name="bell" size={22} aria-label="" />
+                    </span>
                     <div className="cartoon-push-banner-text">
                         <div className="cartoon-push-banner-title">푸시 알림을 켜주세요</div>
                         <div className="cartoon-push-banner-sub">일정 시작 전 알림을 받을 수 있어요</div>
