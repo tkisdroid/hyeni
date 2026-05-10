@@ -692,25 +692,26 @@ body {
   cursor: not-allowed;
 }
 
-/* Buttons — base */
+/* ─── Buttons — DESIGN_revision §11.8 Premium Kawaii ─────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: var(--control-height);
-  padding: 0 var(--space-5);
+  min-height: var(--control-height);
+  padding: 0 var(--space-6);
   border: 1px solid transparent;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
   font-family: var(--font-sans);
   font-weight: var(--weight-semibold);
   font-size: 15px;
-  line-height: 1;
+  line-height: 1.15;
   cursor: pointer;
   transition:
-    background-color var(--duration-fast) var(--easing-standard),
+    background var(--duration-fast) var(--easing-standard),
     border-color var(--duration-fast) var(--easing-standard),
-    box-shadow var(--duration-fast) var(--easing-standard);
+    box-shadow var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -720,58 +721,116 @@ body {
   background: var(--bg-muted);
   color: var(--fg-disabled);
   border-color: var(--line-disabled);
+  box-shadow: none;
 }
+.btn:not(:disabled):active { transform: scale(0.97); }
 
-.btn:not(:disabled):active {
-  transform: scale(0.98);
-}
-
-/* Primary */
+/* Primary — rose gradient (default = onboarding / child / 가족 감성 CTA) */
 .btn-primary {
-  background: var(--primary);
-  color: var(--fg-on-primary);
+  min-height: 56px;
+  padding: 0 var(--space-6);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--brand-rose), var(--brand-rose-deep));
+  color: var(--fg-on-accent);
+  box-shadow: var(--shadow-rose);
+  font-weight: var(--weight-bold);
+  font-size: 16px;
 }
-.btn-primary:not(:disabled):hover  { background: var(--primary-hover); }
-.btn-primary:not(:disabled):active { background: var(--primary-press); }
+.btn-primary:not(:disabled):hover  { filter: brightness(1.04); }
+.btn-primary:not(:disabled):active { filter: brightness(0.96); }
 .btn-primary:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 2px var(--bg-base),
-    0 0 0 4px var(--focus-ring-color);
+  box-shadow: var(--shadow-rose), 0 0 0 3px rgba(247, 121, 168, 0.32);
 }
 
-/* Secondary — outlined */
+/* Primary (mint) — parent mode CTA (위치, 연동, 안전 확인) — DR §5.2 */
+.btn-primary-mint {
+  min-height: 56px;
+  padding: 0 var(--space-6);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--brand-mint), var(--brand-mint-deep));
+  color: var(--fg-on-accent);
+  box-shadow: var(--shadow-mint);
+  font-weight: var(--weight-bold);
+  font-size: 16px;
+}
+.btn-primary-mint:not(:disabled):hover  { filter: brightness(1.04); }
+.btn-primary-mint:not(:disabled):active { filter: brightness(0.96); }
+.btn-primary-mint:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-mint), 0 0 0 3px rgba(49, 196, 141, 0.32);
+}
+
+/* Secondary — pill outline */
 .btn-secondary {
-  background: var(--bg-base);
+  background: var(--bg-card);
   color: var(--fg-primary);
-  border-color: var(--line-default);
+  border: 1.5px solid var(--line-default);
 }
 .btn-secondary:not(:disabled):hover  { background: var(--bg-muted); }
-.btn-secondary:not(:disabled):active {
-  background: var(--secondary-press-bg);
-  border-color: var(--line-strong);
+.btn-secondary:not(:disabled):active { border-color: var(--line-strong); }
+.btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(122, 122, 130, 0.18);
 }
 
-/* Destructive */
+/* Destructive — red flat (DR §11.8 rule: destructive ≠ primary 스타일) */
 .btn-destructive {
-  background: var(--status-negative);
-  color: var(--fg-on-primary);
+  background: var(--status-danger);
+  color: var(--fg-on-accent);
+  border: none;
 }
-.btn-destructive:not(:disabled):hover  { filter: brightness(0.92); }
-.btn-destructive:not(:disabled):active { filter: brightness(0.84); }
+.btn-destructive:not(:disabled):hover  { filter: brightness(0.94); }
+.btn-destructive:not(:disabled):active { filter: brightness(0.86); }
 .btn-destructive:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 2px var(--bg-base),
-    0 0 0 4px var(--status-negative);
+  box-shadow: 0 0 0 3px rgba(224, 48, 48, 0.32);
 }
 
-/* Small variant — for compact UI */
+/* Small variant — compact rows */
 .btn-sm {
-  height: var(--control-height-sm);
+  min-height: var(--control-height-sm);
   padding: 0 var(--space-4);
   font-size: 14px;
-  border-radius: var(--radius-md);
+}
+.btn-sm.btn-primary,
+.btn-sm.btn-primary-mint {
+  min-height: 40px;
+  padding: 0 var(--space-5);
+  font-size: 14px;
+}
+
+/* ─── Chip — DESIGN_revision §11.9 ───────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--bg-mint-soft);
+  color: var(--brand-mint-text);
+  border: 1px solid var(--brand-mint-line);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-sans);
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.chip-rose     { background: var(--bg-rose-soft);     color: var(--brand-rose-text);     border-color: var(--brand-rose-line); }
+.chip-lavender { background: var(--bg-lavender-soft); color: var(--brand-lavender-text); border-color: var(--brand-lavender-line); }
+.chip-cream    { background: var(--bg-cream-soft);    color: var(--fg-primary);          border-color: var(--brand-yellow-soft); }
+.chip-neutral  { background: var(--bg-muted);         color: var(--fg-secondary);        border-color: var(--line-soft); }
+.chip-danger   { background: var(--status-danger-soft); color: var(--status-danger-text); border-color: var(--status-danger); }
+.chip:disabled,
+.chip[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* --------------------------------------------------------------------------
