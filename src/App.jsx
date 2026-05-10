@@ -817,6 +817,39 @@ export default function KidsScheduler() {
         });
     }, [familyId, isParent, pairedChildren]);
 
+    // '오늘' 탭 진입 시 stored device status 즉시 재적용 — 탭 전환 후 stale 방지
+    useEffect(() => {
+        if (!isParent || activeView !== "calendar" || !familyId || pairedChildren.length === 0) return;
+        const storedStatuses = pairedChildren
+            .map((child) => normalizeStoredChildDeviceStatus(child, familyId))
+            .filter(Boolean);
+        if (storedStatuses.length === 0) return;
+        setChildDeviceStatusMap((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            for (const storedStatus of storedStatuses) {
+                const childUserId = storedStatus.user_id;
+                const current = next[childUserId];
+                const currentMs = getDeviceStatusReportedMs(current);
+                const storedMs = getDeviceStatusReportedMs(storedStatus);
+                const shouldUseStored = !current
+                    || currentMs == null
+                    || (storedMs != null && storedMs > currentMs);
+                if (!shouldUseStored) continue;
+                next[childUserId] = {
+                    ...(current || {}),
+                    ...storedStatus,
+                    device_health: {
+                        ...(current?.device_health || {}),
+                        ...(storedStatus.device_health || {}),
+                    },
+                };
+                changed = true;
+            }
+            return changed ? next : prev;
+        });
+    }, [activeView, familyId, isParent, pairedChildren]);
+
     const displayChildPositions = useMemo(() => {
         const positions = effectiveChildPositions(allChildPositions, entitlement);
         // Stable render order: align positions with pairedChildren
