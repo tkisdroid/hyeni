@@ -219,30 +219,32 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                     minHeight: 92,
                 }}
             >
-                <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="메모 닫기"
-                    style={{
-                        flexShrink: 0,
-                        width: 52,
-                        height: 52,
-                        borderRadius: "50%",
-                        border: "1px solid var(--brand-mint-line, #BCEBD8)",
-                        background: "#FFFFFF",
-                        color: "var(--brand-mint-text, #087653)",
-                        fontSize: 22,
-                        fontWeight: 900,
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: "0 4px 10px rgba(31,24,28,0.06)",
-                        fontFamily: FF,
-                    }}
-                >
-                    ✕
-                </button>
+                {onClose && (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="메모 닫기"
+                        style={{
+                            flexShrink: 0,
+                            width: 52,
+                            height: 52,
+                            borderRadius: "50%",
+                            border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                            background: "#FFFFFF",
+                            color: "var(--brand-mint-text, #087653)",
+                            fontSize: 22,
+                            fontWeight: 900,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: "0 4px 10px rgba(31,24,28,0.06)",
+                            fontFamily: FF,
+                        }}
+                    >
+                        ✕
+                    </button>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</h1>
                     <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 700, color: isLinked ? "var(--brand-mint-text, #087653)" : "#9A9AA0", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>

@@ -700,7 +700,6 @@ export default function KidsScheduler() {
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
     const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", emoji, timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
-    const [showParentMemoPage, setShowParentMemoPage] = useState(false);
     const [showChildMemoPage, setShowChildMemoPage] = useState(false);
     // RES-02: sync degradation banner state. null = healthy; "transient" =
     // 1+ consecutive failure, retrying soon; "circuit_open" = breaker open,
@@ -1061,7 +1060,7 @@ export default function KidsScheduler() {
     }, [familyId, dateKey, memoReplies]);
 
     useEffect(() => {
-        const memoPageOpen = showParentMemoPage || showChildMemoPage;
+        const memoPageOpen = (activeView === PARENT_VIEWS.MEMO) || showChildMemoPage;
         if (!memoPageOpen) {
             setMemoThreadReplies([]);
             return;
@@ -1092,7 +1091,7 @@ export default function KidsScheduler() {
             cancelled = true;
             window.clearInterval(timer);
         };
-    }, [familyId, dateKey, memoThreadDateKeys, showParentMemoPage, showChildMemoPage]);
+    }, [familyId, dateKey, memoThreadDateKeys, activeView, showChildMemoPage]);
 
     // ── MEMO-02: 3-second viewport read observer ─────────────────────────────
     // One observer instance, module-lifetime. Each reply bubble passes its
@@ -2711,7 +2710,7 @@ export default function KidsScheduler() {
     useEffect(() => {
         backStateRef.current = {
             routeEvent, showChildTracker, showMapPicker, showAddModal,
-            showParentMemoPage, showChildMemoPage,
+            showChildMemoPage,
             showAcademyMgr, showSavedPlaceMgr, showPhoneSettings, showFeedbackModal, showParentSetup, showMicPermissionHelp, editingLocForEvent,
             voicePreview, activeView, showPairing, showAlertPanel,
         };
@@ -2730,7 +2729,6 @@ export default function KidsScheduler() {
                     if (s.showChildTracker)    { setShowChildTracker(false);    return; }
                     if (s.showMapPicker)       { setShowMapPicker(false);       return; }
                     if (s.showAddModal)        { setShowAddModal(false); setAddEventDateKey(null); return; }
-                    if (s.showParentMemoPage)  { setShowParentMemoPage(false);  return; }
                     if (s.showChildMemoPage)   { setShowChildMemoPage(false);   return; }
                     if (s.showAcademyMgr)      { setShowAcademyMgr(false);      return; }
                     if (s.showSavedPlaceMgr)   { setShowSavedPlaceMgr(false);   return; }
@@ -4147,7 +4145,6 @@ export default function KidsScheduler() {
     }, []);
     const handleParentEventAddTabClick = () => {
         closeParentManagementPanels();
-        setShowParentMemoPage(false);
         const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
         setEditingEventId(null);
         setAddEventDateKey(todayKey);
@@ -4159,45 +4156,22 @@ export default function KidsScheduler() {
         setActiveView(PARENT_VIEWS.EVENT_ADD);
     };
 
-    // 메모 view 분기는 Task 4에서 추가 — 현재는 setActiveView 호출만 (transition state)
     const handleParentMemoTabClick = () => {
         closeParentManagementPanels();
-        setShowParentMemoPage(false);
         setActiveView(PARENT_VIEWS.MEMO);
     };
     const handleParentTodayTabClick = () => {
         closeParentManagementPanels();
-        setShowParentMemoPage(false);
         setActiveView("calendar");
         window.requestAnimationFrame(() => {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
     };
     const handleParentMapTabClick = () => {
-        setShowParentMemoPage(false);
         setShowSavedPlaceMgr(false);
         setShowDangerZones(false);
         setShowPlaceManager(false);
         openAcademyManagement();
-        window.requestAnimationFrame(() => {
-            window.scrollTo({ top: 0, behavior: "auto" });
-        });
-    };
-    const handleParentMemoOpen = () => {
-        closeParentManagementPanels();
-        setCurrentYear(today.getFullYear());
-        setCurrentMonth(today.getMonth());
-        setSelectedDate(today.getDate());
-        setShowParentMemoPage(true);
-        // Immediate refetch: Realtime may have missed INSERTs while the app was
-        // backgrounded (FCM arrived but WebSocket was disconnected). Use today's
-        // key directly because setSelectedDate above hasn't propagated yet.
-        if (familyId) {
-            const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-            fetchMemoReplies(familyId, todayKey)
-                .then(setMemoReplies)
-                .catch((err) => console.warn("[memo] open refetch failed:", err));
-        }
         window.requestAnimationFrame(() => {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
@@ -4219,12 +4193,10 @@ export default function KidsScheduler() {
     };
     const handleParentFamilyTabClick = () => {
         closeParentManagementPanels();
-        setShowParentMemoPage(false);
         setActiveView(PARENT_VIEWS.FAMILY);
     };
     const handleParentHomeTabClick = () => {
         closeParentManagementPanels();
-        setShowParentMemoPage(false);
         setActiveView("home");
         window.requestAnimationFrame(() => {
             window.scrollTo({ top: 0, behavior: "auto" });
@@ -4296,7 +4268,7 @@ export default function KidsScheduler() {
             <button
                 type="button"
                 className={activeTab === "memo" ? "active" : undefined}
-                onClick={requireSelectedChildOrHint(handleParentMemoOpen, "메모")}
+                onClick={requireSelectedChildOrHint(handleParentMemoTabClick, "메모")}
                 style={{ fontFamily: FF, whiteSpace: "nowrap" }}
             >
                 <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><MessageCircle size={16} strokeWidth={1.75} /></span>메모
@@ -4721,7 +4693,7 @@ export default function KidsScheduler() {
             origin,
             read_by: [],
         };
-        const memoPageOpen = showParentMemoPage || showChildMemoPage;
+        const memoPageOpen = (activeView === PARENT_VIEWS.MEMO) || showChildMemoPage;
         setMemoReplies(prev => [...(prev || []), optimisticReply]);
         if (memoPageOpen) {
             setMemoThreadReplies(prev => [...(prev || []), optimisticReply]);
@@ -4784,7 +4756,7 @@ export default function KidsScheduler() {
             message: content.length > 50 ? content.substring(0, 50) + "..." : content,
         });
         return sendPromise;
-    }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName, memoThreadDateKeys, showParentMemoPage, showChildMemoPage]);
+    }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName, memoThreadDateKeys, activeView, showChildMemoPage]);
 
     const TABS = isParent
         ? [["calendar", "○ 달력"], ["maplist", "□ 장소관리"]]
@@ -4854,7 +4826,6 @@ export default function KidsScheduler() {
             ariaLabel: "친구놀이 관리",
             palette: quickThemePalette,
             onClick: () => {
-                setShowParentMemoPage(false);
                 setActiveView("friendPlaydateSettings");
                 window.requestAnimationFrame(() => {
                     window.scrollTo({ top: 0, behavior: "auto" });
@@ -4869,7 +4840,6 @@ export default function KidsScheduler() {
             ariaLabel: "응급 강제 알림",
             palette: quickDangerPalette,
             onClick: () => {
-                setShowParentMemoPage(false);
                 setActiveView("forceRing");
                 window.requestAnimationFrame(() => {
                     window.scrollTo({ top: 0, behavior: "auto" });
@@ -5540,25 +5510,6 @@ export default function KidsScheduler() {
             onAllowAll={runAllChildSafetySteps}
             onDismiss={() => setPermissionWizardDismissed(true)}
         />
-    );
-
-    if (showParentMemoPage && isParent) return (
-        <div className="hyeni-app-shell hyeni-parent-memo-shell" style={{ height: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 22px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 104px)", position: "relative", overflowX: "hidden", overflowY: "hidden", width: "100%", boxSizing: "border-box" }}>
-            {notification && (
-                <div className={`cartoon-toast cartoon-toast--${notification.type === "error" ? "error" : notification.type === "child" ? "child" : notification.type === "parent" ? "parent" : "success"}`}>
-                    {notification.msg}
-                </div>
-            )}
-            <ParentMemoPage
-                replies={memoThreadReplies}
-                onReplySubmit={handleMemoReplySubmit}
-                myUserId={authUser?.id}
-                partnerName={selectedChild?.name || pairedChildren[0]?.name || "아이"}
-                onClose={() => setShowParentMemoPage(false)}
-                onReplyRef={registerMemoReplyNode}
-                bottomNavigation={renderParentBottomTabbar("memo", "hyeni-v5-tabbar-fixed")}
-            />
-        </div>
     );
 
     if (showChildMemoPage && !isParent) return (
@@ -6670,7 +6621,7 @@ export default function KidsScheduler() {
                             textAlign: "left",
                             marginTop: 14,
                         }}
-                        onClick={handleParentMemoOpen}
+                        onClick={requireSelectedChildOrHint(handleParentMemoTabClick, "메모")}
                     >
                         <span className="hyeni-v5-memo-icon" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, flexShrink: 0 }}>
                             <ThreeDIcon name="chat-heart" size={42} aria-label="" />
@@ -6986,6 +6937,18 @@ export default function KidsScheduler() {
             {/* ── EVENT ADD VIEW — tabbar 단독 노출 (EventSheet가 fullscreen으로 content 처리) ── */}
             {activeView === PARENT_VIEWS.EVENT_ADD && isParent && (
                 renderParentBottomTabbar(PARENT_VIEWS.EVENT_ADD, "hyeni-v5-tabbar-fixed")
+            )}
+
+            {/* ── MEMO VIEW ── */}
+            {activeView === PARENT_VIEWS.MEMO && isParent && (
+                <ParentMemoPage
+                    replies={memoThreadReplies}
+                    onReplySubmit={handleMemoReplySubmit}
+                    myUserId={authUser?.id}
+                    partnerName={selectedChild?.name || pairedChildren[0]?.name || "아이"}
+                    onReplyRef={registerMemoReplyNode}
+                    bottomNavigation={renderParentBottomTabbar(PARENT_VIEWS.MEMO, "hyeni-v5-tabbar-fixed")}
+                />
             )}
 
             {/* ── EVENT SHEET (Phase 2) ── */}
