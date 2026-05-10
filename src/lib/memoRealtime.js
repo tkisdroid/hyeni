@@ -5,8 +5,9 @@
  * postgres_changes filter는 family_id 단위로만 가능하므로 수신된 row를
  * isMemoForSelectedChild 로 2차 검증하여 선택된 자녀의 thread만 state에 반영한다.
  *
- * child_id 컬럼이 채워진 row: child_id 일치 여부로 판별.
- * legacy NULL row (single-child backfill 전 또는 backfill 누락): 표시 허용.
+ * 정책 B (multichild 정확 분리):
+ * child_id 컬럼이 채워진 row: child_id 일치 여부로만 판별.
+ * legacy NULL row: 모든 자녀 탭에서 무시 (과거 메시지 유실 허용).
  */
 
 /**
@@ -25,9 +26,9 @@ export function buildMemoChannelKey(familyId, selectedChildId) {
 /**
  * INSERT 수신된 row가 현재 선택된 자녀 context에 속하는지 판별.
  *
- * child_id 기반 로직 (DB schema 변경 후):
- * - row.child_id === selectedChildId  → 해당 자녀 thread row
- * - row.child_id === null             → legacy single-child row (backfill 전) → 표시 허용
+ * child_id 기반 로직 — 정책 B (multichild 정확 분리):
+ * - row.child_id === selectedChildId  → 해당 자녀 thread row → true
+ * - row.child_id === null             → legacy row → 무시 (false)
  * - row.child_id !== selectedChildId  → 다른 자녀 thread → false
  * - selectedChildId 없으면            → false (context 미설정)
  *
@@ -38,7 +39,7 @@ export function buildMemoChannelKey(familyId, selectedChildId) {
 export function isMemoForSelectedChild(row, selectedChildId) {
   if (!row) return false;
   if (!selectedChildId) return false;
-  // legacy NULL은 single-child 가족 row이므로 표시 허용
-  if (row.child_id == null) return true;
+  // 정책 B: legacy NULL row는 무시
+  if (row.child_id == null) return false;
   return row.child_id === selectedChildId;
 }

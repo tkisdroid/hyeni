@@ -490,7 +490,7 @@ export async function fetchMemoReplies(familyId, dateKey, childId = null) {
     .eq("family_id", familyId)
     .eq("date_key", dateKey);
   if (childId) {
-    q = q.or(`child_id.eq.${childId},child_id.is.null`);
+    q = q.eq("child_id", childId);
   }
   const { data, error } = await q.order("created_at", { ascending: true });
   if (error) throw error;
@@ -507,7 +507,7 @@ export async function fetchMemoRepliesForDateKeys(familyId, dateKeys, childId = 
     .eq("family_id", familyId)
     .in("date_key", keys);
   if (childId) {
-    q = q.or(`child_id.eq.${childId},child_id.is.null`);
+    q = q.eq("child_id", childId);
   }
   const { data, error } = await q.order("created_at", { ascending: true });
   if (error) throw error;

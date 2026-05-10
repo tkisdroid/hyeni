@@ -21,8 +21,8 @@ describe("isMemoForSelectedChild — child_id based isolation filter", () => {
   it("rejects when row.child_id !== selectedChildId", () => {
     expect(isMemoForSelectedChild({ child_id: "c1" }, "c2")).toBe(false);
   });
-  it("accepts legacy null child_id (backfill 포함, single-child row)", () => {
-    expect(isMemoForSelectedChild({ child_id: null }, "c1")).toBe(true);
+  it("rejects legacy null child_id (정책 B — 정확 분리)", () => {
+    expect(isMemoForSelectedChild({ child_id: null }, "c1")).toBe(false);
   });
   it("returns false when selectedChildId missing", () => {
     expect(isMemoForSelectedChild({ child_id: "c1" }, null)).toBe(false);
