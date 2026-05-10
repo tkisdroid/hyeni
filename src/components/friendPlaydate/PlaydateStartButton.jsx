@@ -11,7 +11,7 @@ export default function PlaydateStartButton({ inSafePlace, onClick }) {
         className="hyeni-tool-button"
         aria-label="친구랑 놀래요"
       >
-        <ThreeDIcon name="friend-pair" size={28} aria-label="친구" />
+        <ThreeDIcon name="friend-pair" size={32} aria-label="친구" />
         <span className="hyeni-tool-button__label">친구랑 놀래요</span>
       </button>
       {!inSafePlace && (

@@ -6104,7 +6104,7 @@ export default function KidsScheduler() {
                             aria-label={`부모님 메모 ${memoPreviewCount || 0}개`}
                         >
                             <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                                <ThreeDIcon name="chat-heart" size={26} aria-label="메시지" />
+                                <ThreeDIcon name="chat-heart" size={32} aria-label="메시지" />
                                 <span className="t-child-quick-label">메시지</span>
                             </span>
                             <span className="t-child-quick-meta">
@@ -6120,8 +6120,8 @@ export default function KidsScheduler() {
                             aria-label="받은 스티커 보기"
                         >
                             <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                                <ThreeDIcon name="gift" size={26} aria-label="받은 스티커" />
-                                <span className="t-child-quick-label">받은 스티커 보기</span>
+                                <ThreeDIcon name="gift" size={32} aria-label="받은 스티커" />
+                                <span className="t-child-quick-label" style={{ whiteSpace: "nowrap" }}>받은 스티커 보기</span>
                             </span>
                             <span className="t-child-quick-meta">부모님이 보낸 응원 확인</span>
                         </button>
