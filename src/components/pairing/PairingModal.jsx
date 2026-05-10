@@ -13,6 +13,7 @@ import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.j
 import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "../../lib/remoteListenHealth.js";
 import { supabase } from "../../lib/supabase.js";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 export function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, onConfirm = null }) {
     const [showCode, setShowCode] = useState(childrenCount === 0);
@@ -421,11 +422,17 @@ export function PairingModal({ myRole, pairCode, pairedMembers, familyId: _famil
                 {/* Empty state */}
                 {isParent && children.length === 0 && (
                     <div style={{ textAlign: "center", padding: "20px 0", color: "var(--fg-tertiary)", fontSize: 14 }}>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>
+                            <HyeniMascot variant="wave" size={72} aria-label="" />
+                        </div>
                         아직 연결된 아이가 없어요
                     </div>
                 )}
                 {!isParent && !parent && (
                     <div style={{ textAlign: "center", padding: "20px 0", color: "var(--fg-tertiary)", fontSize: 14 }}>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>
+                            <HyeniMascot variant="wave" size={72} aria-label="" />
+                        </div>
                         부모님과 아직 연동되지 않았어요
                     </div>
                 )}

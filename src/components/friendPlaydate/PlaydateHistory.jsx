@@ -1,4 +1,6 @@
 // src/components/friendPlaydate/PlaydateHistory.jsx
+import { HyeniMascot } from '../auth/HyeniMascot.jsx';
+
 const REASON_LABEL = {
   child_end: '아이 종료',
   parent_end: '부모 정지',
@@ -15,7 +17,12 @@ function formatDuration(start, end) {
 
 export default function PlaydateHistory({ history }) {
   if (!history || history.length === 0) {
-    return <div className="hyeni-tool-empty">친구 만남 이력이 없어요.</div>;
+    return (
+      <div className="hyeni-tool-empty" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        <HyeniMascot variant="thinking" size={64} aria-label="" />
+        친구 만남 이력이 없어요.
+      </div>
+    );
   }
   return (
     <ul className="hyeni-tool-list" aria-label="친구 만남 이력">

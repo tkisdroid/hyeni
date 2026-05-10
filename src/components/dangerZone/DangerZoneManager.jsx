@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
 import { useReverseGeocodedLabel } from "../../lib/reverseGeocode.js";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDelete, onClose }) {
     const [showAdd, setShowAdd] = useState(false);
@@ -83,11 +84,12 @@ export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd,
 
                 {/* Zone list */}
                 {zones.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "24px 0", color: "#D1D5DB" }}>
-                        <div style={{ marginBottom: 8 }}>
-                            <ThreeDIcon name="shield" size={48} aria-label="" />
+                    <div style={{ textAlign: "center", padding: "24px 0", color: "var(--fg-tertiary)" }}>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>
+                            <HyeniMascot variant="cheer" size={72} aria-label="" />
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 700 }}>설정된 위험지역이 없어요</div>
+                        <div style={{ fontSize: 12, marginTop: 4, fontWeight: 500 }}>안전한 동네예요</div>
                     </div>
                 ) : zones.map(z => (
                     <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "var(--status-negative-subtle)", borderRadius: 16, marginBottom: 8, border: "1.5px solid var(--status-negative-subtle)" }}>

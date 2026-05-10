@@ -2,6 +2,7 @@
 // Phase 07 redesign — 카드 list (accent bar + 3D 카테고리 아이콘 + 제목 + 시간).
 
 import { CategoryIcon } from "../../icons/CategoryIcon.jsx";
+import { HyeniMascot } from "../../auth/HyeniMascot.jsx";
 
 const KEYWORD_TO_CATEGORY = [
   { regex: /(피아노|미술|영어|수학|논술|코딩|학원|책|독서|학교)/, id: "school" },
@@ -33,8 +34,13 @@ export function TodayEventsList({ events, children }) {
           color: "#8C8C8C",
           fontSize: 14,
           fontWeight: 500,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 8,
         }}
       >
+        <HyeniMascot variant="sad" size={64} aria-label="" />
         오늘 일정이 없어요
       </div>
     );

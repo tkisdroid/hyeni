@@ -6,6 +6,7 @@ import { ChildAvatar } from "../HomeDashboard/ChildAvatar.jsx";
 import { HomeBigStat, pickNextEvent, formatTimeLabel } from "../HomeDashboard/HomeBigStat.jsx";
 import { useBackHandler } from "../../../lib/backHandler.js";
 import { ThreeDIcon } from "../../icons/ThreeDIcon.jsx";
+import { HyeniMascot } from "../../auth/HyeniMascot.jsx";
 
 const DOT_COLORS = {
     green: "var(--status-positive)",
@@ -181,7 +182,10 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                 <section style={{ marginTop: "var(--space-5)", paddingTop: "var(--space-5)", borderTop: "1px solid var(--cartoon-line)" }}>
                     <h2 className="t-section-label">오늘 일정</h2>
                     {childEvents.length === 0 ? (
-                        <p style={{ fontSize: 14, color: "var(--fg-tertiary)", textAlign: "center", padding: "var(--space-5) 0" }}>오늘 일정이 없어요</p>
+                        <div style={{ textAlign: "center", padding: "var(--space-5) 0", color: "var(--fg-tertiary)", fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                            <HyeniMascot variant="sad" size={64} aria-label="" />
+                            오늘 일정이 없어요
+                        </div>
                     ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                             {childEvents.map((event) => (

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { generateUUID } from "../../lib/auth.js";
 import { FF } from "../../lib/styleHelpers.js";
 import { MapPicker } from "../map/MapPicker.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 export function SavedPlaceManager({
     places,
@@ -151,9 +152,11 @@ export function SavedPlaceManager({
 
                 <div style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 10 }}>등록된 장소 ({list.length})</div>
                 {list.length === 0 && (
-                    <div style={{ textAlign: "center", padding: "32px 0", color: "#D1D5DB" }}>
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>📍</div>
-                        <div style={{ fontSize: 14 }}>등록된 장소가 없어요</div>
+                    <div style={{ textAlign: "center", padding: "32px 0", color: "var(--fg-tertiary)" }}>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>
+                            <HyeniMascot variant="thinking" size={72} aria-label="" />
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700 }}>등록된 장소가 없어요</div>
                         <div style={{ fontSize: 12, marginTop: 4 }}>자주 가는 장소를 저장해 두면 일정 입력이 빨라져요</div>
                     </div>
                 )}
