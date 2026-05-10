@@ -39,6 +39,7 @@ import { readFamilyInfoCache, writeFamilyInfoCache } from "./lib/familyInfoCache
 import { identify as identifySubscriptionUser, purchase as purchaseSubscription } from "./lib/qonversion.js";
 import { sendBroadcastWhenReady } from "./lib/realtime.js";
 import { getChildMemoQuickReplies, getMemoPreview, getParentMemoQuickReplies } from "./lib/memoDisplay.js";
+import { buildMemoChannelKey, isMemoForSelectedChild } from "./lib/memoRealtime.js";
 import { buildHomeRouteEvent, findHomeSavedPlace } from "./lib/navigationTargets.js";
 import { LOCATION_TRAIL_GRADIENT_STOPS, buildLocationDaySummary, getStayDisplayParts } from "./lib/locationTrailDisplay.js";
 import {
@@ -1093,7 +1094,15 @@ export default function KidsScheduler() {
         setMemoReplies(cached);
         let cancelled = false;
         fetchMemoReplies(familyId, dateKey)
-            .then((rows) => { if (!cancelled) setMemoReplies(rows); })
+            .then((rows) => {
+                if (!cancelled) {
+                    // Multichild isolation: filter to selected child's thread only.
+                    const filtered = (isParent && selectedChild?.user_id)
+                        ? rows.filter(r => isMemoForSelectedChild(r, selectedChild.user_id, authUser?.id))
+                        : rows;
+                    setMemoReplies(filtered);
+                }
+            })
             .catch(() => {});
         // Legacy memos.read_by fetch retained for the card-level badge only.
         // Removal scheduled for v1.1 MEMO-CLEANUP-01.
@@ -1918,6 +1927,13 @@ export default function KidsScheduler() {
 
                 // INSERT: ignore self-echo so optimistic state isn't doubled.
                 if (newRow.user_id === authUser?.id) return;
+                // Multichild isolation: parent only accepts rows belonging to
+                // the currently selected child's thread. Single-child and child
+                // users skip this guard (selectedChild is always set for them).
+                if (isParent && selectedChild?.user_id &&
+                    !isMemoForSelectedChild(newRow, selectedChild.user_id, authUser?.id)) {
+                    return;
+                }
                 setMemoReplies(prev => {
                     if (prev.some(r => r.id === newRow.id)) return prev;
                     return [...prev, { id: newRow.id, user_id: newRow.user_id, user_role: newRow.user_role, content: newRow.content, created_at: newRow.created_at, read_by: newRow.read_by ?? [] }];
@@ -2002,7 +2018,11 @@ export default function KidsScheduler() {
         });
 
         return () => { unsubscribe(realtimeChannel.current); };
-    }, [familyId, authUser?.id, isParent]);
+    // selectedChildId 추가: 자녀 변경 시 채널 cleanup → resubscribe 트리거
+    // (postgres_changes filter는 family_id 단위이므로 채널 재연결이 아닌
+    //  client-side filter가 실제 isolation을 담당하지만, useEffect cleanup이
+    //  realtimeChannel.current 를 재할당하여 authUser ref를 최신 상태로 유지)
+    }, [familyId, authUser?.id, isParent, selectedChildId]);
 
     // ── Child: check if launched via FCM remote_listen ──
     useEffect(() => {
@@ -4231,7 +4251,12 @@ export default function KidsScheduler() {
         if (familyId) {
             const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
             fetchMemoReplies(familyId, todayKey)
-                .then(setMemoReplies)
+                .then((rows) => {
+                    const filtered = (isParent && selectedChild?.user_id)
+                        ? rows.filter(r => isMemoForSelectedChild(r, selectedChild.user_id, authUser?.id))
+                        : rows;
+                    setMemoReplies(filtered);
+                })
                 .catch((err) => console.warn("[memo] open refetch failed:", err));
         }
         window.requestAnimationFrame(() => {
@@ -4787,7 +4812,11 @@ export default function KidsScheduler() {
                 }
                 return fetchMemoReplies(familyId, dateKey)
                     .then((rows) => {
-                        setMemoReplies(rows);
+                        // Multichild isolation: filter to selected child's thread only.
+                        const filtered = (isParent && selectedChild?.user_id)
+                            ? rows.filter(r => isMemoForSelectedChild(r, selectedChild.user_id, authUser?.id))
+                            : rows;
+                        setMemoReplies(filtered);
                         if (!memoPageOpen) return rows;
                         return fetchMemoRepliesForDateKeys(familyId, memoThreadDateKeys)
                             .then((threadRows) => {
