@@ -145,7 +145,7 @@ export function ParentSignupScreen({ onBack }) {
                                 placeholder="홍길동"
                                 maxLength={30}
                                 disabled={codeSent}
-                                className="cartoon-input"
+                                className="input"
                             />
                         </label>
                         <label className="cartoon-field">
@@ -156,7 +156,7 @@ export function ParentSignupScreen({ onBack }) {
                                 autoComplete="username"
                                 placeholder="parent01"
                                 disabled={codeSent}
-                                className="cartoon-input"
+                                className="input"
                             />
                         </label>
                         <label className="cartoon-field">
@@ -168,7 +168,7 @@ export function ParentSignupScreen({ onBack }) {
                                 autoComplete="new-password"
                                 placeholder="6자 이상"
                                 disabled={codeSent}
-                                className="cartoon-input"
+                                className="input"
                             />
                         </label>
                         <label className="cartoon-field">
@@ -180,7 +180,7 @@ export function ParentSignupScreen({ onBack }) {
                                 autoComplete="new-password"
                                 placeholder="비밀번호 재입력"
                                 disabled={codeSent}
-                                className="cartoon-input"
+                                className="input"
                             />
                         </label>
                         <fieldset
@@ -232,7 +232,7 @@ export function ParentSignupScreen({ onBack }) {
                                 autoComplete="tel"
                                 placeholder="010-1234-5678"
                                 disabled={codeSent}
-                                className="cartoon-input"
+                                className="input"
                             />
                         </label>
                         {codeSent && (
@@ -244,7 +244,7 @@ export function ParentSignupScreen({ onBack }) {
                                     inputMode="numeric"
                                     autoComplete="one-time-code"
                                     placeholder="6자리"
-                                    className="cartoon-input"
+                                    className="input"
                                 />
                             </label>
                         )}
