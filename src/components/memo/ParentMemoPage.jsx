@@ -128,7 +128,12 @@ function TheirBubble({ text, time, sender }) {
     );
 }
 
+// tabbar가 fixed bottom으로 렌더될 때 입력창 위로 올라오도록 추가 여백을 계산하는 상수.
+// hyeni-v5-tabbar-fixed 의 실측 높이(버튼 46px + 패딩 12px) + safe-area 여백.
+const TABBAR_HEIGHT = 72; // px
+
 export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName, onReplyRef, mode = "parent", quickReplies, emptyCopy, stickerCopy, bottomNavigation = null }) {
+    const hasTabbar = bottomNavigation !== null;
     const [inputText, setInputText] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [sendError, setSendError] = useState("");
@@ -279,6 +284,8 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                     flex: 1,
                     overflowY: "auto",
                     padding: "16px 16px 8px",
+                    // composer 높이(약 72px) + tabbar 높이를 확보해 마지막 말풍선이 가려지지 않도록 함
+                    paddingBottom: hasTabbar ? 0 : 8,
                 }}
             >
                 {messages.length === 0 ? (
@@ -381,7 +388,11 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
             {/* Composer */}
             <footer
                 style={{
-                    padding: "10px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)",
+                    // tabbar가 fixed bottom으로 올라올 경우 그 높이만큼 padding-bottom을 확보.
+                    // tabbar 없으면 safe-area + 14px만 적용.
+                    padding: hasTabbar
+                        ? `10px 16px calc(${TABBAR_HEIGHT}px + env(safe-area-inset-bottom, 0px) + 14px)`
+                        : "10px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)",
                     background: "transparent",
                 }}
             >
