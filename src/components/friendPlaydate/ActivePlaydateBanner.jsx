@@ -7,6 +7,7 @@ import {
   subscribeActiveSession,
   endPlaydate,
 } from "../../lib/friendPlaydate.js";
+import { withParticle } from "../../lib/koreanParticle.js";
 
 function formatPhoneTel(p) {
   return `tel:${p.replace(/[^\d+]/g, "")}`;
@@ -39,7 +40,7 @@ export default function ActivePlaydateBanner({ familyId, isParent }) {
 
   const handleStop = async () => {
     if (busy) return;
-    if (!confirm(`${friendChild}와의 친구 만남을 정지하시겠어요?`)) return;
+    if (!confirm(`${withParticle(friendChild, "과", "와")}의 친구 만남을 정지하시겠어요?`)) return;
     setBusy(true);
     try {
       await endPlaydate(session.id, "parent_end");

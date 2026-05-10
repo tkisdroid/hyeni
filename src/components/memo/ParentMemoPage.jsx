@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { buildMessageItems, getMemoTime } from "../../lib/memoTime.js";
 import { getParentMemoQuickReplies } from "../../lib/memoDisplay.js";
+import { withParticle } from "../../lib/koreanParticle.js";
 import { MemoBubble } from "../childMode/MemoBubble.jsx";
 import { AnimalIcon } from "../icons/AnimalIcon.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
@@ -138,7 +139,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
     const title = "오늘의 메모";
     const subtitle = mode === "child"
         ? "부모님과 도란도란 이야기중"
-        : (partnerName ? `${partnerName}와 실시간 공유중` : "가족 연동 후 공유돼요");
+        : (partnerName ? `${withParticle(partnerName, "과", "와")} 실시간 공유중` : "가족 연동 후 공유돼요");
     const messages = Array.isArray(replies) ? replies : [];
     const quickItems = Array.isArray(quickReplies) && quickReplies.length > 0
         ? quickReplies
