@@ -6536,11 +6536,11 @@ export default function KidsScheduler() {
                             style={{
                                 marginTop: 18,
                                 marginBottom: 14,
-                                background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #FBFAF6 100%)",
+                                background: "transparent",
                                 border: "none",
-                                borderRadius: 24,
-                                padding: "16px 18px",
-                                boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
+                                borderRadius: 0,
+                                padding: "0",
+                                boxShadow: "none",
                                 fontFamily: FF
                             }}
                         >
@@ -6573,11 +6573,11 @@ export default function KidsScheduler() {
                             style={{
                                 marginTop: 18,
                                 marginBottom: 14,
-                                background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #FBFAF6 100%)",
+                                background: "transparent",
                                 border: "none",
-                                borderRadius: 24,
-                                padding: "16px 18px",
-                                boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
+                                borderRadius: 0,
+                                padding: "0",
+                                boxShadow: "none",
                                 fontFamily: FF
                             }}
                         >
