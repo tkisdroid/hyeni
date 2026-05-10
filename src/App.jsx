@@ -6983,13 +6983,33 @@ export default function KidsScheduler() {
                 </div>
             )}
 
+            {/* ── EVENT ADD VIEW — tabbar 단독 노출 (EventSheet가 fullscreen으로 content 처리) ── */}
+            {activeView === PARENT_VIEWS.EVENT_ADD && isParent && (
+                renderParentBottomTabbar(PARENT_VIEWS.EVENT_ADD, "hyeni-v5-tabbar-fixed")
+            )}
+
             {/* ── EVENT SHEET (Phase 2) ── */}
             <EventSheet
-                open={showAddModal}
+                open={showAddModal || activeView === PARENT_VIEWS.EVENT_ADD}
                 title={editingEventId ? "일정 수정" : "새 일정"}
                 saveLabel={editingEventId ? "수정" : "저장"}
-                onClose={() => { setShowAddModal(false); setEditingEventId(null); setAddEventDateKey(null); setNewTitle(""); setNewEndTime(""); setTimeSelectionTarget("start"); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4); }}
-                onSave={addEvent}
+                onClose={() => {
+                    setShowAddModal(false);
+                    setEditingEventId(null);
+                    setAddEventDateKey(null);
+                    setNewTitle("");
+                    setNewEndTime("");
+                    setTimeSelectionTarget("start");
+                    setNewLocation(null);
+                    setSelectedPreset(null);
+                    setWeeklyRepeat(false);
+                    setRepeatWeeks(4);
+                    if (activeView === PARENT_VIEWS.EVENT_ADD) setActiveView(PARENT_VIEWS.CALENDAR);
+                }}
+                onSave={async () => {
+                    await addEvent();
+                    if (activeView === PARENT_VIEWS.EVENT_ADD) setActiveView(PARENT_VIEWS.CALENDAR);
+                }}
             >
                 {showAddModal && (
                     <>
