@@ -5,7 +5,6 @@
 
 import { useBackHandler } from "../../lib/backHandler.js";
 import { THEME_PALETTE as THEME_DICT } from "../../lib/theme.js";
-import { AnimalIcon } from "../icons/AnimalIcon.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 const THEME_OPTIONS = Object.entries(THEME_DICT).map(([hex, t]) => ({
@@ -13,17 +12,6 @@ const THEME_OPTIONS = Object.entries(THEME_DICT).map(([hex, t]) => ({
     accent: t.accent,
     label: t.label || hex,
 }));
-
-const ANIMAL_CHARACTER_OPTIONS = [
-    { emoji: "🐰", label: "토끼" },
-    { emoji: "🐱", label: "고양이" },
-    { emoji: "🐶", label: "강아지" },
-    { emoji: "🦊", label: "여우" },
-    { emoji: "🐥", label: "병아리" },
-    { emoji: "🐻", label: "곰" },
-    { emoji: "🐼", label: "판다" },
-    { emoji: "🐯", label: "호랑이" },
-];
 
 function Toggle({ value, onChange, ariaLabel }) {
     return (
@@ -99,9 +87,6 @@ export function ChildSettingsScreen({
     onChangeSound,
     showMascot = true,
     onChangeShowMascot,
-    currentCharacter = "🐰",
-    onChangeCharacter,
-    characterSaving = false,
     childName = "",
     parentNames = "",
     onRequestParentChange,
@@ -173,57 +158,6 @@ export function ChildSettingsScreen({
                                             padding: 0,
                                         }}
                                     />
-                                );
-                            })}
-                        </div>
-                    </div>
-                </Section>
-
-                <Section title="동물 캐릭터">
-                    <div style={{ padding: "var(--space-4)" }}>
-                        <p style={{ margin: 0, fontSize: 12, color: "var(--fg-secondary)", marginBottom: "var(--space-3)", fontWeight: "var(--weight-medium)" }}>
-                            내 화면에 보일 동물 캐릭터를 골라봐
-                        </p>
-                        <div
-                            role="radiogroup"
-                            aria-label="동물 캐릭터 선택"
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                                gap: "var(--space-2)",
-                            }}
-                        >
-                            {ANIMAL_CHARACTER_OPTIONS.map((option) => {
-                                const active = option.emoji === currentCharacter;
-                                return (
-                                    <button
-                                        key={option.emoji}
-                                        type="button"
-                                        role="radio"
-                                        aria-checked={active}
-                                        aria-label={`${option.label} 캐릭터${active ? " (선택됨)" : ""}`}
-                                        disabled={characterSaving}
-                                        onClick={() => onChangeCharacter?.(option.emoji)}
-                                        style={{
-                                            minHeight: 72,
-                                            borderRadius: "var(--radius-lg)",
-                                            border: active ? "2px solid var(--theme-accent)" : "1px solid var(--line-soft)",
-                                            background: active ? "var(--theme-accent-soft)" : "var(--bg-base)",
-                                            color: active ? "var(--theme-accent-text)" : "var(--fg-primary)",
-                                            cursor: characterSaving ? "wait" : "pointer",
-                                            opacity: characterSaving ? 0.72 : 1,
-                                            fontFamily: "inherit",
-                                            fontWeight: "var(--weight-bold)",
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            gap: 4,
-                                        }}
-                                    >
-                                        <AnimalIcon emoji={option.emoji} size={44} aria-label={option.label} />
-                                        <span style={{ fontSize: 11 }}>{option.label}</span>
-                                    </button>
                                 );
                             })}
                         </div>

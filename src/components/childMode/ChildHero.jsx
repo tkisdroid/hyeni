@@ -1,8 +1,9 @@
 // src/components/childMode/ChildHero.jsx
 // Phase 3 spec section 4.2 — 자녀 홈 hero (mascot + 동적 copy).
-// 일정 수에 따라 hero copy 자동 분기 — "오늘 뭐 해?" / "{N}개 일정 있어" / "자유시간!"
+// 일정 수에 따라 hero copy/mascot 자동 분기 — 0개 = cheer, 1+ = wave.
 
 import { getThemeColors } from "../../lib/theme.js";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 function pickHeroCopy(eventCount) {
     if (eventCount === 0) return { title: "오늘은 자유시간!", sub: "마음껏 놀아도 돼" };
@@ -18,10 +19,10 @@ function formatNowTime(now = new Date()) {
     return `${period} ${display}시 ${m}분`;
 }
 
-export function ChildHero({ eventCount = 0, showMascot = true, characterEmoji = "🐰", onSettings, now = new Date(), colorHex = null }) {
+export function ChildHero({ eventCount = 0, showMascot = true, onSettings, now = new Date(), colorHex = null }) {
     const { title, sub } = pickHeroCopy(eventCount);
     const timeLabel = formatNowTime(now);
-    const displayCharacter = characterEmoji || "🐰";
+    const mascotVariant = eventCount === 0 ? "cheer" : "wave";
     const palette = getThemeColors(colorHex);
     const heroStyle = {
         position: "relative",
@@ -33,9 +34,7 @@ export function ChildHero({ eventCount = 0, showMascot = true, characterEmoji = 
         <header className="child-hero" role="region" aria-label="오늘은 뭐해?" style={heroStyle}>
             {showMascot && (
                 <div className="child-hero-mascot">
-                    <span className="child-hero-character" role="img" aria-label={`${displayCharacter} 캐릭터`}>
-                        {displayCharacter}
-                    </span>
+                    <HyeniMascot variant={mascotVariant} size={88} aria-label="혜니" />
                 </div>
             )}
             <div className="child-hero-body">

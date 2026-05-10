@@ -6052,7 +6052,6 @@ export default function KidsScheduler() {
                     <ChildHero
                         eventCount={todayEvents.length}
                         showMascot={childShowMascot}
-                        characterEmoji={currentChildCharacter}
                         onSettings={() => setShowChildSettings(true)}
                         now={today}
                         colorHex={activeThemeColor}
@@ -7356,9 +7355,6 @@ export default function KidsScheduler() {
                     onChangeSound={() => showNotif("알림 소리는 부모님이 잠궜어")}
                     showMascot={childShowMascot}
                     onChangeShowMascot={setChildShowMascot}
-                    currentCharacter={currentChildCharacter}
-                    onChangeCharacter={handleChildCharacterChange}
-                    characterSaving={childCharacterSaving}
                     childName={authUser?.user_metadata?.name || familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.name || ""}
                     parentNames={(familyInfo?.members || []).filter((m) => m.role === "parent").map((m) => m.name).join(", ")}
                     onRequestParentChange={() => showNotif("부모님께 변경 요청을 보냈어요")}
