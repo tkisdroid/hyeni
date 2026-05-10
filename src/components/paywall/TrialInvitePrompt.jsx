@@ -1,5 +1,6 @@
 import { EARLY_ADOPTER_BADGE, PRICING, TRIAL_INVITE } from "../../lib/paywallCopy.js";
 import { ParentMomDuo } from "../decoration/CartoonIllustrations.jsx";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false }) {
   if (!open || isChild) return null;
@@ -32,7 +33,7 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
             <ParentMomDuo size={72} ariaLabel="" />
           </span>
           <div className="cartoon-chip cartoon-chip--pink" style={{ fontSize: 12 }}>
-            <span aria-hidden="true">✨</span>
+            <ThreeDIcon name="sparkle" size={14} aria-label="" />
             <span>{EARLY_ADOPTER_BADGE}</span>
           </div>
         </div>

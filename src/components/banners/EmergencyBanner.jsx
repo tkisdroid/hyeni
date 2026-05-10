@@ -7,6 +7,7 @@
 //   onDismiss: (id, reason: "contact" | "ok") => void
 
 import { FF } from "../../lib/styleHelpers.js";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 export function EmergencyBanner({ emergencies, onDismiss }) {
     if (!emergencies.length) return null;
@@ -16,7 +17,9 @@ export function EmergencyBanner({ emergencies, onDismiss }) {
             <div style={{ background: "white", borderRadius: 28, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(220,38,38,0.4)", animation: "emergencyPulse 0.6s ease" }}>
                 <div style={{ height: 8, borderRadius: 8, background: "linear-gradient(90deg,var(--status-negative),var(--status-negative-strong),var(--status-negative))", backgroundSize: "200% 100%", animation: "shimmer 1s linear infinite", marginBottom: 20 }} />
                 <div style={{ textAlign: "center", marginBottom: 16 }}>
-                    <div style={{ fontSize: 56, marginBottom: 8, animation: "shake 0.5s ease infinite" }}>🚨</div>
+                    <div style={{ marginBottom: 8, animation: "shake 0.5s ease infinite" }}>
+                        <ThreeDIcon name="sos-shield" size={72} aria-label="" />
+                    </div>
                     <div style={{ fontSize: 22, fontWeight: 900, color: "var(--status-negative-strong)" }}>긴급 알림</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "var(--fg-secondary)", marginTop: 4 }}>학부모님, 확인이 필요해요!</div>
                 </div>

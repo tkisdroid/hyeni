@@ -189,7 +189,7 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                         whiteSpace: "nowrap",
                     }}
                 >
-                    <span aria-hidden="true" style={{ fontSize: 12 }}>🔋</span>
+                    <ThreeDIcon name="battery" size={14} aria-label="" />
                     {batteryLevel != null ? `${batteryLevel}%` : "—"}
                 </span>
 

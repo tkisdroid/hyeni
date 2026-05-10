@@ -1,4 +1,5 @@
 import React from "react";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 const FONT = "var(--font-sans)";
 
@@ -23,7 +24,9 @@ export default function DangerCard({
             }}
         >
             <header style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
-                <div aria-hidden="true" style={{ fontSize: 28, lineHeight: 1 }}>⚠️</div>
+                <div aria-hidden="true" style={{ lineHeight: 1 }}>
+                    <ThreeDIcon name="warning" size={32} aria-label="" />
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <h2
                         id="danger-card-title"

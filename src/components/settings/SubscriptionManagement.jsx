@@ -199,7 +199,9 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                 <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                     <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", display: "inline-flex", alignItems: "center", gap: 8 }}>
                         혜니 프리미엄
-                        <span aria-hidden="true" style={{ fontSize: 16, opacity: 0.85 }}>✨</span>
+                        <span aria-hidden="true" style={{ opacity: 0.85, display: "inline-flex" }}>
+                            <ThreeDIcon name="sparkle" size={20} aria-label="" />
+                        </span>
                     </h2>
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#5F6368", letterSpacing: "-0.01em" }}>
                         자녀 1인당 {fmtKrw(PRICE_PER_CHILD_MONTHLY)}/월 · 가족 단위 결제
