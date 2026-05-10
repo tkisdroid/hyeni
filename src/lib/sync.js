@@ -998,6 +998,18 @@ export async function fetchStickerSummary(familyId) {
   return data || [];
 }
 
+export async function fetchReceivedPraiseStickers(familyId, userId) {
+  const { data, error } = await supabase
+    .from("stickers")
+    .select("id, emoji, title, sticker_type, created_at, date_key")
+    .eq("family_id", familyId)
+    .eq("user_id", userId)
+    .eq("sticker_type", "praise")
+    .order("created_at", { ascending: false });
+  if (error) { console.error("[fetchReceivedPraiseStickers]", error); return []; }
+  return data || [];
+}
+
 // ── Danger Zones ─────────────────────────────────────────────────────────────
 
 export async function fetchDangerZones(familyId) {

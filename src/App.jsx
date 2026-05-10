@@ -22,12 +22,13 @@ import { ChildDetailScreen } from "./components/multichild/ChildDetail/ChildDeta
 import { ChildHero } from "./components/childMode/ChildHero.jsx";
 import { ChildSettingsScreen } from "./components/childMode/ChildSettingsScreen.jsx";
 import { SendStickerSheet } from "./components/childMode/SendStickerSheet.jsx";
+import { ReceivedStickersSheet } from "./components/childMode/ReceivedStickersSheet.jsx";
 import { MemoBubble } from "./components/childMode/MemoBubble.jsx";
 import { ParentSettingsScreen } from "./components/settings/ParentSettingsScreen.jsx";
 import { PlaceManagerScreen } from "./components/settings/PlaceManagerScreen.jsx";
 // CreatePlaydateSheet — Phase 5 wire 대기 (현재는 import 보류)
 import { saveEventWithChildren } from "./lib/sync.js";
-import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, saveLocationHistoryRows, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead } from "./lib/sync.js";
+import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, saveLocationHistoryRows, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead, fetchReceivedPraiseStickers } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, requestNativePermission, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { applyThemeColor, initThemeFromCache } from "./lib/theme.js";
@@ -629,6 +630,7 @@ export default function KidsScheduler() {
     // Phase 3 — 자녀 모드 설정 / 스티커 보내기 / 마스코트 표시 토글
     const [showChildSettings, setShowChildSettings] = useState(false);
     const [showSendStickerSheet, setShowSendStickerSheet] = useState(false);
+    const [showReceivedStickersSheet, setShowReceivedStickersSheet] = useState(false);
     // Phase 4 — 부모 운영 화면 통합 진입점
     const [showParentSettings, setShowParentSettings] = useState(false);
     const [showPlaceManager, setShowPlaceManager] = useState(false);
@@ -6103,12 +6105,12 @@ export default function KidsScheduler() {
                             type="button"
                             className="child-quick-card"
                             data-tone="sticker"
-                            onClick={() => setShowSendStickerSheet(true)}
+                            onClick={() => setShowReceivedStickersSheet(true)}
                             aria-label="받은 스티커 보기"
                         >
                             <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
                                 <ThreeDIcon name="gift" size={32} aria-label="받은 스티커" />
-                                <span className="t-child-quick-label" style={{ whiteSpace: "nowrap" }}>받은 스티커 보기</span>
+                                <span className="t-child-quick-label" style={{ whiteSpace: "nowrap" }}>받은 스티커</span>
                             </span>
                             <span className="t-child-quick-meta">부모님이 보낸 응원 확인</span>
                         </button>
@@ -7474,8 +7476,8 @@ export default function KidsScheduler() {
                 />
             )}
 
-            {/* ── Phase 3 자녀 스티커 보내기 sheet ── */}
-            {!isParent && (
+            {/* ── Phase 3 자녀 스티커 보내기 sheet (기존 — 현재 미사용, 보존) ── */}
+            {!isParent && showSendStickerSheet && (
                 <SendStickerSheet
                     open={showSendStickerSheet}
                     isSending={childSendingSticker}
@@ -7497,6 +7499,17 @@ export default function KidsScheduler() {
                             setChildSendingSticker(false);
                         }
                     }}
+                />
+            )}
+
+            {/* ── 자녀 모드 — 받은 스티커 내역 sheet (부모→자녀 칭찬 스티커) ── */}
+            {!isParent && (
+                <ReceivedStickersSheet
+                    open={showReceivedStickersSheet}
+                    onClose={() => setShowReceivedStickersSheet(false)}
+                    familyId={familyId}
+                    userId={authUser?.id}
+                    parentName={(familyInfo?.members || []).find((m) => m.role === "parent")?.name || ""}
                 />
             )}
 
