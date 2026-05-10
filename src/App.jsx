@@ -4259,39 +4259,45 @@ export default function KidsScheduler() {
                 onClick={handleParentHomeTabClick}
                 aria-pressed={activeTab === "home"}
                 className={activeTab === "home" ? "active" : undefined}
-                style={{ fontFamily: FF, whiteSpace: "nowrap" }}
+                style={{ fontFamily: FF }}
               >
-                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Home size={16} strokeWidth={1.75} /></span>홈
+                <span aria-hidden="true" className="tabbar-icon"><Home size={16} strokeWidth={1.75} /></span>
+                <span className="tabbar-label">홈</span>
               </button>
             )}
-            <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
-                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Sun size={16} strokeWidth={1.75} /></span>오늘
+            <button type="button" className={activeTab === "today" ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
+                <span aria-hidden="true" className="tabbar-icon"><Sun size={16} strokeWidth={1.75} /></span>
+                <span className="tabbar-label">오늘</span>
             </button>
             <button
               type="button"
               className={activeTab === "eventAdd" ? "active" : undefined}
               onClick={requireSelectedChildOrHint(handleParentEventAddTabClick, "일정 등록")}
-              style={{ fontFamily: FF, whiteSpace: "nowrap" }}
+              style={{ fontFamily: FF }}
             >
-              <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}>
+              <span aria-hidden="true" className="tabbar-icon">
                 <CalendarPlus size={16} strokeWidth={1.75} />
-              </span>일정등록
+              </span>
+              <span className="tabbar-label">일정등록</span>
             </button>
             {parentCapabilities.canManagePlaces && (
-                <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentMapTabClick, "장소 관리")} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
-                    <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><MapPin size={16} strokeWidth={1.75} /></span>장소
+                <button type="button" className={activeTab === "maplist" ? "active" : undefined} onClick={requireSelectedChildOrHint(handleParentMapTabClick, "장소 관리")} style={{ fontFamily: FF }}>
+                    <span aria-hidden="true" className="tabbar-icon"><MapPin size={16} strokeWidth={1.75} /></span>
+                    <span className="tabbar-label">장소</span>
                 </button>
             )}
             <button
                 type="button"
                 className={activeTab === "memo" ? "active" : undefined}
                 onClick={requireSelectedChildOrHint(handleParentMemoTabClick, "메모")}
-                style={{ fontFamily: FF, whiteSpace: "nowrap" }}
+                style={{ fontFamily: FF }}
             >
-                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><MessageCircle size={16} strokeWidth={1.75} /></span>메모
+                <span aria-hidden="true" className="tabbar-icon"><MessageCircle size={16} strokeWidth={1.75} /></span>
+                <span className="tabbar-label">메모</span>
             </button>
-            <button type="button" className={activeTab === "family" ? "active" : undefined} onClick={handleParentFamilyTabClick} style={{ fontFamily: FF, whiteSpace: "nowrap" }}>
-                <span aria-hidden="true" style={{ display: "inline-flex", marginRight: 4, verticalAlign: "middle" }}><Users size={16} strokeWidth={1.75} /></span>가족
+            <button type="button" className={activeTab === "family" ? "active" : undefined} onClick={handleParentFamilyTabClick} style={{ fontFamily: FF }}>
+                <span aria-hidden="true" className="tabbar-icon"><Users size={16} strokeWidth={1.75} /></span>
+                <span className="tabbar-label">가족</span>
             </button>
         </nav>
     );

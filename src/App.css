@@ -1860,12 +1860,34 @@ a:focus-visible {
   font-size: 10px;
   font-weight: 900;
   cursor: pointer;
+  /* 아이콘 위 + 텍스트 아래 세로 스택 — 버튼 폭이 좁아도 겹치지 않음 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  padding: 4px 2px;
 }
 
-.hyeni-v5-tabbar button span {
-  display: block;
-  margin-bottom: 2px;
+.hyeni-v5-tabbar button .tabbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   font-size: 18px;
+  line-height: 1;
+}
+
+.hyeni-v5-tabbar button .tabbar-label {
+  display: block;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  max-width: 100%;
+  letter-spacing: -0.02em;
 }
 
 .hyeni-v5-tabbar button.active {
@@ -3476,9 +3498,13 @@ a:focus-visible {
   font-weight: 750;
 }
 
-.hyeni-v5-tabbar button span {
+.hyeni-v5-tabbar button .tabbar-icon {
   color: inherit;
   font-size: 17px;
+}
+
+.hyeni-v5-tabbar button .tabbar-label {
+  color: inherit;
 }
 
 section[aria-label="아이 기기 사용 지표"] {

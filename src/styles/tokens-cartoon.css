@@ -633,6 +633,29 @@ body .hyeni-v5-tabbar button {
   font-family: var(--font-sans);
   letter-spacing: -0.01em;
   transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+  /* 6버튼 다자녀 케이스: icon + label 세로 스택으로 겹침 방지 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+body .hyeni-v5-tabbar button .tabbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+body .hyeni-v5-tabbar button .tabbar-label {
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  max-width: 100%;
+  letter-spacing: -0.03em;
 }
 body .hyeni-v5-tabbar button.active {
   background: var(--cartoon-rose-gradient);
