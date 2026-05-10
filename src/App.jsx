@@ -6765,8 +6765,8 @@ export default function KidsScheduler() {
                             </div>
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={prevMonth} aria-label="이전 달" style={{ width: 36, height: 36, borderRadius: "50%", background: "white", border: "none", fontSize: 18, cursor: "pointer", color: "var(--theme-accent-text)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--hyeni-theme-shadow-soft)", fontWeight: 800 }}>‹</button>
-                            <button onClick={nextMonth} aria-label="다음 달" style={{ width: 36, height: 36, borderRadius: "50%", background: "white", border: "none", fontSize: 18, cursor: "pointer", color: "var(--theme-accent-text)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--hyeni-theme-shadow-soft)", fontWeight: 800 }}>›</button>
+                            <button onClick={prevMonth} aria-label="이전 달" className="btn btn-secondary btn-sm" style={{ width: 36, height: 36, minHeight: 36, padding: 0, borderRadius: "var(--radius-pill)", color: "var(--theme-accent-text)", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>‹</button>
+                            <button onClick={nextMonth} aria-label="다음 달" className="btn btn-secondary btn-sm" style={{ width: 36, height: 36, minHeight: 36, padding: 0, borderRadius: "var(--radius-pill)", color: "var(--theme-accent-text)", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>›</button>
                         </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", padding: "0 2px 6px", fontSize: 10, fontWeight: 800, textAlign: "center", color: "var(--theme-accent-text)" }}>

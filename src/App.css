@@ -2718,7 +2718,7 @@ a:focus-visible {
 }
 
 .hyeni-v5-action-chip {
-  border-radius: 16px;
+  border-radius: var(--radius-card);
 }
 
 .hyeni-v5-action-chip:active,
