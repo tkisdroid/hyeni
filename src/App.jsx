@@ -6575,7 +6575,7 @@ export default function KidsScheduler() {
                                         </span>
                                         <span
                                             className={`hyeni-v5-kid-next${nextTodayEvent ? " has-event" : ""}`}
-                                            style={!nextTodayEvent ? { textAlign: "center", display: "block", width: "100%" } : undefined}
+                                            style={{ textAlign: "center", display: "block", width: "100%", justifyContent: "center" }}
                                         >
                                             {nextLabel}
                                         </span>
