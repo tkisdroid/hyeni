@@ -5984,9 +5984,10 @@ export default function KidsScheduler() {
                                     tabIndex={0}
                                     onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
                                     style={{
-                                        fontSize: 11,
+                                        fontSize: 11.5,
                                         fontWeight: 700,
-                                        padding: "4px 10px",
+                                        height: 26,
+                                        padding: "0 12px",
                                         borderRadius: 999,
                                         cursor: "pointer",
                                         background: "var(--brand-mint-soft, #DDF7EA)",
@@ -5994,7 +5995,9 @@ export default function KidsScheduler() {
                                         border: "1px solid var(--brand-mint-line, #BCEBD8)",
                                         whiteSpace: "nowrap",
                                         flexShrink: 0,
-                                        lineHeight: 1.2,
+                                        lineHeight: 1,
+                                        display: "inline-flex",
+                                        alignItems: "center",
                                     }}>
                                     학부모 모드
                                 </span>
@@ -6002,9 +6005,10 @@ export default function KidsScheduler() {
                                     type="button"
                                     onClick={() => { setActiveView(PARENT_VIEWS.FAMILY); }}
                                     style={{
-                                        fontSize: 11,
+                                        fontSize: 11.5,
                                         fontWeight: 700,
-                                        padding: "4px 10px",
+                                        height: 26,
+                                        padding: "0 12px",
                                         borderRadius: 999,
                                         border: pairedChildren.length > 0
                                             ? "1px solid var(--brand-lavender-line, #DDD1FF)"
@@ -6014,7 +6018,10 @@ export default function KidsScheduler() {
                                         background: pairedChildren.length > 0 ? "var(--brand-lavender-soft, #EFE8FF)" : "var(--status-cautionary-subtle)",
                                         color: pairedChildren.length > 0 ? "var(--brand-lavender-text, #5F43B2)" : "var(--status-cautionary-strong)",
                                         whiteSpace: "nowrap",
-                                        lineHeight: 1.2,
+                                        lineHeight: 1,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        flexShrink: 0,
                                     }}>
                                     {pairedChildren.length > 0 ? `🔗 연동 (${pairedChildren.length}명)` : (familyId ? "🔗 연동하기" : "👨‍👩‍👧 가족 만들기")}
                                 </button>
@@ -6025,7 +6032,7 @@ export default function KidsScheduler() {
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
                     {isParent && (
                         <button onClick={() => { setShowAlertPanel(true); loadParentAlerts(); }}
-                            style={{ position: "relative", fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}
+                            style={{ position: "relative", width: 40, height: 40, padding: 0, borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                             aria-label="알림">
                             <ThreeDIcon name="bell" size={22} aria-label="알림" />
                             {parentAlerts.filter(a => !a.read).length > 0 && (
@@ -6039,9 +6046,9 @@ export default function KidsScheduler() {
                         <button
                             type="button"
                             onClick={() => setShowParentSettings(true)}
-                            style={{ fontSize: 22, padding: "10px 14px", borderRadius: 14, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}
+                            style={{ width: 40, height: 40, padding: 0, borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                             aria-label="설정">
-                            <ThreeDIcon name="settings" size={26} aria-label="설정" />
+                            <ThreeDIcon name="settings" size={22} aria-label="설정" />
                         </button>
                     )}
                     {/* Phase 5 KKUK-01: tap sends immediately; hold sends once
@@ -6057,13 +6064,14 @@ export default function KidsScheduler() {
                         onTouchEnd={endKkukPress}
                         onTouchCancel={cancelKkukPress}
                         style={{
-                            fontSize: isParent ? 13 : 15, padding: isParent ? "8px 14px" : "10px 18px", borderRadius: 16, border: "none", cursor: kkukCooldown ? "default" : "pointer",
+                            fontSize: isParent ? 13 : 15, height: isParent ? 40 : 44, padding: isParent ? "0 16px" : "0 20px", borderRadius: 12, border: "none", cursor: kkukCooldown ? "default" : "pointer",
                             fontWeight: 900, fontFamily: FF, whiteSpace: "nowrap",
                             background: kkukCooldown ? "var(--bg-muted)" : "var(--hyeni-theme-gradient)",
                             color: "var(--fg-on-primary)", boxShadow: kkukCooldown ? "none" : "var(--hyeni-theme-shadow-soft)",
                             transition: "all 0.2s", transform: kkukCooldown ? "scale(0.95)" : "scale(1)",
                             userSelect: "none",
                             WebkitTouchCallout: "none",
+                            display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0,
                         }}
                         title="꾹 보내기"
                         aria-label="꾹 보내기">
