@@ -5979,9 +5979,8 @@ export default function KidsScheduler() {
                         <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
                         {isParent && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                                <span
-                                    role="button"
-                                    tabIndex={0}
+                                <button
+                                    type="button"
                                     onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
                                     style={{
                                         fontSize: 11.5,
@@ -5990,17 +5989,20 @@ export default function KidsScheduler() {
                                         padding: "0 12px",
                                         borderRadius: 999,
                                         cursor: "pointer",
+                                        fontFamily: FF,
                                         background: "var(--brand-mint-soft, #DDF7EA)",
                                         color: "var(--brand-mint-text, #087653)",
                                         border: "1px solid var(--brand-mint-line, #BCEBD8)",
                                         whiteSpace: "nowrap",
-                                        flexShrink: 0,
                                         lineHeight: 1,
                                         display: "inline-flex",
                                         alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0,
+                                        boxSizing: "border-box",
                                     }}>
                                     학부모 모드
-                                </span>
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => { setActiveView(PARENT_VIEWS.FAMILY); }}
@@ -6021,9 +6023,11 @@ export default function KidsScheduler() {
                                         lineHeight: 1,
                                         display: "inline-flex",
                                         alignItems: "center",
+                                        justifyContent: "center",
                                         flexShrink: 0,
+                                        boxSizing: "border-box",
                                     }}>
-                                    {pairedChildren.length > 0 ? `🔗 연동 (${pairedChildren.length}명)` : (familyId ? "🔗 연동하기" : "👨‍👩‍👧 가족 만들기")}
+                                    {pairedChildren.length > 0 ? `연동 (${pairedChildren.length}명)` : (familyId ? "연동하기" : "가족 만들기")}
                                 </button>
                             </div>
                         )}
