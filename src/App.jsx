@@ -6290,7 +6290,9 @@ export default function KidsScheduler() {
                     Object.entries(homeChildLocationLabels).map(([uid, v]) => [uid, v?.label || v?.shortLabel || null])
                   )}
                   nextEventByChildId={{}}
+                  positions={displayChildPositions}
                   onSelectChild={(childId) => { setSelectedChildId(childId); setActiveView("calendar"); }}
+                  onTapMap={() => setActiveView("maplist")}
                 />
                 {renderParentBottomTabbar("home", "hyeni-v5-tabbar-fixed")}
               </div>

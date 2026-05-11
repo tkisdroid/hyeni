@@ -67,7 +67,19 @@ function formatChildAddressLabel(value) {
 }
 
 function splitChildAddressLines(value) {
-  const stripped = formatChildAddressLabel(value);
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  // Kakao label 포맷: "{roadAddress} · {buildingName}" — 건물명 우선
+  const sepIdx = raw.lastIndexOf(" · ");
+  if (sepIdx > 0) {
+    const roadPart = raw.slice(0, sepIdx).trim();
+    const buildingPart = raw.slice(sepIdx + 3).trim();
+    if (buildingPart) {
+      return { primary: buildingPart, secondary: formatChildAddressLabel(roadPart) };
+    }
+  }
+  const stripped = formatChildAddressLabel(raw);
   if (!stripped) return null;
   const parts = stripped.split(/\s+/).filter(Boolean);
   if (parts.length <= 1) return { primary: stripped, secondary: "" };
@@ -168,35 +180,36 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
           )}
         </div>
         {addressLines && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 4,
-              minWidth: 0,
-            }}
-            title={locationLabel || ""}
-          >
-            <span aria-hidden="true" style={{ fontSize: 12, lineHeight: 1.4, flexShrink: 0 }}>📍</span>
+          <div style={{ minWidth: 0, width: "100%" }} title={locationLabel || ""}>
             <div style={{
-              flex: 1,
-              minWidth: 0,
-              fontSize: 12,
-              fontWeight: 700,
-              color: "var(--fg-secondary)",
-              lineHeight: 1.4,
-              wordBreak: "keep-all",
-              overflowWrap: "break-word",
+              display: "block",
+              fontSize: 12.5,
+              fontWeight: 800,
+              color: "var(--fg-primary)",
+              lineHeight: 1.35,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {addressLines.primary}
-              </div>
-              {addressLines.secondary && (
-                <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {addressLines.secondary}
-                </div>
-              )}
+              <span aria-hidden="true" style={{ marginRight: 4 }}>📍</span>
+              {addressLines.primary}
             </div>
+            {addressLines.secondary && (
+              <div style={{
+                display: "block",
+                fontSize: 11.5,
+                fontWeight: 600,
+                color: "var(--fg-secondary)",
+                lineHeight: 1.35,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                paddingLeft: 18,
+                marginTop: 1,
+              }}>
+                {addressLines.secondary}
+              </div>
+            )}
           </div>
         )}
         {nextEventChip && (

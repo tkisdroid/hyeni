@@ -2,6 +2,7 @@
 // 옵션 C — 자녀 선택 hub. 큰 hero 타이틀 + 우측 3D 일러스트 + ChildSelectCard 리스트.
 
 import { ChildSelectCard } from "./ChildSelectCard.jsx";
+import { MiniMap } from "./MiniMap.jsx";
 import { ThreeDIcon } from "../../icons/ThreeDIcon.jsx";
 
 export function HomeTab({
@@ -9,7 +10,9 @@ export function HomeTab({
   deviceStatusByChildId = {},
   locationByChildId = {},
   nextEventByChildId = {},
+  positions = [],
   onSelectChild,
+  onTapMap,
 }) {
   return (
     <div style={{ padding: "8px 16px 24px", display: "flex", flexDirection: "column", gap: 14, minHeight: "100%" }}>
@@ -61,6 +64,18 @@ export function HomeTab({
           />
         ))}
       </div>
+      {positions.length > 0 && (
+        <div style={{ marginTop: 6 }}>
+          <h2 style={{
+            margin: "0 2px 8px",
+            fontSize: 14,
+            fontWeight: 800,
+            color: "var(--fg-secondary, #5F6368)",
+            letterSpacing: "-0.01em",
+          }}>아이들 현재 위치</h2>
+          <MiniMap children={children} positions={positions} onTap={onTapMap} />
+        </div>
+      )}
     </div>
   );
 }
