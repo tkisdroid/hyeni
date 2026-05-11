@@ -621,6 +621,26 @@ export async function saveParentPhones(familyId, momPhone, dadPhone) {
   if (error) throw error;
 }
 
+// 본인 프로필(이름/전화번호) 업데이트 — family_members + auth metadata 동시 반영.
+// fields: { name?: string, phone?: string }
+export async function updateMyProfile(familyId, userId, fields) {
+  if (!familyId || !userId || !fields) throw new Error("familyId/userId/fields required");
+  const memberPatch = {};
+  if (typeof fields.name === "string") memberPatch.name = fields.name.trim();
+  if (typeof fields.phone === "string") memberPatch.phone = fields.phone.trim();
+  if (Object.keys(memberPatch).length === 0) return;
+  const { error: memberErr } = await supabase
+    .from("family_members")
+    .update(memberPatch)
+    .eq("family_id", familyId)
+    .eq("user_id", userId);
+  if (memberErr) throw memberErr;
+  if (typeof fields.name === "string") {
+    const { error: authErr } = await supabase.auth.updateUser({ data: { name: fields.name.trim() } });
+    if (authErr) console.warn("[updateMyProfile] auth metadata update failed:", authErr);
+  }
+}
+
 export async function getParentPhones(familyId) {
   const { data, error } = await supabase
     .from("families")

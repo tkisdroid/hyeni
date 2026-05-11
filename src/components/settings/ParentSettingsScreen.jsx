@@ -116,6 +116,8 @@ export function ParentSettingsScreen({
     parentPhone = "",
     childCount = 0,
     onEditAccount,
+    onEditName,
+    onEditPhone,
     onAddChild,
     onManageChildren,
     notifyEvents = true,
@@ -153,9 +155,9 @@ export function ParentSettingsScreen({
             <div className="settings-body">
                 {/* 1. 내 계정 */}
                 <Section title="내 계정">
-                    <Row icon="👤" label="이름" trailing={parentName || "—"} onClick={onEditAccount} />
+                    <Row icon="👤" label="이름" trailing={parentName || "—"} onClick={onEditName || onEditAccount} />
                     {parentEmail && <Row icon="📧" label="이메일" trailing={parentEmail} />}
-                    <Row icon="📞" label="전화번호" trailing={parentPhone || "미등록"} onClick={onOpenPhoneSettings} />
+                    <Row icon="📞" label="전화번호" trailing={parentPhone || "미등록"} onClick={onEditPhone || onOpenPhoneSettings} />
                 </Section>
 
                 {/* 2. 자녀 관리 */}

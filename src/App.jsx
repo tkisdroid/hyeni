@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Sun, Sparkles, Home, Calendar, CalendarPlus, MapPin, MessageCircle, Users } from "lucide-react";
-import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
+import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, updateMyProfile, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
 import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
 import { dispatchBack, useBackHandler } from "./lib/backHandler.js";
@@ -160,6 +160,7 @@ import { ParentFamilyView } from "./components/parent/ParentFamilyView.jsx";
 import { ChildCallCard } from "./components/contact/ChildCallCard.jsx";
 import { ChildDeviceCard } from "./components/contact/ChildDeviceCard.jsx";
 import { PhoneSettingsModal } from "./components/dialogs/PhoneSettingsModal.jsx";
+import { EditFieldModal } from "./components/dialogs/EditFieldModal.jsx";
 import { FeedbackModal } from "./components/dialogs/FeedbackModal.jsx";
 import { getChildSafetySetupSteps, getNativeSetupAction } from "./lib/nativeSetup.js";
 import { effectiveChildLocation, effectiveChildPositions } from "./lib/effectiveLocation.js";
@@ -592,6 +593,8 @@ export default function KidsScheduler() {
     const [memoReadBy, setMemoReadBy] = useState([]);
     const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
     const [showPhoneSettings, setShowPhoneSettings] = useState(false);
+    const [editFieldKind, setEditFieldKind] = useState(null); // "name" | "phone" | null
+    const [editFieldBusy, setEditFieldBusy] = useState(false);
     const [showParentSetup, setShowParentSetup] = useState(false);
     const [showCreateWizard, setShowCreateWizard] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -2782,6 +2785,8 @@ export default function KidsScheduler() {
             showChildMemoPage,
             showAcademyMgr, showSavedPlaceMgr, showPhoneSettings, showFeedbackModal, showParentSetup, showMicPermissionHelp, editingLocForEvent,
             voicePreview, activeView, showAlertPanel,
+            showParentSettings, showPlaceManager,
+            editFieldKind,
         };
     });
     useEffect(() => {
@@ -2802,7 +2807,10 @@ export default function KidsScheduler() {
                     if (s.showAcademyMgr)      { setShowAcademyMgr(false);      return; }
                     if (s.showSavedPlaceMgr)   { setShowSavedPlaceMgr(false);   return; }
                     if (s.showAlertPanel)      { setShowAlertPanel(false);      return; }
+                    if (s.editFieldKind)       { setEditFieldKind(null);         return; }
                     if (s.showPhoneSettings)   { setShowPhoneSettings(false);   return; }
+                    if (s.showPlaceManager)    { setShowPlaceManager(false);     return; }
+                    if (s.showParentSettings)  { setShowParentSettings(false);   return; }
                     if (s.showMicPermissionHelp) { setShowMicPermissionHelp(false); return; }
                     if (s.showFeedbackModal)   { setShowFeedbackModal(false);   return; }
                     if (s.showParentSetup)     { setShowParentSetup(false);     return; }
@@ -4236,10 +4244,11 @@ export default function KidsScheduler() {
         });
     };
     const handleParentMapTabClick = () => {
+        // 하단 장소 탭 → 설정 스타일 PlaceManagerScreen 으로 통일 (이전: AcademyManager).
         setShowSavedPlaceMgr(false);
         setShowDangerZones(false);
-        setShowPlaceManager(false);
-        openAcademyManagement();
+        setShowAcademyMgr(false);
+        setShowPlaceManager(true);
         window.requestAnimationFrame(() => {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
@@ -7651,6 +7660,8 @@ export default function KidsScheduler() {
                     parentPhone={(familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.phone) || ""}
                     childCount={(pairedChildren || []).length}
                     onEditAccount={() => setShowPhoneSettings(true)}
+                    onEditName={() => setEditFieldKind("name")}
+                    onEditPhone={() => setEditFieldKind("phone")}
                     onAddChild={() => { setShowParentSettings(false); setActiveView(PARENT_VIEWS.FAMILY); }}
                     onManageChildren={() => { setShowParentSettings(false); setActiveView(PARENT_VIEWS.FAMILY); }}
                     onOpenPhoneSettings={() => setShowPhoneSettings(true)}
@@ -7881,6 +7892,58 @@ export default function KidsScheduler() {
                 refreshRequestedAt={locationRefreshRequestedAt}
                 onRefreshLocation={() => requestChildLocationRefresh("manual_refresh")}
             />}
+
+            {/* ── 본인 프로필 편집 (이름/전화번호) ── */}
+            <EditFieldModal
+                open={editFieldKind === "name"}
+                title="이름 변경"
+                label="이름"
+                value={authUser?.user_metadata?.name || familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.name || ""}
+                placeholder="이름을 입력해 주세요"
+                busy={editFieldBusy}
+                onClose={() => { if (!editFieldBusy) setEditFieldKind(null); }}
+                onSave={async (next) => {
+                    if (!familyId || !authUser?.id) { setEditFieldKind(null); return; }
+                    if (!next) { showNotif("이름을 입력해 주세요.", "error"); return; }
+                    setEditFieldBusy(true);
+                    try {
+                        await updateMyProfile(familyId, authUser.id, { name: next });
+                        try { const fi = await getMyFamily(); if (fi) setFamilyInfo(fi); } catch (_) { /* refresh best-effort */ }
+                        showNotif("✏️ 이름이 저장됐어요!");
+                        setEditFieldKind(null);
+                    } catch (err) {
+                        console.error("[updateName]", err);
+                        showNotif("이름 저장에 실패했어요. 다시 시도해 주세요.", "error");
+                    } finally {
+                        setEditFieldBusy(false);
+                    }
+                }}
+            />
+            <EditFieldModal
+                open={editFieldKind === "phone"}
+                title="전화번호 변경"
+                label="내 전화번호"
+                value={familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.phone || ""}
+                placeholder="010-0000-0000"
+                inputType="tel"
+                busy={editFieldBusy}
+                onClose={() => { if (!editFieldBusy) setEditFieldKind(null); }}
+                onSave={async (next) => {
+                    if (!familyId || !authUser?.id) { setEditFieldKind(null); return; }
+                    setEditFieldBusy(true);
+                    try {
+                        await updateMyProfile(familyId, authUser.id, { phone: next });
+                        try { const fi = await getMyFamily(); if (fi) setFamilyInfo(fi); } catch (_) { /* refresh best-effort */ }
+                        showNotif("📞 전화번호가 저장됐어요!");
+                        setEditFieldKind(null);
+                    } catch (err) {
+                        console.error("[updatePhone]", err);
+                        showNotif("전화번호 저장에 실패했어요. 다시 시도해 주세요.", "error");
+                    } finally {
+                        setEditFieldBusy(false);
+                    }
+                }}
+            />
 
             {/* ── Phone Settings Modal (학부모 전용) ── */}
             {showPhoneSettings && <PhoneSettingsModal
