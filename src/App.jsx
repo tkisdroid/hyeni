@@ -4304,7 +4304,7 @@ export default function KidsScheduler() {
         });
         return labels;
     }, [childLocationLabels, displayChildPositions]);
-    const parentBottomTabCount = (isMultiChild ? 1 : 0)
+    const parentBottomTabCount = (pairedChildren.length >= 1 ? 1 : 0)
         + 2
         + (parentCapabilities.canManagePlaces ? 1 : 0)
         + 2;
@@ -4314,7 +4314,7 @@ export default function KidsScheduler() {
             aria-label="부모 메인 탭"
             style={{ gridTemplateColumns: `repeat(${parentBottomTabCount}, minmax(0, 1fr))` }}
         >
-            {isMultiChild && (
+            {pairedChildren.length >= 1 && (
               <button
                 type="button"
                 onClick={handleParentHomeTabClick}
@@ -6258,8 +6258,8 @@ export default function KidsScheduler() {
                 </div>
             )}
 
-            {/* ── HOME VIEW (multi-child only) ── */}
-            {activeView === "home" && isMultiChild && (
+            {/* ── HOME VIEW (모든 부모 — 자녀 페어 후) ── */}
+            {activeView === "home" && pairedChildren.length >= 1 && (
               <div className="hyeni-v5-parent-main" aria-label="가족 홈">
                 {multiChildHint && (
                   <div

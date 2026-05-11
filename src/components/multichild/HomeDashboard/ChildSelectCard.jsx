@@ -1,5 +1,6 @@
 // src/components/multichild/HomeDashboard/ChildSelectCard.jsx
-// 옵션 C — 이름·사진·안전 dot 3개·위치명·배터리%·다음 일정 한 줄.
+// 자녀 선택 카드 — 큰 photo (colored ring + sticker), 자녀별 색 배경, 이름·dots·배터리·주소.
+// 부모 모드 다자녀 홈 (HomeTab) 에서 사용. 단독자녀도 동일 컴포넌트로 1개 카드 렌더 가능.
 
 import { ChildAvatar } from "./ChildAvatar.jsx";
 
@@ -8,6 +9,33 @@ const DOT_COLORS = {
   yellow: "var(--status-cautionary, #F59E0B)",
   red: "var(--status-negative, #DC2626)",
 };
+
+const CHILD_PALETTES = [
+  {
+    soft: "var(--brand-rose-soft, #FFE2EC)",
+    line: "var(--brand-rose-line, #FFD0DD)",
+    accent: "var(--brand-rose, #F779A8)",
+    sticker: "🌸",
+  },
+  {
+    soft: "var(--brand-mint-soft, #DDF7EA)",
+    line: "var(--brand-mint-line, #BCEBD8)",
+    accent: "var(--brand-mint, #31C48D)",
+    sticker: "⭐",
+  },
+  {
+    soft: "var(--brand-lavender-soft, #EFE8FF)",
+    line: "var(--brand-lavender-line, #DDD1FF)",
+    accent: "var(--brand-lavender, #A78BFA)",
+    sticker: "🌟",
+  },
+  {
+    soft: "var(--brand-yellow-soft, #FFF3C7)",
+    line: "rgba(255,215,106,0.4)",
+    accent: "var(--brand-yellow, #FFD76A)",
+    sticker: "🎀",
+  },
+];
 
 const HOME_LOCATION_REGION_LABELS = new Set([
   "서울", "서울시", "서울특별시",
@@ -29,8 +57,6 @@ const HOME_LOCATION_REGION_LABELS = new Set([
   "제주", "제주도", "제주특별자치도",
 ]);
 
-// 시/도/광역시 prefix 제거 → 첫 토큰이 "구/군/시"로 끝나는 행정구역부터 시작.
-// 예: "서울특별시 서초구 양재동 12-3 빌딩" → "서초구 양재동 12-3 빌딩".
 function formatChildAddressLabel(value) {
   const raw = String(value || "").trim().replace(/\s+/g, " ");
   if (!raw) return "";
@@ -49,13 +75,15 @@ function deriveSafetyDots(deviceStatus) {
   ];
 }
 
-export function ChildSelectCard({ child, deviceStatus, locationLabel, nextEventChip, onSelect }) {
+export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel, nextEventChip, onSelect }) {
+  const palette = CHILD_PALETTES[index % CHILD_PALETTES.length];
   const dots = deriveSafetyDots(deviceStatus);
   const battery = Number(deviceStatus?.batteryLevel);
-  const batteryLabel = Number.isFinite(battery)
-    ? `🔋 ${Math.max(0, Math.min(100, Math.round(battery)))}%`
+  const batteryPct = Number.isFinite(battery)
+    ? Math.max(0, Math.min(100, Math.round(battery)))
     : null;
   const shortAddress = formatChildAddressLabel(locationLabel);
+  const accent = child?.color_hex || palette.accent;
   return (
     <button
       type="button"
@@ -63,57 +91,118 @@ export function ChildSelectCard({ child, deviceStatus, locationLabel, nextEventC
       aria-label={`${child.name} 선택`}
       style={{
         display: "flex",
-        alignItems: "flex-start",
-        gap: 12,
-        padding: 12,
-        background: "var(--cartoon-bg-card, #FFF)",
-        border: "1px solid var(--cartoon-line, #FFD6DD)",
-        borderRadius: 16,
-        boxShadow: "var(--cartoon-shadow-card, 0 8px 24px rgba(245,96,130,0.08))",
+        alignItems: "center",
+        gap: 16,
+        padding: "20px 18px",
+        background: palette.soft,
+        border: `1px solid ${palette.line}`,
+        borderRadius: 28,
+        boxShadow: "0 6px 18px rgba(31, 24, 28, 0.06)",
         width: "100%",
         textAlign: "left",
         cursor: "pointer",
         fontFamily: "inherit",
+        position: "relative",
       }}
     >
-      <ChildAvatar child={child} size={48} fontSize={20} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: "var(--fg-primary, #1F2A24)" }}>{child.name}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-          <span style={{ display: "inline-flex", gap: 2 }}>
+      <div style={{ position: "relative", flexShrink: 0, width: 88, height: 88 }}>
+        <div style={{
+          width: "100%",
+          height: "100%",
+          borderRadius: "50%",
+          overflow: "hidden",
+          border: `4px solid ${accent}`,
+          background: "#FFFFFF",
+          boxShadow: "0 4px 12px rgba(31, 24, 28, 0.10)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxSizing: "border-box",
+        }}>
+          <ChildAvatar child={child} size={76} fontSize={30} decorative />
+        </div>
+        <span aria-hidden="true" style={{
+          position: "absolute",
+          bottom: -2,
+          left: -4,
+          fontSize: 26,
+          lineHeight: 1,
+          filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.12))",
+        }}>{palette.sticker}</span>
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{
+          fontSize: 22,
+          fontWeight: 900,
+          color: "var(--fg-primary, #1F2A24)",
+          lineHeight: 1.1,
+          letterSpacing: "-0.01em",
+        }}>{child.name}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span aria-label="안전 상태" style={{ display: "inline-flex", gap: 4 }}>
             {dots.map((c, i) => (
-              <span key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: DOT_COLORS[c] }} />
+              <span key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: DOT_COLORS[c] }} />
             ))}
           </span>
-          {batteryLabel && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-secondary)" }}>{batteryLabel}</span>
+          {batteryPct != null && (
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 13,
+              fontWeight: 800,
+              color: "var(--fg-secondary)",
+            }}>
+              <span aria-hidden="true">🔋</span>
+              {batteryPct}%
+            </span>
           )}
         </div>
         {shortAddress && (
           <div
             style={{
-              fontSize: 11.5,
+              fontSize: 12.5,
               fontWeight: 700,
-              color: "var(--brand-mint-text, #087653)",
-              marginTop: 4,
+              color: "var(--fg-secondary)",
               lineHeight: 1.4,
               wordBreak: "keep-all",
               overflowWrap: "break-word",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 4,
+            }}
+            title={locationLabel || ""}
+          >
+            <span aria-hidden="true" style={{ flexShrink: 0 }}>📍</span>
+            <span style={{
+              flex: 1,
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
-            }}
-            title={locationLabel || ""}
-          >
-            📍 {shortAddress}
+            }}>{shortAddress}</span>
           </div>
         )}
         {nextEventChip && (
-          <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 3 }}>{nextEventChip}</div>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--fg-tertiary)" }}>{nextEventChip}</div>
         )}
       </div>
-      <span aria-hidden="true" style={{ color: "var(--fg-tertiary, #A892A0)", fontSize: 20, alignSelf: "center" }}>›</span>
+
+      <div aria-hidden="true" style={{
+        flexShrink: 0,
+        width: 36,
+        height: 36,
+        borderRadius: "50%",
+        background: "rgba(255, 255, 255, 0.94)",
+        boxShadow: "0 2px 8px rgba(31, 24, 28, 0.08)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 18,
+        color: "var(--fg-secondary, #5F6368)",
+        fontWeight: 800,
+      }}>›</div>
     </button>
   );
 }
