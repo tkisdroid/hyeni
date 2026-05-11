@@ -44,6 +44,9 @@ import clockIcon from "../../assets/3d/ui/clock.webp";
 import cameraIcon from "../../assets/3d/ui/camera.webp";
 import broadcastIcon from "../../assets/3d/ui/broadcast.webp";
 import bellOffIcon from "../../assets/3d/ui/bell-off.webp";
+import micLavenderIcon from "../../assets/3d/ui/mic-lavender.png";
+import cameraRoseIcon from "../../assets/3d/ui/camera-rose.png";
+import pencilMintIcon from "../../assets/3d/ui/pencil-mint.png";
 
 const SOURCES = {
     bell: bellIcon,
@@ -87,6 +90,9 @@ const SOURCES = {
     camera: cameraIcon,
     broadcast: broadcastIcon,
     "bell-off": bellOffIcon,
+    "mic-lavender": micLavenderIcon,
+    "camera-rose": cameraRoseIcon,
+    "pencil-mint": pencilMintIcon,
 };
 
 const FALLBACK_EMOJI = {
@@ -131,6 +137,9 @@ const FALLBACK_EMOJI = {
     camera: "📷",
     broadcast: "📡",
     "bell-off": "🔕",
+    "mic-lavender": "🎤",
+    "camera-rose": "📷",
+    "pencil-mint": "✏️",
 };
 
 export function ThreeDIcon({

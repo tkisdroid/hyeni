@@ -163,7 +163,7 @@ export function AiScheduleModal({ academies, currentDate, familyId, authUser, ev
         onClose();
     };
 
-    const btnSt = { width: 64, height: 64, borderRadius: 20, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: FF, fontWeight: 700, fontSize: 10 };
+    const btnSt = { width: 92, height: 100, borderRadius: 22, border: "1px solid var(--line-soft, #F1ECEE)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: FF, fontWeight: 700, fontSize: 12, background: "var(--bg-card, #FFFFFF)", color: "var(--fg-primary, #202024)", boxShadow: "var(--shadow-soft, 0 6px 16px rgba(31,24,28,0.06))" };
 
     return (
         <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 300, fontFamily: FF }}
@@ -176,22 +176,25 @@ export function AiScheduleModal({ academies, currentDate, familyId, authUser, ev
 
                 {/* 3가지 입력 방식 버튼 */}
                 {!results && !loading && (
-                    <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "center", gap: 14, marginBottom: 16 }}>
                         <button onClick={startVoiceInput}
-                            style={{ ...btnSt, background: voiceListening ? "var(--theme-accent)" : "var(--hyeni-theme-gradient)", color: "white", boxShadow: "var(--hyeni-theme-shadow-soft)", animation: voiceListening ? "pulse 1s infinite" : "none" }}>
-                            <ThreeDIcon name="broadcast" size={22} aria-label="" />
-                            {voiceListening ? "듣는 중..." : "말하기"}
+                            style={{
+                                ...btnSt,
+                                borderColor: voiceListening ? "var(--brand-lavender, #A78BFA)" : "var(--line-soft, #F1ECEE)",
+                                background: voiceListening ? "var(--brand-lavender-soft, #EFE8FF)" : "var(--bg-card, #FFFFFF)",
+                                animation: voiceListening ? "pulse 1s infinite" : "none",
+                            }}>
+                            <ThreeDIcon name="mic-lavender" size={44} aria-label="" />
+                            <span>{voiceListening ? "듣는 중..." : "말하기"}</span>
                         </button>
-                        <button onClick={() => fileInputRef.current?.click()}
-                            style={{ ...btnSt, background: "var(--hyeni-theme-gradient)", color: "white", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
-                            <span style={{ fontSize: 24 }}>📷</span>
-                            이미지
+                        <button onClick={() => fileInputRef.current?.click()} style={btnSt}>
+                            <ThreeDIcon name="camera-rose" size={44} aria-label="" />
+                            <span>이미지</span>
                         </button>
                         <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageSelect} style={{ display: "none" }} />
-                        <button onClick={() => document.getElementById("ai-text-input")?.focus()}
-                            style={{ ...btnSt, background: DESIGN.gradients.primary, color: "white", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
-                            <span style={{ fontSize: 24 }}>✏️</span>
-                            텍스트
+                        <button onClick={() => document.getElementById("ai-text-input")?.focus()} style={btnSt}>
+                            <ThreeDIcon name="pencil-mint" size={44} aria-label="" />
+                            <span>텍스트</span>
                         </button>
                     </div>
                 )}
