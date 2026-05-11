@@ -19,6 +19,7 @@ import {
     Calendar, Phone, Pencil, Plus, Search, Trash2, Settings,
     Bell, MessageCircle, Mail, Camera, Lock, Battery, Wifi,
     Users, AlertTriangle, ShieldAlert, Check, X,
+    User, Clock, CreditCard, Download, HelpCircle, Info, Unplug,
 } from "lucide-react";
 
 const ICON_MAP = {
@@ -72,6 +73,13 @@ const ICON_MAP = {
     // Phase 2 — 시스템/UI (편집·관리·소통)
     "📅": Calendar,
     "📞": Phone, "☎️": Phone, "☎": Phone, "📲": Phone, "📱": Phone,
+    "👤": User,
+    "🕐": Clock, "⏰": Clock,
+    "💳": CreditCard,
+    "⬇️": Download, "⬇": Download,
+    "❓": HelpCircle, "?": HelpCircle,
+    "ℹ️": Info, "ℹ": Info,
+    "🔌": Unplug,
     "✏️": Pencil, "✏": Pencil, "🖊️": Pencil, "🖊": Pencil, "📝": Pencil,
     "➕": Plus,
     "🔍": Search,

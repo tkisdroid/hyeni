@@ -48,6 +48,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AmbientListenPlugin.class);
         registerPlugin(KakaoMapLauncherPlugin.class);
         registerPlugin(CameraPermissionPlugin.class);
+        registerPlugin(ExternalBrowserPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Phase 5 RL-03: WebView WebChromeClient no longer auto-grants the
@@ -58,19 +59,16 @@ public class MainActivity extends BridgeActivity {
         // (which is only true when the user tapped "Allow" on the Android
         // runtime prompt), the WebView request is forwarded; otherwise we
         // deny it and dispatch a `mic-permission-denied` DOM event so the JS
-        // side can show consent UI. Geolocation prompts remain auto-approved
-        // because they are gated separately by the Android ACCESS_FINE_LOCATION
-        // runtime permission, which IS prompted in requestCorePermissionsIfNeeded().
+        // side can show consent UI. Geolocation prompts are still gated by the
+        // Android ACCESS_FINE_LOCATION runtime permission, but the OS prompt is
+        // opened only from an in-app permission surface after explanation.
         //
         // NOTE: a localStorage `hasGrantedAmbientListen` legacy flag would be
         // the cleanest "honor-legacy-consent" path, but localStorage lives on
         // the JS side and cannot be read synchronously inside
-        // onPermissionRequest. Since every family using the app has already
-        // been prompted for RECORD_AUDIO at first launch (see
-        // requestCorePermissionsIfNeeded), the OS-permission check is the
-        // functional equivalent of the legacy grant: if the user previously
-        // said "Allow" we forward the request, otherwise we require explicit
-        // consent via JS UI (to be wired in v1.1 native-deploy ticket).
+        // onPermissionRequest. We require an existing OS grant here: if the
+        // user previously said "Allow" from the explicit in-app flow we forward
+        // the request, otherwise we deny and let JS show guidance.
         // Subclass Capacitor's BridgeWebChromeClient (not raw WebChromeClient) so
         // file picker (onShowFileChooser), console, and other Bridge defaults are
         // preserved. We only override mic/geo to enforce OS-level permission gates.
@@ -132,8 +130,10 @@ public class MainActivity extends BridgeActivity {
 
         handlePushLaunch(getIntent());
         handleRemoteListen(getIntent());
-        requestCorePermissionsIfNeeded(getIntent());
-        requestNotificationPermission();
+        // Runtime permissions are requested only from explicit in-app surfaces
+        // after role selection and prominent disclosure. This avoids first-run
+        // microphone/camera/location prompts before the user understands why the
+        // app needs each permission.
         primeFcmToken();
     }
 
@@ -155,7 +155,6 @@ public class MainActivity extends BridgeActivity {
         setIntent(intent);
         handlePushLaunch(intent);
         handleRemoteListen(intent);
-        requestCorePermissionsIfNeeded(intent);
     }
 
     private void requestNotificationPermission() {
@@ -343,7 +342,7 @@ public class MainActivity extends BridgeActivity {
     // RECORD_AUDIO grant — we do NOT attempt to re-request it here, because
     // onPermissionRequest runs on the UI thread during a WebView callback and
     // cannot block for an async runtime prompt. The runtime prompt is handled
-    // elsewhere by requestCorePermissionsIfNeeded() / handleRemoteListen().
+    // by the in-app permission wizard / handleRemoteListen().
     private boolean hasRecordAudioPermissionGranted() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED;
@@ -351,10 +350,10 @@ public class MainActivity extends BridgeActivity {
 
     // QR pairing scanner gate. WebView's getUserMedia({video}) raises a
     // RESOURCE_VIDEO_CAPTURE PermissionRequest; we forward it only when the
-    // OS-level CAMERA permission was granted by the user (bundled into
-    // requestCorePermissionsIfNeeded at first launch). On denial the JS side
-    // receives a `camera-permission-denied` DOM event so it can guide the
-    // child to the app settings.
+    // OS-level CAMERA permission was granted by the user from the QR scanner
+    // permission flow. On denial the JS side receives a
+    // `camera-permission-denied` DOM event so it can guide the child to the app
+    // settings.
     private boolean hasCameraPermissionGranted() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED;

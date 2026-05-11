@@ -11,6 +11,8 @@
 // - subscriptions (M3 multichild): child_id NOT NULL UNIQUE, status, product_id,
 //   price_krw — no `tier` column. Legacy family_subscription table also exists.
 
+import { expect } from "@playwright/test";
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -361,11 +363,11 @@ function escapeRegExp(value) {
 export async function selectChildOnHomeIfMulti(page, childName, { timeoutMs = 4000 } = {}) {
   const childNamePattern = escapeRegExp(childName);
   const candidates = [
+    page.getByRole("group", { name: "자녀 빠른 전환" }).getByRole("button", { name: childName, exact: true }).first(),
     page.locator(`button[aria-label='${childName} 선택']`).first(),
     page.getByRole("button", { name: new RegExp(`^${childNamePattern} 선택$`) }).first(),
     page.locator(`button[aria-label='${childName} 보기']`).first(),
     page.getByRole("button", { name: new RegExp(`^${childNamePattern} 오늘 일정`) }).first(),
-    page.getByRole("group", { name: "자녀 빠른 전환" }).getByRole("button", { name: childName, exact: true }).first(),
   ];
 
   for (const card of candidates) {
@@ -380,16 +382,73 @@ export async function selectChildOnHomeIfMulti(page, childName, { timeoutMs = 40
   return false;
 }
 
+export function roleGateButton(page, role) {
+  if (role === "child") {
+    return page.getByRole("button", { name: /자녀로 시작|아이/ }).first();
+  }
+  return page.getByRole("button", { name: /부모로 시작|학부모|부모/ }).first();
+}
+
+export async function clickRoleGate(page, role, { timeoutMs = 15000 } = {}) {
+  const roleButton = roleGateButton(page, role);
+  await expect(roleButton).toBeVisible({ timeout: timeoutMs });
+  await roleButton.click();
+  const nextButton = page.getByRole("button", { name: "다음", exact: true }).first();
+  if (await nextButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await expect(nextButton).toBeEnabled({ timeout: timeoutMs });
+    await nextButton.click();
+  }
+}
+
+export async function openParentMemo(page, { timeoutMs = 10000 } = {}) {
+  const composer = page.getByRole("textbox", { name: /메모 입력|메시지 입력|답글 입력/ }).first();
+  if (await composer.isVisible({ timeout: 1000 }).catch(() => false)) {
+    return composer;
+  }
+
+  const triggers = [
+    page.getByRole("button", { name: /오늘의 메모/ }).first(),
+    page.getByRole("navigation", { name: "부모 메인 탭" }).last().getByRole("button", { name: /메모/ }).first(),
+    page.getByRole("button", { name: /^메모$/ }).first(),
+    page.getByRole("button", { name: /메모/ }).last(),
+  ];
+
+  for (const trigger of triggers) {
+    try {
+      await trigger.click({ timeout: Math.min(timeoutMs, 4000) });
+      await expect(composer).toBeVisible({ timeout: timeoutMs });
+      return composer;
+    } catch {
+      // Try the next supported entry point.
+    }
+  }
+
+  await expect(composer).toBeVisible({ timeout: timeoutMs });
+  return composer;
+}
+
+export async function openParentEventAdd(page, { timeoutMs = 10000 } = {}) {
+  const nav = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
+  const addButton = nav
+    .getByRole("button", { name: /일정등록|새 항목 추가|새 일정 등록/ })
+    .first();
+  await expect(addButton).toBeVisible({ timeout: timeoutMs });
+  await addButton.click();
+}
+
 export async function openSubscriptionSettings(page, { timeoutMs = 10000 } = {}) {
-  const directButton = page.locator("button[aria-label='💎 구독']").first();
+  const directButton = page.getByRole("button", { name: /구독/ }).first();
   try {
-    await directButton.click({ timeout: Math.min(timeoutMs, 3000) });
+    await directButton.click({ timeout: timeoutMs });
   } catch {
     await page.getByTitle("설정", { exact: true })
       .or(page.getByRole("button", { name: "설정", exact: true }))
       .first()
       .click({ timeout: timeoutMs });
-    await page.getByRole("button", { name: /구독 관리/ }).click({ timeout: timeoutMs });
+    await page
+      .getByRole("button", { name: /구독 관리|현재 플랜|프리미엄|무료/ })
+      .first()
+      .click({ timeout: timeoutMs });
   }
   await page.waitForSelector("text=혜니 프리미엄", { timeout: timeoutMs });
 }

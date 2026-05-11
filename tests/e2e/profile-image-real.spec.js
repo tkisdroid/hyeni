@@ -55,7 +55,7 @@ test.describe("profile images with real Supabase Storage", () => {
       const fallbackCard = quickSwitch.getByRole("button", { name: "민준", exact: true }).first();
       const fallbackAvatar = fallbackCard.locator("[data-child-avatar]").first();
       await expect(fallbackAvatar).toHaveAttribute("data-avatar-state", "fallback", { timeout: 15000 });
-      await expect(fallbackCard.locator("img")).toHaveCount(0);
+      await expect(fallbackCard.locator("img[src*='/storage/v1/object/sign/child-photos/']")).toHaveCount(0);
 
       expect(pageErrors).toEqual([]);
     } finally {

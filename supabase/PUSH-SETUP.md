@@ -24,8 +24,8 @@ supabase link --project-ref <your-project-ref>
 
 ### VAPID 키 설정 (Secrets)
 ```bash
-supabase secrets set VAPID_PUBLIC_KEY=BAGsx-_DBlJdXJflHv2j8kGsZVSxXYVKiUfE78PpA1I0XtbyLNi2aADFJnVfyWmtCkjW-kRkdHcWtKqQmMNWMus
-supabase secrets set VAPID_PRIVATE_KEY=h9Xu8W6S7Hz_K4RQWn9-3cFFwuTzNhVNCr_sTec-Io4
+supabase secrets set VAPID_PUBLIC_KEY=<your-vapid-public-key>
+supabase secrets set VAPID_PRIVATE_KEY=<your-vapid-private-key>
 ```
 
 ### FCM 서비스 계정 설정 (필수)

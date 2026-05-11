@@ -122,9 +122,10 @@ export function buildSelectedLocationTrail(locationTrail, selectedChild) {
 
     if (currentPoint) {
         const last = points[points.length - 1];
-        if (!last || haversineM(last.lat, last.lng, currentPoint.lat, currentPoint.lng) >= LOCATION_TRAIL_JITTER_M) {
+        const currentIsNotOlder = !last?.recordedMs || !currentPoint.recordedMs || currentPoint.recordedMs >= last.recordedMs;
+        if (currentIsNotOlder && (!last || haversineM(last.lat, last.lng, currentPoint.lat, currentPoint.lng) >= LOCATION_TRAIL_JITTER_M)) {
             points.push(currentPoint);
-        } else if (currentPoint.recordedMs && (!last.recordedMs || currentPoint.recordedMs > last.recordedMs)) {
+        } else if (currentIsNotOlder && currentPoint.recordedMs && (!last.recordedMs || currentPoint.recordedMs > last.recordedMs)) {
             points[points.length - 1] = { ...last, ...currentPoint };
         }
     }

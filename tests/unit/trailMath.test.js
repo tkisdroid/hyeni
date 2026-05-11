@@ -184,6 +184,22 @@ describe("buildSelectedLocationTrail", () => {
         expect(buildSelectedLocationTrail(trail, null).length).toBeGreaterThan(0);
     });
 
+    it("저장된 위치 기록보다 오래된 현재 스냅샷은 dwell 계산에 섞지 않는다", () => {
+        const trail = [
+            { lat: 37.56650, lng: 126.97800, user_id: "a", recorded_at: "2026-05-05T08:23:00+09:00" },
+            { lat: 37.56662, lng: 126.97804, user_id: "a", recorded_at: "2026-05-05T08:28:00+09:00" },
+            { lat: 37.56673, lng: 126.97807, user_id: "a", recorded_at: "2026-05-05T08:34:00+09:00" },
+        ];
+        const result = buildSelectedLocationTrail(trail, {
+            user_id: "a",
+            lat: 37.56650,
+            lng: 126.97800,
+            updatedAt: "2026-05-05T02:34:00+09:00",
+        });
+        expect(result).toHaveLength(3);
+        expect(result.at(-1).recorded_at).toBe("2026-05-05T08:34:00+09:00");
+    });
+
     it("배열 아니면 빈 배열 반환", () => {
         expect(buildSelectedLocationTrail(null, null)).toEqual([]);
     });

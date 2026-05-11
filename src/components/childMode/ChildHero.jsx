@@ -4,6 +4,7 @@
 
 import { getThemeColors } from "../../lib/theme.js";
 import { HyeniMascot } from "../auth/HyeniMascot.jsx";
+import { AnimalIcon } from "../icons/AnimalIcon.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 function pickHeroCopy(eventCount) {
@@ -20,7 +21,7 @@ function formatNowTime(now = new Date()) {
     return `${period} ${display}시 ${m}분`;
 }
 
-export function ChildHero({ eventCount = 0, showMascot = true, onSettings, now = new Date(), colorHex = null }) {
+export function ChildHero({ eventCount = 0, showMascot = true, onSettings, now = new Date(), colorHex = null, animalEmoji = "🐰" }) {
     const { title, sub } = pickHeroCopy(eventCount);
     const timeLabel = formatNowTime(now);
     const mascotVariant = eventCount === 0 ? "cheer" : "wave";
@@ -36,6 +37,24 @@ export function ChildHero({ eventCount = 0, showMascot = true, onSettings, now =
             {showMascot && (
                 <div className="child-hero-mascot">
                     <HyeniMascot variant={mascotVariant} size={112} aria-label="혜니" />
+                    <span
+                        style={{
+                            position: "absolute",
+                            right: -4,
+                            bottom: 4,
+                            width: 42,
+                            height: 42,
+                            borderRadius: "var(--radius-full)",
+                            background: "#FFFFFF",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: "0 6px 14px rgba(31, 24, 28, 0.12)",
+                            border: "1px solid var(--line-soft)",
+                        }}
+                    >
+                        <AnimalIcon emoji={animalEmoji} size={32} aria-label={`${animalEmoji} 캐릭터`} />
+                    </span>
                 </div>
             )}
             <div className="child-hero-body">

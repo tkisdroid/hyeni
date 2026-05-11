@@ -4,6 +4,7 @@
 // 흩어진 모달들 → 1 화면으로 통합.
 
 import { useBackHandler } from "../../lib/backHandler.js";
+import { StickerIcon } from "../../lib/stickerIcons.jsx";
 
 const Toggle = ({ value, onChange, ariaLabel }) => (
     <button
@@ -44,7 +45,11 @@ function Row({ icon, label, onClick, trailing, children, danger, severity }) {
             data-severity={severity}
             onClick={onClick}
         >
-            {icon && <span className="settings-row-icon" aria-hidden="true">{icon}</span>}
+            {icon && (
+                <span className="settings-row-icon" aria-hidden="true">
+                    <StickerIcon emoji={icon} size={18} />
+                </span>
+            )}
             <span className="settings-row-label">{label}</span>
             {trailing && <span className="settings-row-trailing">{trailing}</span>}
             {onClick && !children && <span className="settings-row-chev" aria-hidden="true">›</span>}

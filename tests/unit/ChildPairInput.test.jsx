@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ChildPairInput } from "../../src/components/childMode/ChildPairInput.jsx";
 import { joinFamily } from "../../src/lib/auth.js";
+import { clearNativePluginCacheForTests } from "../../src/lib/nativePlugins.js";
 
 const capacitorMocks = vi.hoisted(() => ({
   isNativePlatform: vi.fn(),
@@ -54,6 +55,7 @@ function mockMediaElement() {
 describe("ChildPairInput QR scanner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearNativePluginCacheForTests();
     capacitorMocks.isNativePlatform.mockReturnValue(true);
     mockMediaElement();
     vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));

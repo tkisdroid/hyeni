@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { clickRoleGate, roleGateButton } from "./_helpers.js";
 
 /**
  * Real-services E2E: child anonymous-login path.
  *
  * Exercises the real Supabase anonymous auth flow end-to-end — no mocks.
- * Bypasses Kakao OAuth entirely by using the "아이" (child) entry, which
+ * Bypasses Kakao OAuth entirely by using the child entry, which
  * maps to src/lib/auth.js::anonymousLogin -> supabase.auth.signInAnonymously.
  *
  * Pre-req: .env has real VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY, and the
@@ -43,8 +44,8 @@ test.describe("real child anonymous flow", () => {
   test("role gate shows 학부모 and 아이 entries", async ({ page }) => {
     await page.goto("/");
 
-    const parentBtn = page.getByText(/학부모/).first();
-    const childBtn = page.getByText(/^아이$/).first();
+    const parentBtn = roleGateButton(page, "parent");
+    const childBtn = roleGateButton(page, "child");
 
     await expect(parentBtn).toBeVisible({ timeout: 15_000 });
     await expect(childBtn).toBeVisible({ timeout: 15_000 });
@@ -53,9 +54,7 @@ test.describe("real child anonymous flow", () => {
   test("clicking 아이 creates a real Supabase anonymous session", async ({ page }) => {
     await page.goto("/");
 
-    const childBtn = page.getByText(/^아이$/).first();
-    await expect(childBtn).toBeVisible({ timeout: 15_000 });
-    await childBtn.click();
+    await clickRoleGate(page, "child", { timeoutMs: 15_000 });
 
     // Supabase stores the session in localStorage under key sb-<project-ref>-auth-token.
     // Poll for the token to appear (anon signup is a real HTTP round-trip).
@@ -88,8 +87,7 @@ test.describe("real child anonymous flow", () => {
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
     await page.goto("/");
-    const childBtn = page.getByText(/^아이$/).first();
-    await childBtn.click();
+    await clickRoleGate(page, "child", { timeoutMs: 15_000 });
 
     // The pair-code input is identified by its maxlength/placeholder (8-char
     // upper-case code after the KID- prefix). Scoping to this input avoids

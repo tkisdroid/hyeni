@@ -8,6 +8,7 @@ import { ThreeDIcon } from "../../icons/ThreeDIcon.jsx";
 const DOT_COLORS = { green: "var(--status-positive)", yellow: "var(--status-cautionary)", red: "var(--status-negative)" };
 const DOT_LABELS = ["배터리", "최근 위치", "앱 사용 가능"];
 const DOT_STATE_LABELS = { green: "정상", yellow: "주의", red: "위험" };
+const DOT_STATE_TEXT = { green: "안전", yellow: "확인 필요", red: "응급" };
 const HOME_LOCATION_REGION_LABELS = new Set([
     "서울", "서울시", "서울특별시",
     "부산", "부산시", "부산광역시",
@@ -53,6 +54,8 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
     const interactive = typeof onClick === "function";
     const Wrapper = interactive ? "button" : "div";
     const worstColor = deriveWorstColor(safetyDots);
+    const safeStateLabel = DOT_STATE_LABELS[worstColor] || "정상";
+    const safeStateText = DOT_STATE_TEXT[worstColor] || "안전";
     const displayLocation = formatHomeLocationLabel(location);
     const childColor = child.color_hex || "var(--theme-accent)";
 
@@ -91,24 +94,41 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                 <ChildAvatar child={child} size={36} fontSize={14} />
                 {safetyDots.length > 0 && (
                     <div
-                        aria-label={`안전 상태 ${DOT_STATE_LABELS[worstColor]}`}
+                        aria-label={`안전 상태 ${safeStateText}`}
                         style={{
                             position: "absolute",
                             top: 6,
                             right: 6,
-                            width: 6,
-                            height: 6,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                            padding: "2px 5px",
                             borderRadius: "var(--radius-full)",
-                            background: DOT_COLORS[worstColor] || "var(--line-default)",
+                            background: "rgba(255,255,255,0.92)",
+                            color: DOT_COLORS[worstColor] || "var(--fg-secondary)",
+                            fontSize: 9,
+                            fontWeight: "var(--weight-bold)",
+                            lineHeight: 1,
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
                         }}
-                    />
+                    >
+                        <span
+                            aria-hidden="true"
+                            style={{
+                                width: 5,
+                                height: 5,
+                                borderRadius: "var(--radius-full)",
+                                background: DOT_COLORS[worstColor] || "var(--line-default)",
+                            }}
+                        />
+                        {safeStateText}
+                    </div>
                 )}
             </Wrapper>
         );
     }
 
     if (density === "row") {
-        const safeStateLabel = DOT_STATE_LABELS[worstColor] || "정상";
         const statusFill = DOT_COLORS[worstColor] || "var(--status-positive)";
         return (
             <Wrapper
@@ -166,17 +186,34 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                 </span>
 
                 <span
-                    aria-label={`안전 상태 ${safeStateLabel}`}
+                    aria-label={`안전 상태 ${safeStateText}`}
                     title={safeStateLabel}
                     style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: "50%",
-                        background: statusFill,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        minHeight: 24,
+                        padding: "0 8px",
+                        borderRadius: "var(--radius-full)",
+                        background: "rgba(255,255,255,0.92)",
+                        border: `1px solid ${statusFill}`,
+                        color: statusFill,
                         flexShrink: 0,
-                        boxShadow: "0 0 0 2px rgba(255,255,255,1), 0 0 0 3px rgba(0,0,0,0.04)",
+                        fontSize: 11,
+                        fontWeight: 800,
                     }}
-                />
+                >
+                    <span
+                        aria-hidden="true"
+                        style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: statusFill,
+                        }}
+                    />
+                    {safeStateText}
+                </span>
             </Wrapper>
         );
     }
@@ -223,7 +260,10 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                         fontWeight: "var(--weight-medium)",
                     }}
                 >
-                    📍 {displayLocation || "위치 확인 중..."}
+                    <span aria-hidden="true" style={{ display: "inline-flex", width: 14, height: 14, marginRight: 4, verticalAlign: "-2px" }}>
+                        <ThreeDIcon name="pin" size={14} aria-label="" />
+                    </span>
+                    {displayLocation || "위치 확인 중..."}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--fg-tertiary)", marginTop: 3, fontWeight: "var(--weight-medium)" }}>
                     오늘 화면켜짐 {screenLabel || "0분"}
@@ -233,20 +273,34 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
                 <div
                     aria-label={`안전 상태 ${DOT_STATE_LABELS[worstColor]}`}
                     title={safetyDots.map((c, i) => `${DOT_LABELS[i]}: ${DOT_STATE_LABELS[c] || "확인 불가"}`).join("\n")}
-                    style={{ display: "flex", gap: 4, flexShrink: 0 }}
+                    style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        flexShrink: 0,
+                        padding: "5px 8px",
+                        borderRadius: "var(--radius-full)",
+                        background: "var(--bg-subtle)",
+                        color: DOT_COLORS[worstColor] || "var(--fg-secondary)",
+                        fontSize: 11,
+                        fontWeight: 800,
+                    }}
                 >
-                    {safetyDots.map((color, i) => (
-                        <div
-                            key={i}
-                            data-safety-dot
-                            style={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: "var(--radius-full)",
-                                background: DOT_COLORS[color] || "var(--line-default)",
-                            }}
-                        />
-                    ))}
+                    <span style={{ display: "flex", gap: 3 }} aria-hidden="true">
+                        {safetyDots.map((color, i) => (
+                            <span
+                                key={i}
+                                data-safety-dot
+                                style={{
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: "var(--radius-full)",
+                                    background: DOT_COLORS[color] || "var(--line-default)",
+                                }}
+                            />
+                        ))}
+                    </span>
+                    {safeStateText}
                 </div>
             )}
         </Wrapper>

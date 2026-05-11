@@ -1,4 +1,5 @@
 import React from "react";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 const FONT = "var(--font-sans)";
 
@@ -118,7 +119,10 @@ export default function SavedPlacesSection({
                             fontFamily: FONT,
                         }}
                     >
-                        🛡️ 안전장소 추가
+                        <span aria-hidden="true" style={{ display: "inline-flex", verticalAlign: "middle", marginRight: 4 }}>
+                            <ThreeDIcon name="shield-heart" size={14} aria-label="" />
+                        </span>
+                        안전장소 추가
                     </button>
                 </div>
             ) : (
@@ -148,9 +152,14 @@ export default function SavedPlacesSection({
                                 fontWeight: "var(--weight-semibold)",
                                 color: place.is_playdate_safe ? "var(--status-positive-strong)" : "var(--fg-primary)",
                                 fontFamily: FONT,
+                                minWidth: 0,
+                                maxWidth: "100%",
+                                overflow: "hidden",
                             }}
                         >
-                            <span aria-hidden="true">{place.is_playdate_safe ? "🛡️" : "📍"}</span>
+                            <span aria-hidden="true" style={{ display: "inline-flex", width: 16, height: 16, flexShrink: 0 }}>
+                                <ThreeDIcon name={place.is_playdate_safe ? "shield-heart" : "pin"} size={16} aria-label="" />
+                            </span>
                             <button
                                 type="button"
                                 aria-label={`${place.name} 수정`}
@@ -164,6 +173,11 @@ export default function SavedPlacesSection({
                                     fontSize: 12,
                                     fontWeight: "var(--weight-semibold)",
                                     color: "inherit",
+                                    flex: "1 1 auto",
+                                    minWidth: 0,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
                                 }}
                             >
                                 {place.name}
@@ -179,10 +193,11 @@ export default function SavedPlacesSection({
                                     cursor: "pointer",
                                     fontSize: 11,
                                     color: "var(--fg-tertiary)",
-                                    fontFamily: FONT,
-                                }}
-                            >
-                                ✕
+                                fontFamily: FONT,
+                                flexShrink: 0,
+                            }}
+                        >
+                            ✕
                             </button>
                         </li>
                     ))}
@@ -203,7 +218,10 @@ export default function SavedPlacesSection({
                                 fontFamily: FONT,
                             }}
                         >
-                            🛡️ +
+                            <span aria-hidden="true" style={{ display: "inline-flex", verticalAlign: "middle", marginRight: 2 }}>
+                                <ThreeDIcon name="shield-heart" size={14} aria-label="" />
+                            </span>
+                            +
                         </button>
                     </li>
                 </ul>

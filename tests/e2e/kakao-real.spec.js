@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { clickRoleGate } from "./_helpers.js";
 
 test("real kakao oauth redirects out of the app", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: /학부모/ }).click();
-  await page.getByRole("button", { name: /카카오로 (시작|로그인)/ }).click();
+  await clickRoleGate(page, "parent");
+  await page.getByRole("button", { name: /카카오로 (계속|시작|로그인)/ }).click();
 
   await expect(page).toHaveURL(/kakao\.com|supabase\.co\/auth\/v1\/authorize/i, {
     timeout: 20_000,

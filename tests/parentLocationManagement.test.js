@@ -135,7 +135,8 @@ describe("parent location management entry", () => {
 
   test("supports adding friend-playdate safe places from the academy manager", () => {
     expect(app).toContain("openNewSafePlace");
-    expect(savedPlacesSrc).toContain("🛡️ 안전장소 추가");
+    expect(savedPlacesSrc).toContain('name="shield-heart"');
+    expect(savedPlacesSrc).toContain("안전장소 추가");
     expect(app).toContain("➕ 안전장소 추가");
     expect(app).toContain("is_playdate_safe");
     expect(app).toContain("public_place_id");

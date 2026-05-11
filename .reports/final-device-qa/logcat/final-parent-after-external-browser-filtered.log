@@ -1,0 +1,9 @@
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:157:05-12 05:06:17.713 I/WindowsLink( 9734): (BaseContentProvider) call: method = capability_get_last_anr / subMethod = capability_get_last_anr
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:181:05-12 05:06:17.723 I/WindowsLink( 9734): (BaseContentProvider) call: method = DeviceInfo@getLastAnr / subMethod = getLastAnr
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:183:05-12 05:06:17.726 I/AnrCollector( 1232): gatLastAnr - lastAnrFile : null
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:184:05-12 05:06:17.727 I/AnrCollector( 1232): write : 0
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:185:05-12 05:06:17.727 I/AnrCollector( 1232): mOut.close()
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:2545:05-12 05:06:28.555 I/MainActivity(11093): FCM token primed: dzthy_d_Qt-StPyARrXu...
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:2546:05-12 05:06:28.555 I/FCMService(11093): FCM token refreshed
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:2547:05-12 05:06:28.556 W/FCMService(11093): FCM token sync skipped: push context not ready yet
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-external-browser-raw.log:2576:05-12 05:06:29.935 D/SemInputMotionEventDispatcher( 1232): registerMotionEventListener: already registered: com.samsung.android.hardware.secinputdev.taas.ExternalApi$5@82f593a

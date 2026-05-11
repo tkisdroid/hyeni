@@ -4,6 +4,7 @@ import {
   loginAsExistingParent,
   srFetch,
   selectChildOnHomeIfMulti,
+  openParentMemo,
 } from "./_helpers.js";
 
 /**
@@ -36,28 +37,23 @@ test("multichild 부모: 자녀별 send → memo_replies.child_id로 thread 격�
   const { parent_email, parent_password, family_id, child1_id, child2_id } = seed;
 
   await loginAsExistingParent(page, parent_email, parent_password);
+  await page.goto("/");
   await page.waitForLoadState("networkidle");
 
   // 자녀 1(혜니) 선택 → 메모 → send
   await selectChildOnHomeIfMulti(page, "혜니");
-  let memoTab = page.getByRole("button", { name: /메모/ }).first();
-  await memoTab.click();
-  let composer = page.getByPlaceholder(/메시지|메모/).first();
-  await composer.waitFor({ state: "visible", timeout: 10_000 });
+  let composer = await openParentMemo(page);
   await composer.fill("혜니에게 보내는 E2E 메시지");
-  await page.getByRole("button", { name: /보내기|전송|보내|send/i }).first().click();
+  await page.getByRole("button", { name: "메시지 보내기", exact: true }).click();
   await page.waitForTimeout(1500);
 
   // 자녀 2(민준) 선택 → 메모 → send
   const homeTab = page.getByRole("button", { name: /^홈/ }).first();
   await homeTab.click();
   await selectChildOnHomeIfMulti(page, "민준");
-  memoTab = page.getByRole("button", { name: /메모/ }).first();
-  await memoTab.click();
-  composer = page.getByPlaceholder(/메시지|메모/).first();
-  await composer.waitFor({ state: "visible", timeout: 10_000 });
+  composer = await openParentMemo(page);
   await composer.fill("민준에게 보내는 E2E 메시지");
-  await page.getByRole("button", { name: /보내기|전송|보내|send/i }).first().click();
+  await page.getByRole("button", { name: "메시지 보내기", exact: true }).click();
   await page.waitForTimeout(1500);
 
   // 검증: memo_replies에 두 row 각각의 child_id가 서로 다른 자녀 ID로 들어감

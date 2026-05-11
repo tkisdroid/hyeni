@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent, getDbRows, selectChildOnHomeIfMulti } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, getDbRows, selectChildOnHomeIfMulti, openParentEventAdd } from "./_helpers.js";
 
 test.describe("multichild — family-all event sets is_family_event=true", () => {
   test.skip(
@@ -16,10 +16,7 @@ test.describe("multichild — family-all event sets is_family_event=true", () =>
     await selectChildOnHomeIfMulti(page, "혜니");
     await page.waitForTimeout(500);
 
-    await page.getByRole("navigation", { name: "부모 메인 탭" })
-      .last()
-      .getByRole("button", { name: "일정등록" })
-      .click();
+    await openParentEventAdd(page);
     await page.fill("input[placeholder*='학원']", eventTitle);
     await page.click("button:has-text('가족 전체')");
     // EventSheet save button uses class "sheet-save" with default label "저장"

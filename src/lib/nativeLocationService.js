@@ -2,6 +2,8 @@
 // 네이티브 백그라운드 위치 서비스 — Capacitor BackgroundLocation 플러그인 wrapper.
 // Extracted from App.jsx (Phase 5 #4 / B27).
 
+import { getBackgroundLocationPlugin } from "./nativePlugins.js";
+
 const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY;
 const KAKAO_REST_KEY = import.meta.env?.VITE_KAKAO_REST_KEY || "";
@@ -9,10 +11,8 @@ const KAKAO_REST_KEY = import.meta.env?.VITE_KAKAO_REST_KEY || "";
 // Native background location (Capacitor plugin)
 export async function startNativeLocationService(userId, familyId, accessToken, role) {
     try {
-        const { Capacitor } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-            const { registerPlugin } = await import("@capacitor/core");
-            const BackgroundLocation = registerPlugin("BackgroundLocation");
+        const BackgroundLocation = await getBackgroundLocationPlugin();
+        if (BackgroundLocation) {
             await BackgroundLocation.startService({
                 userId, familyId,
                 supabaseUrl: SUPABASE_URL,
@@ -32,9 +32,8 @@ export async function startNativeLocationService(userId, familyId, accessToken, 
 
 export async function requestNativeCurrentLocation(userId, familyId, accessToken, role) {
     try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-            const BackgroundLocation = registerPlugin("BackgroundLocation");
+        const BackgroundLocation = await getBackgroundLocationPlugin();
+        if (BackgroundLocation) {
             await BackgroundLocation.requestCurrentLocation({
                 userId, familyId,
                 supabaseUrl: SUPABASE_URL,
@@ -54,9 +53,8 @@ export async function requestNativeCurrentLocation(userId, familyId, accessToken
 
 export async function stopNativeLocationService() {
     try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        if (Capacitor.isNativePlatform()) {
-            const BackgroundLocation = registerPlugin("BackgroundLocation");
+        const BackgroundLocation = await getBackgroundLocationPlugin();
+        if (BackgroundLocation) {
             await BackgroundLocation.stopService();
             console.log("[Native] Background location service stopped");
         }

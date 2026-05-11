@@ -979,7 +979,7 @@ test.describe("critical Hyeni flows", () => {
     await page.getByRole("button", { name: "📍 우리아이" }).click();
 
     await expect(page.getByText("오래 머문 곳")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("11분 머무름")).toBeVisible();
+    await expect(page.getByRole("button", { name: /11분 머무름/ })).toBeVisible();
     await expect(page.getByText(/08:23.*08:34|오전 08:23.*오전 08:34/)).toHaveCount(0);
   });
 
@@ -1188,7 +1188,7 @@ test.describe("critical Hyeni flows", () => {
 
     const managementRail = page.locator('[aria-label="관리 바로가기"]');
     await managementRail.getByRole("button", { name: "장소관리" }).click();
-    await expect(page.getByText("📍 장소관리").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "학원·장소 관리" })).toBeVisible();
 
     const navState = await page.evaluate(() => {
       const nav = document.querySelector(".hyeni-manager-bottom-nav .hyeni-v5-tabbar");
@@ -1202,7 +1202,7 @@ test.describe("critical Hyeni flows", () => {
         bottomGap: rect ? Math.round(window.innerHeight - rect.bottom) : null,
       };
     });
-    expect(navState.activeText).toContain("장소관리");
+    expect(navState.activeText).toContain("장소");
     expect(navState.position).toBe("relative");
     expect(navState.visible).toBe(true);
     expect(navState.bottomGap).toBeLessThanOrEqual(24);
@@ -1585,11 +1585,11 @@ test.describe("critical Hyeni flows", () => {
 
     expect(details.shellBackground).toContain("rgb(253, 250, 251)");
     expect(details.shellBackground).toContain("rgb(246, 240, 243)");
-    expect(details.heroBackground).toBe("none");
-    expect(details.heroColor).toBe("rgb(31, 26, 34)");
-    expect(details.heroBoxShadow).toBe("none");
-    expect(details.heroRadius).toBe("0px");
-    expect(details.heroCountColor).toBe("rgb(230, 92, 146)");
+    expect(details.heroBackground).toContain("linear-gradient");
+    expect(details.heroColor).toBe("rgb(56, 37, 45)");
+    expect(details.heroBoxShadow).toContain("rgba(31, 24, 28, 0.06)");
+    expect(details.heroRadius).toBe("28px");
+    expect(details.heroCountColor).toBe("");
     expect(details.sectionHeadColor).toBe("rgb(107, 95, 115)");
     expect(details.sectionHeadWeight).toBe("700");
     expect(details.kidCardBackground).toBe("rgb(255, 255, 255)");
@@ -1692,7 +1692,7 @@ test.describe("critical Hyeni flows", () => {
 
     await expect(page.getByText("부모님과 연결하기")).toBeVisible();
     await page.getByPlaceholder("XXXXXXXX").fill("804DF582");
-    await page.getByRole("button", { name: "🔗 연결하기" }).click();
+    await page.getByRole("button", { name: "연결하기", exact: true }).click();
 
     await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("img", { name: "🐰 캐릭터" })).toBeVisible();

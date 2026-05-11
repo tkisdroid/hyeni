@@ -734,9 +734,10 @@ a:focus-visible {
   border-color: var(--hyeni-pink-line-strong);
 }
 
-.hyeni-v5-action-chip > span:first-child {
+.hyeni-v5-action-chip-icon {
   font-size: 18px;
   line-height: 1;
+  flex: 0 0 auto;
 }
 
 .hyeni-v5-action-chip span:last-child {
@@ -3114,9 +3115,9 @@ a:focus-visible {
   --hyeni-product-canvas:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--theme-accent-soft) 54%, #fff 46%) 0%,
-      #fffdfb 42%,
-      #fffaf6 100%
+      rgb(253, 250, 251) 0%,
+      rgb(255, 253, 251) 42%,
+      rgb(246, 240, 243) 100%
     );
   --hyeni-product-surface: rgba(255, 255, 255, 0.92);
   --hyeni-product-surface-solid: #ffffff;
@@ -3231,7 +3232,7 @@ a:focus-visible {
   background: var(--theme-accent-soft);
 }
 
-.hyeni-v5-action-chip > span:first-child {
+.hyeni-v5-action-chip-icon {
   color: var(--theme-accent-text);
   font-size: 17px;
   font-weight: 850;
@@ -3254,7 +3255,7 @@ a:focus-visible {
   background: linear-gradient(135deg, var(--theme-accent-soft), var(--hyeni-product-surface-solid));
 }
 
-.hyeni-v5-action-chip[data-action-key="quick-schedule"] > span:first-child {
+.hyeni-v5-action-chip[data-action-key="quick-schedule"] .hyeni-v5-action-chip-icon {
   font-size: 20px;
 }
 
@@ -3575,6 +3576,10 @@ a:focus-visible {
   border-radius: 20px;
   background: var(--hyeni-product-surface-solid);
   box-shadow: none;
+}
+
+.hyeni-app-shell .hyeni-v1-home-event-list .hyeni-v5-event-card button.hyeni-v5-event-delete.hyeni-v5-event-delete {
+  display: none;
 }
 
 .hyeni-v5-event-icon {

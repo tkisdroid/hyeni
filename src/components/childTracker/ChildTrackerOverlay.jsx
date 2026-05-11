@@ -580,10 +580,14 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                             const color = CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length];
                             const isActive = selectedChild?.trackerKey === child.trackerKey;
                             const updatedAt = child.updatedAt || child.updated_at;
+                            const coordinateLabel = Number.isFinite(child.lat) && Number.isFinite(child.lng)
+                                ? `${child.lat.toFixed(5)}, ${child.lng.toFixed(5)}`
+                                : "좌표 확인 중";
                             return (
                                 <button
                                     key={child.trackerKey}
                                     type="button"
+                                    aria-label={`${child.name} 위치 ${coordinateLabel} ${updatedAt ? "업데이트됨" : "수신 중"}`}
                                     onClick={() => {
                                         setSelectedChildId(child.trackerKey);
                                         focusChildLocation(child);

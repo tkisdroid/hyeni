@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { clickRoleGate } from "./_helpers.js";
 
 /**
  * Real-services E2E: accessibility scans (axe-core) for key screens.
@@ -54,9 +55,7 @@ test.describe("accessibility: key screens", () => {
       "clicks child entry which triggers Supabase anonymous signup; chromium-only for rate limit",
     );
     await page.goto("/");
-    const childBtn = page.getByText(/^아이$/).first();
-    await expect(childBtn).toBeVisible({ timeout: 10_000 });
-    await childBtn.click();
+    await clickRoleGate(page, "child", { timeoutMs: 10_000 });
 
     // Wait for the pair-code input to mount.
     await page

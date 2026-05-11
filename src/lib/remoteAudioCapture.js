@@ -8,6 +8,7 @@ import { supabase } from "./supabase.js";
 import { getSession } from "./auth.js";
 import { blobToBase64 } from "./blobBase64.js";
 import { isMissingNativePluginError } from "./errorChecks.js";
+import { getAmbientListenPlugin } from "./nativePlugins.js";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
@@ -82,13 +83,12 @@ async function waitForRealtimeChannelReady(channel, timeoutMs = 20000) {
 
 async function startNativeRemoteAudioCapture(durationSec, options = {}) {
     try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        if (!Capacitor.isNativePlatform()) return false;
+        const AmbientListen = await getAmbientListenPlugin();
+        if (!AmbientListen) return false;
         if (!SUPABASE_URL || !SUPABASE_KEY) {
             throw new Error("Supabase config unavailable");
         }
 
-        const AmbientListen = registerPlugin("AmbientListen");
         const session = await getSession().catch(() => null);
         await AmbientListen.start({
             userId: options.childUserId || "",
@@ -113,9 +113,8 @@ async function startNativeRemoteAudioCapture(durationSec, options = {}) {
 
 async function stopNativeRemoteAudioCapture(endReason) {
     try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        if (!Capacitor.isNativePlatform()) return false;
-        const AmbientListen = registerPlugin("AmbientListen");
+        const AmbientListen = await getAmbientListenPlugin();
+        if (!AmbientListen) return false;
         await AmbientListen.stop({ reason: endReason || "stopped" });
         return true;
     } catch (error) {

@@ -385,7 +385,7 @@ describe("Soft Brand visual system", () => {
     expect(productPassCss).toContain("--hyeni-product-shadow");
     expect(productPassCss).toContain(".hyeni-v5-parent-main");
     expect(productPassCss).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
-    expect(productPassCss).toContain(".hyeni-v5-action-chip > span:first-child");
+    expect(productPassCss).toContain(".hyeni-v5-action-chip-icon");
     expect(productPassCss).toContain("color: var(--theme-accent-text)");
     expect(productPassCss).toContain(".hyeni-v5-event-icon");
     expect(productPassCss).toContain("background: var(--theme-accent-soft)");
