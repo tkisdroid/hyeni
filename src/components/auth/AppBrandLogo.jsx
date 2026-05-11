@@ -1,30 +1,30 @@
 // src/components/auth/AppBrandLogo.jsx
-// Hyeni brand logo — mood 에 따라 다른 혜니 캐릭터를 둥근 squircle 안에 배치.
+// Hyeni brand logo — mood 에 따라 다른 혜니 캐릭터. 배경 없이 캐릭터만 표시.
 //
 // Props:
-//   size: number (px, default 80)
-//   radius: number (px, default 24)
-//   shadow: bool (default true)
+//   size: number (px, default 80) — 캐릭터 bounding box
+//   radius: kept for API compat (no longer applied — no background)
+//   shadow: bool (default true) — drop-shadow on the character silhouette
 //   mood: HyeniMascot variant (default "winkStar")
 
 import { HyeniMascot } from "./HyeniMascot.jsx";
 
-export const AppBrandLogo = ({ size = 80, radius = 24, shadow = true, mood = "winkStar" }) => (
-    <div
-        aria-label="혜니캘린더 로고"
-        style={{
-            width: size,
-            height: size,
-            borderRadius: radius,
-            overflow: "hidden",
-            background: "var(--brand-rose-soft, #FFE2EC)",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: shadow ? "var(--hyeni-theme-shadow-soft)" : "none",
-            flexShrink: 0,
-        }}
-    >
-        <HyeniMascot variant={mood} size={Math.round(size * 1.3)} aria-label="" />
-    </div>
-);
+export const AppBrandLogo = ({ size = 80, radius = 24, shadow = true, mood = "winkStar" }) => {
+    void radius; // kept for backwards-compatible prop signature
+    return (
+        <div
+            aria-label="혜니캘린더 로고"
+            style={{
+                width: size,
+                height: size,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                filter: shadow ? "drop-shadow(0 4px 10px rgba(247,121,168,0.22))" : "none",
+            }}
+        >
+            <HyeniMascot variant={mood} size={size} aria-label="" />
+        </div>
+    );
+};
