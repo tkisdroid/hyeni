@@ -6035,6 +6035,15 @@ export default function KidsScheduler() {
                             )}
                         </button>
                     )}
+                    {isParent && activeView !== "parentSettings" && (
+                        <button
+                            type="button"
+                            onClick={() => setActiveView("parentSettings")}
+                            style={{ fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}
+                            aria-label="설정">
+                            <ThreeDIcon name="settings" size={22} aria-label="설정" />
+                        </button>
+                    )}
                     {/* Phase 5 KKUK-01: tap sends immediately; hold sends once
                          after 500ms without waiting for release. Cooldown is
                          still driven by kkukCooldown state + server RPC. */}
@@ -6399,33 +6408,6 @@ export default function KidsScheduler() {
                       <span style={{ position: "absolute", bottom: 4, left: 4, fontSize: 12, opacity: 0.7 }}>💗</span>
                       <HyeniMascot variant={todayEventCount === 0 ? "cheer" : "wave"} size={108} aria-label="" />
                     </div>
-                    <button
-                      type="button"
-                      aria-label="설정"
-                      onClick={() => setActiveView("parentSettings")}
-                      style={{
-                        position: "absolute",
-                        top: 12,
-                        right: 12,
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: "#FFFFFF",
-                        border: "1px solid rgba(49, 196, 141, 0.28)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 18,
-                        color: "#5F6368",
-                        cursor: "pointer",
-                        zIndex: 10,
-                        fontFamily: FF,
-                        boxShadow: "0 4px 12px rgba(31, 24, 28, 0.14)",
-                        pointerEvents: "auto",
-                      }}
-                    >
-                      ⚙
-                    </button>
                   </section>
                 </div>
               );
