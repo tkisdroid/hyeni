@@ -6002,7 +6002,7 @@ export default function KidsScheduler() {
             <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "10px 12px", background: "rgba(255,255,255,0.88)", border: "1px solid var(--theme-accent-line)", borderRadius: DESIGN.radius.xl, boxShadow: DESIGN.shadow.soft }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: "1 1 auto" }}>
                     <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
-                        <AppBrandLogo size={isParent ? 52 : 56} radius={isParent ? 14 : 16} shadow={false} mood={appLogoMood} />
+                        <AppBrandLogo size={isParent ? 64 : 72} radius={isParent ? 18 : 20} shadow={false} mood={appLogoMood} />
                     </div>
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                         <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>

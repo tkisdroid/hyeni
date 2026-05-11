@@ -26,7 +26,7 @@ export function EditFieldModal({
     };
     return (
         <div
-            style={{ position: "fixed", inset: 0, ...modalBackdropStyle, zIndex: 220, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+            style={{ position: "fixed", inset: 0, ...modalBackdropStyle, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
             onClick={onClose}
         >
             <div style={makeCardStyle({ padding: "28px 24px", width: "100%", maxWidth: 360 })} onClick={e => e.stopPropagation()}>
