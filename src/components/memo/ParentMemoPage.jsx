@@ -25,7 +25,7 @@ function DateDivider({ label }) {
     );
 }
 
-function MineBubble({ text, time, sender = "나" }) {
+function MineBubble({ text, time, sender = "나", isRead = false }) {
     return (
         <article style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#5F6368", fontSize: 11, fontWeight: 600 }}>
@@ -69,7 +69,11 @@ function MineBubble({ text, time, sender = "나" }) {
                 </span>
             </div>
             <div style={{ marginRight: 44, fontSize: 11, fontWeight: 700, color: "var(--fg-tertiary, #9A9AA0)" }}>
-                읽음 <span aria-hidden="true" style={{ color: "var(--brand-rose, #F779A8)" }}>✓✓</span>
+                {isRead ? (
+                    <>읽음 <span aria-hidden="true" style={{ color: "var(--brand-rose, #F779A8)" }}>✓✓</span></>
+                ) : (
+                    <>전송됨 <span aria-hidden="true" style={{ color: "var(--fg-tertiary, #9A9AA0)" }}>✓</span></>
+                )}
             </div>
         </article>
     );
@@ -311,10 +315,16 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                             : (mode === "child" ? "아이" : (partnerName || "아이"));
                         const time = getMemoTime(message.created_at);
                         const replyRefAttach = el => { if (el && onReplyRef && message.id && !String(message.id).startsWith("temp-")) onReplyRef(el, message.id); };
+                        // 상대방이 실제로 viewport 에서 3초간 본 메시지에만 read_by 가 채워짐.
+                        // isMine + 상대(나 외 user_id) 가 read_by 에 들어있으면 읽음 표시.
+                        const isReadByOther = isMine && Array.isArray(message.read_by)
+                            && message.read_by.some(uid => uid && uid !== myUserId);
 
                         if (mode === "child") {
                             const from = message.user_role === "parent" ? "parent" : "child";
-                            const stamp = isMine ? `${time} · 읽음 ✓` : `${sender} · ${time}`;
+                            const stamp = isMine
+                                ? (isReadByOther ? `${time} · 읽음 ✓` : `${time} · 전송됨`)
+                                : `${sender} · ${time}`;
                             return (
                                 <div key={message.id} ref={replyRefAttach} aria-label={`${sender} ${time} 메모: ${message.content}`}>
                                     <MemoBubble from={from} stamp={stamp}>{message.content}</MemoBubble>
@@ -329,7 +339,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                                 aria-label={`${sender} ${time} 메모: ${message.content}`}
                             >
                                 {isMine
-                                    ? <MineBubble text={message.content} time={time} sender="나" />
+                                    ? <MineBubble text={message.content} time={time} sender="나" isRead={isReadByOther} />
                                     : <TheirBubble text={message.content} time={time} sender={sender} />
                                 }
                             </div>
