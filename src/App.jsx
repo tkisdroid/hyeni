@@ -6035,10 +6035,10 @@ export default function KidsScheduler() {
                             )}
                         </button>
                     )}
-                    {isParent && activeView !== "parentSettings" && (
+                    {isParent && !showParentSettings && (
                         <button
                             type="button"
-                            onClick={() => setActiveView("parentSettings")}
+                            onClick={() => setShowParentSettings(true)}
                             style={{ fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}
                             aria-label="설정">
                             <ThreeDIcon name="settings" size={22} aria-label="설정" />
