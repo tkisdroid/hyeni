@@ -3508,17 +3508,16 @@ a:focus-visible {
 }
 
 section[aria-label="아이 기기 사용 지표"] {
-  background: var(--hyeni-product-surface-solid) !important;
-  border: 1px solid var(--hyeni-product-border) !important;
-  border-radius: 14px !important;
+  background: transparent !important;
+  border: none !important;
   box-shadow: none !important;
+  padding: 0 !important;
 }
 
 section[aria-label="아이 기기 사용 지표"] > div[style*="grid"] > div,
 section[aria-label="아이 기기 사용 지표"] > div[style*="flex"] > div {
-  border: 1px solid var(--hyeni-product-border) !important;
-  background: color-mix(in srgb, var(--bg-subtle) 72%, white) !important;
-  border-radius: 12px !important;
+  border: none !important;
+  background: transparent !important;
 }
 
 .map-picker-shell {
