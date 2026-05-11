@@ -25,6 +25,6 @@ export const AppBrandLogo = ({ size = 80, radius = 24, shadow = true, mood = "wi
             flexShrink: 0,
         }}
     >
-        <HyeniMascot variant={mood} size={Math.round(size * 0.96)} aria-label="" />
+        <HyeniMascot variant={mood} size={Math.round(size * 1.18)} aria-label="" />
     </div>
 );
