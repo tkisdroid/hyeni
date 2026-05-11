@@ -110,8 +110,11 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false, chi
   if (!hasChild) {
     return (
       <section className="hyeni-tool hyeni-tool--emergency" aria-label="응급 강제 알람">
-        <div className="hyeni-tool-empty">
-          아이 페어링 후 사용할 수 있어요.
+        <div className="hyeni-tool-empty" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 16px", textAlign: "center" }}>
+          <ThreeDIcon name="safety-mascot" size={72} aria-label="" />
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--fg-secondary)" }}>
+            아이 페어링 후 사용할 수 있어요.
+          </div>
         </div>
       </section>
     );
@@ -131,7 +134,9 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false, chi
     return (
       <section className="hyeni-tool hyeni-tool--emergency" aria-label="응급 강제 알람">
         <div className="hyeni-tool-tile">
-          <div className="hyeni-tool-tile__glyph" aria-hidden="true">!</div>
+          <div className="hyeni-tool-tile__glyph" aria-hidden="true" style={{ background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <ThreeDIcon name="sos-shield" size={32} aria-label="" />
+          </div>
           <div className="hyeni-tool-tile__body">
             <div className="hyeni-tool-tile__title">응급 강제 알람</div>
             <div className="hyeni-tool-tile__sub hyeni-tool-tile__sub--accent">
@@ -193,7 +198,10 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false, chi
         <span className="hyeni-tool-card__rule" aria-hidden="true" />
         <div className="hyeni-tool-card__head">
           <div>
-            <span className="hyeni-tool-card__kicker">진짜 응급 시에만</span>
+            <span className="hyeni-tool-card__kicker" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <ThreeDIcon name="sos-shield" size={18} aria-label="" />
+              진짜 응급 시에만
+            </span>
             <h2 className="hyeni-tool-card__title">응급 강제 알람</h2>
             <p className="hyeni-tool-card__sub">
               아이 폰이 무음·방해금지여도 풀볼륨 알람을 15초간 강제로 울려요.

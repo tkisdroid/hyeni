@@ -3,6 +3,7 @@ import FriendPlaydateToggle from "./FriendPlaydateToggle.jsx";
 import PlaydateSafePlaceList from "./PlaydateSafePlaceList.jsx";
 import ActivePlaydateCard from "./ActivePlaydateCard.jsx";
 import PlaydateHistory from "./PlaydateHistory.jsx";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 import {
   fetchActiveSession,
   fetchHistory,
@@ -75,7 +76,10 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
   if (loading) {
     return (
       <section className="hyeni-tool hyeni-tool--friend">
-        <div className="hyeni-tool-empty">친구놀이 정보 불러오는 중…</div>
+        <div className="hyeni-tool-empty" style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "16px" }}>
+          <ThreeDIcon name="clover" size={28} aria-label="" />
+          <span>친구놀이 정보 불러오는 중…</span>
+        </div>
       </section>
     );
   }
@@ -84,7 +88,9 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
     return (
       <section className="hyeni-tool hyeni-tool--friend" aria-label="친구놀이 패널">
         <div className="hyeni-tool-tile">
-          <div className="hyeni-tool-tile__glyph" aria-hidden="true">◉</div>
+          <div className="hyeni-tool-tile__glyph" aria-hidden="true" style={{ background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <ThreeDIcon name="friend-pair" size={32} aria-label="" />
+          </div>
           <div className="hyeni-tool-tile__body">
             <div className="hyeni-tool-tile__title">친구놀이</div>
             <div
@@ -144,7 +150,11 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
           fontSize: 12,
           fontWeight: 900,
           letterSpacing: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
         }}>
+          <ThreeDIcon name="pin-heart" size={14} aria-label="" />
           친구놀이 안전장소
           <span style={legacyTextStyle}>친구 만남 안전 장소</span>
         </div>
@@ -167,7 +177,11 @@ export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiv
               fontSize: 12,
               fontWeight: 900,
               letterSpacing: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
             }}>
+              <ThreeDIcon name="clover" size={14} aria-label="" />
               최근 친구놀이 기록
             </div>
             <PlaydateHistory history={history} />
