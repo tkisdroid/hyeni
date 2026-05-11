@@ -66,6 +66,14 @@ function formatChildAddressLabel(value) {
   return parts.join(" ") || raw;
 }
 
+function splitChildAddressLines(value) {
+  const stripped = formatChildAddressLabel(value);
+  if (!stripped) return null;
+  const parts = stripped.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { primary: stripped, secondary: "" };
+  return { primary: parts[0], secondary: parts.slice(1).join(" ") };
+}
+
 function deriveSafetyDots(deviceStatus) {
   if (!deviceStatus) return ["green", "green", "green"];
   return [
@@ -82,7 +90,7 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
   const batteryPct = Number.isFinite(battery)
     ? Math.max(0, Math.min(100, Math.round(battery)))
     : null;
-  const shortAddress = formatChildAddressLabel(locationLabel);
+  const addressLines = splitChildAddressLines(locationLabel);
   const accent = child?.color_hex || palette.accent;
   return (
     <button
@@ -159,7 +167,7 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
             </span>
           )}
         </div>
-        {shortAddress && (
+        {addressLines && (
           <div
             style={{
               display: "flex",
@@ -170,7 +178,7 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
             title={locationLabel || ""}
           >
             <span aria-hidden="true" style={{ fontSize: 12, lineHeight: 1.4, flexShrink: 0 }}>📍</span>
-            <span style={{
+            <div style={{
               flex: 1,
               minWidth: 0,
               fontSize: 12,
@@ -179,13 +187,16 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
               lineHeight: 1.4,
               wordBreak: "keep-all",
               overflowWrap: "break-word",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
             }}>
-              {shortAddress}
-            </span>
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {addressLines.primary}
+              </div>
+              {addressLines.secondary && (
+                <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {addressLines.secondary}
+                </div>
+              )}
+            </div>
           </div>
         )}
         {nextEventChip && (
