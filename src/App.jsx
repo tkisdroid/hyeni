@@ -6899,13 +6899,15 @@ export default function KidsScheduler() {
                     </div>
                 )}
 
-                {/* 배너 — 추후 광고 배치용 */}
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", borderRadius: 20, padding: "14px 18px", marginBottom: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--theme-accent-text)", fontFamily: FF, border: "1.5px solid var(--theme-accent-line)", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
-                    혜니캘린더는 아이와 함께 만들어갑니다
-                </div>
+                {/* 배너 — 추후 광고 배치용. 아이 모드에서는 노출 안 함. */}
+                {isParent && (
+                    <div style={{ width: "100%", maxWidth: contentMaxWidth, background: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", borderRadius: 20, padding: "14px 18px", marginBottom: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--theme-accent-text)", fontFamily: FF, border: "1.5px solid var(--theme-accent-line)", boxShadow: "var(--hyeni-theme-shadow-soft)" }}>
+                        혜니캘린더는 아이와 함께 만들어갑니다
+                    </div>
+                )}
 
-                {/* 빠른 일정입력 + 수동 추가 */}
-                {(!isParent || parentCapabilities.canWriteSchedule) && (
+                {/* 빠른 일정입력 + 수동 추가 — 아이 모드는 일정 등록 권한이 없으므로 노출 안 함. */}
+                {isParent && parentCapabilities.canWriteSchedule && (
                 <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", gap: 8, marginBottom: 14 }}>
                     <button type="button" aria-label={AI_SCHEDULE_BUTTON_LABEL} onClick={openAiSchedule}
                         style={{
@@ -6915,7 +6917,7 @@ export default function KidsScheduler() {
                         빠른 일정입력
                     </button>
                     <button onClick={openManualAddEventModal}
-                        style={{ minWidth: isParent ? 44 : 56, height: 44, borderRadius: 14, background: "var(--hyeni-theme-gradient)", color: "white", border: "none", fontSize: isParent ? 22 : 14, fontWeight: 800, cursor: "pointer", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FF, gap: 2, padding: isParent ? 0 : "0 12px" }}>{isParent ? "+" : "✏️ 추가"}</button>
+                        style={{ minWidth: 44, height: 44, borderRadius: 14, background: "var(--hyeni-theme-gradient)", color: "white", border: "none", fontSize: 22, fontWeight: 800, cursor: "pointer", boxShadow: "var(--hyeni-theme-shadow-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FF, gap: 2, padding: 0 }}>+</button>
                 </div>
                 )}
 
