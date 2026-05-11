@@ -3,7 +3,7 @@
 ## Status
 
 - Branch: `final/production-polish-and-real-device-qa`
-- Commit: `COMMIT_SHA_PENDING`
+- Commit: `678e5dd Stabilize production polish and device QA`
 - Baseline: `35d965b Improve onboarding guidance and validation`
 - Baseline check: `git merge-base --is-ancestor 35d965b HEAD` => pass
 - Production Ready declaration: **NO**

@@ -9,7 +9,7 @@
 ## Build Under Test
 
 - Branch: `final/production-polish-and-real-device-qa`
-- Commit: `COMMIT_SHA_PENDING`
+- Commit: `678e5dd Stabilize production polish and device QA`
 - APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 - AAB: `android/app/build/outputs/bundle/release/app-release.aab`
 - APK install:
