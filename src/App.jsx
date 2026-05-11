@@ -6878,8 +6878,8 @@ export default function KidsScheduler() {
                     </div>
                 </div>
 
-                {/* Academy quick pick */}
-                {academies.length > 0 && (
+                {/* Academy quick pick — 아이 모드는 일정 등록 권한 없으므로 노출 안 함. */}
+                {isParent && academies.length > 0 && (
                     <div style={{ width: "100%", maxWidth: contentMaxWidth, marginBottom: 14 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-tertiary)", marginBottom: 8, paddingLeft: 4 }}>🏫 학원 빠른 추가</div>
                         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
