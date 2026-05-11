@@ -70,12 +70,16 @@
   line-height: var(--leading-tight);
   letter-spacing: -0.01em;
   color: var(--fg-primary);
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 .t-child-hero-sub {
   font-size: 14px;
   font-weight: var(--weight-medium);
   color: var(--fg-secondary);
   margin-top: var(--space-1);
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 .t-child-hero-emoji {
   font-size: 36px;
