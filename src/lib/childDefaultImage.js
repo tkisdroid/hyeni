@@ -1,4 +1,4 @@
-import hyeniDefaultChildImageUrl from "../assets/new_logo.png";
+import hyeniDefaultChildImageUrl from "../assets/new_logo.webp";
 
 export const HYENI_DEFAULT_CHILD_IMAGE_URL = hyeniDefaultChildImageUrl;
 export const HYENI_DEFAULT_CHILD_IMAGE_CROP = "face-no-icecream";

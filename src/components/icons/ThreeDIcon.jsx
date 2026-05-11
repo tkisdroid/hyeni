@@ -44,9 +44,9 @@ import clockIcon from "../../assets/3d/ui/clock.webp";
 import cameraIcon from "../../assets/3d/ui/camera.webp";
 import broadcastIcon from "../../assets/3d/ui/broadcast.webp";
 import bellOffIcon from "../../assets/3d/ui/bell-off.webp";
-import micLavenderIcon from "../../assets/3d/ui/mic-lavender.png";
-import cameraRoseIcon from "../../assets/3d/ui/camera-rose.png";
-import pencilMintIcon from "../../assets/3d/ui/pencil-mint.png";
+import micLavenderIcon from "../../assets/3d/ui/mic-lavender.webp";
+import cameraRoseIcon from "../../assets/3d/ui/camera-rose.webp";
+import pencilMintIcon from "../../assets/3d/ui/pencil-mint.webp";
 
 const SOURCES = {
     bell: bellIcon,
