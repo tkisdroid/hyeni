@@ -80,12 +80,17 @@ export function EventSheet({
     };
 
     const canStartSheetDrag = (event) => {
-        if (event.target?.closest?.(".event-sheet-header button")) return false;
-        const dragZone = event.target?.closest?.(".event-sheet-header, .event-sheet-handle");
-        if (dragZone) return true;
-        const rect = sheetRef.current?.getBoundingClientRect?.();
-        // 상단 108px(handle+header 영역) 내 어디서든 드래그 시작 허용
-        return !!rect && event.clientY >= rect.top && event.clientY <= rect.top + 108;
+        const target = event.target;
+        if (!target?.closest?.(".event-sheet")) return false;
+        // 인터랙티브/스크롤/입력 요소 위에서는 시트 드래그 시작 안 함 — 본래 동작 유지.
+        if (target?.closest?.("input, textarea, select, button, a, label, [contenteditable=\"true\"], [role=\"button\"], [role=\"slider\"], [role=\"switch\"], [role=\"tab\"], [data-no-sheet-drag=\"true\"]")) {
+            return false;
+        }
+        // 스크롤 영역 안에 있고, 스크롤이 맨 위가 아니라면 콘텐츠 스크롤이 우선이라 드래그 시작 안 함.
+        const scrollContainer = target?.closest?.(".event-sheet-body");
+        if (scrollContainer && scrollContainer.scrollTop > 0) return false;
+        // 그 외 본문 어느 부분이든 아래로 끌어 닫기 허용.
+        return true;
     };
 
     const handleDragPointerDown = (event) => {
