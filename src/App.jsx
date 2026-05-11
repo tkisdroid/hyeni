@@ -6036,7 +6036,38 @@ export default function KidsScheduler() {
                         <AppBrandLogo size={isParent ? 64 : 72} radius={isParent ? 18 : 20} shadow={false} mood={appLogoMood} />
                     </div>
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-                        <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                            <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0 }}>혜니캘린더</div>
+                            {isParent && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setActiveView(PARENT_VIEWS.FAMILY); }}
+                                    aria-label={pairedChildren.length > 0 ? `연동된 자녀 ${pairedChildren.length}명` : "가족 연동하기"}
+                                    style={{
+                                        fontSize: 10,
+                                        fontWeight: 800,
+                                        height: 20,
+                                        padding: "0 8px",
+                                        borderRadius: 999,
+                                        border: pairedChildren.length > 0
+                                            ? "1px solid var(--brand-lavender-line, #DDD1FF)"
+                                            : "1px solid color-mix(in srgb, var(--status-cautionary, #F59E0B) 32%, transparent)",
+                                        cursor: "pointer",
+                                        fontFamily: FF,
+                                        background: pairedChildren.length > 0 ? "var(--brand-lavender-soft, #EFE8FF)" : "var(--status-cautionary-subtle)",
+                                        color: pairedChildren.length > 0 ? "var(--brand-lavender-text, #5F43B2)" : "var(--status-cautionary-strong)",
+                                        whiteSpace: "nowrap",
+                                        lineHeight: 1,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0,
+                                        boxSizing: "border-box",
+                                    }}>
+                                    {pairedChildren.length > 0 ? `연동 (${pairedChildren.length}명)` : (familyId ? "연동하기" : "가족 만들기")}
+                                </button>
+                            )}
+                        </div>
                         {isParent && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
                                 <button
@@ -6062,32 +6093,6 @@ export default function KidsScheduler() {
                                         boxSizing: "border-box",
                                     }}>
                                     학부모 모드
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => { setActiveView(PARENT_VIEWS.FAMILY); }}
-                                    style={{
-                                        fontSize: 11.5,
-                                        fontWeight: 700,
-                                        height: 26,
-                                        padding: "0 12px",
-                                        borderRadius: 999,
-                                        border: pairedChildren.length > 0
-                                            ? "1px solid var(--brand-lavender-line, #DDD1FF)"
-                                            : "1px solid color-mix(in srgb, var(--status-cautionary, #F59E0B) 32%, transparent)",
-                                        cursor: "pointer",
-                                        fontFamily: FF,
-                                        background: pairedChildren.length > 0 ? "var(--brand-lavender-soft, #EFE8FF)" : "var(--status-cautionary-subtle)",
-                                        color: pairedChildren.length > 0 ? "var(--brand-lavender-text, #5F43B2)" : "var(--status-cautionary-strong)",
-                                        whiteSpace: "nowrap",
-                                        lineHeight: 1,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        flexShrink: 0,
-                                        boxSizing: "border-box",
-                                    }}>
-                                    {pairedChildren.length > 0 ? `연동 (${pairedChildren.length}명)` : (familyId ? "연동하기" : "가족 만들기")}
                                 </button>
                             </div>
                         )}
