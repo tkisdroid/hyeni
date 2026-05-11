@@ -785,6 +785,10 @@ export default function KidsScheduler() {
     const screenSessionStartedAtRef = useRef(Date.now());
     const screenSessionVisibleMsRef = useRef(0);
     const lastVisibleAtRef = useRef(typeof document !== "undefined" && document.visibilityState === "visible" ? Date.now() : null);
+    // 오늘 누적 화면 켜짐 시간 (자정 reset, localStorage 영속화).
+    // 앱 재시작/포그라운드 복귀 후에도 today total 유지.
+    const screenDayKeyRef = useRef("");
+    const screenDayPriorMsRef = useRef(0);
     const publishChildDeviceStatusRef = useRef(async () => {});
     const academyFocusAlertedRef = useRef(new Set());
     const childPosRef = useRef(null);
@@ -2182,12 +2186,39 @@ export default function KidsScheduler() {
             }
         };
 
+        const todayKey = () => {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        };
+        const ensureDayBucket = () => {
+            const today = todayKey();
+            if (screenDayKeyRef.current !== today) {
+                screenDayKeyRef.current = today;
+                try {
+                    const stored = Number(window.localStorage.getItem(`screenOnDay:${today}`)) || 0;
+                    screenDayPriorMsRef.current = Number.isFinite(stored) && stored >= 0 ? stored : 0;
+                } catch (_) { screenDayPriorMsRef.current = 0; }
+                // 자정 rollover: 어제 누적 session 도 reset, 새 날의 visibility 측정은 지금부터.
+                screenSessionVisibleMsRef.current = 0;
+                if (typeof document !== "undefined" && document.visibilityState === "visible") {
+                    lastVisibleAtRef.current = Date.now();
+                } else {
+                    lastVisibleAtRef.current = null;
+                }
+            }
+        };
+        ensureDayBucket();
+
         const buildPayload = async () => {
             const now = Date.now();
-            let visibleMs = screenSessionVisibleMsRef.current;
+            ensureDayBucket();
+            let sessionMs = screenSessionVisibleMsRef.current;
             if (lastVisibleAtRef.current) {
-                visibleMs += Math.max(0, now - lastVisibleAtRef.current);
+                sessionMs += Math.max(0, now - lastVisibleAtRef.current);
             }
+            // 오늘 누적 = 영속화된 prior + 현재 세션 contribution
+            const visibleMs = screenDayPriorMsRef.current + sessionMs;
+            try { window.localStorage.setItem(`screenOnDay:${screenDayKeyRef.current}`, String(visibleMs)); } catch (_) { /* ignore quota */ }
             const { batteryLevel, isCharging, recentAppPackage, usagePermission, screenInteractive } = await getBatterySnapshot();
             const netInfo = navigator?.connection || navigator?.mozConnection || navigator?.webkitConnection;
             const nativeRemoteListenHealth = nativeNotifHealth ? {
