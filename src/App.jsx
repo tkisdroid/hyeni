@@ -2276,7 +2276,8 @@ export default function KidsScheduler() {
         };
 
         void publish();
-        const timer = setInterval(() => { void publish(); }, 60_000);
+        // 30s 간격 — 부모가 "지금 갱신" 후 자녀 publish 까지의 stale 시간 단축.
+        const timer = setInterval(() => { void publish(); }, 30_000);
         if (typeof document !== "undefined") {
             document.addEventListener("visibilitychange", onVisibilityChange);
         }
@@ -4393,8 +4394,21 @@ export default function KidsScheduler() {
     const primaryDeviceChargingLabel = primaryChildDeviceStatus?.isCharging == null
         ? "확인 중"
         : (primaryChildDeviceStatus.isCharging ? "충전 중" : "미충전");
-    const primaryDeviceConnectionLabel = primaryChildDeviceStatus?.connectionType || "확인 중";
-    const primaryDeviceScreenLabel = formatDeviceDuration(Number(primaryChildDeviceStatus?.screenOnMs || 0));
+    const primaryDeviceConnectionLabel = (() => {
+        const ct = primaryChildDeviceStatus?.connectionType;
+        if (ct && ct !== "unknown") return ct;
+        // Android WebView 에서 navigator.connection 미지원이면 unknown. native networkConnected 로 보완.
+        if (typeof primaryChildDeviceStatus?.networkConnected === "boolean") {
+            return primaryChildDeviceStatus.networkConnected ? "온라인" : "오프라인";
+        }
+        return "확인 중";
+    })();
+    const primaryDeviceScreenLabel = (() => {
+        const ms = Number(primaryChildDeviceStatus?.screenOnMs || 0);
+        if (ms > 0) return formatDeviceDuration(ms);
+        // 아직 자녀의 publish 가 도착하지 않은 상태 — 0초로 굳어 보이지 않게.
+        return primaryChildDeviceStatus ? "0분" : "측정 중";
+    })();
     const primaryDeviceUpdatedLabel = primaryChildDeviceStatus?.updatedAt
         ? getRelativeTime(primaryChildDeviceStatus.updatedAt)
         : "곧 업데이트돼요";
@@ -5964,15 +5978,44 @@ export default function KidsScheduler() {
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                         <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
                         {isParent && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 2 }}>
-                                <span onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
-                                    style={{ fontSize: 10, padding: "3px 7px", borderRadius: 6, fontWeight: 700, cursor: "pointer", background: "var(--bg-subtle)", color: "var(--fg-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                                <span
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
+                                    style={{
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        padding: "4px 10px",
+                                        borderRadius: 999,
+                                        cursor: "pointer",
+                                        background: "var(--brand-mint-soft, #DDF7EA)",
+                                        color: "var(--brand-mint-text, #087653)",
+                                        border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                                        whiteSpace: "nowrap",
+                                        flexShrink: 0,
+                                        lineHeight: 1.2,
+                                    }}>
                                     학부모 모드
                                 </span>
-                                <button onClick={() => {
-                                    setActiveView(PARENT_VIEWS.FAMILY);
-                                }}
-                                    style={{ fontSize: 11, fontWeight: 600, padding: "2px 6px", borderRadius: 5, border: "none", cursor: "pointer", fontFamily: FF, background: pairedChildren.length > 0 ? "var(--status-positive-subtle)" : "var(--status-cautionary-subtle)", color: pairedChildren.length > 0 ? "#065F46" : "var(--status-cautionary-strong)", whiteSpace: "nowrap" }}>
+                                <button
+                                    type="button"
+                                    onClick={() => { setActiveView(PARENT_VIEWS.FAMILY); }}
+                                    style={{
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        padding: "4px 10px",
+                                        borderRadius: 999,
+                                        border: pairedChildren.length > 0
+                                            ? "1px solid color-mix(in srgb, var(--status-positive, #00BF40) 32%, transparent)"
+                                            : "1px solid color-mix(in srgb, var(--status-cautionary, #F59E0B) 32%, transparent)",
+                                        cursor: "pointer",
+                                        fontFamily: FF,
+                                        background: pairedChildren.length > 0 ? "var(--status-positive-subtle)" : "var(--status-cautionary-subtle)",
+                                        color: pairedChildren.length > 0 ? "#065F46" : "var(--status-cautionary-strong)",
+                                        whiteSpace: "nowrap",
+                                        lineHeight: 1.2,
+                                    }}>
                                     {pairedChildren.length > 0 ? `🔗 연동 (${pairedChildren.length}명)` : (familyId ? "🔗 연동하기" : "👨‍👩‍👧 가족 만들기")}
                                 </button>
                             </div>
@@ -6344,16 +6387,17 @@ export default function KidsScheduler() {
                       style={{
                         position: "relative",
                         flexShrink: 0,
-                        width: 120,
+                        width: 108,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        pointerEvents: "none",
                       }}
                     >
                       <span style={{ position: "absolute", top: 0, left: -4, fontSize: 18, opacity: 0.85 }}>☁️</span>
-                      <span style={{ position: "absolute", top: 14, right: 0, fontSize: 14, opacity: 0.7 }}>✨</span>
+                      <span style={{ position: "absolute", bottom: 24, right: 0, fontSize: 14, opacity: 0.7 }}>✨</span>
                       <span style={{ position: "absolute", bottom: 4, left: 4, fontSize: 12, opacity: 0.7 }}>💗</span>
-                      <HyeniMascot variant={todayEventCount === 0 ? "cheer" : "wave"} size={116} aria-label="" />
+                      <HyeniMascot variant={todayEventCount === 0 ? "cheer" : "wave"} size={108} aria-label="" />
                     </div>
                     <button
                       type="button"
@@ -6363,20 +6407,21 @@ export default function KidsScheduler() {
                         position: "absolute",
                         top: 12,
                         right: 12,
-                        width: 36,
-                        height: 36,
+                        width: 40,
+                        height: 40,
                         borderRadius: "50%",
                         background: "#FFFFFF",
-                        border: "1px solid rgba(49, 196, 141, 0.18)",
+                        border: "1px solid rgba(49, 196, 141, 0.28)",
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 16,
+                        fontSize: 18,
                         color: "#5F6368",
                         cursor: "pointer",
-                        zIndex: 2,
+                        zIndex: 10,
                         fontFamily: FF,
-                        boxShadow: "0 2px 8px rgba(31, 24, 28, 0.06)",
+                        boxShadow: "0 4px 12px rgba(31, 24, 28, 0.14)",
+                        pointerEvents: "auto",
                       }}
                     >
                       ⚙
@@ -6608,7 +6653,7 @@ export default function KidsScheduler() {
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "none", background: "linear-gradient(135deg, var(--brand-mint, #31C48D), var(--brand-mint-deep, #15936B))", color: "#FFFFFF", borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0, boxShadow: "0 4px 12px rgba(49, 196, 141, 0.18)" }}
+                                    style={{ border: "none", background: "transparent", color: "var(--brand-mint-text, #087653)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     {deviceStatusRefreshPending ? "요청 중" : "지금 갱신"}
                                 </button>
@@ -6684,14 +6729,14 @@ export default function KidsScheduler() {
                                 )}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, gap: 8 }}>
-                                <div style={{ fontSize: 11, color: "#5F6368", fontWeight: 600 }}>
-                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "#087653" : "#9A6500", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                                <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 600 }}>
+                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "var(--brand-mint-text, #087653)" : "#9A6500", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
                                     {deviceStatusRefreshPending && <span> · 요청 중</span>}
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "none", background: "linear-gradient(135deg,#31C48D,#15936B)", color: "white", borderRadius: 999, padding: "6px 14px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0, boxShadow: "0 4px 12px rgba(49, 196, 141, 0.18)" }}
+                                    style={{ border: "none", background: "transparent", color: "var(--brand-mint-text, #087653)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     {deviceStatusRefreshPending ? "요청 중" : "지금 갱신"}
                                 </button>
