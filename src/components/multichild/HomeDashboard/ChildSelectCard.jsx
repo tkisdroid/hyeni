@@ -168,20 +168,14 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
               lineHeight: 1.4,
               wordBreak: "keep-all",
               overflowWrap: "break-word",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 4,
-            }}
-            title={locationLabel || ""}
-          >
-            <span aria-hidden="true" style={{ flexShrink: 0 }}>📍</span>
-            <span style={{
-              flex: 1,
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
-            }}>{shortAddress}</span>
+            }}
+            title={locationLabel || ""}
+          >
+            <span aria-hidden="true">📍</span> {shortAddress}
           </div>
         )}
         {nextEventChip && (
