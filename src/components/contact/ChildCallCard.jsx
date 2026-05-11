@@ -8,8 +8,8 @@ import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 export function ChildCallCard({ phones = {} }) {
     const cleanNumber = (num) => (num || "").replace(/[^0-9+]/g, "");
     const targets = [
-        phones.mom && phones.mom.length >= 8 ? { key: "mom", label: "엄마", emoji: "👩", number: cleanNumber(phones.mom), color: "var(--theme-accent-text)", bg: "var(--theme-accent-soft)" } : null,
-        phones.dad && phones.dad.length >= 8 ? { key: "dad", label: "아빠", emoji: "👨", number: cleanNumber(phones.dad), color: "var(--theme-accent-text)", bg: "var(--theme-accent-soft)" } : null,
+        phones.mom && phones.mom.length >= 8 ? { key: "mom", label: "엄마", iconName: "parent-mom", number: cleanNumber(phones.mom), color: "var(--theme-accent-text)", bg: "var(--theme-accent-soft)" } : null,
+        phones.dad && phones.dad.length >= 8 ? { key: "dad", label: "아빠", iconName: "parent-dad", number: cleanNumber(phones.dad), color: "var(--theme-accent-text)", bg: "var(--theme-accent-soft)" } : null,
     ].filter(Boolean);
     const hasTargets = targets.length > 0;
 
@@ -74,7 +74,7 @@ export function ChildCallCard({ phones = {} }) {
                                 boxSizing: "border-box",
                             }}
                         >
-                            <span aria-hidden="true" style={{ fontSize: 21, lineHeight: 1 }}>{target.emoji}</span>
+                            <ThreeDIcon name={target.iconName} size={32} aria-label="" />
                             <span style={{ lineHeight: 1.1, wordBreak: "keep-all" }}>{target.label}</span>
                         </a>
                     ))}

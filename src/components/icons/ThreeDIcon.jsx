@@ -47,6 +47,8 @@ import bellOffIcon from "../../assets/3d/ui/bell-off.webp";
 import micLavenderIcon from "../../assets/3d/ui/mic-lavender.webp";
 import cameraRoseIcon from "../../assets/3d/ui/camera-rose.webp";
 import pencilMintIcon from "../../assets/3d/ui/pencil-mint.webp";
+import parentMomIcon from "../../assets/3d/ui/parent-mom.webp";
+import parentDadIcon from "../../assets/3d/ui/parent-dad.webp";
 
 const SOURCES = {
     bell: bellIcon,
@@ -93,6 +95,8 @@ const SOURCES = {
     "mic-lavender": micLavenderIcon,
     "camera-rose": cameraRoseIcon,
     "pencil-mint": pencilMintIcon,
+    "parent-mom": parentMomIcon,
+    "parent-dad": parentDadIcon,
 };
 
 const FALLBACK_EMOJI = {
@@ -140,6 +144,8 @@ const FALLBACK_EMOJI = {
     "mic-lavender": "🎤",
     "camera-rose": "📷",
     "pencil-mint": "✏️",
+    "parent-mom": "👩",
+    "parent-dad": "👨",
 };
 
 export function ThreeDIcon({
