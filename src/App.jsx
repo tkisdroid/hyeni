@@ -4304,6 +4304,20 @@ export default function KidsScheduler() {
         });
         return labels;
     }, [childLocationLabels, displayChildPositions]);
+    // Mood 매핑: 헤더 logo 의 혜니 캐릭터를 아이 상태에 따라 변경.
+    // 우선순위: 미해결 알림 > 안전 위험(배터리/연결/차단) > 일정 많음 > 기본(윙크 별)
+    const appLogoMood = useMemo(() => {
+        if (!isParent) return "winkStar";
+        const unreadAlerts = parentAlerts.filter(a => !a.read).length;
+        if (unreadAlerts > 0) return "thinking";
+        const statuses = Object.values(childDeviceStatusMap || {});
+        const hasUnsafe = statuses.some(s => s?.battery_low || (s?.last_seen_minutes_ago != null && s.last_seen_minutes_ago > 30) || s?.app_blocked);
+        if (hasUnsafe) return "sad";
+        const todayCount = Array.isArray(todayEvents) ? todayEvents.length : 0;
+        if (todayCount >= 4) return "cheer";
+        if (todayCount >= 1) return "wave";
+        return "winkStar";
+    }, [isParent, parentAlerts, childDeviceStatusMap, todayEvents]);
     const parentBottomTabCount = (pairedChildren.length >= 1 ? 1 : 0)
         + 2
         + (parentCapabilities.canManagePlaces ? 1 : 0)
@@ -5973,7 +5987,7 @@ export default function KidsScheduler() {
             <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "10px 12px", background: "rgba(255,255,255,0.88)", border: "1px solid var(--theme-accent-line)", borderRadius: DESIGN.radius.xl, boxShadow: DESIGN.shadow.soft }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: "1 1 auto" }}>
                     <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
-                        <AppBrandLogo size={isParent ? 38 : 44} radius={isParent ? 12 : 14} shadow={false} />
+                        <AppBrandLogo size={isParent ? 40 : 44} radius={isParent ? 12 : 14} shadow={false} mood={appLogoMood} />
                     </div>
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                         <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", cursor: "pointer" }}>혜니캘린더</div>
