@@ -54,7 +54,8 @@ export function ChildSelector({ children, value, onChange }) {
           width: "100%",
           height: 44,
           fontSize: 14,
-          border: `2px dashed ${familyAll ? "var(--cartoon-rose)" : "var(--cartoon-line-strong)"}`,
+          border: `2px dashed ${familyAll ? "var(--theme-accent)" : "var(--theme-accent-line)"}`,
+          userSelect: "none",
         }}
       >가족 전체</button>
     </div>

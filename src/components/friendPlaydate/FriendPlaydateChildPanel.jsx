@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PlaydateStartButton from "./PlaydateStartButton.jsx";
 import FriendCandidateList from "./FriendCandidateList.jsx";
 import ActivePlaydateChildView from "./ActivePlaydateChildView.jsx";
@@ -8,6 +8,7 @@ import {
   fetchActiveSession,
   subscribeActiveSession,
 } from "../../lib/friendPlaydate.js";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 
 export default function FriendPlaydateChildPanel({ familyId, currentUserId }) {
   const [phase, setPhase] = useState("idle");
@@ -16,7 +17,7 @@ export default function FriendPlaydateChildPanel({ familyId, currentUserId }) {
   const [candidates, setCandidates] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     if (!familyId) return;
     const active = await fetchActiveSession(familyId).catch(() => null);
     if (active) {
@@ -32,19 +33,21 @@ export default function FriendPlaydateChildPanel({ familyId, currentUserId }) {
     setInSafePlace(!!result?.public_place_id);
     setPublicPlaceId(result?.public_place_id ?? null);
     setPhase("idle");
-  };
+  }, [familyId]);
 
   useEffect(() => {
-    if (!familyId) return;
-    reload();
+    if (!familyId) return undefined;
+    const cancelInitial = deferEffectStateUpdate(() => {
+      void reload();
+    });
     const unsub = subscribeActiveSession(familyId, () => {
-      reload();
+      void reload();
     });
     return () => {
+      cancelInitial();
       unsub?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [familyId]);
+  }, [familyId, reload]);
 
   const handleDiscover = async () => {
     try {

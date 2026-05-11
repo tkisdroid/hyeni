@@ -14,7 +14,14 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
         if (event.target === event.currentTarget) onDismiss();
       }}
     >
-      <div className="cartoon-modal-card cartoon-modal-card--bottom">
+      <div
+        className="cartoon-modal-card cartoon-modal-card--bottom"
+        style={{
+          background: "linear-gradient(180deg, var(--bg-card), color-mix(in srgb, var(--fg-primary) 2%, var(--theme-accent-soft)))",
+          border: "1px solid var(--theme-accent-line)",
+          boxShadow: "var(--hyeni-theme-shadow)",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
           <span
             style={{
@@ -65,7 +72,7 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
             type="button"
             onClick={onStart}
             className="btn btn-primary"
-            style={{ flex: 1 }}
+            style={{ flex: 1, background: "var(--hyeni-theme-gradient)" }}
           >
             {TRIAL_INVITE.ctaPrimary}
           </button>

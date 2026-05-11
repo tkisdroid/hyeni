@@ -68,24 +68,6 @@ async function anonSignup() {
   return body;
 }
 
-function patchedKakaoSession(session) {
-  return {
-    ...session,
-    user: {
-      ...session.user,
-      app_metadata: {
-        ...(session.user?.app_metadata || {}),
-        provider: "kakao",
-        providers: ["kakao"],
-      },
-      identities: [
-        ...(session.user?.identities || []),
-        { provider: "kakao", id: session.user?.id || "e2e" },
-      ],
-    },
-  };
-}
-
 function pairCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "";

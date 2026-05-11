@@ -28,9 +28,13 @@ const children = [
 
 describe("SubscriptionManagement (parent)", () => {
   it("자녀 N명 toggle 표시 + 합계", () => {
-    render(<SubscriptionManagement role="parent" familyId="f1" childList={children} />);
+    const { container } = render(<SubscriptionManagement role="parent" familyId="f1" childList={children} />);
     expect(screen.getByText("혜니")).toBeInTheDocument();
     expect(screen.getByText("민준")).toBeInTheDocument();
     expect(screen.getAllByText("₩1,500/월").length).toBeGreaterThan(0);
+    const childSlots = container.querySelectorAll(".hyeni-subscription-child-slot.hyeni-micro-tap");
+    expect(childSlots.length).toBe(2);
+    expect(childSlots[0]).toHaveAttribute("data-child-id", "c1");
+    expect(childSlots[0].style.getPropertyValue("--child-color")).toBe("#F779A8");
   });
 });

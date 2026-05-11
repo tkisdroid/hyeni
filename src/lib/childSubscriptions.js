@@ -1,6 +1,7 @@
 // src/lib/childSubscriptions.js
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./supabase.js";
+import { deferEffectStateUpdate } from "./deferEffectStateUpdate.js";
 
 const PREMIUM_STATUSES = new Set(["active", "grace"]);
 const FREE_FEATURES = new Set([
@@ -60,7 +61,9 @@ export function useChildSubscriptions(familyId) {
     }
   }, [familyId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => deferEffectStateUpdate(() => {
+    void refresh();
+  }), [refresh]);
 
   useEffect(() => {
     if (!familyId) return undefined;

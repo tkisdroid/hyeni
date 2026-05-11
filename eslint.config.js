@@ -5,7 +5,18 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'android/app/src/main/assets/**']),
+  globalIgnores([
+    '**/dist/**',
+    '**/build/**',
+    '**/android/app/src/main/assets/**',
+    '.claude/**',
+    '.codex/**',
+    '.e2e-runs/**',
+    '.e2e-screens/**',
+    '.playwright-mcp/**',
+    '.tmp-debug/**',
+    'test-results/**',
+  ]),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -24,6 +35,20 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    files: [
+      '*.config.js',
+      'tests/e2e/**/*.{js,jsx}',
+      'scripts/**/*.{js,mjs}',
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
     },
   },
 ])

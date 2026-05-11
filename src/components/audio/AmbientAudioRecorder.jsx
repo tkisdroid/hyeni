@@ -22,7 +22,7 @@ import {
 } from "../../lib/remoteAudio.js";
 import { DESIGN, FF, makeCardStyle, modalBackdropStyle } from "../../lib/styleHelpers.js";
 
-export function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUserId, onClose, pairedChildren = [], targetChildUserId = null, childDeviceStatusMap = {} }) {
+export function AmbientAudioRecorder({ channelRef, familyId: recFamilyId, senderUserId, onClose, pairedChildren = [], targetChildUserId = null, childDeviceStatusMap = {} }) {
     const [status, setStatus] = useState("idle"); // idle, pushing, auto_waking_child, waiting_for_child_notification, listening, failed
     const [duration, setDuration] = useState(0);
     const [errorMessage, setErrorMessage] = useState("");
@@ -175,6 +175,7 @@ export function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUse
                 idempotencyKey: requestId,
             });
             setStatus("auto_waking_child");
+            const channel = channelRef?.current || null;
             const realtimeSent = await sendBroadcastWhenReady(
                 channel,
                 "remote_listen_start",
@@ -209,6 +210,7 @@ export function AmbientAudioRecorder({ channel, familyId: recFamilyId, senderUse
             selectedChild: { user_id: remoteAudioCurrentTargetUserIdRef.current || targetChildUserId || null },
         });
         const targetUserId = remoteAudioCurrentTargetUserIdRef.current || targetChildUserId || null;
+        const channel = channelRef?.current || null;
         if (channel) channel.send({ type: "broadcast", event: "remote_listen_stop", payload: { requestId, ...stopTargetPayload } });
         if (recFamilyId && senderUserId && requestId) {
             void sendInstantPush({

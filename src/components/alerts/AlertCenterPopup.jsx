@@ -167,7 +167,7 @@ export function AlertCenterPopup({
                         <HyeniMascot variant="winkStar" size={72} aria-label="" />
                     </div>
                 </div>
-                <h2 style={{ margin: "6px 0 0", textAlign: "center", fontSize: 28, fontWeight: 900, color: "var(--brand-rose-text, #B83262)", letterSpacing: "-0.02em" }}>알림 센터</h2>
+                <h2 style={{ margin: "6px 0 0", textAlign: "center", fontSize: 28, fontWeight: 900, color: "var(--brand-rose-text, #B83262)", letterSpacing: 0 }}>알림 센터</h2>
                 <p style={{ margin: "4px 0 14px", textAlign: "center", fontSize: 12.5, fontWeight: 700, color: "var(--fg-tertiary, #9A9AA0)" }}>
                     오늘 도착 및 일정 알림을 확인해 보세요
                 </p>

@@ -17,7 +17,7 @@ const STYLE_HEADLINE = {
     fontWeight: "var(--weight-bold)",
     color: "var(--fg-primary)",
     lineHeight: "var(--leading-tight)",
-    letterSpacing: "-0.01em",
+    letterSpacing: 0,
 };
 const STYLE_SUBLINE = {
     margin: "var(--space-1) 0 0",

@@ -32,7 +32,10 @@ export function dispatchBack() {
 
 export function useBackHandler(handler) {
   const ref = useRef(handler);
-  ref.current = handler;
+  useEffect(() => {
+    ref.current = handler;
+  }, [handler]);
+
   useEffect(() => {
     const wrapped = () => ref.current?.();
     pushBackHandler(wrapped);

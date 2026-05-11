@@ -154,7 +154,7 @@
   font-family: var(--font-sans);
   font-weight: 700;
   font-size: 16px;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
@@ -275,7 +275,7 @@
   font-family: var(--cartoon-font-display);
   font-size: 26px;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   color: var(--cartoon-rose-text);
   margin: 0;
   line-height: 1.2;
@@ -286,7 +286,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--fg-secondary);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 /* Form field label */
@@ -299,7 +299,7 @@
   font-size: 12.5px;
   font-weight: 700;
   color: var(--fg-secondary);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 /* Role chip (엄마/아빠/보호자) */
@@ -418,7 +418,7 @@
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -462,7 +462,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--cartoon-rose-text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -508,7 +508,7 @@ body .hyeni-app-shell .btn-primary {
   border: none;
   border-radius: var(--cartoon-radius-pill);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   box-shadow: var(--cartoon-shadow-pill);
   transition: filter 120ms ease, transform 120ms ease;
 }
@@ -602,7 +602,7 @@ body .event-sheet-header .sheet-title {
   color: var(--cartoon-rose-text);
   font-family: var(--cartoon-font-display);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 body .event-sheet-header .sheet-cancel {
   color: var(--fg-secondary);
@@ -631,7 +631,7 @@ body .hyeni-v5-tabbar button {
   color: var(--fg-tertiary);
   font-weight: 700;
   font-family: var(--font-sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   transition: background 140ms ease, color 140ms ease, transform 140ms ease;
   /* 6버튼 다자녀 케이스: icon + label 세로 스택으로 겹침 방지 */
   display: flex;
@@ -655,7 +655,7 @@ body .hyeni-v5-tabbar button .tabbar-label {
   overflow: hidden;
   text-overflow: clip;
   max-width: 100%;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 body .hyeni-v5-tabbar button.active {
   background: var(--cartoon-rose-gradient);
@@ -732,7 +732,7 @@ body .hyeni-v5-tabbar button:active { transform: scale(0.96); }
   font-size: 13px;
   font-weight: 800;
   color: var(--cartoon-rose-text);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .cartoon-push-banner-sub {
   font-size: 11px;
@@ -836,7 +836,7 @@ body .hyeni-v5-tabbar button:active { transform: scale(0.96); }
   border-radius: var(--cartoon-radius-chip);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .cartoon-chip--mint {
   background: var(--cartoon-bg-chip-mint);
@@ -924,7 +924,7 @@ body .hyeni-v5-tabbar button:active { transform: scale(0.96); }
   font-size: 18px;
   font-weight: 800;
   color: var(--fg-primary);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 .hyeni-role-card-sub {
   display: block;

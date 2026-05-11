@@ -26,7 +26,7 @@ export function HomeTab({
             fontSize: 28,
             fontWeight: 900,
             color: "var(--fg-primary, #1F2A24)",
-            letterSpacing: "-0.02em",
+            letterSpacing: 0,
             lineHeight: 1.15,
           }}>아이 선택</h1>
           <p style={{
@@ -85,7 +85,7 @@ export function HomeTab({
             )}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 900, color: "var(--fg-primary, #1F2A24)", letterSpacing: "-0.01em" }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: "var(--fg-primary, #1F2A24)", letterSpacing: 0 }}>
               알림 센터
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: unreadAlertCount > 0 ? "var(--brand-rose-text, #B83262)" : "var(--fg-secondary, #5F6368)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -117,7 +117,7 @@ export function HomeTab({
             fontSize: 14,
             fontWeight: 800,
             color: "var(--fg-secondary, #5F6368)",
-            letterSpacing: "-0.01em",
+            letterSpacing: 0,
           }}>아이들 현재 위치</h2>
           <MiniMap children={children} positions={positions} onTap={onTapMap} />
         </div>

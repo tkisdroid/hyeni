@@ -50,7 +50,7 @@ describe("PlaceManagerScreen", () => {
     });
 
     it("default 열린 섹션이 학원 (academy)", () => {
-        const { container } = render(
+        render(
             <PlaceManagerScreen
                 onBack={() => {}}
                 savedPlaces={[]}

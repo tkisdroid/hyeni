@@ -33,6 +33,11 @@ describe("ChildHero — copy 분기", () => {
         expect(container.querySelector('.child-hero-mascot')).toBeNull();
     });
 
+    it("홈 hero에서 혜니 캐릭터를 크게 표시", () => {
+        render(<ChildHero eventCount={0} now={fixedNow} />);
+        expect(screen.getByAltText("혜니")).toHaveAttribute("width", "112");
+    });
+
     it("onSettings 핸들러가 ⚙ 클릭 시 호출됨", () => {
         const onSettings = vi.fn();
         render(<ChildHero eventCount={0} onSettings={onSettings} now={fixedNow} />);

@@ -4,16 +4,18 @@
 
 import { useState } from "react";
 import { formatDeviceDuration } from "../../lib/deviceFormat.js";
+import { useNowMs } from "../../lib/useNowMs.js";
 
 export function ChildDeviceCard({ child, status }) {
     const [expanded, setExpanded] = useState(false);
+    const nowMs = useNowMs(60_000);
     const color = child?.color_hex || "#9CA3AF";
     const battery = Number.isFinite(Number(status?.batteryLevel))
         ? Math.max(0, Math.min(100, Number(status.batteryLevel)))
         : null;
     const updatedAt = status?.updatedAt || status?.updated_at || null;
     const minutesAgo = updatedAt
-        ? Math.max(0, Math.round((Date.now() - new Date(updatedAt).getTime()) / 60000))
+        ? Math.max(0, Math.round((nowMs - new Date(updatedAt).getTime()) / 60000))
         : null;
     const screenLabel = formatDeviceDuration(Number(status?.screenOnMs || 0));
     const recentApp = status?.recentApp || "사용기록 권한 필요";

@@ -304,7 +304,7 @@ export function ChildPairInput({ userId, onPaired }) {
             >
                 <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
                     <HyeniMascot variant="wave" size={180} aria-label="혜니" />
-                    <h1 style={{ marginTop: 24, fontSize: 26, fontWeight: 800, color: "#2A1A20", letterSpacing: "-0.03em" }}>
+                    <h1 style={{ marginTop: 24, fontSize: 26, fontWeight: 800, color: "#2A1A20", letterSpacing: 0 }}>
                         연결됐어요!
                         <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 16, color: "#F779A8" }}>♥</span>
                     </h1>
@@ -345,7 +345,7 @@ export function ChildPairInput({ userId, onPaired }) {
                                 fontSize: 18,
                                 fontWeight: 800,
                                 color: "var(--theme-accent-text, #C3325B)",
-                                letterSpacing: "-0.02em",
+                                letterSpacing: 0,
                             }}
                         >
                             혜니캘린더
@@ -361,7 +361,7 @@ export function ChildPairInput({ userId, onPaired }) {
                                 fontWeight: 800,
                                 lineHeight: 1.2,
                                 color: "#2A1A20",
-                                letterSpacing: "-0.03em",
+                                letterSpacing: 0,
                             }}
                         >
                             부모님과 <span style={{ color: "var(--theme-accent, #F779A8)" }}>연결하기</span>
@@ -377,15 +377,15 @@ export function ChildPairInput({ userId, onPaired }) {
                         style={{
                             marginTop: 20,
                             padding: "20px 16px",
-                            background: "linear-gradient(180deg, rgba(255,247,250,0.9) 0%, rgba(255,235,242,0.9) 100%)",
-                            border: "1px solid #FFD6DD",
+                            background: "linear-gradient(180deg, var(--theme-accent-soft) 0%, var(--bg-card) 100%)",
+                            border: "1px solid var(--theme-accent-line)",
                             borderRadius: 24,
-                            boxShadow: "0 4px 14px rgba(247, 121, 168, 0.10)",
+                            boxShadow: "var(--hyeni-theme-shadow-soft)",
                         }}
                     >
                         <CodeInput code={code} onChange={setCode} onSubmit={() => { void handleJoin(); }} />
 
-                        <div style={{ height: 1, background: "#FFD6DD", margin: "16px 4px 12px", opacity: 0.7 }} />
+                        <div style={{ height: 1, background: "var(--theme-accent-line)", margin: "16px 4px 12px", opacity: 0.7 }} />
 
                         <button
                             type="button"
@@ -542,7 +542,7 @@ function CodeInput({ code, onChange, onSubmit }) {
                     fontWeight: 800,
                     color: "var(--theme-accent-text, #C3325B)",
                     fontFamily: FF,
-                    letterSpacing: "-0.02em",
+                    letterSpacing: 0,
                 }}
             >
                 KID-

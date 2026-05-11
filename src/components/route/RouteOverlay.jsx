@@ -2,7 +2,7 @@
 // 도보 길안내 오버레이 — 실시간 GPS 추적 + Kakao 도보 경로 + compass.
 // Extracted from App.jsx (Phase 5 #4 / B15).
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { haversineM, sumRouteDistance } from "../../lib/trailMath.js";
 import { DESIGN, FF } from "../../lib/styleHelpers.js";
 import { KAKAO_APP_KEY } from "../../lib/kakaoMap.js";
@@ -15,6 +15,7 @@ import {
 } from "../../lib/childDefaultImage.js";
 import { FallbackMapCanvas } from "../map/FallbackMapCanvas.jsx";
 import { MapZoomControls } from "../map/MapZoomControls.jsx";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 
 function childMarkerImageHtml(photoUrl) {
     const safePhotoUrl = typeof photoUrl === "string" && photoUrl.trim() ? photoUrl : "";
@@ -54,9 +55,12 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
     const currentMarkerColor = childProfile?.color_hex || childPos?.color_hex || childPos?.color || "var(--theme-accent)";
     const currentMarkerPhotoUrl = childProfile?.photo_url || childPos?.photo_url || "";
     const currentMarkerLabel = isChildMode ? "내 위치" : `${childProfile?.name || "아이"} 위치`;
-    const detailedRoutePoints = Array.isArray(routeInfo?.points) && routeInfo.points.length >= 2 && !routeInfo.error
-        ? routeInfo.points
-        : [];
+    const detailedRoutePoints = useMemo(
+        () => (Array.isArray(routeInfo?.points) && routeInfo.points.length >= 2 && !routeInfo.error
+            ? routeInfo.points
+            : []),
+        [routeInfo],
+    );
     const hasDetailedWalkingRoute = detailedRoutePoints.length >= 2;
     const liveDist = currentPos && ev.location
         ? haversineM(currentPos.lat, currentPos.lng, ev.location.lat, ev.location.lng)
@@ -78,10 +82,12 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
     const canStartGuidance = Boolean(currentPos && ev.location && hasDetailedWalkingRoute);
 
     useEffect(() => {
-        if (isChildMode) return;
-        setLivePos(childPos || null);
-        setGpsError(false);
-        setIsTracking(false);
+        if (isChildMode) return undefined;
+        return deferEffectStateUpdate(() => {
+            setLivePos(childPos || null);
+            setGpsError(false);
+            setIsTracking(false);
+        });
     }, [childPos, isChildMode]);
 
     // Start real-time GPS tracking only on the child's own device. In parent
@@ -105,9 +111,9 @@ export function RouteOverlay({ ev, childPos, childProfile = null, mapReady, mapL
             { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
         );
         watchIdRef.current = wid;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setIsTracking(true);
+        const cancelTrackingState = deferEffectStateUpdate(() => setIsTracking(true));
         return () => {
+            cancelTrackingState();
             navigator.geolocation.clearWatch(wid);
             setIsTracking(false);
         };

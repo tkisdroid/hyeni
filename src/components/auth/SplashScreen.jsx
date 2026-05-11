@@ -55,7 +55,7 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) 
                         fontSize: 18,
                         fontWeight: 800,
                         color: "var(--theme-accent-text, #C3325B)",
-                        letterSpacing: "-0.02em",
+                        letterSpacing: 0,
                     }}
                 >
                     혜니캘린더
@@ -71,7 +71,7 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) 
                         fontWeight: 800,
                         lineHeight: 1.2,
                         color: "#2A1A20",
-                        letterSpacing: "-0.03em",
+                        letterSpacing: 0,
                     }}
                 >
                     가족의 하루를<br />

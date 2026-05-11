@@ -31,7 +31,7 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
     {
         id: "microphone",
         title: "마이크 권한",
-        description: "부모님이 요청했을 때 주변 소리 연결을 시작할 수 있어요.",
+        description: "부모님이 요청했을 때만 1분 주변 소리 연결을 시작할 수 있어요.",
         target: "appDetails",
         actionLabel: "권한 열기",
         isReady: (health) => health?.recordAudioGranted === true,
@@ -39,7 +39,7 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
     {
         id: "notifications",
         title: "알림 권한",
-        description: "앱이 닫혀 있어도 연결 요청을 받을 수 있어요.",
+        description: "앱을 닫아도 일정과 안전 연결 알림을 바로 받을 수 있어요.",
         target: "notifications",
         actionLabel: "알림 켜기",
         isReady: (health) => !!health && health.postPermissionGranted === true && health.notificationsEnabled === true && health.channelsEnabled === true,
@@ -47,7 +47,7 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
     {
         id: "remoteListenChannel",
         title: "연결 알림",
-        description: "자동 실행이 막혀도 아이 기기에 연결 알림이 남아요.",
+        description: "자동 실행이 막혀도 아이 기기에 연결 알림을 남겨 바로 확인할 수 있어요.",
         target: "remoteListenChannel",
         channelId: REMOTE_LISTEN_CHANNEL_ID,
         actionLabel: "채널 열기",
@@ -56,7 +56,7 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
     {
         id: "fullScreen",
         title: "전체화면 알림",
-        description: "잠금 화면에서도 연결 화면을 자동으로 띄울 확률을 높여요.",
+        description: "잠금 화면에서도 중요한 연결 화면을 놓치지 않도록 도와줘요.",
         target: "fullScreen",
         actionLabel: "허용하기",
         isReady: (health) => health?.fullScreenIntentAllowed === true,
@@ -64,7 +64,7 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
     {
         id: "battery",
         title: "배터리 예외",
-        description: "절전 모드가 자녀 안전 위치 추적과 응급 연결을 끊지 않도록 예외 처리해요.",
+        description: "절전 모드가 위치 확인과 응급 연결을 끊지 않도록 예외 처리해요.",
         target: "battery",
         actionLabel: "예외 허용",
         isReady: (health) => health?.batteryOptimizationsIgnored === true,
@@ -81,7 +81,7 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
     {
         id: "locationService",
         title: "위치 서비스",
-        description: "백그라운드 유지와 FCM fallback을 담당하는 서비스예요.",
+        description: "위치와 상태 업데이트가 끊기지 않도록 안전 서비스를 다시 켜요.",
         target: "locationService",
         actionLabel: "다시 시작",
         isReady: (health) => health?.locationServiceRunning === true,

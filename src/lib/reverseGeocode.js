@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { buildCompactAddressLabel, formatLatLngLabel } from "./placeFormat.js";
+import { deferEffectStateUpdate } from "./deferEffectStateUpdate.js";
 
 const cache = new Map();
 const inflight = new Map();
@@ -70,26 +71,28 @@ export function useReverseGeocodedLabel(lat, lng, fallback = "") {
     useEffect(() => {
         const key = gridKey(lat, lng);
         if (!key) {
-            setLabel(fallbackLabel);
-            lastKey.current = "";
-            return;
+            return deferEffectStateUpdate(() => {
+                setLabel(fallbackLabel);
+                lastKey.current = "";
+            });
         }
-        if (key === lastKey.current) return;
+        if (key === lastKey.current) return undefined;
         lastKey.current = key;
 
         if (cache.has(key)) {
-            setLabel(cache.get(key) || fallbackLabel);
-            return;
+            return deferEffectStateUpdate(() => setLabel(cache.get(key) || fallbackLabel));
         }
 
         let cancelled = false;
-        setLabel(fallbackLabel);
+        const cancelFallback = deferEffectStateUpdate(() => setLabel(fallbackLabel));
         reverseGeocodeKorean(lat, lng).then((result) => {
             if (cancelled) return;
             setLabel(result || fallbackLabel);
         });
-        return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        return () => {
+            cancelled = true;
+            cancelFallback();
+        };
     }, [lat, lng, fallbackLabel]);
 
     return label;

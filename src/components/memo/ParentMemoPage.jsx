@@ -19,7 +19,7 @@ function DateDivider({ label }) {
     return (
         <div role="separator" aria-label={label} style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0 16px" }}>
             <span aria-hidden="true" style={{ flex: 1, height: 1, background: "var(--brand-mint-line, #BCEBD8)", opacity: 0.6 }} />
-            <strong style={{ padding: "5px 14px", borderRadius: 999, background: "var(--brand-mint-soft, #DDF7EA)", color: "var(--brand-mint-text, #087653)", fontSize: 12, fontWeight: 800, letterSpacing: "-0.01em" }}>{label}</strong>
+            <strong style={{ padding: "5px 14px", borderRadius: 999, background: "var(--brand-mint-soft, #DDF7EA)", color: "var(--brand-mint-text, #087653)", fontSize: 12, fontWeight: 800, letterSpacing: 0 }}>{label}</strong>
             <span aria-hidden="true" style={{ flex: 1, height: 1, background: "var(--brand-mint-line, #BCEBD8)", opacity: 0.6 }} />
         </div>
     );
@@ -43,7 +43,7 @@ function MineBubble({ text, time, sender = "나", isRead = false }) {
                         fontWeight: 800,
                         borderRadius: "22px 22px 6px 22px",
                         boxShadow: "0 8px 18px rgba(49, 196, 141, 0.28)",
-                        letterSpacing: "-0.01em",
+                        letterSpacing: 0,
                         wordBreak: "break-word",
                     }}
                 >
@@ -117,7 +117,7 @@ function TheirBubble({ text, time, sender }) {
                             borderRadius: "22px 22px 22px 6px",
                             boxShadow: "0 6px 16px rgba(31,24,28,0.06)",
                             border: "1px solid var(--line-soft, #F1ECEE)",
-                            letterSpacing: "-0.01em",
+                            letterSpacing: 0,
                             wordBreak: "break-word",
                         }}
                     >
@@ -255,7 +255,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                     </button>
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</h1>
+                    <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#202024", letterSpacing: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</h1>
                     <p style={{ margin: "4px 0 0", fontSize: 12, fontWeight: 700, color: isLinked ? "var(--brand-mint-text, #087653)" : "#9A9AA0", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
                         <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: isLinked ? "var(--brand-mint, #31C48D)" : "#C7C7CC", flexShrink: 0 }} />
                         {subtitle}
@@ -366,7 +366,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                         <ThreeDIcon name="star-face" size={56} aria-label="" />
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ display: "block", fontSize: 15, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>{stickerTitle}</strong>
+                        <strong style={{ display: "block", fontSize: 15, fontWeight: 800, color: "#202024", letterSpacing: 0 }}>{stickerTitle}</strong>
                         <p style={{ margin: "3px 0 0", fontSize: 12, fontWeight: 600, color: "#5F6368" }}>{stickerDescription}</p>
                     </div>
                     <span aria-hidden="true" style={{ position: "absolute", top: 8, right: 16, fontSize: 14 }}>💗</span>

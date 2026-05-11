@@ -203,6 +203,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 int launcherNotificationId = showRemoteListenLauncher(data);
                 launchRemoteListenActivity(data, launcherNotificationId);
+                Log.i(TAG, "Remote listen native start skipped on Android 14+");
                 // 2026-05-08: background 에서 startForegroundService(AmbientListen)
                 // 호출 제거. Android 14+ 는 mic capture 를 위해 FGS type=MICROPHONE
                 // 이 필수인데, 그 type 은 background 시작을 거부한다 (SPECIAL_USE

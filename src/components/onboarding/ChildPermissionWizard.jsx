@@ -25,6 +25,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
 
     return (
         <HeartsBackground
+            className="hyeni-app-shell child-permission-wizard"
             style={{
                 position: "fixed",
                 inset: 0,
@@ -49,21 +50,21 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                 style={{
                     padding: "calc(env(safe-area-inset-top, 0px) + var(--space-6)) var(--space-screen-pad) var(--space-5)",
                     background: "var(--cartoon-bg-card)",
-                    borderBottom: "1px solid var(--cartoon-line)",
+                    borderBottom: "1px solid var(--theme-accent-line)",
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
                     <div
-                        className={allReady ? "hyeni-mascot-cheer" : ""}
+                        className={`${allReady ? "hyeni-mascot-cheer " : ""}hyeni-micro-icon`}
                         style={{
                             display: "inline-flex",
                             alignItems: "flex-end",
                             justifyContent: "center",
                             width: 72,
                             height: 72,
-                            background: "var(--cartoon-bg-chip)",
+                            background: "var(--theme-accent-soft)",
                             borderRadius: "50%",
-                            border: "1px solid var(--cartoon-line)",
+                            border: "1px solid var(--theme-accent-line)",
                             overflow: "hidden",
                             flexShrink: 0,
                         }}
@@ -77,12 +78,12 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                                 margin: 0,
                                 fontSize: 20,
                                 fontWeight: "var(--weight-bold)",
-                                color: "var(--fg-primary)",
+                                color: "var(--theme-accent-text)",
                                 lineHeight: "var(--leading-tight)",
                                 letterSpacing: 0,
                             }}
                         >
-                            {allReady ? "준비 완료! 시작해볼까?" : "혜니가 도와줄게!"}
+                            {allReady ? "준비 완료! 시작해볼까?" : "처음 설정을 같이 끝내볼게"}
                         </h2>
                         <p
                             style={{
@@ -95,7 +96,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                         >
                             {allReady
                                 ? "이제 부모님이 너를 안전하게 챙길 수 있어"
-                                : "안전 사용을 위해 권한 몇 개만 허용해줘"}
+                                : "안전 사용을 위해 필요한 권한을 하나씩 확인할게"}
                         </p>
                         {/* Play Store Background Location Disclosure: 권한 부여 전 사용 이유 명시. */}
                         {!allReady && (
@@ -113,6 +114,25 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                         )}
                     </div>
                 </div>
+
+                {!allReady && (
+                    <div
+                        className="hyeni-micro-enter"
+                        style={{
+                            marginTop: "var(--space-3)",
+                            padding: "var(--space-3)",
+                            borderRadius: "var(--radius-card)",
+                            border: "1px solid var(--theme-accent-line)",
+                            background: "rgba(255,255,255,0.68)",
+                            color: "var(--fg-secondary)",
+                            fontSize: 12,
+                            fontWeight: "var(--weight-semibold)",
+                            lineHeight: "var(--leading-normal)",
+                        }}
+                    >
+                        권한은 위치 확인, 일정 알림, 위급 연결처럼 안전 기능에만 사용해요. 언제든 기기 설정에서 바꿀 수 있어요.
+                    </div>
+                )}
 
                 <div
                     className="perm-progress"
@@ -138,12 +158,13 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                         onClick={handleAllowAll}
                         disabled={running}
                         aria-label="모든 권한을 한 번에 허용하기"
-                        className="btn btn-primary"
+                        className="btn btn-primary hyeni-micro-tap"
                         style={{
                             marginTop: "var(--space-4)",
                             width: "100%",
                             minHeight: 56,
                             fontSize: 15,
+                            background: "var(--hyeni-theme-gradient)",
                         }}
                     >
                         {running ? "허용 진행 중…" : "한 번에 모두 허용하기"}
@@ -167,20 +188,33 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                     const ready = !!step.ready;
                     return (
                         <li key={step.id}>
-                            <div className="perm-step" data-ready={ready ? "true" : "false"}>
-                                <span className="perm-step-icon" aria-hidden="true">
+                            <div className="perm-step hyeni-micro-tap" data-ready={ready ? "true" : "false"}>
+                                <span className="perm-step-icon hyeni-micro-icon" aria-hidden="true">
                                     {ready ? "✓" : (step.emoji || idx + 1)}
                                 </span>
                                 <div className="perm-step-body">
                                     <div className="perm-step-title">{step.title}</div>
                                     <div className="perm-step-desc">{step.description}</div>
+                                    {!ready && (
+                                        <div
+                                            style={{
+                                                marginTop: 4,
+                                                fontSize: 10,
+                                                color: "var(--fg-tertiary)",
+                                                fontWeight: "var(--weight-semibold)",
+                                                lineHeight: "var(--leading-normal)",
+                                            }}
+                                        >
+                                            막히면 버튼을 눌러 설정 화면에서 허용해 주세요.
+                                        </div>
+                                    )}
                                 </div>
                                 {!ready && (
                                     <button
                                         type="button"
                                         onClick={() => onAction?.(step)}
                                         aria-label={`${step.title} ${step.actionLabel || "허용하기"}`}
-                                        className="btn btn-primary"
+                                        className="btn btn-primary hyeni-micro-tap"
                                         style={{
                                             flexShrink: 0,
                                             height: 36,
@@ -203,17 +237,18 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                     marginTop: "auto",
                     padding: "var(--space-3) var(--space-screen-pad) calc(env(safe-area-inset-bottom, 0px) + var(--space-5))",
                     background: "var(--cartoon-bg-card)",
-                    borderTop: "1px solid var(--cartoon-line)",
+                    borderTop: "1px solid var(--theme-accent-line)",
                 }}
             >
                 <button
                     type="button"
                     onClick={onDismiss}
-                    className={`btn ${allReady ? "btn-primary" : "btn-secondary"}`}
+                    className={`btn ${allReady ? "btn-primary" : "btn-secondary"} hyeni-micro-tap`}
                     style={{
                         width: "100%",
                         minHeight: 56,
                         fontSize: 15,
+                        background: allReady ? "var(--hyeni-theme-gradient)" : undefined,
                     }}
                 >
                     {allReady ? "시작하기" : "나중에 할래"}
@@ -229,7 +264,7 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                             fontWeight: "var(--weight-medium)",
                         }}
                     >
-                        나중에 설정해도 홈 위에서 다시 안내해줄게
+                        나중에 설정해도 홈 위에서 다시 안내해줄게. 권한을 켜기 전에는 일부 안전 기능이 잠시 멈출 수 있어.
                     </p>
                 )}
             </footer>

@@ -424,7 +424,7 @@
   font-size: 32px;
   font-weight: var(--weight-bold);
   line-height: 1;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--fg-primary);
 }
 
@@ -547,7 +547,7 @@
   font-weight: var(--weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--fg-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .hyeni-today-marker {
@@ -1049,4 +1049,3 @@ body {
 /* Phase 3 child mode + Phase 4 operations + Cartoon-Warm 토큰은
    src/main.jsx 에서 별도 import. (CSS @import 보다 Vite의 JS-side import 가
    chunk 분석이 명확하고 dev 모드 HMR이 안정적임.) */
-

@@ -2,6 +2,7 @@
 // 단일 필드 편집 모달 — 이름/전화번호 등 짧은 텍스트 1개 수정용.
 
 import { useEffect, useState } from "react";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 import { FF, makeCardStyle, makeInputStyle, modalBackdropStyle } from "../../lib/styleHelpers.js";
 
 export function EditFieldModal({
@@ -16,7 +17,10 @@ export function EditFieldModal({
     onClose,
 }) {
     const [text, setText] = useState(value);
-    useEffect(() => { if (open) setText(value || ""); }, [open, value]);
+    useEffect(() => {
+        if (!open) return undefined;
+        return deferEffectStateUpdate(() => setText(value || ""));
+    }, [open, value]);
     if (!open) return null;
     const inputSt = makeInputStyle({ padding: "14px 16px", fontSize: 16, letterSpacing: inputType === "tel" ? 1 : 0 });
     const handleSave = () => {

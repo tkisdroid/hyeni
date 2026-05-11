@@ -3,6 +3,7 @@ import { supabase } from "./supabase.js";
 import { ALL_FEATURES } from "./features.js";
 import { readEntitlementCache, writeEntitlementCache } from "./entitlementCache.js";
 import { checkEntitlements } from "./qonversion.js";
+import { deferEffectStateUpdate } from "./deferEffectStateUpdate.js";
 
 const PREMIUM_STATUSES = new Set(["trial", "active", "grace"]);
 
@@ -89,18 +90,21 @@ export function useEntitlement(familyId) {
   // consumer 가 stale tier 로 premium 권한을 오인하지 않게 한다.
   useEffect(() => {
     if (!familyId) {
-      setState(deriveEntitlement(null));
-      setReady(false);
-      return;
+      return deferEffectStateUpdate(() => {
+        setState(deriveEntitlement(null));
+        setReady(false);
+      });
     }
     const cached = readEntitlementCache(familyId);
     if (cached) {
-      setState(cached);
-      setReady(true);
+      return deferEffectStateUpdate(() => {
+        setState(cached);
+        setReady(true);
+      });
     } else {
       // 캐시 미스 시 ready=false 로 두어 refresh 가 완료될 때까지
       // "premium 만 가능" UI 가 노출되지 않도록 한다.
-      setReady(false);
+      return deferEffectStateUpdate(() => setReady(false));
     }
   }, [familyId]);
 
@@ -151,7 +155,9 @@ export function useEntitlement(familyId) {
   }, [applyRow, familyId]);
 
   useEffect(() => {
-    refresh();
+    return deferEffectStateUpdate(() => {
+      void refresh();
+    });
   }, [refresh]);
 
   useEffect(() => {

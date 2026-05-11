@@ -213,7 +213,17 @@ export async function installPlaydateRoutes(page, opts = {}) {
     }
     if (method === "PATCH") {
       state.sessionPatchCalled = true;
-      route.fulfill({ status: 204, body: "" });
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: activeSession?.id || "sess-1",
+            stopped_at: new Date().toISOString(),
+            stop_reason: "parent_end",
+          },
+        ]),
+      });
       return;
     }
     route.fulfill({ status: 200, body: "[]" });

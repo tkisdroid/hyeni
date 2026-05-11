@@ -12,8 +12,8 @@ export function PerChildToggle({ child, subscribed, onToggle, busy = false }) {
     <div data-child-id={child.id} data-user-id={child.user_id} style={{
       display: "flex", alignItems: "center", gap: "var(--space-3)",
       padding: "var(--space-4)", borderRadius: "var(--cartoon-radius-card)",
-      background: subscribed ? "var(--cartoon-bg-card)" : "var(--cartoon-bg-cream)",
-      border: subscribed ? "1.5px solid var(--cartoon-rose)" : "1.5px solid var(--cartoon-line)",
+      background: subscribed ? "var(--theme-accent-soft)" : "var(--cartoon-bg-cream)",
+      border: subscribed ? "1.5px solid var(--theme-accent-line)" : "1.5px solid var(--cartoon-line)",
       opacity: subscribed ? 1 : 0.85,
     }}>
       <ChildAvatar child={child} size={44} radius="50%" fontSize={16} />
@@ -22,7 +22,7 @@ export function PerChildToggle({ child, subscribed, onToggle, busy = false }) {
           {child.name}
           {year && <span style={{ fontSize: 12, color: "var(--fg-secondary)", marginLeft: 8, fontWeight: 600 }}>({year}년생)</span>}
         </div>
-        <div style={{ fontSize: 12, color: subscribed ? "var(--cartoon-rose-text)" : "var(--fg-secondary)", marginTop: 2, fontWeight: 700 }}>
+        <div style={{ fontSize: 12, color: subscribed ? "var(--theme-accent-text)" : "var(--fg-secondary)", marginTop: 2, fontWeight: 700 }}>
           {subscribed ? "₩1,500/월" : "무료"}
         </div>
       </div>
@@ -33,7 +33,7 @@ export function PerChildToggle({ child, subscribed, onToggle, busy = false }) {
         disabled={busy}
         style={{
           width: 48, height: 28, borderRadius: "var(--radius-pill)",
-          background: subscribed ? "var(--cartoon-rose)" : "var(--cartoon-line-strong)",
+          background: subscribed ? "var(--theme-accent)" : "var(--cartoon-line-strong)",
           border: "none", position: "relative",
           cursor: busy ? "wait" : "pointer", flexShrink: 0,
           userSelect: "none",

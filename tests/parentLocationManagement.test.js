@@ -3,9 +3,10 @@ import { readFileSync } from "node:fs";
 
 const appSrc = readFileSync("src/App.jsx", "utf8");
 const academyManagerSrc = readFileSync("src/components/place-management/AcademyManager.jsx", "utf8");
+const placeManagerScreenSrc = readFileSync("src/components/settings/PlaceManagerScreen.jsx", "utf8");
 // Phase 5 #4 / B9: PairingModal moved to components/pairing/PairingModal.jsx — unpair confirm dialog there.
 const pairingModalSrc = readFileSync("src/components/pairing/PairingModal.jsx", "utf8");
-const app = `${appSrc}\n${academyManagerSrc}\n${pairingModalSrc}`;
+const app = `${appSrc}\n${academyManagerSrc}\n${placeManagerScreenSrc}\n${pairingModalSrc}`;
 const academyCardSrc = readFileSync("src/components/place-management/AcademyCard.jsx", "utf8");
 const dangerCardSrc = readFileSync("src/components/place-management/DangerCard.jsx", "utf8");
 const savedPlacesSrc = readFileSync("src/components/place-management/SavedPlacesSection.jsx", "utf8");
@@ -19,8 +20,11 @@ describe("parent location management entry", () => {
   test("opens academy management from the parent bottom location tab", () => {
     const body = extractFunctionBody("handleParentMapTabClick");
 
-    expect(body).toContain("openAcademyManagement()");
+    expect(body).toContain("setShowPlaceManager(true)");
+    expect(body).toContain("setShowAcademyMgr(false)");
     expect(body).not.toContain('setActiveView("maplist")');
+    expect(placeManagerScreenSrc).toContain('className="settings-back"');
+    expect(placeManagerScreenSrc).toContain('aria-label="뒤로"');
   });
 
   test("keeps the parent bottom tabbar compact and lets tabs close management overlays", () => {
@@ -30,13 +34,14 @@ describe("parent location management entry", () => {
     expect(app).toContain("closeParentManagementPanels()");
     // Phase E P2: 탭 라벨의 시각 마커가 raw emoji → Lucide SVG 로 통일됨.
     // 텍스트(일정/장소관리)는 동일 위치, 마커만 <Calendar/MapPin> 컴포넌트로.
-    expect(app).toContain("<Calendar size={16} strokeWidth={1.75} /></span>일정");
-    expect(app).toContain("<MapPin size={16} strokeWidth={1.75} /></span>장소관리");
+    expect(app).toContain("<CalendarPlus size={16} strokeWidth={1.75} />");
+    expect(app).toContain('<span className="tabbar-label">일정등록</span>');
+    expect(app).toContain("<MapPin size={16} strokeWidth={1.75} />");
+    expect(app).toContain('<span className="tabbar-label">장소</span>');
   });
 
   test("keeps frequent places managed inside the academy manager", () => {
-    const managerStart = app.indexOf("function AcademyManager");
-    const managerSource = app.slice(managerStart, app.indexOf("function RouteOverlay", managerStart));
+    const managerSource = academyManagerSrc;
 
     expect(managerSource).toContain("academies,");
     expect(managerSource).toContain("savedPlaces = []");
@@ -94,11 +99,10 @@ describe("parent location management entry", () => {
   });
 
   test("place manager uses a top back button and keeps the save action at the bottom", () => {
-    const managerStart = app.indexOf("function AcademyManager");
-    const managerSource = app.slice(managerStart, app.indexOf("function RouteOverlay", managerStart));
+    const managerSource = academyManagerSrc;
 
     expect(managerSource).toContain('aria-label="장소관리 닫기"');
-    expect(managerSource).toContain("← 뒤로");
+    expect(managerSource).toContain("onClick={onClose}");
     expect(managerSource).toContain("저장하고 닫기");
     expect(managerSource).not.toContain("← 저장");
   });

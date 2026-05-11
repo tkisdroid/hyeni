@@ -6,12 +6,12 @@
 // iconKey maps each category to a 3D WebP asset under src/assets/3d/category/.
 // `friend` intentionally has iconKey null → CategoryIcon falls back to emoji.
 export const CATEGORIES = [
-    { id: "school", label: "학원", emoji: "📚", iconKey: "school", color: "#A78BFA", bg: "#EDE9FE" },
-    { id: "sports", label: "운동", emoji: "⚽", iconKey: "sports", color: "#34D399", bg: "var(--status-positive-subtle)" },
+    { id: "school", label: "학원", emoji: "📚", iconKey: "school", color: "var(--hyeni-cat-school)", bg: "var(--hyeni-cat-school-bg)" },
+    { id: "sports", label: "운동", emoji: "⚽", iconKey: "sports", color: "var(--hyeni-cat-sports)", bg: "var(--hyeni-cat-sports-bg)" },
     { id: "hobby", label: "취미", emoji: "🎨", iconKey: "hobby", color: "var(--status-cautionary)", bg: "var(--status-cautionary-subtle)" },
-    { id: "family", label: "가족", emoji: "👨‍👩‍👧", iconKey: "family", color: "#F87171", bg: "var(--status-negative-subtle)" },
-    { id: "friend", label: "친구", emoji: "👫", iconKey: null, color: "#60A5FA", bg: "var(--bg-subtle)" },
-    { id: "other", label: "기타", emoji: "🌟", iconKey: "other", color: "#EC4899", bg: "#FCE7F3" },
+    { id: "family", label: "가족", emoji: "👨‍👩‍👧", iconKey: "family", color: "var(--hyeni-cat-family)", bg: "var(--hyeni-cat-family-bg)" },
+    { id: "friend", label: "친구", emoji: "👫", iconKey: null, color: "var(--hyeni-cat-friend)", bg: "var(--hyeni-cat-friend-bg)" },
+    { id: "other", label: "기타", emoji: "🌟", iconKey: "other", color: "var(--hyeni-cat-other)", bg: "var(--hyeni-cat-other-bg)" },
 ];
 
 export const ACADEMY_PRESETS = [

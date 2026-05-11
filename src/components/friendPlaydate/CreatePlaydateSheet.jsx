@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { EventSheet } from "../multichild/EventModal/EventSheet.jsx";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 
 const STEPS = [
     { id: "who",   label: "누구랑 만나?" },
@@ -198,10 +199,13 @@ export function CreatePlaydateSheet({
 
     useEffect(() => {
         if (!open) {
-            setStepIndex(0);
-            setSelectedFriend(null);
-            setSelectedPlace(null);
+            return deferEffectStateUpdate(() => {
+                setStepIndex(0);
+                setSelectedFriend(null);
+                setSelectedPlace(null);
+            });
         }
+        return undefined;
     }, [open]);
 
     const total = STEPS.length;

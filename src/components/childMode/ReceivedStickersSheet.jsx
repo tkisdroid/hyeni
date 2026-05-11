@@ -8,6 +8,7 @@ import { StickerIcon } from "../../lib/stickerIcons.jsx";
 import { fetchReceivedPraiseStickers } from "../../lib/sync.js";
 import { FF } from "../../lib/styleHelpers.js";
 import { HyeniMascot } from "../auth/HyeniMascot.jsx";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 
 function formatDate(isoString) {
     if (!isoString) return "";
@@ -27,10 +28,12 @@ export function ReceivedStickersSheet({ open, onClose, familyId, userId, parentN
 
     useEffect(() => {
         if (!open || !familyId || !userId) return;
-        setLoading(true);
-        fetchReceivedPraiseStickers(familyId, userId)
-            .then((data) => setStickers(data))
-            .finally(() => setLoading(false));
+        return deferEffectStateUpdate(() => {
+            setLoading(true);
+            fetchReceivedPraiseStickers(familyId, userId)
+                .then((data) => setStickers(data))
+                .finally(() => setLoading(false));
+        });
     }, [open, familyId, userId]);
 
     const senderLabel = parentName ? `${parentName}이(가)` : "부모님이";

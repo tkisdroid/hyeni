@@ -268,11 +268,9 @@ test.describe("Phase 5.5 memo bubble UX — 7 regression cases", () => {
     // Count visible avatars in the two-message group region.
     // Avatars are 28x28 circles with the sender initial. Per UI-SPEC §4c only first-of-group
     // renders a real avatar; the second uses an invisible spacer.
-    const bubble1 = page.getByRole("article", { name: /grp-1/ });
     const bubble2 = page.getByRole("article", { name: /grp-2/ });
     // First bubble wraps an avatar element; second bubble has a spacer (empty div with width 28).
     // We assert visually rendered initial only appears once in the combined scope.
-    const combined = page.locator(':scope').filter({ has: bubble1 }).first();
     // Because UI-SPEC grouping collapses avatar+timestamp on non-boundary bubbles, bubble2
     // should contain a spacer placeholder, not a second visible initial.
     // We check absence of the role=img avatar inside bubble2 (avatars carry aria-hidden

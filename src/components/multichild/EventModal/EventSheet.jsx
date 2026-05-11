@@ -3,7 +3,7 @@
 // Wraps existing event form (title/time/category/children/location/memo) in a swipe-down sheet.
 // 자체 구현 (vaul 의존성 없이) — drag handle + backdrop click + swipe-down 종료.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useBackHandler } from "../../../lib/backHandler.js";
 
 export function EventSheet({
@@ -23,6 +23,7 @@ export function EventSheet({
     const dragCleanupRef = useRef(null);
     const [dragOffsetY, setDragOffsetY] = useState(0);
     const [isClosing, setIsClosing] = useState(false);
+    const [isSheetDragging, setIsSheetDragging] = useState(false);
 
     // Lock body scroll while sheet open
     useEffect(() => {
@@ -45,7 +46,7 @@ export function EventSheet({
         return true;
     });
 
-    const requestClose = () => {
+    const requestClose = useCallback(() => {
         if (isDirty && !window.confirm("변경사항이 있어요. 정말 닫을까요?")) return;
         setIsClosing(true);
         window.setTimeout(() => {
@@ -54,32 +55,33 @@ export function EventSheet({
             setDragOffsetY(0);
             if (typeof onClose === "function") onClose();
         }, 240);
-    };
+    }, [isDirty, onClose]);
 
-    const handleBackdropClick = (event) => {
+    const handleBackdropClick = useCallback((event) => {
         if (event.target === event.currentTarget) requestClose();
-    };
+    }, [requestClose]);
 
-    const setSheetDragOffset = (offset) => {
+    const setSheetDragOffset = useCallback((offset) => {
         dragOffsetYRef.current = offset;
         setDragOffsetY(offset);
-    };
+    }, []);
 
-    const finishDrag = (finalOffset) => {
+    const finishDrag = useCallback((finalOffset) => {
         if (typeof dragCleanupRef.current === "function") {
             dragCleanupRef.current();
             dragCleanupRef.current = null;
         }
         dragStartY.current = null;
         dragOffsetYRef.current = 0;
+        setIsSheetDragging(false);
         if (finalOffset > 120) {
             requestClose();
         } else {
             setDragOffsetY(0);
         }
-    };
+    }, [requestClose]);
 
-    const canStartSheetDrag = (event) => {
+    const canStartSheetDrag = useCallback((event) => {
         const target = event.target;
         if (!target?.closest?.(".event-sheet")) return false;
         // 인터랙티브/스크롤/입력 요소 위에서는 시트 드래그 시작 안 함 — 본래 동작 유지.
@@ -91,15 +93,16 @@ export function EventSheet({
         if (scrollContainer && scrollContainer.scrollTop > 0) return false;
         // 그 외 본문 어느 부분이든 아래로 끌어 닫기 허용.
         return true;
-    };
+    }, []);
 
-    const handleDragPointerDown = (event) => {
+    const handleDragPointerDown = useCallback((event) => {
         if (event.button != null && event.button !== 0) return;
         if (!canStartSheetDrag(event)) return;
         if (dragStartY.current != null) return;
         event.preventDefault();
         dragStartY.current = event.clientY;
         dragOffsetYRef.current = 0;
+        setIsSheetDragging(true);
         if (typeof dragCleanupRef.current === "function") {
             dragCleanupRef.current();
             dragCleanupRef.current = null;
@@ -139,15 +142,16 @@ export function EventSheet({
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseEnd);
         };
-    };
+    }, [canStartSheetDrag, finishDrag, setSheetDragOffset]);
 
-    const handleDragMouseDown = (event) => {
+    const handleDragMouseDown = useCallback((event) => {
         if (event.button !== 0) return;
         if (!canStartSheetDrag(event)) return;
         if (dragStartY.current != null) return;
         event.preventDefault();
         dragStartY.current = event.clientY;
         dragOffsetYRef.current = 0;
+        setIsSheetDragging(true);
         if (typeof dragCleanupRef.current === "function") {
             dragCleanupRef.current();
             dragCleanupRef.current = null;
@@ -169,7 +173,7 @@ export function EventSheet({
             window.removeEventListener("mousemove", handleMove);
             window.removeEventListener("mouseup", handleEnd);
         };
-    };
+    }, [canStartSheetDrag, finishDrag, setSheetDragOffset]);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -189,7 +193,7 @@ export function EventSheet({
             window.removeEventListener("pointerdown", handleWindowPointerDown, true);
             window.removeEventListener("mousedown", handleWindowMouseDown, true);
         };
-    }, [open]);
+    }, [open, canStartSheetDrag, handleDragPointerDown, handleDragMouseDown]);
 
     if (!open) return null;
 
@@ -210,7 +214,7 @@ export function EventSheet({
                 onMouseDownCapture={handleDragMouseDown}
                 style={{
                     transform: `translateY(${dragOffsetY}px)`,
-                    transition: dragStartY.current == null
+                    transition: !isSheetDragging
                         ? `transform var(--duration-sheet-close) var(--easing-sheet)${isClosing ? "" : ""}`
                         : "none",
                     ...(isClosing ? { animation: "none", transform: "translateY(100%)", opacity: 0 } : null),

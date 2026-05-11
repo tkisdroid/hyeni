@@ -20,8 +20,8 @@ describe("AlertBanner", () => {
             ["parent", "부모님 알림"],
             ["child", "아이 알림"],
             ["friend", "친구 알림"],
-            ["emergency", "⚠️ 긴급 미도착"],
-            ["sync", "📅 일정 동기화"],
+            ["emergency", "긴급 미도착"],
+            ["sync", "일정 동기화"],
         ];
         types.forEach(([type, label]) => {
             const { unmount } = render(<AlertBanner alerts={[{ id: type, type, msg: "x" }]} onDismiss={() => {}} />);

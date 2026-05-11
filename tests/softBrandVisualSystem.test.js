@@ -188,7 +188,7 @@ describe("Soft Brand visual system", () => {
   });
 
   test("parent child status surfaces use full-width theme-led chrome", () => {
-    const childStatusStart = appSource.indexOf("<span>아이 현황</span>");
+    const childStatusStart = appSource.indexOf("아이 현황");
     const childStatusEnd = appSource.indexOf("className=\"hyeni-v5-memo-mini\"", childStatusStart);
     const childStatusSource = appSource.slice(childStatusStart, childStatusEnd);
 
@@ -217,7 +217,7 @@ describe("Soft Brand visual system", () => {
   test("single-child calendar chrome follows the selected theme variables", () => {
     const noticeStart = appSource.indexOf("혜니캘린더는 아이와 함께 만들어갑니다");
     const calendarStart = appSource.lastIndexOf('aria-label="이전 달"', noticeStart);
-    const calendarEnd = appSource.indexOf("{/* Academy quick pick */}", calendarStart);
+    const calendarEnd = appSource.indexOf("Academy quick pick", calendarStart);
     const calendarChrome = appSource.slice(calendarStart, calendarEnd);
     const noticeChrome = appSource.slice(noticeStart - 400, noticeStart + 400);
     const addStart = appSource.indexOf("openAiSchedule", noticeStart);
@@ -240,8 +240,8 @@ describe("Soft Brand visual system", () => {
   });
 
   test("home quick-action brand shortcuts use the selected theme variables", () => {
-    const quickStart = appSource.indexOf("const quickPanelTone");
-    const quickEnd = appSource.indexOf("const quickUtilityColumns", quickStart);
+    const quickStart = appSource.indexOf("const quickThemePalette");
+    const quickEnd = appSource.indexOf("// ── Handle child role selection", quickStart);
     const quickSource = appSource.slice(quickStart, quickEnd);
 
     expect(quickSource).toContain("var(--theme-accent-soft)");
@@ -255,13 +255,13 @@ describe("Soft Brand visual system", () => {
   });
 
   test("home shortcut icons and utility palettes stay simple and theme-led", () => {
-    const quickStart = appSource.indexOf("const TABS");
-    const quickEnd = appSource.indexOf("const quickUtilityColumns", quickStart);
+    const quickStart = appSource.indexOf("const quickThemePalette");
+    const quickEnd = appSource.indexOf("// ── Handle child role selection", quickStart);
     const quickSource = appSource.slice(quickStart, quickEnd);
 
-    expect(quickSource).toContain('["calendar", "○ 달력"]');
-    expect(quickSource).toContain('["maplist", "□ 장소관리"]');
-    expect(quickSource).toContain('["maplist", "⌖ 장소"]');
+    expect(quickSource).toContain('iconKey: "calendar-check"');
+    expect(quickSource).toContain('iconKey: "pin-lavender"');
+    expect(quickSource).toContain('iconKey: "pin-heart"');
     for (const icon of ["🏠", "📍", "🏫", "🤝", "🏆", "💎", "📞", "🎙️", "⚠️", "💌"]) {
       expect(quickSource).not.toContain(`icon: "${icon}"`);
     }
@@ -355,7 +355,7 @@ describe("Soft Brand visual system", () => {
 
   test("calendar weekends and category chips do not add extra fixed accent colors", () => {
     const calendarStart = appSource.indexOf("{DAYS_KO.map((d) => <div key={d}");
-    const calendarEnd = appSource.indexOf("{/* Academy quick pick */}", calendarStart);
+    const calendarEnd = appSource.indexOf("Academy quick pick", calendarStart);
     const calendarSource = appSource.slice(calendarStart, calendarEnd);
     const addModalStart = appSource.indexOf("<label style={labelSt}>🏷️ 종류");
     const addModalCategorySource = appSource.slice(addModalStart, addModalStart + 900);
@@ -395,7 +395,7 @@ describe("Soft Brand visual system", () => {
     expect(productPassCss).toContain("box-shadow: none");
     expect(appSource).toContain('shell: "var(--hyeni-product-canvas)"');
     expect(appSource).toContain('background: "var(--hyeni-product-canvas)"');
-    expect(appSource).toContain("<AppBrandLogo size={88} radius={22} />");
+    expect(appSource).toContain("<AppBrandLogo size={isParent ? 64 : 72}");
     expect(productPassCss).not.toContain("border-radius: 30px");
     expect(productPassCss).not.toContain("dashboard-card");
   });
@@ -551,7 +551,7 @@ describe("Soft Brand visual system", () => {
         ? aiScheduleModalSource.indexOf("{/* 3가지 입력 방식 버튼 */}")
         : aiScheduleModalSource.length,
     );
-    const quickAddStart = appSource.indexOf("{/* 빠른 일정입력 + 수동 추가 */}");
+    const quickAddStart = appSource.indexOf("빠른 일정입력 + 수동 추가");
     const quickAdd = appSource.slice(quickAddStart, quickAddStart + 800);
 
     expect(modalIntro).toContain("일정 빠른 입력");

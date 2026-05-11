@@ -43,18 +43,18 @@ test.describe("supabase realtime connectivity", () => {
     const status = await new Promise((resolve) => {
       const channel = supabase.channel(`e2e-probe-${Date.now()}`);
       const timeout = setTimeout(() => {
-        try { supabase.removeChannel(channel); } catch {}
+        try { supabase.removeChannel(channel); } catch { /* best-effort cleanup */ }
         resolve({ status: "TIMED_OUT" });
       }, 20_000);
 
       channel.subscribe((s, err) => {
         if (s === "SUBSCRIBED") {
           clearTimeout(timeout);
-          try { supabase.removeChannel(channel); } catch {}
+          try { supabase.removeChannel(channel); } catch { /* best-effort cleanup */ }
           resolve({ status: "SUBSCRIBED" });
         } else if (s === "CHANNEL_ERROR") {
           clearTimeout(timeout);
-          try { supabase.removeChannel(channel); } catch {}
+          try { supabase.removeChannel(channel); } catch { /* best-effort cleanup */ }
           resolve({ status: s, error: err?.message || String(err || "") });
         }
       });

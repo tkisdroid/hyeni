@@ -149,6 +149,7 @@ public class AmbientListenService extends Service {
                 }
             }
             if (!micTypeStarted) {
+                Log.w(TAG, "Microphone foreground-service type denied; stopping ambient listen");
                 Log.w(TAG, "FGS started in SPECIAL_USE mode — mic capture will be silent on Android 14+. Stopping early.");
                 removeForegroundNotification();
                 stopSelf();

@@ -12,8 +12,6 @@ import {
     DESIGN,
     FF,
     makeCardStyle,
-    makePrimaryButtonStyle,
-    makeSecondaryButtonStyle,
 } from "../../lib/styleHelpers.js";
 import { AppBrandLogo } from "./AppBrandLogo.jsx";
 
@@ -87,7 +85,7 @@ export function ParentSetupScreen({ onCreateFamily, onJoinAsParent }) {
 
     return (
         <div className="hyeni-app-shell" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: DESIGN.gradients.shell, fontFamily: FF, padding: 20 }}>
-            <div style={makeCardStyle({ padding: "32px 24px", maxWidth: 460, width: "100%", textAlign: "center" })}>
+            <div style={makeCardStyle({ padding: "32px 24px", maxWidth: 460, width: "100%", textAlign: "center", boxShadow: "var(--hyeni-theme-shadow)" })}>
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                     <AppBrandLogo size={76} radius={22} />
                 </div>

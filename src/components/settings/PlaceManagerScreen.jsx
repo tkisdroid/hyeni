@@ -3,7 +3,7 @@
 // 집·학원·자주 가는 곳·조심할 곳 (조심할 곳은 amber, 강한 빨강 금지).
 // 기존 sync.js CRUD 핸들러를 prop으로 받음 — 자체 호출 X.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useBackHandler } from "../../lib/backHandler.js";
 
 const CATEGORIES_DEF = [

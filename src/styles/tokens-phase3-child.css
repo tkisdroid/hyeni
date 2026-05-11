@@ -5,13 +5,13 @@
 :root {
   /* === Child hero — 자녀 홈 상단 카드 === */
   --child-hero-padding:        var(--space-6);
-  --child-hero-min-height:     160px;
+  --child-hero-min-height:     180px;
   --child-hero-radius:         var(--radius-2xl);
   --child-hero-bg:
     linear-gradient(135deg,
       var(--theme-accent-soft) 0%,
       color-mix(in srgb, var(--theme-accent) 8%, var(--bg-base)) 100%);
-  --child-hero-mascot-size:    88px;
+  --child-hero-mascot-size:    112px;
 
   /* === Child quick-action grid === */
   --child-quick-card-height:   88px;
@@ -68,7 +68,7 @@
   font-size: 22px;
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--fg-primary);
   word-break: keep-all;
   overflow-wrap: break-word;
@@ -250,8 +250,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  height: var(--perm-step-card-height);
-  padding: 0 var(--space-4);
+  min-height: var(--perm-step-card-height);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--perm-step-card-radius);
   background: var(--bg-base);
   border: 1px solid var(--line-soft);

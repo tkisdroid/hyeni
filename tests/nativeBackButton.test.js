@@ -13,14 +13,14 @@ describe("native Android back button behavior", () => {
   test("closes parent and child memo chat pages before minimizing the app", () => {
     const section = getBackButtonSection();
 
-    expect(section).toContain("showParentMemoPage");
     expect(section).toContain("showChildMemoPage");
-    expect(section).toContain("if (s.showParentMemoPage)");
-    expect(section).toContain("setShowParentMemoPage(false)");
+    expect(section).toContain("activeView");
     expect(section).toContain("if (s.showChildMemoPage)");
     expect(section).toContain("setShowChildMemoPage(false)");
+    expect(section).toContain('if (s.activeView !== "calendar")');
+    expect(section).toContain('setActiveView("calendar")');
 
-    expect(section.indexOf("if (s.showParentMemoPage)")).toBeLessThan(section.indexOf("CapApp.minimizeApp()"));
     expect(section.indexOf("if (s.showChildMemoPage)")).toBeLessThan(section.indexOf("CapApp.minimizeApp()"));
+    expect(section.indexOf('if (s.activeView !== "calendar")')).toBeLessThan(section.indexOf("CapApp.minimizeApp()"));
   });
 });

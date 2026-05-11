@@ -199,7 +199,6 @@ export async function installForceRingParentMocks(page, options = {}) {
   await page.route("**/*", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    const method = request.method();
     const fulfillJson = (body, status = 200) =>
       route.fulfill({
         status,

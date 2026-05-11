@@ -3,7 +3,7 @@
 // 기능(Qonversion 토글, deriveChildEntitlements, 가족 단위 합계) 보존.
 
 import { useMemo, useState } from "react";
-import { useChildSubscriptions, deriveChildEntitlements, totalMonthlyPrice } from "../../lib/childSubscriptions.js";
+import { useChildSubscriptions, deriveChildEntitlements } from "../../lib/childSubscriptions.js";
 import { purchaseChildSlot } from "../../lib/qonversion.js";
 import { CHILD_DEVICE_NOTE } from "../../lib/paywallCopy.js";
 import { AnimalIcon } from "../icons/AnimalIcon.jsx";
@@ -19,13 +19,18 @@ function fmtKrw(n) {
 function ChildSlot({ child, subscribed, busy, onToggle }) {
     const childName = child.name || "아이";
     const animalEmoji = child.emoji || "🐰";
+    const childColor = child.color_hex || "var(--brand-mint, #31C48D)";
     return (
         <button
             type="button"
+            className="hyeni-subscription-child-slot hyeni-micro-tap"
             onClick={() => onToggle(child)}
             disabled={busy}
+            data-child-id={child.id}
+            data-user-id={child.user_id || ""}
             aria-label={`${childName} ${subscribed ? "구독 해지" : "구독 시작"}`}
             style={{
+                "--child-color": childColor,
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
@@ -41,6 +46,7 @@ function ChildSlot({ child, subscribed, busy, onToggle }) {
             }}
         >
             <span
+                className="hyeni-micro-icon"
                 aria-hidden="true"
                 style={{
                     display: "inline-flex",
@@ -50,6 +56,7 @@ function ChildSlot({ child, subscribed, busy, onToggle }) {
                     height: 56,
                     borderRadius: "50%",
                     background: subscribed ? "var(--brand-mint-soft, #DDF7EA)" : "#F0F7F2",
+                    border: "2px solid var(--child-color, var(--brand-mint, #31C48D))",
                     boxShadow: subscribed ? "0 4px 12px rgba(49,196,141,0.18)" : "none",
                     flexShrink: 0,
                 }}
@@ -95,23 +102,8 @@ function PlanFeatureItem({ children }) {
 }
 
 export function SubscriptionManagement({ role, familyId, childList = [], onClose }) {
-    if (role === "child") {
-        return (
-            <section
-                className="card"
-                style={{
-                    padding: "var(--space-5) var(--space-4)",
-                }}
-            >
-                <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>구독 상태</div>
-                <div style={{ marginTop: "var(--space-2)", fontSize: 13, color: "var(--fg-secondary)", lineHeight: "var(--leading-normal)", fontWeight: "var(--weight-medium)" }}>{CHILD_DEVICE_NOTE}</div>
-            </section>
-        );
-    }
-
     const { subs, refresh } = useChildSubscriptions(familyId);
     const ents = deriveChildEntitlements(childList, subs);
-    const total = totalMonthlyPrice(subs);
     const subscribedCount = Object.values(ents).filter((e) => e.tier === "premium").length;
     const [busyChildId, setBusyChildId] = useState(null);
     const [selectedPlan, setSelectedPlan] = useState("annual");
@@ -139,6 +131,20 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
         }
     }
 
+    if (role === "child") {
+        return (
+            <section
+                className="card"
+                style={{
+                    padding: "var(--space-5) var(--space-4)",
+                }}
+            >
+                <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>구독 상태</div>
+                <div style={{ marginTop: "var(--space-2)", fontSize: 13, color: "var(--fg-secondary)", lineHeight: "var(--leading-normal)", fontWeight: "var(--weight-medium)" }}>{CHILD_DEVICE_NOTE}</div>
+            </section>
+        );
+    }
+
     const annualPricePerChild = Math.round(PRICE_PER_CHILD_MONTHLY * 12 * (1 - ANNUAL_DISCOUNT_RATE));
     const monthlyPriceForCount = subscribedCount * PRICE_PER_CHILD_MONTHLY;
     const annualPriceForCount = subscribedCount * annualPricePerChild;
@@ -152,7 +158,8 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
             aria-label="혜니 프리미엄 구독"
             style={{
                 position: "relative",
-                background: "linear-gradient(165deg, #FFFDF8 0%, var(--brand-rose-soft, #FFE2EC) 100%)",
+                background: "linear-gradient(165deg, var(--bg-card) 0%, var(--theme-accent-soft) 100%)",
+                border: "1px solid var(--theme-accent-line)",
                 borderRadius: 28,
                 padding: "26px 22px 22px",
                 boxShadow: "0 18px 44px rgba(31, 24, 28, 0.12)",
@@ -177,8 +184,8 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                         height: 36,
                         borderRadius: "50%",
                         border: "none",
-                        background: "linear-gradient(135deg, #FFFFFF 0%, var(--brand-rose-soft, #FFE2EC) 100%)",
-                        color: "var(--brand-rose-text, #B83262)",
+                        background: "linear-gradient(135deg, #FFFFFF 0%, var(--theme-accent-soft) 100%)",
+                        color: "var(--theme-accent-text)",
                         fontSize: 14,
                         fontWeight: 900,
                         cursor: "pointer",
@@ -197,13 +204,13 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
             {/* Hero — 타이틀 + 마스코트 */}
             <header style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 12, paddingLeft: 56, minHeight: 110 }}>
                 <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                    <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: "#202024", letterSpacing: 0, display: "inline-flex", alignItems: "center", gap: 8 }}>
                         혜니 프리미엄
                         <span aria-hidden="true" style={{ opacity: 0.85, display: "inline-flex" }}>
                             <ThreeDIcon name="sparkle" size={20} aria-label="" />
                         </span>
                     </h2>
-                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#5F6368", letterSpacing: "-0.01em" }}>
+                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#5F6368", letterSpacing: 0 }}>
                         자녀 1인당 {fmtKrw(PRICE_PER_CHILD_MONTHLY)}/월 · 가족 단위 결제
                     </p>
                 </div>
@@ -229,7 +236,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
 
             {/* 우리 가족 아이 */}
             <div>
-                <h3 style={{ margin: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>
+                <h3 style={{ margin: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: 0 }}>
                     <ThreeDIcon name="friend-pair" size={20} aria-label="" />
                     우리 가족 아이
                 </h3>
@@ -268,7 +275,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
 
             {/* 플랜 */}
             <div>
-                <h3 style={{ margin: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
+                <h3 style={{ margin: "0 0 10px", display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "#202024", letterSpacing: 0 }}>
                     <ThreeDIcon name="crown" size={20} aria-label="" />
                     플랜
                 </h3>
@@ -300,7 +307,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                             <ThreeDIcon name="heart" size={18} aria-label="" />
                         </span>
                         <span style={{ fontSize: 13, fontWeight: 800, color: "#202024" }}>월 플랜</span>
-                        <span style={{ fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+                        <span style={{ fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: 0, whiteSpace: "nowrap" }}>
                             {fmtKrw(PRICE_PER_CHILD_MONTHLY)}
                         </span>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color: "#9A9AA0", whiteSpace: "nowrap" }}>/ 자녀 1인 · 월</span>
@@ -345,7 +352,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                                 borderRadius: 999,
                                 fontSize: 11,
                                 fontWeight: 800,
-                                letterSpacing: "-0.01em",
+                                letterSpacing: 0,
                                 boxShadow: "0 4px 10px rgba(21, 147, 107, 0.30)",
                                 whiteSpace: "nowrap",
                             }}
@@ -356,7 +363,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                             <ThreeDIcon name="crown" size={36} aria-label="" />
                         </span>
                         <span style={{ fontSize: 13, fontWeight: 800, color: "#202024" }}>년 플랜</span>
-                        <span style={{ fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+                        <span style={{ fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: 0, whiteSpace: "nowrap" }}>
                             {fmtKrw(annualPricePerChild)}
                         </span>
                         <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--brand-mint-text, #087653)", whiteSpace: "nowrap" }}>/ 자녀 1인 · 년</span>
@@ -386,7 +393,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                     <ThreeDIcon name="star-medal" size={28} aria-label="" />
                     합계
                 </span>
-                <span style={{ fontSize: 16, fontWeight: 900, color: subscribedCount === 0 ? "var(--brand-rose-text, #B83262)" : "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>
+                <span style={{ fontSize: 16, fontWeight: 900, color: subscribedCount === 0 ? "var(--brand-rose-text, #B83262)" : "var(--brand-mint-text, #087653)", letterSpacing: 0 }}>
                     {summaryLabel}
                 </span>
             </div>

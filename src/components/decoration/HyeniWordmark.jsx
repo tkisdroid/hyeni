@@ -33,7 +33,7 @@ export function HyeniWordmark({
         fontSize: dims.fontSize,
         lineHeight: 1.1,
         color,
-        letterSpacing: "-0.03em",
+        letterSpacing: 0,
         ...style,
       }}
     >

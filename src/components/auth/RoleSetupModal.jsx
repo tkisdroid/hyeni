@@ -95,7 +95,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                                 fontSize: 18,
                                 fontWeight: 800,
                                 color: "var(--theme-accent-text, #C3325B)",
-                                letterSpacing: "-0.02em",
+                                letterSpacing: 0,
                             }}
                         >
                             혜니캘린더
@@ -111,7 +111,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                                 fontWeight: 800,
                                 lineHeight: 1.2,
                                 color: "#2A1A20",
-                                letterSpacing: "-0.03em",
+                                letterSpacing: 0,
                             }}
                         >
                             누구로 <span style={{ color: "var(--theme-accent, #F779A8)" }}>시작</span>할까요?
@@ -166,7 +166,7 @@ export function RoleSetupModal({ onSelect, loading }) {
                                 fontSize: 13,
                                 fontWeight: 600,
                                 color: "var(--theme-accent-text, #C3325B)",
-                                letterSpacing: "-0.01em",
+                                letterSpacing: 0,
                             }}
                         >
                             역할을 선택하면 시작할 수 있어요
@@ -247,7 +247,7 @@ function RoleCard({ active, onSelect, badgeIcon, title, subtitle, mascot }) {
                     </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "#2A1A20", letterSpacing: "-0.02em" }}>{title}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#2A1A20", letterSpacing: 0 }}>{title}</div>
                     <span aria-hidden="true" style={{ fontSize: 22, color: "#A892A0" }}>›</span>
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: "#7A6770", lineHeight: 1.4 }}>{subtitle}</div>

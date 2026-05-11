@@ -34,7 +34,7 @@ const legacyTextStyle = {
   whiteSpace: "nowrap",
 };
 
-export default function FriendPlaydatePanel({ familyId, currentUserId, hideActiveCard = false, compact = false, onAddSafePlace }) {
+export default function FriendPlaydatePanel({ familyId, currentUserId: _currentUserId, hideActiveCard = false, compact = false, onAddSafePlace }) {
   const [enabled, setEnabled] = useState(true);
   const [places, setPlaces] = useState([]);
   const [activeSession, setActiveSession] = useState(null);

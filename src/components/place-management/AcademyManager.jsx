@@ -2,10 +2,11 @@
 // 장소관리 통합 화면 — 학원/조심할 곳/저장 장소 추가·수정·삭제.
 // Extracted from App.jsx (Phase 5 #4 / B5d).
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { generateUUID } from "../../lib/auth.js";
 import { FF } from "../../lib/styleHelpers.js";
 import { CATEGORIES, ACADEMY_PRESETS } from "../../lib/scheduleCategories.js";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 import { MapPicker } from "../map/MapPicker.jsx";
 import AcademyCard from "./AcademyCard.jsx";
 import DangerCard from "./DangerCard.jsx";
@@ -33,7 +34,7 @@ function StatTile({ icon, label, count, accent }) {
                 {icon}
             </div>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#5F6368" }}>{label}</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: accent || "#202024", letterSpacing: "-0.02em" }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: accent || "#202024", letterSpacing: 0 }}>
                 {count}<span style={{ fontSize: 12, marginLeft: 2, color: "#5F6368" }}>개</span>
             </div>
         </div>
@@ -87,7 +88,7 @@ export function AcademyManager({
     const hasBottomNavigation = !!bottomNavigation;
 
     useEffect(() => {
-        setDangerList(dangerZones);
+        return deferEffectStateUpdate(() => setDangerList(dangerZones));
     }, [dangerZones]);
 
     const openNew = (preset = null) => {
@@ -274,7 +275,6 @@ export function AcademyManager({
     );
 
     const safePlacesCount = savedList.filter(p => p.is_playdate_safe).length;
-    const frequentPlacesCount = savedList.filter(p => !p.is_playdate_safe).length;
     const academyCount = list.length;
     const dangerCount = dangerList.length;
 
@@ -354,7 +354,7 @@ export function AcademyManager({
                     <AnimalIcon name="rabbit" size={48} aria-label="" />
                 </button>
                 <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-                    <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#202024", letterSpacing: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         학원·장소 관리
                     </h1>
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "#5F6368", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -746,7 +746,7 @@ export function AcademyManager({
                                 justifyContent: "center",
                                 gap: 10,
                                 boxShadow: "0 8px 20px rgba(49,196,141,0.18)",
-                                letterSpacing: "-0.01em",
+                                letterSpacing: 0,
                             }}
                         >
                             <span

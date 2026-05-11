@@ -189,7 +189,7 @@ export function ParentSignupScreen({ onBack }) {
                         >
                             <legend className="cartoon-label" style={{ paddingBottom: "var(--space-1)" }}>역할</legend>
                             <div role="radiogroup" aria-label="역할" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
-                                {ROLE_OPTIONS.map(({ value, Illust }) => {
+                                {ROLE_OPTIONS.map(({ value }) => {
                                     const selected = signup.gender === value;
                                     return (
                                         <button

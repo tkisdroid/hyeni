@@ -13,7 +13,14 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="cartoon-modal-card cartoon-modal-card--bottom">
+      <div
+        className="cartoon-modal-card cartoon-modal-card--bottom"
+        style={{
+          background: "linear-gradient(180deg, var(--bg-card), color-mix(in srgb, var(--fg-primary) 2%, var(--theme-accent-soft)))",
+          border: "1px solid var(--theme-accent-line)",
+          boxShadow: "var(--hyeni-theme-shadow)",
+        }}
+      >
         <h2 className="cartoon-title" style={{ fontSize: 20, color: "var(--fg-primary)", textAlign: "left" }}>
           {AUTO_RENEWAL_DISCLOSURE.title}
         </h2>
@@ -34,7 +41,7 @@ export function AutoRenewalDisclosure({ open, onConfirm, onClose }) {
             type="button"
             onClick={onConfirm}
             className="btn btn-primary"
-            style={{ flex: 1 }}
+            style={{ flex: 1, background: "var(--hyeni-theme-gradient)" }}
           >
             {AUTO_RENEWAL_DISCLOSURE.confirm}
           </button>

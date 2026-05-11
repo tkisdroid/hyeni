@@ -30,6 +30,8 @@ import {
 import { FallbackMapCanvas } from "../map/FallbackMapCanvas.jsx";
 import { MapZoomControls } from "../map/MapZoomControls.jsx";
 import { ChildAvatar } from "../multichild/HomeDashboard/ChildAvatar.jsx";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
+import { useNowMs } from "../../lib/useNowMs.js";
 
 const CHILD_TRACKER_ZOOM_LEVEL = 2;
 const CHILD_TRACKER_WALK_RADIUS_M = 30;
@@ -69,9 +71,11 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     const PANEL_COLLAPSED_PX = 110;
     const PANEL_EXPANDED_RATIO = 0.62;
     const getPanelMaxPx = () => Math.round((typeof window !== "undefined" ? window.innerHeight : 800) * PANEL_EXPANDED_RATIO);
+    const nowMs = useNowMs(60_000);
 
     useEffect(() => {
-        if (selectedChildUserId) setSelectedChildId(selectedChildUserId);
+        if (!selectedChildUserId) return undefined;
+        return deferEffectStateUpdate(() => setSelectedChildId(selectedChildUserId));
     }, [selectedChildUserId]);
 
     const startPanelDrag = useCallback((clientY) => {
@@ -134,7 +138,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     const center = selectedChild || CHILD_TRACKER_DEFAULT_CENTER;
     const selectedUpdatedAt = selectedChild?.updatedAt || selectedChild?.updated_at || null;
     const selectedUpdatedMs = selectedUpdatedAt ? new Date(selectedUpdatedAt).getTime() : 0;
-    const selectedLocationAgeMs = selectedUpdatedMs ? Date.now() - selectedUpdatedMs : null;
+    const selectedLocationAgeMs = selectedUpdatedMs ? nowMs - selectedUpdatedMs : null;
     const selectedLocationFresh = selectedLocationAgeMs != null && selectedLocationAgeMs <= 90_000;
     const selectedLocationLabel = !selectedChild
         ? "위치 수신 중"
@@ -199,7 +203,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
         focusTrailPoints(segment.points, Math.max(2, CHILD_TRACKER_ZOOM_LEVEL - 1));
     }, [focusTrailPoints]);
 
-    const now = new Date();
+    const now = new Date(nowMs);
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
     const todayLocEvents = useMemo(
@@ -226,7 +230,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
         : "";
 
     useEffect(() => {
-        setSelectedTrailSegmentKey("");
+        return deferEffectStateUpdate(() => setSelectedTrailSegmentKey(""));
     }, [selectedChild?.trackerKey]);
 
     useEffect(() => {
@@ -444,7 +448,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
             overlay.setMap(mapObj.current);
             eventMarkersRef.current.push(overlay);
         });
-    }, [trailGradientSegments, trailMovementSegments, trailHourSegments, displayTrailDwellPlaces, todayLocEvents, arrivedSet, selectedTrailSegmentKey]);
+    }, [trailGradientSegments, trailMovementSegments, trailHourSegments, displayTrailDwellPlaces, todayLocEvents, arrivedSet, selectedTrailSegmentKey, selectedChild?.user_id, selectedTrail.length]);
 
     const distLabel = (m) => m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 

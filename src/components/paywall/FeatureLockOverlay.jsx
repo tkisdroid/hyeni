@@ -26,7 +26,14 @@ export function FeatureLockOverlay({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="cartoon-modal-card">
+      <div
+        className="cartoon-modal-card"
+        style={{
+          background: "linear-gradient(180deg, var(--bg-card), color-mix(in srgb, var(--fg-primary) 2%, var(--theme-accent-soft)))",
+          border: "1px solid var(--theme-accent-line)",
+          boxShadow: "var(--hyeni-theme-shadow)",
+        }}
+      >
         <div
           style={{
             display: "inline-flex",
@@ -68,7 +75,7 @@ export function FeatureLockOverlay({
             type="button"
             onClick={onStart}
             className="btn btn-primary"
-            style={{ flex: 1 }}
+            style={{ flex: 1, background: "var(--hyeni-theme-gradient)" }}
           >
             7일 무료 체험 시작
           </button>

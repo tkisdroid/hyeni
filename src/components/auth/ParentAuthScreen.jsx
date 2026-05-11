@@ -150,7 +150,7 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                             fontSize: 18,
                             fontWeight: 800,
                             color: "var(--theme-accent-text, #C3325B)",
-                            letterSpacing: "-0.02em",
+                            letterSpacing: 0,
                         }}
                     >
                         혜니캘린더
@@ -166,7 +166,7 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                             fontWeight: 800,
                             lineHeight: 1.2,
                             color: "#2A1A20",
-                            letterSpacing: "-0.03em",
+                            letterSpacing: 0,
                         }}
                     >
                         <span style={{ color: "var(--theme-accent, #F779A8)" }}>부모</span>로 시작
@@ -331,7 +331,7 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                             boxShadow: "0 4px 14px rgba(247, 121, 168, 0.12)",
                         }}
                     >
-                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#2A1A20", letterSpacing: "-0.02em" }}>
+                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#2A1A20", letterSpacing: 0 }}>
                             처음 오셨나요?
                         </h3>
                         <p style={{ margin: 0, fontSize: 12, fontWeight: 500, color: "#7A6770", lineHeight: 1.4 }}>

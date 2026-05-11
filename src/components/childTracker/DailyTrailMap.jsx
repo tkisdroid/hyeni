@@ -16,6 +16,7 @@ import {
 import { KAKAO_APP_KEY, loadKakaoMap } from "../../lib/kakaoMap.js";
 import { escHtml } from "../../lib/htmlEscape.js";
 import { FallbackMapCanvas } from "../map/FallbackMapCanvas.jsx";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
 
@@ -40,14 +41,12 @@ export function DailyTrailMap({ trail = [], child = null, height = 220 }) {
     const dwellPlaces = useMemo(() => buildTrailDwellPlaces(points), [points]);
 
     useEffect(() => {
-        if (mapReady) return;
+        if (mapReady) return undefined;
         if (window.kakao?.maps?.LatLng) {
-            setMapReady(true);
-            return;
+            return deferEffectStateUpdate(() => setMapReady(true));
         }
         if (!KAKAO_APP_KEY) {
-            setLoadError("지도 키가 없어 폴백을 표시합니다.");
-            return;
+            return deferEffectStateUpdate(() => setLoadError("지도 키가 없어 폴백을 표시합니다."));
         }
         let cancelled = false;
         loadKakaoMap(KAKAO_APP_KEY)

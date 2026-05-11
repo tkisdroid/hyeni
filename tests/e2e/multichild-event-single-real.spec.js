@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent, getDbRowCount, selectChildOnHomeIfMulti } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, getDbRows, selectChildOnHomeIfMulti } from "./_helpers.js";
 
 test.describe("multichild — single-child event creates 1 events_children row", () => {
   test.skip(
@@ -8,7 +8,8 @@ test.describe("multichild — single-child event creates 1 events_children row",
   );
 
   test("일정 등록 시 자녀 1명 체크 → events_children 1행 생성", async ({ page }) => {
-    const { parent_email, parent_password } = await seedFamilyWith2Children();
+    const { parent_email, parent_password, child1_id, family_id } = await seedFamilyWith2Children();
+    const eventTitle = `수업 ${Date.now()}`;
 
     // Surface app-side console errors so a silent RLS / sync.js throw shows up
     // in the test output instead of looking like a "no row inserted" mystery.
@@ -26,12 +27,13 @@ test.describe("multichild — single-child event creates 1 events_children row",
     await selectChildOnHomeIfMulti(page, "혜니");
     await page.waitForTimeout(500);
 
-    const before = await getDbRowCount("events_children", "");
-
-    // Open event-add modal
-    await page.click("button[title='일정 추가']");
+    // Open event-add view from the current bottom navigation.
+    await page.getByRole("navigation", { name: "부모 메인 탭" })
+      .last()
+      .getByRole("button", { name: "일정등록" })
+      .click();
     await page.waitForSelector("input[placeholder*='학원']", { timeout: 8000 });
-    await page.fill("input[placeholder*='학원']", "수업");
+    await page.fill("input[placeholder*='학원']", eventTitle);
     // ChildSelector renders <input type=checkbox aria-label=<child.name>>
     // wrapped in a <label>. Use Playwright .check() — it scrolls into view
     // and asserts the checkbox transitions to checked.
@@ -45,13 +47,30 @@ test.describe("multichild — single-child event creates 1 events_children row",
     // (EventSheet.jsx:112). The previous "🐰 일정 추가하기!" label was removed.
     await page.click("button.sheet-save");
 
-    // Wait for INSERT events + INSERT events_children to settle.
-    await page.waitForTimeout(5000);
-
-    const after = await getDbRowCount("events_children", "");
-    if (after !== before + 1 && consoleErrors.length) {
-      console.error("[event-single] console errors:", consoleErrors);
+    try {
+      await expect.poll(async () => {
+        const events = await getDbRows(
+          "events",
+          `family_id=eq.${family_id}&title=eq.${encodeURIComponent(eventTitle)}`,
+          "id,is_family_event",
+        );
+        if (!events[0]) return null;
+        const links = await getDbRows(
+          "events_children",
+          `event_id=eq.${events[0].id}`,
+          "event_id,child_id",
+        );
+        return {
+          isFamilyEvent: events[0].is_family_event,
+          childIds: links.map((row) => row.child_id).sort(),
+        };
+      }, { timeout: 10000 }).toEqual({
+        isFamilyEvent: false,
+        childIds: [child1_id],
+      });
+    } catch (err) {
+      if (consoleErrors.length) console.error("[event-single] console errors:", consoleErrors);
+      throw err;
     }
-    expect(after).toBe(before + 1);
   });
 });

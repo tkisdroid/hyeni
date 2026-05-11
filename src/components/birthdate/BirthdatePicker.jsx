@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Picker from "react-mobile-picker";
 import { useBackHandler } from "../../lib/backHandler.js";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
@@ -63,9 +64,11 @@ export function BirthdatePicker({
   // Reset draft to current value every time the sheet opens — so the wheel
   // shows what the user has, not the previous draft they may have abandoned.
   useEffect(() => {
-    if (open) setDraft(parseValue(value) || fallback);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    if (!open) return undefined;
+    return deferEffectStateUpdate(() => {
+      setDraft(parseValue(value) || fallback);
+    });
+  }, [fallback, open, value]);
 
   const days = useMemo(() => {
     const max = daysInMonth(draft.year, draft.month);
@@ -76,8 +79,11 @@ export function BirthdatePicker({
   useEffect(() => {
     const max = daysInMonth(draft.year, draft.month);
     if (Number(draft.day) > max) {
-      setDraft((prev) => ({ ...prev, day: String(max) }));
+      return deferEffectStateUpdate(() => {
+        setDraft((prev) => ({ ...prev, day: String(max) }));
+      });
     }
+    return undefined;
   }, [draft.year, draft.month, draft.day]);
 
   // Hardware back closes the sheet (without confirming).

@@ -18,11 +18,11 @@ export function ChildCountStep({ value, onChange, onNext }) {
                 fontWeight: 700,
                 fontFamily: "inherit",
                 borderRadius: "var(--radius-control)",
-                background: active ? "var(--bg-rose-soft)" : "var(--bg-card)",
+                background: active ? "var(--theme-accent-soft)" : "var(--bg-card)",
                 border: active
-                  ? "2px solid var(--brand-rose)"
+                  ? "2px solid var(--theme-accent)"
                   : "1px solid var(--line-soft)",
-                color: active ? "var(--brand-rose-text)" : "var(--fg-primary)",
+                color: active ? "var(--theme-accent-text)" : "var(--fg-primary)",
                 cursor: "pointer",
                 transition:
                   "background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard)",

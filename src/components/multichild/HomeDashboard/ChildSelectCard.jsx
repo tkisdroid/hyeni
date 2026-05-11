@@ -157,7 +157,7 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
           fontWeight: 900,
           color: "var(--fg-primary, #1F2A24)",
           lineHeight: 1.1,
-          letterSpacing: "-0.01em",
+          letterSpacing: 0,
         }}>{child.name}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span aria-label="안전 상태" style={{ display: "inline-flex", gap: 4 }}>

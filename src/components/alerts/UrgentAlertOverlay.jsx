@@ -153,7 +153,7 @@ export function UrgentAlertOverlay({
                 </div>
 
                 <div style={{ textAlign: "center" }}>
-                    <h1 style={{ margin: 0, fontSize: 36, fontWeight: 900, color: "var(--status-negative, #DC2626)", letterSpacing: "-0.03em" }}>긴급 알림</h1>
+                    <h1 style={{ margin: 0, fontSize: 36, fontWeight: 900, color: "var(--status-negative, #DC2626)", letterSpacing: 0 }}>긴급 알림</h1>
                     <p style={{ margin: "6px 0 10px", fontSize: 13, fontWeight: 700, color: "var(--fg-secondary, #5F6368)" }}>바로 확인이 필요한 상황이에요</p>
                     <div style={{
                         display: "inline-flex",

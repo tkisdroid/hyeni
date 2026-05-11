@@ -7,23 +7,23 @@ import { useState } from "react";
 import { ColorPicker } from "../multichild/PairingWizard/ColorPicker.jsx";
 import { ChildAvatar } from "../multichild/HomeDashboard/ChildAvatar.jsx";
 import { applyThemeColor } from "../../lib/theme.js";
-import { formatDeviceDuration } from "../../lib/deviceFormat.js";
-import { getDeviceLabelFromUA } from "../../lib/deviceInfo.js";
 import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.js";
 import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "../../lib/remoteListenHealth.js";
 import { supabase } from "../../lib/supabase.js";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 import { HyeniMascot } from "../auth/HyeniMascot.jsx";
+import { useNowMs } from "../../lib/useNowMs.js";
 
 export function PairCodeSection({ pairCode, childrenCount, maxChildren, lockedMessage = "", pairCodeExpiresAt = null, onRegenerate = null, onConfirm = null }) {
     const [showCode, setShowCode] = useState(childrenCount === 0);
+    const nowMs = useNowMs(60_000);
     const canAddMore = childrenCount < maxChildren;
     // Phase 2 PAIR-01 UI: Korean-locale pair_code TTL formatter (inline, no external helper — monolith policy).
     // Returns {text, expired} when expiresAt is a Date/string; null when grandfathered (pairCodeExpiresAt === null).
     const ttlLabel = (() => {
         if (!pairCodeExpiresAt) return null;
         const d = pairCodeExpiresAt instanceof Date ? pairCodeExpiresAt : new Date(pairCodeExpiresAt);
-        const ms = d.getTime() - Date.now();
+        const ms = d.getTime() - nowMs;
         if (ms <= 0) return { text: "만료됨 — 새로고침이 필요해요", expired: true };
         const totalMinutes = Math.floor(ms / 60000);
         const hours = Math.floor(totalMinutes / 60);

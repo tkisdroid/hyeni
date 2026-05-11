@@ -44,7 +44,7 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
       <div style={{ padding: "16px 16px 8px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: "var(--cartoon-rose-text)", fontWeight: "var(--weight-bold)", letterSpacing: 0.5 }}>오늘</div>
+            <div style={{ fontSize: 11, color: "var(--theme-accent-text)", fontWeight: "var(--weight-bold)", letterSpacing: 0.5 }}>오늘</div>
             <div style={{ fontSize: 24, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", marginTop: 2 }}>{todayLabel}</div>
             <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginTop: 4, fontWeight: "var(--weight-medium)" }}>
               카드를 탭하면 그 아이의 상세 일정이 열려요
@@ -91,7 +91,7 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
                 <ChildAvatar child={child} size={40} color={color} fontSize={17} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{child.name}</div>
-                  <div style={{ fontSize: 13, color: list.length > 0 ? "var(--cartoon-rose-text)" : "var(--fg-secondary)", marginTop: 3, fontWeight: list.length > 0 ? "var(--weight-bold)" : "var(--weight-medium)" }}>
+                  <div style={{ fontSize: 13, color: list.length > 0 ? "var(--theme-accent-text)" : "var(--fg-secondary)", marginTop: 3, fontWeight: list.length > 0 ? "var(--weight-bold)" : "var(--weight-medium)" }}>
                     {list.length === 0 ? "오늘 일정이 없어요" : `오늘 일정 ${list.length}건`}
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { ForceRingTriggerButton } from './ForceRingTriggerButton.jsx';
 import { ForceRingConfirmModal } from './ForceRingConfirmModal.jsx';
 import { ForceRingActiveStatus } from './ForceRingActiveStatus.jsx';
@@ -6,6 +6,7 @@ import { ForceRingHistory } from './ForceRingHistory.jsx';
 import { triggerForceRing, fetchActiveForceRing } from '../../lib/forceRing.js';
 import { supabase } from '../../lib/supabase.js';
 import { ThreeDIcon } from '../icons/ThreeDIcon.jsx';
+import { deferEffectStateUpdate } from '../../lib/deferEffectStateUpdate.js';
 
 export function ForceRingPanel({ familyId, hasChild = true, compact = false, childList = [] }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -14,7 +15,10 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false, chi
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   // Phase 3 Case 2: 다자녀 가족에서 SOS 대상 명시 선택. 자녀 1명이면 자동 매칭.
-  const childCandidates = (childList || []).filter((c) => c?.user_id);
+  const childCandidates = useMemo(
+    () => (childList || []).filter((c) => c?.user_id),
+    [childList],
+  );
   const [selectedChildUserId, setSelectedChildUserId] = useState(
     childCandidates.length === 1 ? childCandidates[0].user_id : null
   );
@@ -22,8 +26,9 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false, chi
   // childList 가 비동기 갱신될 수 있어 1명 가족은 자동 선택 유지.
   useEffect(() => {
     if (childCandidates.length === 1 && !selectedChildUserId) {
-      setSelectedChildUserId(childCandidates[0].user_id);
+      return deferEffectStateUpdate(() => setSelectedChildUserId(childCandidates[0].user_id));
     }
+    return undefined;
   }, [childCandidates, selectedChildUserId]);
 
   const refresh = useCallback(async () => {
@@ -37,7 +42,9 @@ export function ForceRingPanel({ familyId, hasChild = true, compact = false, chi
   }, [familyId]);
 
   useEffect(() => {
-    refresh();
+    return deferEffectStateUpdate(() => {
+      void refresh();
+    });
   }, [refresh]);
 
   const handleConfirm = async (message) => {

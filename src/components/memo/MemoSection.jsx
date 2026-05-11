@@ -5,6 +5,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildMessageItems, getMemoTime } from "../../lib/memoTime.js";
 import { FF } from "../../lib/styleHelpers.js";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 export function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParentMode, onReplyRef }) {
     /* UI-SPEC §5 — composer state */
@@ -22,6 +24,7 @@ export function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParent
 
     /* UI-SPEC §4f — known-IDs set to detect new bubbles for animation */
     const seenIdsRef = useRef(new Set());
+    const [animatedReplyIds, setAnimatedReplyIds] = useState(() => new Set());
 
     /* UI-SPEC §Interaction — container ref for scroll-to-bottom */
     const containerRef = useRef(null);
@@ -39,15 +42,30 @@ export function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParent
 
     /* UI-SPEC §6 — onboarding toast: show once on first mount */
     useEffect(() => {
-        if (!localStorage.getItem("memoOnboardingV2Seen")) {
-            setShowOnboardingToast(true);
-            localStorage.setItem("memoOnboardingV2Seen", "1");
-            onboardingTimerRef.current = setTimeout(() => setShowOnboardingToast(false), 4000);
-        }
+        const cancelToast = !localStorage.getItem("memoOnboardingV2Seen")
+            ? deferEffectStateUpdate(() => {
+                setShowOnboardingToast(true);
+                localStorage.setItem("memoOnboardingV2Seen", "1");
+                onboardingTimerRef.current = setTimeout(() => setShowOnboardingToast(false), 4000);
+            })
+            : null;
         return () => {
+            cancelToast?.();
             if (onboardingTimerRef.current) clearTimeout(onboardingTimerRef.current);
         };
     }, []);
+
+    useEffect(() => {
+        const nextIds = (replies || [])
+            .map((reply) => reply?.id)
+            .filter(Boolean)
+            .filter((id) => !seenIdsRef.current.has(id));
+        if (nextIds.length === 0) return undefined;
+        return deferEffectStateUpdate(() => {
+            nextIds.forEach((id) => seenIdsRef.current.add(id));
+            setAnimatedReplyIds(new Set(nextIds));
+        });
+    }, [replies]);
 
     /* UI-SPEC §Interaction §Scroll-to-Bottom — scroll on new message */
     useEffect(() => {
@@ -164,8 +182,7 @@ export function MemoSection({ replies, onReplySubmit, readBy, myUserId, isParent
                         const bubbleRadius = isLegacy ? "12px" : (isMe ? "16px 4px 16px 16px" : "4px 16px 16px 16px");
 
                         /* UI-SPEC §4f — animation for new bubbles */
-                        const isNew = !seenIdsRef.current.has(r.id);
-                        if (isNew) seenIdsRef.current.add(r.id);
+                        const isNew = animatedReplyIds.has(r.id);
                         const animStyle = isNew && !prefersReducedMotion
                             ? { animation: "bubbleIn 150ms ease-out forwards" }
                             : {};

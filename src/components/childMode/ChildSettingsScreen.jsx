@@ -49,6 +49,7 @@ function Toggle({ value, onChange, ariaLabel }) {
 function Row({ icon, label, children }) {
     return (
         <div
+            className="hyeni-child-settings-row"
             style={{
                 display: "flex",
                 alignItems: "center",

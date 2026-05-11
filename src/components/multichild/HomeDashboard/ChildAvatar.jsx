@@ -4,6 +4,7 @@ import {
   HYENI_DEFAULT_CHILD_IMAGE_STYLE,
   HYENI_DEFAULT_CHILD_IMAGE_URL,
 } from "../../../lib/childDefaultImage.js";
+import { deferEffectStateUpdate } from "../../../lib/deferEffectStateUpdate.js";
 
 function getFallbackGlyph(child) {
   if (child?.emoji) return child.emoji;
@@ -30,9 +31,11 @@ export function ChildAvatar({
   const [photoErrored, setPhotoErrored] = useState(false);
 
   useEffect(() => {
-    setImageState(photoUrl ? "loading" : "fallback");
-    setDefaultImageFailed(false);
-    setPhotoErrored(false);
+    return deferEffectStateUpdate(() => {
+      setImageState(photoUrl ? "loading" : "fallback");
+      setDefaultImageFailed(false);
+      setPhotoErrored(false);
+    });
   }, [photoUrl]);
 
   // 상태 분기:

@@ -38,7 +38,7 @@ export default function AcademyCard({
                             fontSize: 17,
                             fontWeight: "var(--weight-bold)",
                             color: "var(--fg-primary)",
-                            letterSpacing: "-0.01em",
+                            letterSpacing: 0,
                         }}
                     >
                         학원·일정 관리

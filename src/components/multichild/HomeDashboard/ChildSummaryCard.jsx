@@ -202,6 +202,19 @@ export function ChildSummaryCard({ child, location, safetyDots = [], screenLabel
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                     style={{
+                        fontSize: 15,
+                        color: "var(--fg-primary)",
+                        fontWeight: "var(--weight-bold)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        marginBottom: 3,
+                    }}
+                >
+                    {child.name || "자녀"}
+                </div>
+                <div
+                    style={{
                         fontSize: 13,
                         color: "var(--fg-secondary)",
                         whiteSpace: "nowrap",

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Sun, Sparkles, Home, Calendar, CalendarPlus, MapPin, MessageCircle, Users } from "lucide-react";
-import { kakaoLogin, anonymousLogin, getSession, setupFamily, joinFamily, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, updateMyProfile, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
-import { getAuthProvider, requestPhoneSignupCode, signInWithLoginId, syncAuthProfile, verifyPhoneSignupCode } from "./lib/accountAuth.js";
+import { anonymousLogin, getSession, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, updateMyProfile, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
+import { getAuthProvider, syncAuthProfile } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
-import { dispatchBack, useBackHandler } from "./lib/backHandler.js";
+import { dispatchBack } from "./lib/backHandler.js";
 import { BirthdatePicker } from "./components/birthdate/BirthdatePicker.jsx";
 import { PairingWizard } from "./components/multichild/PairingWizard/PairingWizard.jsx";
 import { ColorPicker } from "./components/multichild/PairingWizard/ColorPicker.jsx";
@@ -29,7 +29,7 @@ import { ParentSettingsScreen } from "./components/settings/ParentSettingsScreen
 import { PlaceManagerScreen } from "./components/settings/PlaceManagerScreen.jsx";
 // CreatePlaydateSheet — Phase 5 wire 대기 (현재는 import 보류)
 import { saveEventWithChildren } from "./lib/sync.js";
-import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, upsertMemo, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, saveLocationHistoryRows, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead, fetchReceivedPraiseStickers } from "./lib/sync.js";
+import { fetchEvents, fetchEventById, fetchAcademies, fetchMemos, fetchSavedPlaces, insertEvent, updateEvent, deleteEvent as dbDeleteEvent, insertAcademy, updateAcademy, deleteAcademy as dbDeleteAcademy, insertSavedPlace, updateSavedPlace, deleteSavedPlace, subscribeFamily, unsubscribe, getCachedEvents, getCachedAcademies, getCachedMemos, getCachedSavedPlaces, cacheEvents, cacheAcademies, cacheMemos, cacheSavedPlaces, saveChildLocation, fetchChildLocations, saveLocationHistory, saveLocationHistoryRows, fetchTodayLocationHistory, fetchLocationHistoryForDate, addSticker, fetchStickersForDate, fetchStickerSummary, fetchDangerZones, saveDangerZone, deleteDangerZone, fetchParentAlerts, markAlertRead, fetchMemoReplies, fetchMemoRepliesForDateKeys, sendMemo, markMemoReplyRead } from "./lib/sync.js";
 import { registerSW, requestPermission, getPermissionStatus, scheduleNotifications, scheduleNativeAlarms, showArrivalNotification, showEmergencyNotification, showKkukNotification, clearAllScheduled, subscribeToPush, unsubscribeFromPush, getNativeNotificationHealth, openNativeNotificationSettings, requestNativePermission, DEFAULT_NOTIFICATION_SETTINGS, normalizeNotifSettings } from "./lib/pushNotifications.js";
 import { supabase } from "./lib/supabase.js";
 import { applyThemeColor, initThemeFromCache } from "./lib/theme.js";
@@ -38,61 +38,29 @@ import { useEntitlement } from "./lib/entitlement.js";
 import { readFamilyInfoCache, writeFamilyInfoCache } from "./lib/familyInfoCache.js";
 import { identify as identifySubscriptionUser, purchase as purchaseSubscription } from "./lib/qonversion.js";
 import { sendBroadcastWhenReady } from "./lib/realtime.js";
-import { getChildMemoQuickReplies, getMemoPreview, getParentMemoQuickReplies } from "./lib/memoDisplay.js";
-import { buildMemoChannelKey, isMemoForSelectedChild } from "./lib/memoRealtime.js";
-import { buildHomeRouteEvent, findHomeSavedPlace } from "./lib/navigationTargets.js";
-import { LOCATION_TRAIL_GRADIENT_STOPS, buildLocationDaySummary, getStayDisplayParts } from "./lib/locationTrailDisplay.js";
+import { getChildMemoQuickReplies, getMemoPreview } from "./lib/memoDisplay.js";
+import { isMemoForSelectedChild } from "./lib/memoRealtime.js";
+import { LOCATION_TRAIL_GRADIENT_STOPS, buildLocationDaySummary } from "./lib/locationTrailDisplay.js";
 import {
     LOCATION_TRAIL_JITTER_M,
     LOCATION_TRAIL_DWELL_RADIUS_M,
     LOCATION_TRAIL_DWELL_MIN_MS,
     haversineM,
-    finiteNumber,
-    compactRoutePoints,
-    normalizeLocationTrailPoint,
-    compactLocationTrailPoints,
-    buildSelectedLocationTrail,
-    formatTrailClock,
-    formatTrailDuration,
-    clampTrailProgress,
-    hexToRgb,
-    rgbToHex,
-    interpolateTrailColor,
-    getTrailTimeBounds,
-    getTrailProgress,
-    getTrailHourKey,
-    getTrailHourLabel,
-    buildTrailHourSegments,
-    buildTrailGradientSegments,
     buildDetailedLocationHistoryRows,
-    averageTrailPoint,
-    buildTrailDwellPlaces,
 } from "./lib/trailMath.js";
 import {
     formatLatLngLabel,
     getPositionLocationKey,
     extractNeighborhoodLabel,
-    formatCompactPlaceName,
     buildCompactAddressLabel,
-    buildReadablePlaceName,
-    isDetailedKoreanAddress,
     extractPreciseAddressFromKakao,
-    hasPlaceLocation,
     getPlaceLocationKey,
-    buildSavedPlaceItems,
     buildSchedulePlaceOptions,
-    buildEventPlaceItems,
-    eventDateValue,
 } from "./lib/placeFormat.js";
 // routeParsers used only inside ./lib/walkingRoute.js (extracted with RouteOverlay).
 import {
-    getMemoTime,
     getRelativeTime,
-    getDateSeparatorLabel,
-    localDayKey,
-    memoDateKeyFromParts,
     buildMemoThreadDateKeys,
-    buildMessageItems,
 } from "./lib/memoTime.js";
 import { readMemoRepliesCache, writeMemoRepliesCache } from "./lib/memoCache.js";
 import {
@@ -100,10 +68,7 @@ import {
     FF,
     modalBackdropStyle,
     makeCardStyle,
-    makeSheetStyle,
     makeInputStyle,
-    makePrimaryButtonStyle,
-    makeSecondaryButtonStyle,
 } from "./lib/styleHelpers.js";
 import { AppConfirmDialog } from "./components/dialogs/AppConfirmDialog.jsx";
 import { AlertBanner } from "./components/banners/AlertBanner.jsx";
@@ -114,10 +79,10 @@ import { normalizePairCodeInput } from "./lib/pairCode.js";
 import { RoleSetupModal } from "./components/auth/RoleSetupModal.jsx";
 import { ParentAuthScreen } from "./components/auth/ParentAuthScreen.jsx";
 import { ParentSignupScreen } from "./components/auth/ParentSignupScreen.jsx";
-import { rememberParentPairingIntent, clearParentPairingIntent } from "./lib/parentPairingIntent.js";
 import { buildSelectedChildCommandPayload, filterEventMapForChild, resolveSelectedChildPosition } from "./lib/selectedChildIsolation.js";
 import { formatDeviceDuration } from "./lib/deviceFormat.js";
 import { PRICING } from "./lib/paywallCopy.js";
+import { getDangerZoneAlertKey, removeDangerZoneAlertKeysForZone } from "./lib/safetyAlerts.js";
 import { TrialInvitePrompt } from "./components/paywall/TrialInvitePrompt.jsx";
 import { FeatureLockOverlay } from "./components/paywall/FeatureLockOverlay.jsx";
 import { TrialEndingBanner } from "./components/paywall/TrialEndingBanner.jsx";
@@ -132,7 +97,7 @@ import AcademyCard from "./components/place-management/AcademyCard.jsx";
 import DangerCard from "./components/place-management/DangerCard.jsx";
 import SavedPlacesSection from "./components/place-management/SavedPlacesSection.jsx";
 import { getDeviceLabelFromUA } from "./lib/deviceInfo.js";
-import { normalizeKakaoAppKey, KAKAO_APP_KEY, loadKakaoMap } from "./lib/kakaoMap.js";
+import { KAKAO_APP_KEY, loadKakaoMap } from "./lib/kakaoMap.js";
 import { fetchWalkingRoute, ROUTE_REQUEST_TIMEOUT_MS } from "./lib/walkingRoute.js";
 import { CHILD_MARKER_COLORS } from "./lib/markerColors.js";
 import { MapZoomControls } from "./components/map/MapZoomControls.jsx";
@@ -145,7 +110,6 @@ import { ChildTrackerOverlay } from "./components/childTracker/ChildTrackerOverl
 import { DailyTrailMap } from "./components/childTracker/DailyTrailMap.jsx";
 import { MemoSection } from "./components/memo/MemoSection.jsx";
 import { PairingModal } from "./components/pairing/PairingModal.jsx";
-import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "./lib/remoteListenHealth.js";
 import { sendInstantPush } from "./lib/instantPush.js";
 import { AiScheduleModal } from "./components/aiSchedule/AiScheduleModal.jsx";
 import { AmbientAudioRecorder } from "./components/audio/AmbientAudioRecorder.jsx";
@@ -166,18 +130,15 @@ import { UrgentAlertOverlay } from "./components/alerts/UrgentAlertOverlay.jsx";
 import { FeedbackModal } from "./components/dialogs/FeedbackModal.jsx";
 import { getChildSafetySetupSteps, getNativeSetupAction } from "./lib/nativeSetup.js";
 import { effectiveChildLocation, effectiveChildPositions } from "./lib/effectiveLocation.js";
-import { blobToBase64 } from "./lib/blobBase64.js";
-import { PROFILE_THEME_RPC_MISSING_MESSAGE, isMissingNativePluginError, isMissingProfileThemeRpcError } from "./lib/errorChecks.js";
+import { PROFILE_THEME_RPC_MISSING_MESSAGE, isMissingProfileThemeRpcError } from "./lib/errorChecks.js";
 import { FEEDBACK_RECIPIENT, sendFeedbackSuggestion } from "./lib/feedback.js";
-import { closeRemoteListenSessionRow, startRemoteAudioCapture, stopRemoteAudioCapture } from "./lib/remoteAudioCapture.js";
+import { startRemoteAudioCapture, stopRemoteAudioCapture } from "./lib/remoteAudioCapture.js";
 import { requestNativeCurrentLocation, startNativeLocationService, stopNativeLocationService } from "./lib/nativeLocationService.js";
 import {
     REMOTE_AUDIO_CHUNK_MS,
     REMOTE_AUDIO_DEFAULT_DURATION_SEC,
     REMOTE_AUDIO_MIME_TYPES,
-    getRemoteAudioMimeType,
 } from "./lib/remoteAudio.js";
-import { escHtml } from "./lib/htmlEscape.js";
 import "./App.css";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -261,17 +222,60 @@ const MONTHS_KO = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월
 const ARRIVAL_R = 50; // metres (geo-fence radius)
 const DEPARTURE_TIMEOUT_MS = 90_000; // 90초 outside = departure alert (GPS 지터 오알림 방지)
 const DEFAULT_NOTIF = normalizeNotifSettings(DEFAULT_NOTIFICATION_SETTINGS);
+const PARENT_VIEWS = Object.freeze({
+  HOME: "home",
+  CALENDAR: "calendar",
+  EVENT_ADD: "eventAdd",
+  MAPLIST: "maplist",
+  MEMO: "memo",
+  FAMILY: "family",
+});
 
-function patchChildMemberEmoji(info, userId, emoji) {
-    if (!info?.members || !userId) return info;
-    let changed = false;
-    const members = info.members.map((member) => {
-        if (member?.role !== "child" || member?.user_id !== userId) return member;
-        if (member.emoji === emoji) return member;
-        changed = true;
-        return { ...member, emoji };
-    });
-    return changed ? { ...info, members } : info;
+function deferEffectStateUpdate(callback) {
+    let cancelled = false;
+    let timeoutId = null;
+    const run = () => {
+        if (!cancelled) callback();
+    };
+    if (typeof globalThis.queueMicrotask === "function") {
+        globalThis.queueMicrotask(run);
+    } else {
+        timeoutId = globalThis.setTimeout?.(run, 0) ?? null;
+    }
+    return () => {
+        cancelled = true;
+        if (timeoutId != null) globalThis.clearTimeout?.(timeoutId);
+    };
+}
+
+function QuickUtilityActionButton({ action }) {
+    if (!action) return null;
+    const { key, icon, iconKey, label, ariaLabel, palette, onClick } = action;
+
+    return (
+        <button
+            key={key}
+            type="button"
+            onClick={onClick}
+            className="hyeni-v5-action-chip"
+            data-action-key={key}
+            style={{
+                color: palette?.color || DESIGN.colors.ink,
+                background: palette?.bg,
+                borderColor: palette?.line,
+                boxShadow: palette?.shadow,
+                fontFamily: FF,
+            }}
+            aria-label={ariaLabel}
+        >
+            {iconKey ? (
+                <ThreeDIcon name={iconKey} size={28} aria-label="" />
+            ) : (
+                <span aria-hidden="true">{icon}</span>
+            )}
+            <span>{label}</span>
+        </button>
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -492,16 +496,6 @@ export default function KidsScheduler() {
     const today = new Date();
     const roleStorage = typeof window !== "undefined" && window.sessionStorage ? window.sessionStorage : (typeof window !== "undefined" ? window.localStorage : null);
 
-    // view name 상수 — Single source of truth
-    const PARENT_VIEWS = {
-      HOME: "home",
-      CALENDAR: "calendar",   // = "오늘" 탭
-      EVENT_ADD: "eventAdd",  // 신규
-      MAPLIST: "maplist",
-      MEMO: "memo",           // 신규 (showParentMemoPage 대체)
-      FAMILY: "family",       // 신규 (showPairing 대체)
-    };
-
     // ── Auth & family state (Supabase) ──────────────────────────────────────────
     const [authUser, setAuthUser] = useState(null);       // supabase auth user
     // Lazy init from localStorage to give the first paint immediate access to
@@ -647,7 +641,6 @@ export default function KidsScheduler() {
         return stored === null ? true : stored !== "false";
     });
     const [childSendingSticker, setChildSendingSticker] = useState(false);
-    const [childCharacterSaving, setChildCharacterSaving] = useState(false);
     useEffect(() => {
         if (typeof window === "undefined") return;
         window.localStorage.setItem("hyeni-child-show-mascot", String(childShowMascot));
@@ -672,32 +665,31 @@ export default function KidsScheduler() {
     // single-child rendering paths see a non-null value with no UX delta.
     // Multi-child families clear it whenever the chosen child disappears.
     useEffect(() => {
-      if (!isParent) return;
+      if (!isParent) return undefined;
       const validIds = new Set(pairedChildren.map((c) => c.id));
       if (selectedChildId && !validIds.has(selectedChildId)) {
-        setSelectedChildId(null);
-        return;
+        return deferEffectStateUpdate(() => setSelectedChildId(null));
       }
       if (pairedChildren.length === 1 && !selectedChildId) {
-        setSelectedChildId(pairedChildren[0].id);
+        return deferEffectStateUpdate(() => setSelectedChildId(pairedChildren[0].id));
       }
+      return undefined;
     }, [isParent, pairedChildren, selectedChildId]);
     // Force-route multi-child parents back to home whenever no child is
     // selected — every per-child tab needs a context. '홈'에서만 미선택 허용.
     useEffect(() => {
       if (isParent && isMultiChild && !selectedChildId
           && activeView !== "home") {
-        setActiveView("home");
-        setMultiChildHint("상세 기능은 아이별로 확인할 수 있어요. 위에서 아이를 먼저 선택해주세요.");
+        return deferEffectStateUpdate(() => {
+          setActiveView("home");
+          setMultiChildHint("상세 기능은 아이별로 확인할 수 있어요. 위에서 아이를 먼저 선택해주세요.");
+        });
       }
+      return undefined;
     }, [isParent, isMultiChild, selectedChildId, activeView]);
     const selectedChild = selectedChildId
       ? pairedChildren.find((c) => c.id === selectedChildId)
       : null;
-    const currentChildMember = !isParent
-      ? (pairedChildren.find((member) => member.user_id === authUser?.id) || pairedChildren[0] || null)
-      : null;
-    const currentChildCharacter = currentChildMember?.emoji || "🐰";
     const activeThemeColor = useMemo(() => {
       if (isParent) {
         return selectedChild?.color_hex
@@ -742,7 +734,7 @@ export default function KidsScheduler() {
     const [selectedDateTrailError, setSelectedDateTrailError] = useState("");
     const [pushPermission, setPushPermission] = useState(() => getPermissionStatus());
     const [pushDeniedDismissed, setPushDeniedDismissed] = useState(() => {
-        try { return sessionStorage.getItem("hyeni-push-denied-dismissed") === "1"; } catch (e) { return false; }
+        try { return sessionStorage.getItem("hyeni-push-denied-dismissed") === "1"; } catch { return false; }
     });
     const [showSettingsSheet, setShowSettingsSheet] = useState(false);
     const [nativeNotifHealth, setNativeNotifHealth] = useState(null);
@@ -776,15 +768,24 @@ export default function KidsScheduler() {
     const [aiEnabled, setAiEnabled] = useState(() => {
         try { return localStorage.getItem("hyeni-ai-enabled") !== "false"; } catch { return true; }
     });
+    const [screenSessionStartedAt] = useState(() => Date.now());
+    const [initialVisibleAt] = useState(() => (
+        typeof document !== "undefined" && document.visibilityState === "visible" ? Date.now() : null
+    ));
+    const [appMoodNowMs, setAppMoodNowMs] = useState(() => Date.now());
+    useEffect(() => {
+        const timer = window.setInterval(() => setAppMoodNowMs(Date.now()), 60_000);
+        return () => window.clearInterval(timer);
+    }, [setAppMoodNowMs]);
 
     // ── Refs ────────────────────────────────────────────────────────────────────
     const realtimeChannel = useRef(null);
     const dateKeyRef = useRef("");
     const lastGeocodePosRef = useRef(null);
     const parentCalendarRef = useRef(null);
-    const screenSessionStartedAtRef = useRef(Date.now());
+    const screenSessionStartedAtRef = useRef(screenSessionStartedAt);
     const screenSessionVisibleMsRef = useRef(0);
-    const lastVisibleAtRef = useRef(typeof document !== "undefined" && document.visibilityState === "visible" ? Date.now() : null);
+    const lastVisibleAtRef = useRef(initialVisibleAt);
     // 오늘 누적 화면 켜짐 시간 (자정 reset, localStorage 영속화).
     // 앱 재시작/포그라운드 복귀 후에도 today total 유지.
     const screenDayKeyRef = useRef("");
@@ -802,7 +803,7 @@ export default function KidsScheduler() {
             .filter(Boolean);
         if (storedStatuses.length === 0) return;
 
-        setChildDeviceStatusMap((prev) => {
+        return deferEffectStateUpdate(() => setChildDeviceStatusMap((prev) => {
             let changed = false;
             const next = { ...prev };
             for (const storedStatus of storedStatuses) {
@@ -826,7 +827,7 @@ export default function KidsScheduler() {
                 changed = true;
             }
             return changed ? next : prev;
-        });
+        }));
     }, [familyId, isParent, pairedChildren]);
 
     // '오늘' 탭 진입 시 stored device status 즉시 재적용 — 탭 전환 후 stale 방지
@@ -836,7 +837,7 @@ export default function KidsScheduler() {
             .map((child) => normalizeStoredChildDeviceStatus(child, familyId))
             .filter(Boolean);
         if (storedStatuses.length === 0) return;
-        setChildDeviceStatusMap((prev) => {
+        return deferEffectStateUpdate(() => setChildDeviceStatusMap((prev) => {
             let changed = false;
             const next = { ...prev };
             for (const storedStatus of storedStatuses) {
@@ -859,7 +860,7 @@ export default function KidsScheduler() {
                 changed = true;
             }
             return changed ? next : prev;
-        });
+        }));
     }, [activeView, familyId, isParent, pairedChildren]);
 
     const displayChildPositions = useMemo(() => {
@@ -929,7 +930,7 @@ export default function KidsScheduler() {
             filtered[dk] = list.filter((e) => e?.is_family_event || (myId && (e?.child_ids || []).includes(myId)));
         }
         return filtered;
-    }, [events, isParent, myFamilyMemberId, selectedChild?.id]);
+    }, [events, isParent, myFamilyMemberId, selectedChild]);
     const ownPosition = useMemo(() => {
         if (isParent) return null;
         const myId = authUser?.id;
@@ -955,11 +956,11 @@ export default function KidsScheduler() {
 
     const openFeatureLock = useCallback((feature, title = "", body = "") => {
         setFeatureLock({ open: true, feature, title, body });
-    }, []);
+    }, [setFeatureLock]);
 
     const closeFeatureLock = useCallback(() => {
         setFeatureLock({ open: false, feature: null, title: "", body: "" });
-    }, []);
+    }, [setFeatureLock]);
 
     const maybeOpenTrialInvite = useCallback(() => {
         if (myRole !== "parent" || entitlement.tier !== "free") return;
@@ -970,7 +971,7 @@ export default function KidsScheduler() {
             // ignore storage failures
         }
         setShowTrialInvite(true);
-    }, [entitlement.tier, myRole]);
+    }, [entitlement.tier, myRole, setShowTrialInvite]);
 
     const openAcademyManagement = useCallback(() => {
         if (!isParent) return;
@@ -982,7 +983,7 @@ export default function KidsScheduler() {
         setShowSavedPlaceMgr(false);
         setShowDangerZones(false);
         setShowAcademyMgr(true);
-    }, [academies.length, entitlement, isParent, openFeatureLock, parentCapabilities.canManagePlaces]);
+    }, [academies.length, entitlement, isParent, openFeatureLock, parentCapabilities.canManagePlaces, setShowAcademyMgr, setShowDangerZones, setShowSavedPlaceMgr]);
 
     const handleOpenSavedPlaceMgr = useCallback(() => {
         openAcademyManagement();
@@ -1083,7 +1084,9 @@ export default function KidsScheduler() {
     const kkukSentFromPressRef = useRef(false);
     const dateKey = `${currentYear}-${currentMonth}-${selectedDate}`;
     const scheduleDraftDateKey = addEventDateKey || dateKey;
-    dateKeyRef.current = dateKey;
+    useEffect(() => {
+        dateKeyRef.current = dateKey;
+    }, [dateKey]);
     const memoThreadDateKeys = useMemo(
         () => buildMemoThreadDateKeys(currentYear, currentMonth, selectedDate),
         [currentYear, currentMonth, selectedDate]
@@ -1098,11 +1101,10 @@ export default function KidsScheduler() {
     // viewport for 3 continuous seconds. public.memos.read_by is still read
     // for legacy UI (top-of-card "✓ 읽음" badge) until v1.1 cleans it up.
     const currentMemo = memos[dateKey] || "";
-    const hasMemo = currentMemo.length > 0;
     useEffect(() => {
         if (!familyId || !dateKey) return;
         const cached = readMemoRepliesCache(familyId, dateKey);
-        setMemoReplies(cached);
+        const cancelCachedUpdate = deferEffectStateUpdate(() => setMemoReplies(cached));
         let cancelled = false;
         // child_id server-side filter: 부모 → selectedChild.id, 자녀 → 본인 myFamilyMemberId
         const fetchChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
@@ -1117,8 +1119,11 @@ export default function KidsScheduler() {
         // Removal scheduled for v1.1 MEMO-CLEANUP-01.
         supabase.from("memos").select("read_by").eq("family_id", familyId).eq("date_key", dateKey).maybeSingle()
             .then(({ data }) => setMemoReadBy(data?.read_by || []));
-        return () => { cancelled = true; };
-    }, [familyId, dateKey, hasMemo, authUser?.id]);
+        return () => {
+            cancelled = true;
+            cancelCachedUpdate();
+        };
+    }, [familyId, dateKey, isParent, myFamilyMemberId, selectedChild?.id]);
 
     useEffect(() => {
         if (!familyId || !dateKey) return;
@@ -1128,8 +1133,7 @@ export default function KidsScheduler() {
     useEffect(() => {
         const memoPageOpen = (activeView === PARENT_VIEWS.MEMO) || showChildMemoPage;
         if (!memoPageOpen) {
-            setMemoThreadReplies([]);
-            return;
+            return deferEffectStateUpdate(() => setMemoThreadReplies([]));
         }
         if (!familyId || !dateKey) return;
 
@@ -1250,13 +1254,13 @@ export default function KidsScheduler() {
     // ── Load Kakao Maps SDK on mount ────────────────────────────────────────────
     useEffect(() => {
         if (window.kakao?.maps?.LatLng) {
-            setMapReady(true);
-            setMapLoadError("");
-            return;
+            return deferEffectStateUpdate(() => {
+                setMapReady(true);
+                setMapLoadError("");
+            });
         }
         if (!KAKAO_APP_KEY) {
-            setMapLoadError("Kakao 지도 키가 없어 간이 지도로 표시해요");
-            return;
+            return deferEffectStateUpdate(() => setMapLoadError("Kakao 지도 키가 없어 간이 지도로 표시해요"));
         }
         loadKakaoMap(KAKAO_APP_KEY)
             .then(() => {
@@ -1268,6 +1272,7 @@ export default function KidsScheduler() {
                 setMapReady(false);
                 setMapLoadError("Kakao 지도 연결 실패 — 간이 지도로 경로를 표시해요");
             });
+        return undefined;
     }, []);
 
 
@@ -1287,7 +1292,7 @@ export default function KidsScheduler() {
             familyInfo.familyId
         ) {
             const swapped = { mom: "", dad: familyInfo.phones.mom };
-            setParentPhones(swapped);
+            const cancelPhoneUpdate = deferEffectStateUpdate(() => setParentPhones(swapped));
             saveParentPhones(familyInfo.familyId, swapped.mom, swapped.dad)
                 .then(() => {
                     setFamilyInfo((prev) => prev ? { ...prev, phones: swapped } : prev);
@@ -1296,9 +1301,9 @@ export default function KidsScheduler() {
                     console.warn("[parent-phone-migration] swap failed:", err?.message || err);
                     setParentPhones(familyInfo.phones);
                 });
-            return;
+            return cancelPhoneUpdate;
         }
-        setParentPhones(familyInfo.phones);
+        return deferEffectStateUpdate(() => setParentPhones(familyInfo.phones));
     }, [familyInfo, authUser]);
 
     const handleNativeAuthCallback = useCallback(async (url) => {
@@ -1569,7 +1574,7 @@ export default function KidsScheduler() {
             setMyRole("parent");
             setShowParentSetup(true); // Show "새 가족 만들기 / 기존 가족 합류" choice
         }
-    }, []);
+    }, [setAuthUser, setFamilyInfo, setMyRole, setShowParentSetup]);
 
     // ── Auth: check session on mount ────────────────────────────────────────────
     const authInitDone = useRef(false);
@@ -1746,7 +1751,14 @@ export default function KidsScheduler() {
                 });
             },
             onAcademiesChange: (type, newRow, oldRow) => {
-                const CAT_COLORS = { school: { color: "#A78BFA", bg: "#EDE9FE" }, sports: { color: "#34D399", bg: "var(--status-positive-subtle)" }, hobby: { color: "var(--status-cautionary)", bg: "var(--status-cautionary-subtle)" }, family: { color: "#F87171", bg: "var(--status-negative-subtle)" }, friend: { color: "#60A5FA", bg: "var(--bg-subtle)" }, other: { color: "#EC4899", bg: "#FCE7F3" } };
+                const CAT_COLORS = {
+                    school: { color: "var(--hyeni-cat-school)", bg: "var(--hyeni-cat-school-bg)" },
+                    sports: { color: "var(--hyeni-cat-sports)", bg: "var(--hyeni-cat-sports-bg)" },
+                    hobby: { color: "var(--status-cautionary)", bg: "var(--status-cautionary-subtle)" },
+                    family: { color: "var(--hyeni-cat-family)", bg: "var(--hyeni-cat-family-bg)" },
+                    friend: { color: "var(--hyeni-cat-friend)", bg: "var(--hyeni-cat-friend-bg)" },
+                    other: { color: "var(--hyeni-cat-other)", bg: "var(--hyeni-cat-other-bg)" },
+                };
                 setAcademies(prev => {
                     let updated = [...prev];
                     if (type === "INSERT" && newRow) {
@@ -2033,7 +2045,7 @@ export default function KidsScheduler() {
     // (postgres_changes filter는 family_id 단위이므로 채널 재연결이 아닌
     //  client-side filter가 실제 isolation을 담당하지만, useEffect cleanup이
     //  realtimeChannel.current 를 재할당하여 authUser ref를 최신 상태로 유지)
-    }, [familyId, authUser?.id, isParent, selectedChildId]);
+    }, [familyId, authUser?.id, isParent, myFamilyMemberId, selectedChild?.id, selectedChildId]);
 
     // ── Child: check if launched via FCM remote_listen ──
     useEffect(() => {
@@ -2389,42 +2401,11 @@ export default function KidsScheduler() {
         if (notifTimer.current) clearTimeout(notifTimer.current);
         notifTimer.current = setTimeout(() => setNotification(null), 3500);
     }, []);
-    const handleChildCharacterChange = useCallback(async (emoji) => {
-        const nextEmoji = typeof emoji === "string" ? emoji.trim() : "";
-        if (!nextEmoji || nextEmoji === currentChildCharacter || childCharacterSaving) return;
-        if (!authUser?.id || !familyId) {
-            showNotif("가족 연결 후 캐릭터를 바꿀 수 있어요", "error");
-            return;
-        }
-
-        const previousEmoji = currentChildCharacter;
-        setChildCharacterSaving(true);
-        setFamilyInfo((prev) => patchChildMemberEmoji(prev, authUser.id, nextEmoji));
-        try {
-            const { data, error } = await supabase
-                .from("family_members")
-                .update({ emoji: nextEmoji })
-                .eq("family_id", familyId)
-                .eq("user_id", authUser.id)
-                .eq("role", "child")
-                .select("id, emoji")
-                .maybeSingle();
-            if (error) throw error;
-            if (!data) throw new Error("Child member was not updated");
-
-            const refreshed = await getMyFamily(authUser.id);
-            if (refreshed) {
-                setFamilyInfo(refreshed);
-            }
-            showNotif(`${nextEmoji} 캐릭터로 바꿨어!`);
-        } catch (err) {
-            console.error("[child character] update failed", err);
-            setFamilyInfo((prev) => patchChildMemberEmoji(prev, authUser.id, previousEmoji));
-            showNotif("캐릭터 저장 실패. 다시 시도해줘", "error");
-        } finally {
-            setChildCharacterSaving(false);
-        }
-    }, [authUser?.id, childCharacterSaving, currentChildCharacter, familyId, showNotif]);
+    const addAlert = useCallback((msg, type = "parent") => {
+        const id = Date.now() + Math.random();
+        setAlerts(prev => [...prev, { id, msg, type }]);
+        setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== id)), 9000);
+    }, [setAlerts]);
     const openConfirmDialog = useCallback((options = {}) => {
         setConfirmDialog({
             title: options.title || "확인",
@@ -2565,8 +2546,10 @@ export default function KidsScheduler() {
     }, [authUser?.id, familyId, myRole, selectedChild, showChildTracker, parentCapabilities.canRequestChildLocation, showNotif]);
 
     useEffect(() => {
-        if (myRole !== "parent" || !familyId || !showChildTracker) return;
-        requestChildLocationRefresh("tracker_open");
+        if (myRole !== "parent" || !familyId || !showChildTracker) return undefined;
+        return deferEffectStateUpdate(() => {
+            void requestChildLocationRefresh("tracker_open");
+        });
     }, [familyId, myRole, requestChildLocationRefresh, showChildTracker]);
 
     const openMicPermissionHelp = useCallback(() => {
@@ -2614,7 +2597,7 @@ export default function KidsScheduler() {
         } finally {
             setFeedbackBusy(false);
         }
-    }, [authUser, familyId, feedbackBusy, feedbackDraft, myRole, showNotif]);
+    }, [authUser, familyId, feedbackBusy, feedbackDraft, myRole, showNotif, setFeedbackBusy, setFeedbackDraft, setShowFeedbackModal]);
 
     const sendKkuk = useCallback(() => {
         if (kkukCooldown || !authUser) return;
@@ -2757,7 +2740,7 @@ export default function KidsScheduler() {
                 console.error("[kkuk] sos_events audit insert failed:", auditErr);
             }
         })();
-    }, [familyId, authUser, isParent, kkukCooldown, showNotif, familyInfo]);
+    }, [addAlert, familyId, authUser, isParent, kkukCooldown, requestChildLocationRefresh, showNotif, familyInfo]);
 
     const clearKkukHoldTimer = useCallback(() => {
         if (kkukHoldTimerRef.current) {
@@ -2875,7 +2858,7 @@ export default function KidsScheduler() {
 
         setPendingProduct(productId);
         setShowDisclosure(true);
-    }, [familyId, myRole, showNotif]);
+    }, [familyId, myRole, showNotif, setPendingProduct, setShowDisclosure]);
 
     const confirmStartTrial = useCallback(async () => {
         if (!pendingProduct || !familyId) {
@@ -2901,7 +2884,7 @@ export default function KidsScheduler() {
             setPendingProduct(null);
             setShowDisclosure(false);
         }
-    }, [closeFeatureLock, entitlement, familyId, pendingProduct, showNotif]);
+    }, [closeFeatureLock, entitlement, familyId, pendingProduct, showNotif, setPendingProduct, setShowDisclosure, setShowSubscriptionSettings, setShowTrialInvite]);
 
     const nativeSetupAction = getNativeSetupAction(nativeNotifHealth);
     const childSafetySetupSteps = getChildSafetySetupSteps(nativeNotifHealth, bgLocationGranted);
@@ -2915,8 +2898,9 @@ export default function KidsScheduler() {
     // wizard instead of staying silently dismissed forever.
     useEffect(() => {
         if (!childSafetySetupBlocked && permissionWizardDismissed) {
-            setPermissionWizardDismissed(false);
+            return deferEffectStateUpdate(() => setPermissionWizardDismissed(false));
         }
+        return undefined;
     }, [childSafetySetupBlocked, permissionWizardDismissed]);
 
     const openChildSafetySetupStep = useCallback(async (step) => {
@@ -2961,7 +2945,7 @@ export default function KidsScheduler() {
             console.warn("[child-safety-setup] open step failed:", error?.message || error);
             showNotif("설정을 열지 못했어요. Android 앱 설정에서 직접 허용해주세요.", "error");
         }
-    }, [authUser?.id, familyId, myRole, refreshNativeReadiness, showNotif]);
+    }, [authUser, familyId, myRole, refreshNativeReadiness, showNotif]);
 
     // 일괄 허용: 미허용 단계를 순차적으로 처리한다. OS 시스템 다이얼로그는
     // 현재 액티비티에서만 한 번에 한 개 표시 가능하므로 직렬로 진행하고,
@@ -2974,12 +2958,6 @@ export default function KidsScheduler() {
         }
         setTimeout(() => { void refreshNativeReadiness(); }, 800);
     }, [childSafetySetupSteps, openChildSafetySetupStep, refreshNativeReadiness]);
-
-    const addAlert = useCallback((msg, type = "parent") => {
-        const id = Date.now() + Math.random();
-        setAlerts(prev => [...prev, { id, msg, type }]);
-        setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== id)), 9000);
-    }, []);
 
     // ── GPS watch (child: native service + web fallback) ──────────────────────
     useEffect(() => {
@@ -3132,7 +3110,7 @@ export default function KidsScheduler() {
         return () => {
             cancelled = true;
         };
-    }, [myRole, mapReady, displayChildLocationKey, childLocationLabels]);
+    }, [myRole, mapReady, displayChildLocationKey, childLocationLabels, displayChildPositions]);
 
     // ── Parent: fetch child's last known location from DB ─────────────────────
     useEffect(() => {
@@ -3178,15 +3156,18 @@ export default function KidsScheduler() {
     useEffect(() => {
         const targetUserId = selectedChild?.user_id || null;
         if (myRole !== "parent" || !familyId || !targetUserId) {
-            setSelectedDateLocationTrail([]);
-            setSelectedDateTrailLoading(false);
-            setSelectedDateTrailError("");
-            return undefined;
+            return deferEffectStateUpdate(() => {
+                setSelectedDateLocationTrail([]);
+                setSelectedDateTrailLoading(false);
+                setSelectedDateTrailError("");
+            });
         }
 
         let cancelled = false;
-        setSelectedDateTrailLoading(true);
-        setSelectedDateTrailError("");
+        const cancelLoadingUpdate = deferEffectStateUpdate(() => {
+            setSelectedDateTrailLoading(true);
+            setSelectedDateTrailError("");
+        });
         fetchLocationHistoryForDate(familyId, targetUserId, { year: currentYear, month: currentMonth, day: selectedDate })
             .then(rows => {
                 if (cancelled) return;
@@ -3202,7 +3183,10 @@ export default function KidsScheduler() {
                 if (!cancelled) setSelectedDateTrailLoading(false);
             });
 
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            cancelLoadingUpdate();
+        };
     }, [myRole, familyId, selectedChild?.user_id, currentYear, currentMonth, selectedDate]);
 
     // ── Load stickers for selected date ─────────────────────────────────────────
@@ -3223,11 +3207,12 @@ export default function KidsScheduler() {
         dangerZones.forEach(zone => {
             const dist = haversineM(childPos.lat, childPos.lng, zone.lat, zone.lng);
             const isInside = dist < zone.radius_m;
-            const wasFired = firedDangerAlerts.has(zone.id);
+            const alertKey = getDangerZoneAlertKey(zone, { selectedChild, childPos });
+            const wasFired = firedDangerAlerts.has(alertKey);
 
             if (isInside && !wasFired) {
                 // 진입 → 알림
-                setFiredDangerAlerts(prev => new Set([...prev, zone.id]));
+                setFiredDangerAlerts(prev => new Set([...prev, alertKey]));
                 const childName = selectedChild?.name || familyInfo?.members?.find(m => m.role === "child")?.name || "아이";
                 addAlert(`⚠️ ${childName}님이 위험지역 '${zone.name}' 근처에 있어요! (${Math.round(dist)}m)`, "parent");
                 sendInstantPush({
@@ -3239,10 +3224,10 @@ export default function KidsScheduler() {
                 });
             } else if (!isInside && wasFired && dist > zone.radius_m * 1.5) {
                 // 충분히 벗어남 → 알림 플래그 초기화 (재진입 시 다시 알림)
-                setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(zone.id); return n; });
+                setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(alertKey); return n; });
             }
         });
-    }, [childPos, dangerZones, firedDangerAlerts, isParent, familyInfo, familyId, authUser, addAlert, selectedChild?.name]);
+    }, [childPos, dangerZones, firedDangerAlerts, isParent, familyInfo, familyId, authUser, addAlert, selectedChild]);
 
     // ── Academy focus guard mode (parent) ─────────────────────────────────────
     useEffect(() => {
@@ -3381,13 +3366,13 @@ export default function KidsScheduler() {
                 }
             });
         }, 10000); // check every 10s
+        const timers = departureTimers.current;
         return () => {
             clearInterval(iv);
             // Cancel all pending departure setTimeout callbacks. Without this,
             // a timer scheduled when the user is on the home screen can still
             // fire setDepartedAlerts / sendInstantPush after the screen
             // unmounts (logout, family switch, child unpair).
-            const timers = departureTimers.current;
             for (const id of Object.keys(timers)) {
                 try { clearTimeout(timers[id].timer); } catch { /* ignore */ }
                 delete timers[id];
@@ -3604,9 +3589,9 @@ export default function KidsScheduler() {
             const alerts = await fetchParentAlerts(familyId);
             setParentAlerts(alerts);
         } catch (err) { console.error("[alerts]", err); }
-    }, [familyId, myRole]);
+    }, [familyId, myRole, setParentAlerts]);
 
-    useEffect(() => { loadParentAlerts(); }, [loadParentAlerts]);
+    useEffect(() => deferEffectStateUpdate(() => { void loadParentAlerts(); }), [loadParentAlerts]);
 
     // Poll alerts every 60 seconds for parents
     useEffect(() => {
@@ -3616,7 +3601,7 @@ export default function KidsScheduler() {
     }, [familyId, myRole, loadParentAlerts]);
 
     // ── AI: Analyze memo sentiment ───────────────────────────────────────────
-    const analyzeMemoSentiment = async (memoText, eventTitle) => {
+    const analyzeMemoSentiment = useCallback(async (memoText, eventTitle) => {
         if (!entitlement.canUse(FEATURES.AI_ANALYSIS)) return;
         if (!aiEnabled || !AI_MONITOR_URL || !familyId || !memoText.trim()) return;
         try {
@@ -3651,7 +3636,7 @@ export default function KidsScheduler() {
                 if (!error) loadParentAlerts();
             }
         } catch (err) { console.warn("[AI memo analysis]", err.message); }
-    };
+    }, [aiEnabled, entitlement, familyId, familyInfo, loadParentAlerts]);
 
     // ── Activity analysis settings toggle ───────────────────────────────────
     const toggleAiEnabled = (val) => {
@@ -4121,71 +4106,17 @@ export default function KidsScheduler() {
     const inputSt = makeInputStyle();
     const labelSt = { fontSize: 12, fontWeight: 800, color: DESIGN.colors.muted, marginBottom: 6, display: "block" };
     const cardSt = makeCardStyle({ width: "100%", maxWidth: contentMaxWidth, padding: 20, marginBottom: 14 });
-    const primBtn = makePrimaryButtonStyle({ marginTop: 16 });
-    const secBtn = makeSecondaryButtonStyle({ marginTop: 8, background: "var(--bg-subtle)" });
     const todayDateKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-    const todayEvents = visibleEvents[todayDateKey] || [];
-    const todayDateLabel = today.toLocaleDateString("ko-KR", { weekday: "long", month: "long", day: "numeric" });
+    const todayEvents = useMemo(
+        () => visibleEvents[todayDateKey] || [],
+        [todayDateKey, visibleEvents]
+    );
     const nowMinutes = today.getHours() * 60 + today.getMinutes();
     const nextTodayEvent = todayEvents.find((event) => {
         const [hour, minute] = String(event.time || "00:00").split(":").map(Number);
         if (!Number.isFinite(hour) || !Number.isFinite(minute)) return true;
         return (hour * 60 + minute) >= nowMinutes;
     }) || todayEvents[0] || null;
-    const childHeroRemaining = todayEvents.filter((event) => {
-        const [hour, minute] = String(event.time || "00:00").split(":").map(Number);
-        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return true;
-        return (hour * 60 + minute) >= nowMinutes;
-    }).length;
-    const childHeroMessage = (() => {
-        const hour = today.getHours();
-        if (hour < 6) return { line1: "푹 쉬어도", line2: "괜찮아" };
-        if (hour < 10) return { line1: "좋은 아침이야", line2: "오늘도 네 편이야" };
-        if (hour < 12) return { line1: "천천히 해도", line2: "잘하고 있어" };
-        if (hour < 14) return { line1: "점심 맛있게", line2: "챙겨 먹자" };
-        if (hour < 17) return { line1: "조금만 더", line2: "힘내보자" };
-        if (hour < 20) return { line1: "오늘 하루도", line2: "수고했어" };
-        if (hour < 22) return { line1: "편안한 저녁", line2: "보내자" };
-        return { line1: "좋은 꿈 꿀", line2: "준비하자" };
-    })();
-    const childNextScheduleLabel = nextTodayEvent
-        ? `다음 일정 ${nextTodayEvent.time ? `${nextTodayEvent.time} · ` : ""}${nextTodayEvent.title}`
-        : "다음 일정 없음";
-    const homeSavedPlace = findHomeSavedPlace(savedPlaces);
-    const homeRouteEvent = buildHomeRouteEvent(homeSavedPlace);
-    const selectedChildDisplayName = isParent && selectedChild?.name ? selectedChild.name : "";
-    const heroChildrenText = selectedChildDisplayName
-        ? selectedChildDisplayName
-        : pairedChildren.length > 0
-        ? pairedChildren.map(child => child.name || "아이").join(" · ")
-        : (familyInfo?.myName || "가족");
-    const parentHeroChildrenText = selectedChildDisplayName
-        ? selectedChildDisplayName
-        : pairedChildren.length > 2
-        ? `${pairedChildren[0]?.name || "아이"} 외 ${pairedChildren.length - 1}명`
-        : pairedChildren.length === 2
-            ? `${pairedChildren[0]?.name || "아이"}와 ${pairedChildren[1]?.name || "아이"}`
-            : heroChildrenText;
-    const heroTitle = isParent ? "오늘의 가족" : "오늘은 뭐해?";
-    const childCurrentLocationLabel = childPos
-        ? (childLocationInfo.label || formatLatLngLabel(childPos) || "정확한 위치 확인 중")
-        : "GPS 위치 확인 중";
-    const childCurrentLocationMeta = childPos
-        ? [
-            childLocationInfo.precise ? "도로명 기준" : "좌표 기준",
-            childPos.updatedAt ? `${getRelativeTime(childPos.updatedAt)} 업데이트` : "",
-            // Surface the freemium delay so a parent doesn't mistake a stale
-            // marker for a real-time fix. Set by effectiveChildLocation when
-            // the family lacks REALTIME_LOCATION entitlement.
-            childPos.isDelayed ? "지연 표시 (프리미엄 시 실시간)" : "",
-        ].filter(Boolean).join(" · ")
-        : "위치 권한을 허용하면 현재 위치를 바로 확인해요";
-    const heroLine = isParent
-        ? (displayChildPos ? "· 실시간 추적중" : "· 위치 연결 대기")
-        : "오늘의 안전 체크";
-    const heroSubLine = isParent
-        ? (displayChildPos ? "아이 위치가 연결되어 있어요" : "아이 위치를 기다리고 있어요")
-        : (nextTodayEvent ? `다음 일정 · ${nextTodayEvent.title}` : "오늘 일정 확인");
     const getEventStartMinutes = (event) => {
         const [hour, minute] = String(event?.time || "00:00").split(":").map(Number);
         if (!Number.isFinite(hour) || !Number.isFinite(minute)) return Number.POSITIVE_INFINITY;
@@ -4208,44 +4139,7 @@ export default function KidsScheduler() {
         }
         return `${Math.max(1, Math.floor(totalMinutes / 1440))}일 뒤`;
     };
-    const todayEventsSorted = [...todayEvents].sort((left, right) => getEventStartMinutes(left) - getEventStartMinutes(right));
-    const remainingTodayCount = todayEventsSorted.filter(event => getEventEndMinutes(event) >= nowMinutes).length;
-    const nextTodayEventMinutes = nextTodayEvent ? getEventStartMinutes(nextTodayEvent) : null;
-    const heroInsightText = nextTodayEvent && Number.isFinite(nextTodayEventMinutes)
-        ? nextTodayEventMinutes > nowMinutes
-            ? `다음 일정 ${formatDashboardFutureOffset(nextTodayEventMinutes - nowMinutes)}`
-            : "지금 진행 중인 일정"
-        : "오늘 일정 확인";
     const getDashboardEventElementId = (eventId) => `hyeni-dashboard-event-${String(eventId || "").replace(/[^A-Za-z0-9_-]/g, "-")}`;
-    const handleHeroInsightClick = () => {
-        const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-        setActiveView("calendar");
-        setCurrentYear(today.getFullYear());
-        setCurrentMonth(today.getMonth());
-        setSelectedDate(today.getDate());
-
-        if (!nextTodayEvent) {
-            openManualAddEventModal(todayKey);
-            return;
-        }
-
-        window.requestAnimationFrame(() => {
-            const target = document.getElementById(getDashboardEventElementId(nextTodayEvent.id));
-            if (target instanceof HTMLElement) {
-                target.scrollIntoView({ behavior: "auto", block: "center" });
-                target.focus({ preventScroll: true });
-            }
-        });
-
-        showNotif(`${nextTodayEvent.title} 일정을 아래에서 확인해요`);
-    };
-    const handleHomeRouteClick = () => {
-        if (!homeRouteEvent) {
-            showNotif("집 위치가 아직 없어요. 부모님 모드에서 자주 가는 장소에 '집'을 등록해 주세요.", "error");
-            return;
-        }
-        setRouteEvent(homeRouteEvent);
-    };
     const schedulePlaceOptions = useMemo(
         () => buildSchedulePlaceOptions(academies, savedPlaces),
         [academies, savedPlaces]
@@ -4255,7 +4149,7 @@ export default function KidsScheduler() {
         setShowSavedPlaceMgr(false);
         setShowDangerZones(false);
         setShowPlaceManager(false);
-    }, []);
+    }, [setShowAcademyMgr, setShowDangerZones, setShowPlaceManager, setShowSavedPlaceMgr]);
     const handleParentEventAddTabClick = () => {
         closeParentManagementPanels();
         const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
@@ -4360,7 +4254,7 @@ export default function KidsScheduler() {
         const recentArrived = (parentAlerts || []).some(a => {
             if (a.alert_type !== "arrived") return false;
             const t = new Date(a.created_at).getTime();
-            return Number.isFinite(t) && Date.now() - t < 60 * 60 * 1000;
+            return Number.isFinite(t) && appMoodNowMs - t < 60 * 60 * 1000;
         });
         if (recentArrived) return "statusSafe";
         if (unread.length > 0) return "statusPondering";
@@ -4371,7 +4265,7 @@ export default function KidsScheduler() {
         if (todayCount >= 5) return "statusBusy";
         if (todayCount >= 1) return "statusScheduled";
         return "statusHappy";
-    }, [isParent, parentAlerts, childDeviceStatusMap, todayEvents]);
+    }, [isParent, parentAlerts, childDeviceStatusMap, todayEvents, appMoodNowMs]);
     const parentBottomTabCount = (pairedChildren.length >= 1 ? 1 : 0)
         + 2
         + (parentCapabilities.canManagePlaces ? 1 : 0)
@@ -4440,9 +4334,11 @@ export default function KidsScheduler() {
         if (pairedChildren.length > 0) return pairedChildren.slice(0, 2);
         return [{ user_id: "pending-child", name: "아이", emoji: "👧" }];
     })();
-    const primaryChildUserId = dashboardChildren[0]?.user_id || null;
-    const pairedChildIds = pairedChildren.map(child => child.user_id).filter(Boolean);
-    const pairedChildIdsKey = pairedChildIds.join(",");
+    const pairedChildIds = useMemo(
+        () => pairedChildren.map(child => child.user_id).filter(Boolean),
+        [pairedChildren]
+    );
+    const pairedChildIdsKey = useMemo(() => pairedChildIds.join(","), [pairedChildIds]);
     const dashboardDeviceStatusEntry = dashboardChildren
         .map(child => ({ child, status: child?.user_id ? childDeviceStatusMap[child.user_id] : null }))
         .filter(entry => entry.status)
@@ -4455,7 +4351,6 @@ export default function KidsScheduler() {
                 : latest;
         }, null);
     const primaryChildDeviceStatus = dashboardDeviceStatusEntry?.status || null;
-    const primaryDeviceChildName = dashboardDeviceStatusEntry?.child?.name || dashboardChildren[0]?.name || "아이";
     const primaryDeviceBatteryLabel = Number.isFinite(Number(primaryChildDeviceStatus?.batteryLevel))
         ? `${Math.max(0, Math.min(100, Number(primaryChildDeviceStatus.batteryLevel)))}%`
         : "확인 중";
@@ -4538,7 +4433,7 @@ export default function KidsScheduler() {
             return Boolean(broadcastSent || pushSent);
         }));
         return results.some(Boolean);
-    }, [authUser?.id, familyId, pairedChildIdsKey, parentCapabilities.canRequestChildLocation, showNotif]);
+    }, [authUser?.id, familyId, pairedChildIds, parentCapabilities.canRequestChildLocation, showNotif]);
 
     const handleParentDeviceRefreshClick = useCallback(() => {
         const requestedAt = Date.now();
@@ -4657,7 +4552,7 @@ export default function KidsScheduler() {
                     <ThreeDIcon name="pin-lavender" size={36} aria-label="" />
                     <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
                         <span className="hyeni-v5-movement-summary__kicker" style={{ fontSize: 11, fontWeight: 700, color: "var(--brand-lavender-text, #5F43B2)" }}>{selectedCalendarDateLabel}</span>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>{childName} 하루 이동경로</h3>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: 0 }}>{childName} 하루 이동경로</h3>
                     </div>
                 </div>
 
@@ -4931,223 +4826,180 @@ export default function KidsScheduler() {
             targetChildUserId: memoTargetChildUserId,
         });
         return sendPromise;
-    }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName, memoThreadDateKeys, activeView, showChildMemoPage]);
+    }, [familyId, authUser, memoReplies, myRole, dateKey, aiEnabled, familyInfo?.myName, memoThreadDateKeys, activeView, showChildMemoPage, isParent, myFamilyMemberId, selectedChild?.id, selectedChild?.user_id, pairedChildren, analyzeMemoSentiment]);
 
-    const TABS = isParent
-        ? [["calendar", "○ 달력"], ["maplist", "□ 장소관리"]]
-        : [["calendar", "○ 달력"], ["maplist", "⌖ 장소"]];
-    const quickPanelTone = { bg: "rgba(255,255,255,0.88)", border: "var(--theme-accent-line)", color: "var(--theme-accent-text)" };
-    const quickThemePalette = { bg: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", color: "var(--theme-accent-text)", shadow: "var(--hyeni-theme-shadow-soft)" };
-    const quickDangerPalette = { bg: "linear-gradient(135deg,var(--status-negative-subtle),rgba(255,255,255,0.92))", color: "var(--status-negative-strong)", shadow: "rgba(229,34,34,0.14)" };
-    const quickModeActions = TABS.map(([view, label]) => {
-        const [icon, text] = label.split(" ");
-        return {
-            key: view,
-            icon,
-            label: text,
-            ariaLabel: view === "calendar" ? "📅 달력" : "📍 장소",
-            active: activeView === view,
-            onClick: () => {
-                if (isParent && view === "maplist") {
-                    openAcademyManagement();
-                    return;
-                }
-                setActiveView(view);
-            },
-        };
-    });
-    const quickUtilityActions = [
-        isParent && parentCapabilities.canWriteSchedule ? {
-            key: "quick-schedule",
-            icon: "🤖",
-            iconKey: "calendar-check",
-            label: "빠른일정",
-            ariaLabel: "빠른 일정입력",
-            palette: quickThemePalette,
-            onClick: openAiSchedule,
-        } : null,
-        activeView !== "calendar" ? {
-            key: "home",
-            icon: "⌂",
-            iconKey: "calendar-heart",
-            label: "홈",
-            ariaLabel: "홈",
-            palette: quickThemePalette,
-            onClick: () => setActiveView("calendar"),
-        } : null,
-        isParent && parentCapabilities.canRequestChildLocation ? {
-            key: "child-tracker",
-            icon: "⌖",
-            iconKey: "pin-heart",
-            label: "우리아이",
-            ariaLabel: "📍 우리아이",
-            palette: quickThemePalette,
-            onClick: () => setShowChildTracker(true),
-        } : null,
-        isParent && parentCapabilities.canManagePlaces ? {
-            key: "academy",
-            icon: "□",
-            iconKey: "pin-lavender",
-            label: "장소관리",
-            ariaLabel: "📍 장소관리",
-            palette: quickThemePalette,
-            onClick: openAcademyManagement,
-        } : null,
-        isParent && parentCapabilities.canManageFamily ? {
-            key: "friend-playdate",
-            icon: "◇",
-            iconKey: "friend",
-            label: "친구놀이",
-            ariaLabel: "친구놀이 관리",
-            palette: quickThemePalette,
-            onClick: () => {
-                setActiveView("friendPlaydateSettings");
-                window.requestAnimationFrame(() => {
-                    window.scrollTo({ top: 0, behavior: "auto" });
-                });
-            },
-        } : null,
-        isParent && parentCapabilities.canUseForceRing ? {
-            key: "force-ring",
-            icon: "!",
-            iconKey: "bell",
-            label: "응급알림",
-            ariaLabel: "응급 강제 알림",
-            palette: quickDangerPalette,
-            onClick: () => {
-                setActiveView("forceRing");
-                window.requestAnimationFrame(() => {
-                    window.scrollTo({ top: 0, behavior: "auto" });
-                });
-            },
-        } : null,
-        {
-            key: "stickers",
-            icon: "★",
-            iconKey: "heart",
-            label: isParent ? "스티커" : "스티커북",
-            ariaLabel: isParent ? "🏆 스티커" : "스티커북",
-            description: isParent ? "" : "오늘 받은 칭찬 보기",
-            palette: quickThemePalette,
-            onClick: () => {
-                setShowStickerBook(true);
-                if (familyId) {
-                    fetchStickersForDate(familyId, dateKey).then(s => setStickers(s));
-                    fetchStickerSummary(familyId).then(s => setStickerSummary(s?.[0] || null));
-                }
-            },
-        },
-        isParent && parentCapabilities.canManageSubscription ? {
-            key: "subscription",
-            icon: "◆",
-            iconKey: "shield-heart",
-            label: "구독",
-            ariaLabel: "💎 구독",
-            palette: quickThemePalette,
-            onClick: () => setShowSubscriptionSettings(true),
-        } : null,
-        isParent && parentCapabilities.canEditParentPhones ? {
-            key: "contacts",
-            icon: "☎",
-            iconKey: "chat-heart",
-            label: "연락처",
-            ariaLabel: "📞 연락처",
-            palette: quickThemePalette,
-            onClick: () => setShowPhoneSettings(true),
-        } : null,
-        isParent && parentCapabilities.canUseRemoteListen ? {
-            key: "remote-audio",
-            icon: "◉",
-            iconKey: "shield",
-            label: "주변소리",
-            ariaLabel: "🎙️ 주변소리",
-            palette: quickThemePalette,
-            onClick: () => {
-                if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
-                    openFeatureLock(
-                        FEATURES.REMOTE_AUDIO,
-                        "",
-                        "주변 소리 듣기는 프리미엄 회원만 사용할 수 있어요. 프리미엄을 시작하면 아이 기기 주변 소리를 최대 1분 동안 확인할 수 있어요."
-                    );
-                    return;
-                }
-                setShowRemoteAudio(true);
-            },
-        } : null,
-        isParent ? {
-            key: "feedback",
-            icon: "✉",
-            iconKey: "note",
-            label: "피드백",
-            ariaLabel: "💌 피드백 보내기",
-            palette: quickThemePalette,
-            onClick: () => setShowFeedbackModal(true),
-        } : null,
-    ].filter(Boolean);
-    const quickUtilityColumns = isParent ? "repeat(4, minmax(0, 1fr))" : "1fr";
-    const renderQuickAction = (action, type = "utility") => {
-        const isMode = type === "mode";
-        const isChildStickerShortcut = !isParent && !isMode && action.key === "stickers";
-        const actionShadow = String(action.palette?.shadow || "rgba(31,41,55,0.08)");
-        const actionBoxShadow = actionShadow.startsWith("var(") ? actionShadow : `0 10px 22px ${actionShadow}`;
-        return (
-            <button
-                key={action.key}
-                type="button"
-                aria-label={action.ariaLabel}
-                onClick={action.onClick}
-                style={{
-                    border: isMode ? "none" : "1px solid var(--theme-accent-line)",
-                    cursor: "pointer",
-                    fontFamily: FF,
-                    borderRadius: isMode ? DESIGN.radius.lg : DESIGN.radius.xl,
-                    minHeight: isMode ? 68 : (isChildStickerShortcut ? 74 : (isParent ? 82 : 88)),
-                    padding: isMode ? "12px 10px" : (isChildStickerShortcut ? "14px 16px" : (isParent ? "12px 6px 10px" : "14px 8px 12px")),
-                    display: "flex",
-                    flexDirection: isChildStickerShortcut ? "row" : "column",
-                    alignItems: "center",
-                    justifyContent: isChildStickerShortcut ? "flex-start" : "center",
-                    gap: isChildStickerShortcut ? 12 : (isMode ? 4 : 6),
-                    textAlign: isChildStickerShortcut ? "left" : "center",
-                    whiteSpace: "normal",
-                    lineHeight: 1.18,
-                    background: isMode
-                        ? (action.active ? DESIGN.gradients.primary : "rgba(255,255,255,0.88)")
-                        : action.palette.bg,
-                    color: isMode ? (action.active ? "white" : DESIGN.colors.muted) : action.palette.color,
-                    boxShadow: isMode
-                        ? (action.active ? "var(--hyeni-theme-shadow-soft)" : "inset 0 0 0 1px rgba(226,232,240,0.85)")
-                        : actionBoxShadow,
+    const quickThemePalette = { bg: "linear-gradient(135deg,var(--theme-accent-soft),var(--hyeni-surface-warm))", line: "var(--theme-accent-line)", color: "var(--theme-accent-text)", shadow: "var(--hyeni-theme-shadow-soft)" };
+    const quickDangerPalette = { bg: "linear-gradient(135deg,var(--status-negative-subtle),rgba(255,255,255,0.92))", line: "var(--status-negative)", color: "var(--status-negative-strong)", shadow: "rgba(229,34,34,0.14)" };
+    const renderQuickUtilityButtons = () => (
+        <>
+            {isParent && parentCapabilities.canWriteSchedule && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "quick-schedule",
+                        iconKey: "calendar-check",
+                        label: "빠른일정",
+                        ariaLabel: "빠른 일정입력",
+                        palette: quickThemePalette,
+                        onClick: openAiSchedule,
+                    }}
+                />
+            )}
+            {activeView !== "calendar" && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "home",
+                        icon: "⌂",
+                        iconKey: "calendar-heart",
+                        label: "홈",
+                        ariaLabel: "홈",
+                        palette: quickThemePalette,
+                        onClick: () => setActiveView("calendar"),
+                    }}
+                />
+            )}
+            {isParent && parentCapabilities.canRequestChildLocation && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "child-tracker",
+                        icon: "⌖",
+                        iconKey: "pin-heart",
+                        label: "우리아이",
+                        ariaLabel: "📍 우리아이",
+                        palette: quickThemePalette,
+                        onClick: () => setShowChildTracker(true),
+                    }}
+                />
+            )}
+            {isParent && parentCapabilities.canManagePlaces && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "academy",
+                        icon: "□",
+                        iconKey: "pin-lavender",
+                        label: "장소관리",
+                        ariaLabel: "📍 장소관리",
+                        palette: quickThemePalette,
+                        onClick: openAcademyManagement,
+                    }}
+                />
+            )}
+            {isParent && parentCapabilities.canManageFamily && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "friend-playdate",
+                        icon: "◇",
+                        iconKey: "friend",
+                        label: "친구놀이",
+                        ariaLabel: "친구놀이 관리",
+                        palette: quickThemePalette,
+                        onClick: () => {
+                            setActiveView("friendPlaydateSettings");
+                            window.requestAnimationFrame(() => {
+                                window.scrollTo({ top: 0, behavior: "auto" });
+                            });
+                        },
+                    }}
+                />
+            )}
+            {isParent && parentCapabilities.canUseForceRing && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "force-ring",
+                        icon: "!",
+                        iconKey: "bell",
+                        label: "응급알림",
+                        ariaLabel: "응급 강제 알림",
+                        palette: quickDangerPalette,
+                        onClick: () => {
+                            setActiveView("forceRing");
+                            window.requestAnimationFrame(() => {
+                                window.scrollTo({ top: 0, behavior: "auto" });
+                            });
+                        },
+                    }}
+                />
+            )}
+            <QuickUtilityActionButton
+                action={{
+                    key: "stickers",
+                    icon: "★",
+                    iconKey: "heart",
+                    label: isParent ? "스티커" : "스티커북",
+                    ariaLabel: isParent ? "🏆 스티커" : "스티커북",
+                    palette: quickThemePalette,
+                    onClick: () => {
+                        setShowStickerBook(true);
+                        if (familyId) {
+                            fetchStickersForDate(familyId, dateKey).then(s => setStickers(s));
+                            fetchStickerSummary(familyId).then(s => setStickerSummary(s?.[0] || null));
+                        }
+                    },
                 }}
-            >
-                <span aria-hidden="true" style={{
-                    fontSize: isMode ? (isParent ? 18 : 20) : (isChildStickerShortcut ? 28 : (isParent ? 20 : 22)),
-                    lineHeight: 1,
-                    width: isChildStickerShortcut ? 46 : "auto",
-                    height: isChildStickerShortcut ? 46 : "auto",
-                    borderRadius: isChildStickerShortcut ? 18 : 0,
-                    background: isChildStickerShortcut ? "rgba(255,255,255,0.74)" : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                }}>
-                    {action.icon}
-                </span>
-                <span style={{ display: "flex", flexDirection: "column", alignItems: isChildStickerShortcut ? "flex-start" : "center", gap: 3, minWidth: 0 }}>
-                    <span style={{ fontSize: isMode ? 12 : (isParent ? 11 : 13), fontWeight: action.active ? 800 : 800, letterSpacing: 0, wordBreak: "keep-all" }}>
-                        {action.label}
-                    </span>
-                    {action.description && (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--theme-accent-text)", lineHeight: 1.25, wordBreak: "keep-all" }}>
-                            {action.description}
-                        </span>
-                    )}
-                </span>
-            </button>
-        );
-    };
-
+            />
+            {isParent && parentCapabilities.canManageSubscription && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "subscription",
+                        icon: "◆",
+                        iconKey: "shield-heart",
+                        label: "구독",
+                        ariaLabel: "💎 구독",
+                        palette: quickThemePalette,
+                        onClick: () => setShowSubscriptionSettings(true),
+                    }}
+                />
+            )}
+            {isParent && parentCapabilities.canEditParentPhones && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "contacts",
+                        icon: "☎",
+                        iconKey: "chat-heart",
+                        label: "연락처",
+                        ariaLabel: "📞 연락처",
+                        palette: quickThemePalette,
+                        onClick: () => setShowPhoneSettings(true),
+                    }}
+                />
+            )}
+            {isParent && parentCapabilities.canUseRemoteListen && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "remote-audio",
+                        icon: "◉",
+                        iconKey: "shield",
+                        label: "주변소리",
+                        ariaLabel: "🎙️ 주변소리",
+                        palette: quickThemePalette,
+                        onClick: () => {
+                            if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
+                                openFeatureLock(
+                                    FEATURES.REMOTE_AUDIO,
+                                    "",
+                                    "주변 소리 듣기는 프리미엄 회원만 사용할 수 있어요. 프리미엄을 시작하면 아이 기기 주변 소리를 최대 1분 동안 확인할 수 있어요."
+                                );
+                                return;
+                            }
+                            setShowRemoteAudio(true);
+                        },
+                    }}
+                />
+            )}
+            {isParent && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "feedback",
+                        icon: "✉",
+                        iconKey: "note",
+                        label: "피드백",
+                        ariaLabel: "💌 피드백 보내기",
+                        palette: quickThemePalette,
+                        onClick: () => setShowFeedbackModal(true),
+                    }}
+                />
+            )}
+        </>
+    );
     // ── Handle child role selection (anonymous login + pair code input) ────────
     const handleChildSelect = async () => {
         try {
@@ -5161,27 +5013,6 @@ export default function KidsScheduler() {
     };
 
     // ── Handle parent setup: create new family or join existing ────────────────
-    const handleCreateFamily = async () => {
-        if (!authUser) return;
-        try {
-            await setupFamily(authUser.id, getParentNameFromUser(authUser), {
-                parentPhone: getParentPhoneFromUser(authUser),
-                parentGender: getParentGenderFromUser(authUser),
-            });
-            const fam = await getMyFamily(authUser.id);
-            if (fam) {
-                setFamilyInfo(fam);
-                setMyRole(fam.myRole);
-                setShowParentSetup(false);
-                setActiveView(PARENT_VIEWS.FAMILY);
-                showNotif("가족이 생성되었어요! 아래 연동코드를 공유해 주세요 🎉");
-            }
-        } catch (err) {
-            console.error("[createFamily]", err);
-            showNotif("가족 생성 실패: " + (err.message || ""), "error");
-        }
-    };
-
     const handleJoinAsParent = async (code) => {
         const normalizedCode = normalizePairCodeInput(code);
         if (!authUser) throw new Error("로그인 후 다시 시도해 주세요");
@@ -5205,8 +5036,9 @@ export default function KidsScheduler() {
     useEffect(() => {
         // 가족이 생성됐지만 연동된 자녀가 없는 경우 가족 탭으로 자동 이동
         if (familyInfo?.myRole === "parent" && familyInfo?.members?.length === 1) {
-            setActiveView(PARENT_VIEWS.FAMILY);
+            return deferEffectStateUpdate(() => setActiveView(PARENT_VIEWS.FAMILY));
         }
+        return undefined;
     }, [familyInfo]);
 
     // ── Render ─────────────────────────────────────────────────────────────────
@@ -5406,8 +5238,8 @@ export default function KidsScheduler() {
                                     endTime: ac.schedule.endTime || null,
                                     category: ac.category,
                                     emoji: ac.emoji,
-                                    color: cat?.color || "#A78BFA",
-                                    bg: cat?.bg || "#EDE9FE",
+                                    color: cat?.color || "var(--hyeni-cat-school)",
+                                    bg: cat?.bg || "var(--hyeni-cat-school-bg)",
                                     memo: "",
                                     location: ac.location || null,
                                     notifOverride: null
@@ -5573,7 +5405,7 @@ export default function KidsScheduler() {
                 }
                 await deleteDangerZone(id);
                 setDangerZones(prev => prev.filter(z => z.id !== id));
-                setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(id); return n; });
+                setFiredDangerAlerts(prev => removeDangerZoneAlertKeysForZone(prev, id));
                 showNotif("조심할 곳이 삭제됐어요");
             }}
             onClose={() => setShowAcademyMgr(false)} />
@@ -5690,7 +5522,10 @@ export default function KidsScheduler() {
     if (showChildMemoPage && !isParent) return (
         <div className="hyeni-app-shell hyeni-child-memo-shell" style={{ height: "100dvh", background: DESIGN.gradients.shell, fontFamily: FF, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 22px)", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)", position: "relative", overflowX: "hidden", overflowY: "hidden", width: "100%", boxSizing: "border-box" }}>
             {notification && (
-                <div className={`cartoon-toast cartoon-toast--${notification.type === "error" ? "error" : notification.type === "child" ? "child" : notification.type === "parent" ? "parent" : "success"}`}>
+                <div
+                    className={`cartoon-toast cartoon-toast--${notification.type === "error" ? "error" : notification.type === "child" ? "child" : notification.type === "parent" ? "parent" : "success"}`}
+                    style={{ border: "1px solid var(--theme-accent-line)", boxShadow: "var(--hyeni-theme-shadow-soft)" }}
+                >
                     {notification.msg}
                 </div>
             )}
@@ -5740,7 +5575,10 @@ export default function KidsScheduler() {
 
             {/* Toast */}
             {notification && (
-                <div className={`cartoon-toast cartoon-toast--${notification.type === "error" ? "error" : notification.type === "child" ? "child" : notification.type === "parent" ? "parent" : "success"}`}>
+                <div
+                    className={`cartoon-toast cartoon-toast--${notification.type === "error" ? "error" : notification.type === "child" ? "child" : notification.type === "parent" ? "parent" : "success"}`}
+                    style={{ border: "1px solid var(--theme-accent-line)", boxShadow: "var(--hyeni-theme-shadow-soft)" }}
+                >
                     {notification.msg}
                 </div>
             )}
@@ -5948,7 +5786,7 @@ export default function KidsScheduler() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 800, color: "var(--status-cautionary-strong)" }}>위치 권한을 "항상 허용"으로 바꿔주세요</div>
                         <div style={{ fontSize: 11, color: "var(--status-cautionary-strong)", marginTop: 3, lineHeight: 1.45 }}>
-                            앱을 꺼도 위치가 부모님께 전달돼요
+                            앱을 꺼도 부모님이 안전 위치를 확인할 수 있어요. 위치는 자녀 안전 확인에만 사용해요.
                         </div>
                     </div>
                     <button onClick={async () => {
@@ -5974,7 +5812,7 @@ export default function KidsScheduler() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 800, color: "var(--status-cautionary-strong)" }}>앱이 꺼져도 알림이 바로 보이도록 설정이 더 필요해요</div>
                         <div style={{ fontSize: 11, color: "#7C2D12", marginTop: 3, lineHeight: 1.45 }}>
-                            알림 권한, 전체화면 알림, 배터리 예외, 정확한 알림 중 일부가 아직 꺼져 있어요.
+                            알림 권한, 전체화면 알림, 배터리 예외, 정확한 알림 중 일부가 꺼져 있어 일정 알림과 응급 연결이 늦어질 수 있어요.
                         </div>
                     </div>
                     <button
@@ -5994,7 +5832,7 @@ export default function KidsScheduler() {
                     </span>
                     <div className="cartoon-push-banner-text">
                         <div className="cartoon-push-banner-title">푸시 알림을 켜주세요</div>
-                        <div className="cartoon-push-banner-sub">일정 시작 전 알림을 받을 수 있어요</div>
+                        <div className="cartoon-push-banner-sub">일정 시작 전 알림을 받을 수 있어요. 나중에도 설정에서 바꿀 수 있어요</div>
                     </div>
                     <button
                         type="button"
@@ -6025,7 +5863,7 @@ export default function KidsScheduler() {
                         type="button"
                         className="cartoon-push-banner-dismiss"
                         aria-label="배너 닫기"
-                        onClick={() => { try { sessionStorage.setItem("hyeni-push-denied-dismissed", "1"); } catch (e) { /* sessionStorage 비활성: 무시 */ } setPushDeniedDismissed(true); }}
+                        onClick={() => { try { sessionStorage.setItem("hyeni-push-denied-dismissed", "1"); } catch { /* sessionStorage 비활성: 무시 */ } setPushDeniedDismissed(true); }}
                     >×</button>
                 </div>
             )}
@@ -6038,15 +5876,18 @@ export default function KidsScheduler() {
             />
 
             {/* ── Header Row 1: Logo + 꾹 + 로그아웃 ── */}
-            <div style={{ width: "100%", maxWidth: contentMaxWidth, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "10px 12px", background: "rgba(255,255,255,0.88)", border: "1px solid var(--theme-accent-line)", borderRadius: DESIGN.radius.xl, boxShadow: DESIGN.shadow.soft }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: "1 1 auto" }}>
+            <div
+                className="hyeni-top-header"
+                style={{ maxWidth: contentMaxWidth, borderRadius: DESIGN.radius.xl, boxShadow: DESIGN.shadow.soft }}
+            >
+                <div className="hyeni-top-header-brand">
                     <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
                         <AppBrandLogo size={isParent ? 64 : 72} radius={isParent ? 18 : 20} shadow={false} mood={appLogoMood} />
                     </div>
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
                         <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer" }}>혜니캘린더</div>
                         {isParent && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", marginTop: 4, minWidth: 0 }}>
+                            <div className="hyeni-top-header-mode-rail">
                                 <button
                                     type="button"
                                     onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
@@ -6101,7 +5942,7 @@ export default function KidsScheduler() {
                         )}
                     </div>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
+                <div className="hyeni-top-header-actions">
                     {isParent && (
                         <button onClick={() => { setShowAlertCenter(true); loadParentAlerts(); }}
                             style={{ position: "relative", width: 40, height: 40, padding: 0, borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
@@ -6119,7 +5960,8 @@ export default function KidsScheduler() {
                             type="button"
                             onClick={() => setShowParentSettings(true)}
                             style={{ width: 40, height: 40, padding: 0, borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                            aria-label="설정">
+                            aria-label="설정"
+                            title="설정">
                             <ThreeDIcon name="settings" size={22} aria-label="설정" />
                         </button>
                     )}
@@ -6183,7 +6025,7 @@ export default function KidsScheduler() {
                 >
                   {pairedChildren.map((child) => {
                     const isActive = selectedChild?.id === child.id;
-                    const tint = child.color_hex || "#A78BFA";
+                    const tint = child.color_hex || "var(--theme-accent)";
                     return (
                       <button
                         key={child.id || child.user_id}
@@ -6428,7 +6270,7 @@ export default function KidsScheduler() {
                         fontSize: 11,
                         fontWeight: 800,
                         color: "var(--brand-mint-text, #087653)",
-                        letterSpacing: "-0.01em",
+                        letterSpacing: 0,
                       }}>
                         {dateLabel}
                       </span>
@@ -6437,7 +6279,7 @@ export default function KidsScheduler() {
                         fontSize: 22,
                         fontWeight: 900,
                         color: "#202024",
-                        letterSpacing: "-0.03em",
+                        letterSpacing: 0,
                         lineHeight: 1.25,
                         wordBreak: "keep-all",
                       }}>
@@ -6466,7 +6308,7 @@ export default function KidsScheduler() {
                           cursor: "pointer",
                           fontFamily: FF,
                           boxShadow: "0 6px 14px rgba(49, 196, 141, 0.28)",
-                          letterSpacing: "-0.01em",
+                          letterSpacing: 0,
                           whiteSpace: "nowrap",
                           maxWidth: "100%",
                         }}
@@ -6481,7 +6323,7 @@ export default function KidsScheduler() {
                       style={{
                         position: "relative",
                         flexShrink: 0,
-                        width: 108,
+                        width: 132,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -6491,7 +6333,7 @@ export default function KidsScheduler() {
                       <span style={{ position: "absolute", top: 0, left: -4, fontSize: 18, opacity: 0.85 }}>☁️</span>
                       <span style={{ position: "absolute", bottom: 24, right: 0, fontSize: 14, opacity: 0.7 }}>✨</span>
                       <span style={{ position: "absolute", bottom: 4, left: 4, fontSize: 12, opacity: 0.7 }}>💗</span>
-                      <HyeniMascot variant={todayEventCount === 0 ? "cheer" : "wave"} size={108} aria-label="" />
+                      <HyeniMascot variant={appLogoMood} size={128} aria-label="" />
                     </div>
                   </section>
                 </div>
@@ -6502,140 +6344,8 @@ export default function KidsScheduler() {
                 여기서는 항상 단일자녀 레이아웃이 렌더된다. */}
             {activeView === "calendar" && (isParent ? (
                 <div className="hyeni-v5-parent-main" aria-label="부모 메인">
-                    {/* hero — 상단 공통 hero 로 이동, 여기서는 빈 placeholder 유지 (이전 중복 제거) */}
-                    {false && (() => {
-                      const heroChild = selectedChild || pairedChildren[0] || null;
-                      const childName = heroChild?.name || "우리 아이";
-                      const todayEventCount = (todayEvents || []).filter(e => {
-                        if (!heroChild?.id) return true;
-                        if (!Array.isArray(e.child_ids)) return true;
-                        return e.child_ids.includes(heroChild.id);
-                      }).length;
-                      const moodLine = todayEventCount === 0
-                        ? "오늘은 여유로워요"
-                        : todayEventCount === 1
-                          ? "오늘 한 개의 일정이 있어요"
-                          : `오늘 ${todayEventCount}개의 일정이 있어요`;
-                      const dateLabel = `${currentMonth + 1}월 ${selectedDate}일 ${DAYS_KO[(new Date(currentYear, currentMonth, selectedDate)).getDay()]}요일`;
-                      return (
-                        <section
-                          aria-label={`${childName} 오늘 요약`}
-                          style={{
-                            position: "relative",
-                            background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #F0FBF5 60%, var(--brand-rose-soft, #FFF0F5) 100%)",
-                            borderRadius: 28,
-                            padding: "22px 18px 22px 22px",
-                            marginBottom: 18,
-                            overflow: "hidden",
-                            boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
-                            minHeight: 220,
-                            display: "flex",
-                            alignItems: "stretch",
-                            gap: 12,
-                          }}
-                        >
-                          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 12, position: "relative", zIndex: 1 }}>
-                            <span style={{
-                              alignSelf: "flex-start",
-                              padding: "4px 10px",
-                              borderRadius: 999,
-                              background: "rgba(255,255,255,0.85)",
-                              border: "1px solid rgba(49,196,141,0.18)",
-                              fontSize: 11,
-                              fontWeight: 800,
-                              color: "var(--brand-mint-text, #087653)",
-                              letterSpacing: "-0.01em",
-                            }}>
-                              {dateLabel}
-                            </span>
-                            <h2 style={{
-                              margin: 0,
-                              fontSize: 24,
-                              fontWeight: 900,
-                              color: "#202024",
-                              letterSpacing: "-0.03em",
-                              lineHeight: 1.22,
-                            }}>
-                              {childName},<br />
-                              <span style={{ color: "var(--brand-mint-text, #087653)" }}>{moodLine}</span>
-                            </h2>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const calendarSection = document.getElementById("parent-calendar-section");
-                                if (calendarSection?.scrollIntoView) calendarSection.scrollIntoView({ behavior: "smooth", block: "start" });
-                              }}
-                              style={{
-                                alignSelf: "flex-start",
-                                marginTop: "auto",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 8,
-                                padding: "12px 18px",
-                                border: "none",
-                                background: "linear-gradient(135deg, var(--brand-mint, #31C48D) 0%, var(--brand-mint-deep, #15936B) 100%)",
-                                color: "#FFFFFF",
-                                borderRadius: 999,
-                                fontSize: 14,
-                                fontWeight: 800,
-                                cursor: "pointer",
-                                fontFamily: FF,
-                                boxShadow: "0 8px 18px rgba(49, 196, 141, 0.32)",
-                                letterSpacing: "-0.01em",
-                              }}
-                            >
-                              <span aria-hidden="true" style={{ fontSize: 16 }}>🗓</span>
-                              오늘 일정 보기
-                              <span aria-hidden="true" style={{ fontWeight: 700 }}>›</span>
-                            </button>
-                          </div>
-                          <div
-                            aria-hidden="true"
-                            style={{
-                              position: "relative",
-                              flexShrink: 0,
-                              width: 148,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <span style={{ position: "absolute", top: 4, left: -2, fontSize: 22, opacity: 0.85 }}>☁️</span>
-                            <span style={{ position: "absolute", top: 18, right: 6, fontSize: 16, opacity: 0.7 }}>✨</span>
-                            <span style={{ position: "absolute", bottom: 6, left: 8, fontSize: 14, opacity: 0.7 }}>💗</span>
-                            <HyeniMascot variant="static" size={144} aria-label="" />
-                          </div>
-                          <button
-                            type="button"
-                            aria-label="설정"
-                            onClick={() => setActiveView("parentSettings")}
-                            style={{
-                              position: "absolute",
-                              top: 12,
-                              right: 12,
-                              width: 36,
-                              height: 36,
-                              borderRadius: "50%",
-                              background: "#FFFFFF",
-                              border: "1px solid rgba(49, 196, 141, 0.18)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 16,
-                              color: "#5F6368",
-                              cursor: "pointer",
-                              zIndex: 2,
-                              fontFamily: FF,
-                              boxShadow: "0 2px 8px rgba(31, 24, 28, 0.06)",
-                            }}
-                          >
-                            ⚙
-                          </button>
-                        </section>
-                      );
-                    })()}
                     <div className="hyeni-v5-section-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 22, marginBottom: 10, padding: "0 4px" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: 0 }}>
                             <ThreeDIcon name="pin-heart" size={20} aria-label="" />
                             아이 현황
                         </span>
@@ -6647,13 +6357,14 @@ export default function KidsScheduler() {
                                 gap: 6,
                                 padding: "4px 10px",
                                 borderRadius: 999,
-                                background: displayChildPos ? "var(--brand-mint-soft, #DDF7EA)" : "#FFF3C7",
-                                color: displayChildPos ? "var(--brand-mint-text, #087653)" : "#9A6500",
+                                background: displayChildPos ? "var(--theme-accent-soft)" : "var(--status-cautionary-subtle)",
+                                border: "1px solid var(--theme-accent-line)",
+                                color: displayChildPos ? "var(--theme-accent-text)" : "var(--status-cautionary-strong)",
                                 fontSize: 11,
                                 fontWeight: 800,
                             }}
                         >
-                            {displayChildPos && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 999, background: "var(--brand-mint, #31C48D)" }} />}
+                            {displayChildPos && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 999, background: "var(--theme-accent)" }} />}
                             {displayChildPos ? "실시간 연결" : "연결 준비 중"}
                         </span>
                     </div>
@@ -6713,7 +6424,7 @@ export default function KidsScheduler() {
                             }}
                         >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em" }}>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: 0 }}>
                                     <ThreeDIcon name="safety-mascot" size={28} aria-label="" />
                                     아이 기기 안전 지표
                                 </div>
@@ -6750,7 +6461,7 @@ export default function KidsScheduler() {
                             }}
                         >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
-                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: "-0.01em", minWidth: 0 }}>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: 0, minWidth: 0 }}>
                                     <ThreeDIcon name="safety-mascot" size={28} aria-label="" />
                                     <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>안전 지표</span>
                                 </div>
@@ -6835,7 +6546,7 @@ export default function KidsScheduler() {
                             <ThreeDIcon name="chat-heart" size={42} aria-label="" />
                         </span>
                         <span className="hyeni-v5-memo-body" style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-                            <span className="hyeni-v5-memo-label" style={{ fontSize: 12, fontWeight: 800, color: "var(--brand-rose-text, #B83262)", letterSpacing: "-0.01em" }}>오늘의 메모</span>
+                            <span className="hyeni-v5-memo-label" style={{ fontSize: 12, fontWeight: 800, color: "var(--brand-rose-text, #B83262)", letterSpacing: 0 }}>오늘의 메모</span>
                             <span className="hyeni-v5-memo-text" style={{ fontSize: 14, fontWeight: 700, color: "#202024", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{memoPreviewText}</span>
                             {memoPreviewMeta && <span className="hyeni-v5-memo-meta" style={{ fontSize: 11, fontWeight: 600, color: "#9A9AA0" }}>{memoPreviewMeta}</span>}
                         </span>
@@ -6861,34 +6572,17 @@ export default function KidsScheduler() {
                     </button>
 
                     <div className="hyeni-v5-section-head" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 22, marginBottom: 10, padding: "0 4px" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: 0 }}>
                             <ThreeDIcon name="check" size={20} aria-label="" />
                             바로가기
                         </span>
                     </div>
                     <div className="hyeni-v5-action-rail" aria-label="관리 바로가기">
-                        {quickUtilityActions.map(action => (
-                            <button
-                                key={action.key}
-                                type="button"
-                                onClick={action.onClick}
-                                className="hyeni-v5-action-chip"
-                                data-action-key={action.key}
-                                style={{ color: action.palette?.color || DESIGN.colors.ink, fontFamily: FF }}
-                                aria-label={action.ariaLabel}
-                            >
-                                {action.iconKey ? (
-                                    <ThreeDIcon name={action.iconKey} size={28} aria-label="" />
-                                ) : (
-                                    <span aria-hidden="true">{action.icon}</span>
-                                )}
-                                <span>{action.label}</span>
-                            </button>
-                        ))}
+                        {renderQuickUtilityButtons()}
                     </div>
 
                     <div className="hyeni-v5-section-head" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 22, marginBottom: 10, padding: "0 4px" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: "-0.01em" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 800, color: "#202024", letterSpacing: 0 }}>
                             <ThreeDIcon name="calendar-heart" size={20} aria-label="" />
                             캘린더
                         </span>
@@ -7298,7 +6992,7 @@ export default function KidsScheduler() {
                         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px 14px", marginBottom: 4 }}>
                             <HyeniMascot variant={editingEventId ? "diary" : "phone"} size={56} aria-label="" />
                             <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                                <strong style={{ fontSize: 15, fontWeight: 800, color: "var(--fg-primary)", letterSpacing: "-0.01em" }}>
+                                <strong style={{ fontSize: 15, fontWeight: 800, color: "var(--fg-primary)", letterSpacing: 0 }}>
                                     {editingEventId ? "일정을 다듬어볼까요?" : "오늘 뭐 할까요?"}
                                 </strong>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--fg-secondary)" }}>
@@ -7861,7 +7555,7 @@ export default function KidsScheduler() {
 
             {showRemoteAudio && isParent && entitlement.canUse(FEATURES.REMOTE_AUDIO) && (
                 <AmbientAudioRecorder
-                    channel={realtimeChannel.current}
+                    channelRef={realtimeChannel}
                     familyId={familyId}
                     senderUserId={authUser?.id}
                     pairedChildren={pairedChildren}
@@ -7900,7 +7594,7 @@ export default function KidsScheduler() {
                             </div>
                         </div>
                         <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--fg-secondary)", fontWeight: 600, marginBottom: 14 }}>
-                            아이 기기에서 마이크 권한을 허용해야 부모님과 주위 소리 듣기 세션을 안전하게 연결할 수 있어요.
+                            아이 기기에서 마이크 권한을 허용해야 부모님이 요청한 1분 주위 소리 듣기 세션을 안전하게 연결할 수 있어요.
                         </div>
                         <div style={{ background: "var(--status-cautionary-subtle)", border: "1px solid #FDE68A", borderRadius: 16, padding: "12px 14px", color: "var(--status-cautionary-strong)", fontSize: 12, lineHeight: 1.55, fontWeight: 800, marginBottom: 16 }}>
                             Android 설정 &gt; 앱 &gt; 혜니캘린더 &gt; 권한 &gt; 마이크 &gt; 허용
@@ -8149,7 +7843,7 @@ export default function KidsScheduler() {
                     }
                     await deleteDangerZone(id);
                     setDangerZones(prev => prev.filter(z => z.id !== id));
-                    setFiredDangerAlerts(prev => { const n = new Set(prev); n.delete(id); return n; });
+                    setFiredDangerAlerts(prev => removeDangerZoneAlertKeysForZone(prev, id));
                     showNotif("위험지역이 삭제됐어요");
                 }}
                 onClose={() => setShowDangerZones(false)}

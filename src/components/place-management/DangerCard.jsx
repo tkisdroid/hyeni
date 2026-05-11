@@ -35,7 +35,7 @@ export default function DangerCard({
                             fontSize: 17,
                             fontWeight: "var(--weight-bold)",
                             color: "var(--status-cautionary-strong)",
-                            letterSpacing: "-0.01em",
+                            letterSpacing: 0,
                         }}
                     >
                         조심할 곳

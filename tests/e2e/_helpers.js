@@ -264,12 +264,13 @@ export async function seedFamilyWith3Children() {
 // Seeds family with 1 child, no subscription.
 export async function seedLegacyFamily() {
   const parent = await signupParentDirect();
+  const pair_code = generatePairCode();
   const family = await srFetch(`/rest/v1/families`, {
     method: "POST",
     body: JSON.stringify({
       name: "테스트네",
       parent_id: parent.user_id,
-      pair_code: generatePairCode(),
+      pair_code,
     }),
   });
   const family_id = family[0].id;
@@ -286,7 +287,7 @@ export async function seedLegacyFamily() {
   });
   return {
     parent_email: parent.email, parent_password: parent.password,
-    parent_user_id: parent.user_id, child_id: c[0].id, family_id,
+    parent_user_id: parent.user_id, child_id: c[0].id, family_id, pair_code,
   };
 }
 
@@ -343,6 +344,12 @@ export async function getDbRowCount(table, filter = "") {
   return Number.parseInt(cnt || "0", 10);
 }
 
+export async function getDbRows(table, filter = "", select = "*") {
+  return srFetch(`/rest/v1/${table}?select=${select}${filter ? "&" + filter : ""}`, {
+    method: "GET",
+  });
+}
+
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -354,6 +361,8 @@ function escapeRegExp(value) {
 export async function selectChildOnHomeIfMulti(page, childName, { timeoutMs = 4000 } = {}) {
   const childNamePattern = escapeRegExp(childName);
   const candidates = [
+    page.locator(`button[aria-label='${childName} 선택']`).first(),
+    page.getByRole("button", { name: new RegExp(`^${childNamePattern} 선택$`) }).first(),
     page.locator(`button[aria-label='${childName} 보기']`).first(),
     page.getByRole("button", { name: new RegExp(`^${childNamePattern} 오늘 일정`) }).first(),
     page.getByRole("group", { name: "자녀 빠른 전환" }).getByRole("button", { name: childName, exact: true }).first(),
@@ -376,10 +385,10 @@ export async function openSubscriptionSettings(page, { timeoutMs = 10000 } = {})
   try {
     await directButton.click({ timeout: Math.min(timeoutMs, 3000) });
   } catch {
-    // Global header settings button is the only one with title="설정"; the
-   // "오늘의 가족" region exposes a second aria-label="설정" button, so the
-   // strict aria-label match resolves to two elements. Disambiguate via title.
-    await page.getByTitle("설정", { exact: true }).first().click({ timeout: timeoutMs });
+    await page.getByTitle("설정", { exact: true })
+      .or(page.getByRole("button", { name: "설정", exact: true }))
+      .first()
+      .click({ timeout: timeoutMs });
     await page.getByRole("button", { name: /구독 관리/ }).click({ timeout: timeoutMs });
   }
   await page.waitForSelector("text=혜니 프리미엄", { timeout: timeoutMs });

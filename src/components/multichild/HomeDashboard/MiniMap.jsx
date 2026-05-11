@@ -95,8 +95,8 @@ export function MiniMap({ children, positions, onTap }) {
       type="button" onClick={onTap} aria-label="지도 탭으로 이동"
       style={{
         position: "relative", width: "100%", height: 160, borderRadius: "var(--cartoon-radius-card)",
-        background: "linear-gradient(135deg, var(--cartoon-bg-cream), var(--cartoon-rose-soft))",
-        border: "1.5px solid var(--cartoon-line)", overflow: "hidden", cursor: "pointer", padding: 0,
+        background: "linear-gradient(135deg, var(--theme-accent-soft), var(--bg-base))",
+        border: "1.5px solid var(--theme-accent-line)", overflow: "hidden", cursor: "pointer", padding: 0,
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",

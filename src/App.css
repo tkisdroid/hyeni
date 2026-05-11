@@ -50,6 +50,14 @@
   --theme-accent-soft: #FFF5FA;
   --theme-accent-line: #FFE4EF;
   --theme-accent-text: #B0477A;
+
+  --hyeni-motion-fast: 120ms;
+  --hyeni-motion-base: 180ms;
+  --hyeni-motion-enter: 260ms;
+  --hyeni-ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --hyeni-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --hyeni-press-scale: 0.975;
+  --hyeni-hover-lift: -2px;
 }
 
 .hyeni-app-shell {
@@ -109,6 +117,129 @@
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes hyeni-micro-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes hyeni-micro-pop {
+  0%   { transform: scale(0.96); }
+  70%  { transform: scale(1.045); }
+  100% { transform: scale(1); }
+}
+
+@keyframes hyeni-micro-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme-accent) 0%, transparent); }
+  50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--theme-accent) 14%, transparent); }
+}
+
+.hyeni-micro-enter {
+  animation: hyeni-micro-enter var(--hyeni-motion-enter) var(--hyeni-ease-standard) backwards;
+}
+
+.hyeni-micro-tap {
+  transition:
+    transform var(--hyeni-motion-base) var(--hyeni-ease-standard),
+    box-shadow var(--hyeni-motion-base) var(--hyeni-ease-standard),
+    border-color var(--hyeni-motion-base) var(--hyeni-ease-standard),
+    background-color var(--hyeni-motion-base) var(--hyeni-ease-standard),
+    color var(--hyeni-motion-base) var(--hyeni-ease-standard);
+  will-change: transform;
+}
+
+.hyeni-micro-icon {
+  transition: transform var(--hyeni-motion-base) var(--hyeni-ease-pop),
+              filter var(--hyeni-motion-base) var(--hyeni-ease-standard);
+  transform-origin: center;
+}
+
+.hyeni-app-shell .hyeni-micro-tap:not(:disabled):not([aria-disabled="true"]):hover {
+  transform: translateY(var(--hyeni-hover-lift));
+}
+
+.hyeni-app-shell .hyeni-micro-tap:not(:disabled):not([aria-disabled="true"]):active {
+  transform: scale(var(--hyeni-press-scale));
+}
+
+.hyeni-app-shell .hyeni-micro-tap:not(:disabled):not([aria-disabled="true"]):hover .hyeni-micro-icon {
+  transform: translateY(-1px) scale(1.07);
+  filter: saturate(1.04);
+}
+
+.hyeni-micro-soft-glow {
+  animation: hyeni-micro-glow 1800ms var(--hyeni-ease-standard) infinite;
+}
+
+.hyeni-app-shell .cartoon-push-banner,
+.hyeni-app-shell .perm-step,
+.hyeni-app-shell .settings-row,
+.hyeni-app-shell .hyeni-child-settings-row,
+.hyeni-app-shell .child-hero,
+.hyeni-app-shell .hyeni-top-header,
+.hyeni-app-shell .hyeni-v5-movement-summary,
+.hyeni-app-shell .hyeni-v5-memo-mini {
+  animation: hyeni-micro-enter var(--hyeni-motion-enter) var(--hyeni-ease-standard) backwards;
+}
+
+.hyeni-app-shell .settings-row,
+.hyeni-app-shell .hyeni-child-settings-row,
+.hyeni-app-shell .perm-step,
+.hyeni-app-shell .cartoon-push-banner,
+.hyeni-app-shell .hyeni-v5-kid-card,
+.hyeni-app-shell .hyeni-v5-event-card,
+.hyeni-app-shell .hyeni-v5-action-chip,
+.hyeni-app-shell .hyeni-subscription-child-slot {
+  transition:
+    transform var(--hyeni-motion-base) var(--hyeni-ease-standard),
+    box-shadow var(--hyeni-motion-base) var(--hyeni-ease-standard),
+    border-color var(--hyeni-motion-base) var(--hyeni-ease-standard),
+    background-color var(--hyeni-motion-base) var(--hyeni-ease-standard);
+}
+
+.hyeni-app-shell .settings-row:is(button):hover,
+.hyeni-app-shell .hyeni-child-settings-row:hover,
+.hyeni-app-shell .perm-step:has(button:hover),
+.hyeni-app-shell .cartoon-push-banner:hover,
+.hyeni-app-shell .hyeni-v5-kid-card:hover,
+.hyeni-app-shell .hyeni-v5-event-card:hover,
+.hyeni-app-shell .hyeni-v5-action-chip:hover,
+.hyeni-app-shell .hyeni-subscription-child-slot:hover {
+  transform: translateY(var(--hyeni-hover-lift));
+}
+
+.hyeni-app-shell .perm-step[data-ready="true"] .perm-step-icon,
+.hyeni-app-shell .child-hero-mascot,
+.hyeni-app-shell .hyeni-top-header-brand > div:first-child {
+  animation: hyeni-micro-pop 420ms var(--hyeni-ease-pop) backwards;
+}
+
+.hyeni-app-shell .perm-step button,
+.hyeni-app-shell .settings-row button,
+.hyeni-app-shell .hyeni-top-header-actions button,
+.hyeni-app-shell .cartoon-push-banner-cta,
+.hyeni-app-shell .cartoon-push-banner-dismiss {
+  transition:
+    transform var(--hyeni-motion-fast) var(--hyeni-ease-standard),
+    filter var(--hyeni-motion-fast) var(--hyeni-ease-standard),
+    box-shadow var(--hyeni-motion-base) var(--hyeni-ease-standard);
+}
+
+.hyeni-app-shell .perm-step button:active,
+.hyeni-app-shell .settings-row button:active,
+.hyeni-app-shell .hyeni-top-header-actions button:active,
+.hyeni-app-shell .cartoon-push-banner-cta:active,
+.hyeni-app-shell .cartoon-push-banner-dismiss:active {
+  transform: scale(var(--hyeni-press-scale));
+}
+
+.hyeni-app-shell .cartoon-push-banner-cta:hover,
+.hyeni-app-shell .perm-step button:hover,
+.hyeni-app-shell .hyeni-top-header-actions button:hover {
+  filter: brightness(1.03);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--theme-accent) 16%, transparent);
+}
+
 .hyeni-app-shell .hyeni-v5-parent-main,
 .hyeni-app-shell .hyeni-v5-child-main,
 .hyeni-app-shell [data-view-root="true"] {
@@ -140,6 +271,29 @@
   .hyeni-v5-event-list > *,
   .hyeni-v5-kid-card { animation: none !important; }
   .hyeni-skeleton { animation: none; background: var(--bg-muted); }
+  .hyeni-micro-enter,
+  .hyeni-micro-soft-glow,
+  .hyeni-app-shell .cartoon-push-banner,
+  .hyeni-app-shell .perm-step,
+  .hyeni-app-shell .settings-row,
+  .hyeni-app-shell .hyeni-child-settings-row,
+  .hyeni-app-shell .child-hero,
+  .hyeni-app-shell .hyeni-top-header,
+  .hyeni-app-shell .child-hero-mascot,
+  .hyeni-app-shell .hyeni-top-header-brand > div:first-child {
+    animation: none !important;
+  }
+  .hyeni-app-shell .hyeni-micro-tap,
+  .hyeni-app-shell .settings-row,
+  .hyeni-app-shell .hyeni-child-settings-row,
+  .hyeni-app-shell .perm-step,
+  .hyeni-app-shell .cartoon-push-banner,
+  .hyeni-app-shell .hyeni-v5-kid-card,
+  .hyeni-app-shell .hyeni-v5-event-card,
+  .hyeni-app-shell .hyeni-v5-action-chip,
+  .hyeni-app-shell .hyeni-subscription-child-slot {
+    transform: none !important;
+  }
 }
 
 .hyeni-app-shell button,
@@ -487,6 +641,54 @@ a:focus-visible {
   color: var(--fg-tertiary);
   opacity: 0.55;
   margin-left: 0;
+}
+
+.hyeni-top-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--theme-accent-line);
+  box-sizing: border-box;
+}
+
+.hyeni-top-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hyeni-top-header-mode-rail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  min-width: 0;
+}
+
+.hyeni-top-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+@media (max-width: 390px) {
+  .hyeni-top-header {
+    grid-template-columns: 1fr;
+  }
+
+  .hyeni-top-header-actions {
+    width: 100%;
+  }
 }
 
 .hyeni-v5-action-rail {
@@ -1887,7 +2089,7 @@ a:focus-visible {
   overflow: hidden;
   text-overflow: clip;
   max-width: 100%;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .hyeni-v5-tabbar button.active {

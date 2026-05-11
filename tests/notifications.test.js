@@ -97,4 +97,74 @@ describe("push notification settings", () => {
 
     expect(__testing__.getScheduledTimerKeys()).toEqual(["event-1-15", "event-1-start"]);
   });
+
+  test("fires the configured parent 15-minute reminder with the expected message", async () => {
+    const shown = [];
+    const FakeNotification = class {
+      constructor(title, options) {
+        shown.push({ title, ...options });
+      }
+    };
+    Object.defineProperty(window, "Notification", {
+      configurable: true,
+      value: FakeNotification,
+    });
+    window.Notification.permission = "granted";
+
+    scheduleNotifications(
+      createEventsForToday(),
+      {
+        childEnabled: true,
+        parentEnabled: true,
+        minutesBefore: [15],
+      },
+      "parent",
+    );
+
+    await vi.advanceTimersByTimeAsync(45 * 60_000);
+
+    expect(shown).toEqual([
+      expect.objectContaining({
+        title: "📚 영어 학원",
+        body: "📚 영어 학원 15분 전 알림 — 09:00 시작",
+        tag: "hyeni-event-1-15",
+        silent: false,
+      }),
+    ]);
+  });
+
+  test("fires the configured child 15-minute reminder with child-friendly copy", async () => {
+    const shown = [];
+    const FakeNotification = class {
+      constructor(title, options) {
+        shown.push({ title, ...options });
+      }
+    };
+    Object.defineProperty(window, "Notification", {
+      configurable: true,
+      value: FakeNotification,
+    });
+    window.Notification.permission = "granted";
+
+    scheduleNotifications(
+      createEventsForToday(),
+      {
+        childEnabled: true,
+        parentEnabled: true,
+        minutesBefore: [15],
+      },
+      "child",
+    );
+
+    await vi.advanceTimersByTimeAsync(45 * 60_000);
+
+    expect(shown).toEqual([
+      expect.objectContaining({
+        title: "📚 영어 학원",
+        body: "🐰 📚 영어 학원 가기 15분 전이야! 준비물 챙겼니? 🎒",
+        tag: "hyeni-event-1-15",
+        silent: false,
+      }),
+    ]);
+  });
 });

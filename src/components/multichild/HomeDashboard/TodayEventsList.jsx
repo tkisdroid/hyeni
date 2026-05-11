@@ -28,10 +28,10 @@ export function TodayEventsList({ events, children }) {
         style={{
           padding: 20,
           textAlign: "center",
-          background: "#FFFFFF",
-          border: "1px solid #EFEEEA",
+          background: "var(--bg-card)",
+          border: "1px solid var(--theme-accent-line)",
           borderRadius: 16,
-          color: "#8C8C8C",
+          color: "var(--fg-secondary)",
           fontSize: 14,
           fontWeight: 500,
           display: "flex",
@@ -54,8 +54,8 @@ export function TodayEventsList({ events, children }) {
           .filter(Boolean);
         const isFamily = event.is_family_event;
         const accent = isFamily
-          ? "#F779A8"
-          : (eventChildren[0]?.color_hex || "#F779A8");
+          ? "var(--theme-accent)"
+          : (eventChildren[0]?.color_hex || "var(--theme-accent)");
         const childLabel = isFamily
           ? "가족 전체"
           : eventChildren.map((c) => c.name).join(", ");
@@ -71,21 +71,25 @@ export function TodayEventsList({ events, children }) {
               alignItems: "center",
               gap: 12,
               padding: 14,
-              background: "#FFFFFF",
-              border: "1px solid #EFEEEA",
+              background: "var(--bg-card)",
+              border: "1px solid var(--theme-accent-line)",
               borderRadius: 16,
               overflow: "hidden",
             }}
           >
             <span
               aria-hidden="true"
+              className="hyeni-today-marker"
               style={{
                 position: "absolute",
                 left: 0,
                 top: 8,
                 bottom: 8,
                 width: 4,
-                background: accent,
+                background: isFamily ? "transparent" : accent,
+                borderWidth: 1,
+                borderStyle: isFamily ? "dashed" : "solid",
+                borderColor: accent,
                 borderRadius: 4,
               }}
             />
@@ -96,7 +100,7 @@ export function TodayEventsList({ events, children }) {
                 width: 48,
                 height: 48,
                 borderRadius: 14,
-                background: "#FFF7F9",
+                background: "var(--theme-accent-soft)",
                 alignItems: "center",
                 justifyContent: "center",
                 marginLeft: 4,
@@ -106,16 +110,16 @@ export function TodayEventsList({ events, children }) {
               <CategoryIcon categoryId={categoryId} size={36} aria-label="" />
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#1F2A24", letterSpacing: "-0.01em" }}>{event.title}</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "var(--fg-primary)", letterSpacing: 0 }}>{event.title}</div>
               {childLabel && (
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#C3325B", marginTop: 2 }}>{childLabel}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--theme-accent-text)", marginTop: 2 }}>{childLabel}</div>
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              <span style={{ fontSize: 16, fontWeight: 800, color: "#1F2A24", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em" }}>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "var(--fg-primary)", fontVariantNumeric: "tabular-nums", letterSpacing: 0 }}>
                 {event.time}
               </span>
-              <span aria-hidden="true" style={{ color: "#A892A0", fontSize: 18 }}>›</span>
+              <span aria-hidden="true" style={{ color: "var(--fg-tertiary)", fontSize: 18 }}>›</span>
             </div>
           </li>
         );

@@ -35,7 +35,7 @@ export function ChildHero({ eventCount = 0, showMascot = true, onSettings, now =
         <header className="child-hero" role="region" aria-label="오늘은 뭐해?" style={heroStyle}>
             {showMascot && (
                 <div className="child-hero-mascot">
-                    <HyeniMascot variant={mascotVariant} size={88} aria-label="혜니" />
+                    <HyeniMascot variant={mascotVariant} size={112} aria-label="혜니" />
                 </div>
             )}
             <div className="child-hero-body">

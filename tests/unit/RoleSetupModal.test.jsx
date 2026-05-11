@@ -18,30 +18,32 @@ describe("RoleSetupModal", () => {
         localStorage.clear();
     });
 
-    it("기본 promise + 학부모/아이 카드 렌더", () => {
+    it("기본 role 선택 카드 렌더", () => {
         render(<RoleSetupModal onSelect={() => {}} />);
-        expect(screen.getByText("한 가족, 두 시점")).toBeInTheDocument();
-        expect(screen.getByLabelText("학부모로 시작")).toBeInTheDocument();
-        expect(screen.getByLabelText("아이로 시작")).toBeInTheDocument();
+        expect(screen.getByText(/누구로/)).toBeInTheDocument();
+        expect(screen.getByLabelText("부모로 시작")).toBeInTheDocument();
+        expect(screen.getByLabelText("자녀로 시작")).toBeInTheDocument();
     });
 
     it("아이 카드 클릭 시 onSelect('child') 호출", () => {
         const onSelect = vi.fn();
         render(<RoleSetupModal onSelect={onSelect} />);
-        fireEvent.click(screen.getByLabelText("아이로 시작"));
+        fireEvent.click(screen.getByLabelText("자녀로 시작"));
+        fireEvent.click(screen.getByRole("button", { name: "다음" }));
         expect(onSelect).toHaveBeenCalledWith("child");
     });
 
-    it("학부모 카드 클릭 → ParentAuthScreen 으로 전환", () => {
+    it("부모 카드 클릭 → ParentAuthScreen 으로 전환", () => {
         render(<RoleSetupModal onSelect={() => {}} />);
-        fireEvent.click(screen.getByLabelText("학부모로 시작"));
-        expect(screen.getByText("학부모 로그인")).toBeInTheDocument();
+        fireEvent.click(screen.getByLabelText("부모로 시작"));
+        fireEvent.click(screen.getByRole("button", { name: "다음" }));
+        expect(screen.getByText("아이디 · 비밀번호로 로그인")).toBeInTheDocument();
     });
 
     it("loading=true → SplashScreen 분기", () => {
         const { container } = render(<RoleSetupModal onSelect={() => {}} loading />);
         // SplashScreen 자체는 별도 모듈 — promise 텍스트가 없는지 확인
-        expect(screen.queryByText("한 가족, 두 시점")).toBeNull();
+        expect(screen.queryByText(/누구로/)).toBeNull();
         expect(container.firstChild).not.toBeNull();
     });
 
@@ -49,9 +51,9 @@ describe("RoleSetupModal", () => {
         localStorage.setItem("hyeni-has-visited", "1");
         localStorage.setItem("hyeni-last-role", "child");
         render(<RoleSetupModal onSelect={() => {}} />);
-        expect(screen.getByText(/지난번엔/)).toBeInTheDocument();
-        // 단축 버튼 안에 '아이' 글자가 있어야 함
-        expect(screen.getByText(/다시 시작/)).toBeInTheDocument();
+        expect(
+            screen.getByRole("button", { name: /지난번엔.*자녀.*로 사용했어요/ })
+        ).toBeInTheDocument();
     });
 
     it("첫 방문 시 단축 버튼 미노출", () => {
@@ -68,13 +70,15 @@ describe("RoleSetupModal", () => {
 
     it("아이 선택 시 hyeni-last-role=child 기록", () => {
         render(<RoleSetupModal onSelect={() => {}} />);
-        fireEvent.click(screen.getByLabelText("아이로 시작"));
+        fireEvent.click(screen.getByLabelText("자녀로 시작"));
+        fireEvent.click(screen.getByRole("button", { name: "다음" }));
         expect(localStorage.getItem("hyeni-last-role")).toBe("child");
     });
 
-    it("학부모 선택 시 hyeni-last-role=parent 기록", () => {
+    it("부모 선택 시 hyeni-last-role=parent 기록", () => {
         render(<RoleSetupModal onSelect={() => {}} />);
-        fireEvent.click(screen.getByLabelText("학부모로 시작"));
+        fireEvent.click(screen.getByLabelText("부모로 시작"));
+        fireEvent.click(screen.getByRole("button", { name: "다음" }));
         expect(localStorage.getItem("hyeni-last-role")).toBe("parent");
     });
 });

@@ -6,8 +6,9 @@ import { ChildSettingsScreen } from "../../src/components/childMode/ChildSetting
 describe("ChildSettingsScreen", () => {
     it("헤더 타이틀과 뒤로 버튼 렌더", () => {
         const onBack = vi.fn();
-        render(<ChildSettingsScreen onBack={onBack} />);
+        const { container } = render(<ChildSettingsScreen onBack={onBack} />);
         expect(screen.getByText("설정")).toBeInTheDocument();
+        expect(container.querySelectorAll(".hyeni-child-settings-row").length).toBeGreaterThanOrEqual(4);
         fireEvent.click(screen.getByLabelText("뒤로"));
         expect(onBack).toHaveBeenCalledTimes(1);
     });

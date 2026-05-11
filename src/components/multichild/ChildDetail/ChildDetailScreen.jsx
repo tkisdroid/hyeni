@@ -3,7 +3,7 @@
 // 안전 dot 1초 약속 → 큰 지도 + trail dots → 일정 timeline → 안전 메트릭.
 
 import { ChildAvatar } from "../HomeDashboard/ChildAvatar.jsx";
-import { HomeBigStat, pickNextEvent, formatTimeLabel } from "../HomeDashboard/HomeBigStat.jsx";
+import { HomeBigStat } from "../HomeDashboard/HomeBigStat.jsx";
 import { useBackHandler } from "../../../lib/backHandler.js";
 import { ThreeDIcon } from "../../icons/ThreeDIcon.jsx";
 import { HyeniMascot } from "../../auth/HyeniMascot.jsx";
