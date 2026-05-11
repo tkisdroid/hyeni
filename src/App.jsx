@@ -6007,12 +6007,12 @@ export default function KidsScheduler() {
                                         padding: "4px 10px",
                                         borderRadius: 999,
                                         border: pairedChildren.length > 0
-                                            ? "1px solid color-mix(in srgb, var(--status-positive, #00BF40) 32%, transparent)"
+                                            ? "1px solid var(--brand-lavender-line, #DDD1FF)"
                                             : "1px solid color-mix(in srgb, var(--status-cautionary, #F59E0B) 32%, transparent)",
                                         cursor: "pointer",
                                         fontFamily: FF,
-                                        background: pairedChildren.length > 0 ? "var(--status-positive-subtle)" : "var(--status-cautionary-subtle)",
-                                        color: pairedChildren.length > 0 ? "#065F46" : "var(--status-cautionary-strong)",
+                                        background: pairedChildren.length > 0 ? "var(--brand-lavender-soft, #EFE8FF)" : "var(--status-cautionary-subtle)",
+                                        color: pairedChildren.length > 0 ? "var(--brand-lavender-text, #5F43B2)" : "var(--status-cautionary-strong)",
                                         whiteSpace: "nowrap",
                                         lineHeight: 1.2,
                                     }}>
