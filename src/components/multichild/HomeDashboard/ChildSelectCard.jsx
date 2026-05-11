@@ -92,11 +92,11 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 16,
-        padding: "20px 18px",
+        gap: 12,
+        padding: "18px 14px",
         background: palette.soft,
         border: `1px solid ${palette.line}`,
-        borderRadius: 28,
+        borderRadius: 26,
         boxShadow: "0 6px 18px rgba(31, 24, 28, 0.06)",
         width: "100%",
         textAlign: "left",
@@ -105,7 +105,7 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
         position: "relative",
       }}
     >
-      <div style={{ position: "relative", flexShrink: 0, width: 88, height: 88 }}>
+      <div style={{ position: "relative", flexShrink: 0, width: 78, height: 78 }}>
         <div style={{
           width: "100%",
           height: "100%",
@@ -119,7 +119,7 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
           justifyContent: "center",
           boxSizing: "border-box",
         }}>
-          <ChildAvatar child={child} size={76} fontSize={30} decorative />
+          <ChildAvatar child={child} size={68} fontSize={28} decorative />
         </div>
         <span aria-hidden="true" style={{
           position: "absolute",
@@ -162,7 +162,18 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
         {shortAddress && (
           <div
             style={{
-              fontSize: 12.5,
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 4,
+              minWidth: 0,
+            }}
+            title={locationLabel || ""}
+          >
+            <span aria-hidden="true" style={{ fontSize: 12, lineHeight: 1.4, flexShrink: 0 }}>📍</span>
+            <span style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: 12,
               fontWeight: 700,
               color: "var(--fg-secondary)",
               lineHeight: 1.4,
@@ -172,10 +183,9 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
-            }}
-            title={locationLabel || ""}
-          >
-            <span aria-hidden="true">📍</span> {shortAddress}
+            }}>
+              {shortAddress}
+            </span>
           </div>
         )}
         {nextEventChip && (
@@ -185,15 +195,15 @@ export function ChildSelectCard({ child, index = 0, deviceStatus, locationLabel,
 
       <div aria-hidden="true" style={{
         flexShrink: 0,
-        width: 36,
-        height: 36,
+        width: 32,
+        height: 32,
         borderRadius: "50%",
         background: "rgba(255, 255, 255, 0.94)",
         boxShadow: "0 2px 8px rgba(31, 24, 28, 0.08)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: 18,
+        fontSize: 16,
         color: "var(--fg-secondary, #5F6368)",
         fontWeight: 800,
       }}>›</div>
