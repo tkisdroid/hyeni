@@ -4350,19 +4350,27 @@ export default function KidsScheduler() {
         });
         return labels;
     }, [childLocationLabels, displayChildPositions]);
-    // Mood 매핑: 헤더 logo 의 혜니 캐릭터를 아이 상태에 따라 변경.
-    // 우선순위: 미해결 알림 > 안전 위험(배터리/연결/차단) > 일정 많음 > 기본(윙크 별)
+    // Mood 매핑: 헤더 logo 캐릭터를 아이 상태에 따라 자동 전환.
+    // 우선순위: 긴급(위험) > 일반 미확인 알림 > 최근 도착 > 안전 위험(배터리/연결/차단) > 일정 많음/예정 > 기본
     const appLogoMood = useMemo(() => {
-        if (!isParent) return "winkStar";
-        const unreadAlerts = parentAlerts.filter(a => !a.read).length;
-        if (unreadAlerts > 0) return "thinking";
+        if (!isParent) return "statusHappy";
+        const URGENT = new Set(["sos", "sos_followup", "danger_zone", "danger_exit"]);
+        const unread = (parentAlerts || []).filter(a => !a.read);
+        if (unread.some(a => URGENT.has(a.alert_type) || a.severity === "urgent")) return "statusDanger";
+        const recentArrived = (parentAlerts || []).some(a => {
+            if (a.alert_type !== "arrived") return false;
+            const t = new Date(a.created_at).getTime();
+            return Number.isFinite(t) && Date.now() - t < 60 * 60 * 1000;
+        });
+        if (recentArrived) return "statusSafe";
+        if (unread.length > 0) return "statusPondering";
         const statuses = Object.values(childDeviceStatusMap || {});
         const hasUnsafe = statuses.some(s => s?.battery_low || (s?.last_seen_minutes_ago != null && s.last_seen_minutes_ago > 30) || s?.app_blocked);
-        if (hasUnsafe) return "sad";
+        if (hasUnsafe) return "statusLate";
         const todayCount = Array.isArray(todayEvents) ? todayEvents.length : 0;
-        if (todayCount >= 4) return "cheer";
-        if (todayCount >= 1) return "wave";
-        return "winkStar";
+        if (todayCount >= 5) return "statusBusy";
+        if (todayCount >= 1) return "statusScheduled";
+        return "statusHappy";
     }, [isParent, parentAlerts, childDeviceStatusMap, todayEvents]);
     const parentBottomTabCount = (pairedChildren.length >= 1 ? 1 : 0)
         + 2
@@ -6036,18 +6044,41 @@ export default function KidsScheduler() {
                         <AppBrandLogo size={isParent ? 64 : 72} radius={isParent ? 18 : 20} shadow={false} mood={appLogoMood} />
                     </div>
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                            <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0 }}>혜니캘린더</div>
-                            {isParent && (
+                        <div onClick={() => setActiveView("calendar")} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer" }}>혜니캘린더</div>
+                        {isParent && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", marginTop: 4, minWidth: 0 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
+                                    style={{
+                                        fontSize: 10.5,
+                                        fontWeight: 800,
+                                        height: 22,
+                                        padding: "0 9px",
+                                        borderRadius: 999,
+                                        cursor: "pointer",
+                                        fontFamily: FF,
+                                        background: "var(--brand-mint-soft, #DDF7EA)",
+                                        color: "var(--brand-mint-text, #087653)",
+                                        border: "1px solid var(--brand-mint-line, #BCEBD8)",
+                                        whiteSpace: "nowrap",
+                                        lineHeight: 1,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        flexShrink: 0,
+                                        boxSizing: "border-box",
+                                    }}>
+                                    학부모 모드
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => { setActiveView(PARENT_VIEWS.FAMILY); }}
-                                    aria-label={pairedChildren.length > 0 ? `연동된 자녀 ${pairedChildren.length}명` : "가족 연동하기"}
                                     style={{
-                                        fontSize: 10,
+                                        fontSize: 10.5,
                                         fontWeight: 800,
-                                        height: 20,
-                                        padding: "0 8px",
+                                        height: 22,
+                                        padding: "0 9px",
                                         borderRadius: 999,
                                         border: pairedChildren.length > 0
                                             ? "1px solid var(--brand-lavender-line, #DDD1FF)"
@@ -6065,34 +6096,6 @@ export default function KidsScheduler() {
                                         boxSizing: "border-box",
                                     }}>
                                     {pairedChildren.length > 0 ? `연동 (${pairedChildren.length}명)` : (familyId ? "연동하기" : "가족 만들기")}
-                                </button>
-                            )}
-                        </div>
-                        {isParent && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                                <button
-                                    type="button"
-                                    onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
-                                    style={{
-                                        fontSize: 11.5,
-                                        fontWeight: 700,
-                                        height: 26,
-                                        padding: "0 12px",
-                                        borderRadius: 999,
-                                        cursor: "pointer",
-                                        fontFamily: FF,
-                                        background: "var(--brand-mint-soft, #DDF7EA)",
-                                        color: "var(--brand-mint-text, #087653)",
-                                        border: "1px solid var(--brand-mint-line, #BCEBD8)",
-                                        whiteSpace: "nowrap",
-                                        lineHeight: 1,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        flexShrink: 0,
-                                        boxSizing: "border-box",
-                                    }}>
-                                    학부모 모드
                                 </button>
                             </div>
                         )}
