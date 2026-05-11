@@ -11,6 +11,9 @@ export function HomeTab({
   locationByChildId = {},
   nextEventByChildId = {},
   positions = [],
+  unreadAlertCount = 0,
+  recentAlertTitle = "",
+  onOpenAlertCenter,
   onSelectChild,
   onTapMap,
 }) {
@@ -51,6 +54,49 @@ export function HomeTab({
           <span style={{ position: "absolute", bottom: 6, right: -2, fontSize: 16 }}>⭐</span>
         </div>
       </div>
+      {typeof onOpenAlertCenter === "function" && (
+        <button
+          type="button"
+          onClick={onOpenAlertCenter}
+          aria-label={unreadAlertCount > 0 ? `새 알림 ${unreadAlertCount}건 — 알림 센터 열기` : "알림 센터 열기"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "14px 16px",
+            background: unreadAlertCount > 0
+              ? "linear-gradient(135deg, var(--brand-rose-soft, #FFE2EC) 0%, #FFFDF8 100%)"
+              : "#FFFFFF",
+            border: `1px solid ${unreadAlertCount > 0 ? "var(--brand-rose-line, #FFD0DD)" : "var(--line-soft, #F1ECEE)"}`,
+            borderRadius: 22,
+            boxShadow: unreadAlertCount > 0 ? "0 6px 16px rgba(247,121,168,0.16)" : "0 4px 12px rgba(31,24,28,0.04)",
+            width: "100%",
+            textAlign: "left",
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          <span aria-hidden="true" style={{ position: "relative", flexShrink: 0, fontSize: 30, lineHeight: 1 }}>
+            🔔
+            {unreadAlertCount > 0 && (
+              <span style={{ position: "absolute", top: -4, right: -6, minWidth: 20, height: 20, padding: "0 5px", borderRadius: 999, background: "var(--brand-rose, #F779A8)", color: "#FFFFFF", fontSize: 10.5, fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "2px solid #FFFFFF" }}>
+                {unreadAlertCount > 9 ? "9+" : unreadAlertCount}
+              </span>
+            )}
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: "var(--fg-primary, #1F2A24)", letterSpacing: "-0.01em" }}>
+              알림 센터
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: unreadAlertCount > 0 ? "var(--brand-rose-text, #B83262)" : "var(--fg-secondary, #5F6368)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {unreadAlertCount > 0
+                ? (recentAlertTitle ? `${recentAlertTitle}` : `새 알림 ${unreadAlertCount}건`)
+                : "새 알림이 없어요"}
+            </div>
+          </div>
+          <span aria-hidden="true" style={{ flexShrink: 0, fontSize: 18, fontWeight: 900, color: "var(--fg-secondary, #5F6368)" }}>›</span>
+        </button>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {children.map((c, idx) => (
           <ChildSelectCard

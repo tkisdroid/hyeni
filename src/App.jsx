@@ -161,6 +161,8 @@ import { ChildCallCard } from "./components/contact/ChildCallCard.jsx";
 import { ChildDeviceCard } from "./components/contact/ChildDeviceCard.jsx";
 import { PhoneSettingsModal } from "./components/dialogs/PhoneSettingsModal.jsx";
 import { EditFieldModal } from "./components/dialogs/EditFieldModal.jsx";
+import { AlertCenterPopup } from "./components/alerts/AlertCenterPopup.jsx";
+import { UrgentAlertOverlay } from "./components/alerts/UrgentAlertOverlay.jsx";
 import { FeedbackModal } from "./components/dialogs/FeedbackModal.jsx";
 import { getChildSafetySetupSteps, getNativeSetupAction } from "./lib/nativeSetup.js";
 import { effectiveChildLocation, effectiveChildPositions } from "./lib/effectiveLocation.js";
@@ -769,6 +771,8 @@ export default function KidsScheduler() {
     // ── AI Alerts (parent only) ──────────────────────────────────────────────
     const [parentAlerts, setParentAlerts] = useState([]);
     const [showAlertPanel, setShowAlertPanel] = useState(false);
+    const [showAlertCenter, setShowAlertCenter] = useState(false);
+    const [urgentAlertAcked, setUrgentAlertAcked] = useState(() => new Set());
     const [aiEnabled, setAiEnabled] = useState(() => {
         try { return localStorage.getItem("hyeni-ai-enabled") !== "false"; } catch { return true; }
     });
@@ -2787,6 +2791,7 @@ export default function KidsScheduler() {
             voicePreview, activeView, showAlertPanel,
             showParentSettings, showPlaceManager,
             editFieldKind,
+            showAlertCenter,
         };
     });
     useEffect(() => {
@@ -2807,6 +2812,7 @@ export default function KidsScheduler() {
                     if (s.showAcademyMgr)      { setShowAcademyMgr(false);      return; }
                     if (s.showSavedPlaceMgr)   { setShowSavedPlaceMgr(false);   return; }
                     if (s.showAlertPanel)      { setShowAlertPanel(false);      return; }
+                    if (s.showAlertCenter)     { setShowAlertCenter(false);     return; }
                     if (s.editFieldKind)       { setEditFieldKind(null);         return; }
                     if (s.showPhoneSettings)   { setShowPhoneSettings(false);   return; }
                     if (s.showPlaceManager)    { setShowPlaceManager(false);     return; }
@@ -5738,7 +5744,7 @@ export default function KidsScheduler() {
                                 <span aria-hidden="true" style={{ color: "var(--fg-tertiary)" }}>›</span>
                             </button>
                             <button type="button"
-                                onClick={() => { setShowSettingsSheet(false); setShowAlertPanel(true); loadParentAlerts(); }}
+                                onClick={() => { setShowSettingsSheet(false); setShowAlertCenter(true); loadParentAlerts(); }}
                                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 12px", background: "transparent", border: "none", borderRadius: 12, cursor: "pointer", textAlign: "left", fontFamily: FF }}>
                                 <span style={{ fontSize: 22, width: 28, textAlign: "center" }}>🔔</span>
                                 <span style={{ flex: 1 }}>
@@ -6058,7 +6064,7 @@ export default function KidsScheduler() {
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
                     {isParent && (
-                        <button onClick={() => { setShowAlertPanel(true); loadParentAlerts(); }}
+                        <button onClick={() => { setShowAlertCenter(true); loadParentAlerts(); }}
                             style={{ position: "relative", width: 40, height: 40, padding: 0, borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                             aria-label="알림">
                             <ThreeDIcon name="bell" size={22} aria-label="알림" />
@@ -6326,6 +6332,9 @@ export default function KidsScheduler() {
                   )}
                   nextEventByChildId={{}}
                   positions={displayChildPositions}
+                  unreadAlertCount={parentAlerts.filter(a => !a.read).length}
+                  recentAlertTitle={(parentAlerts.find(a => !a.read)?.title) || ""}
+                  onOpenAlertCenter={() => { setShowAlertCenter(true); loadParentAlerts(); }}
                   onSelectChild={(childId) => { setSelectedChildId(childId); setActiveView("calendar"); }}
                   onTapMap={() => setActiveView("maplist")}
                 />
@@ -7944,6 +7953,61 @@ export default function KidsScheduler() {
                     }
                 }}
             />
+
+            {/* ── 알림 센터 팝업 (일반 알림) ── */}
+            <AlertCenterPopup
+                open={isParent && showAlertCenter}
+                alerts={parentAlerts}
+                onClose={() => setShowAlertCenter(false)}
+                onMarkAllRead={async () => {
+                    try {
+                        const unread = parentAlerts.filter(a => !a.read);
+                        for (const a of unread) {
+                            try { await markAlertRead(a.id); } catch (_) { /* per-row best effort */ }
+                        }
+                        setParentAlerts(prev => prev.map(a => ({ ...a, read: true })));
+                        showNotif("✓ 모든 알림을 확인했어요");
+                    } catch (err) {
+                        console.error("[markAllRead]", err);
+                    }
+                }}
+                onOpenDetails={() => { setShowAlertCenter(false); setShowAlertPanel(true); loadParentAlerts(); }}
+            />
+
+            {/* ── 긴급 알림 전체화면 (sos/danger_zone/danger_exit) ── */}
+            {(() => {
+                if (!isParent) return null;
+                const URGENT_TYPES = new Set(["sos", "sos_followup", "danger_zone", "danger_exit"]);
+                const urgent = (parentAlerts || []).find(a =>
+                    !a.read &&
+                    !urgentAlertAcked.has(a.id) &&
+                    (URGENT_TYPES.has(a.alert_type) || a.severity === "urgent")
+                );
+                if (!urgent) return null;
+                const childName = pairedChildren?.[0]?.name || "아이";
+                const lowBatteryStatus = Object.values(childDeviceStatusMap || {}).find(s => s?.batteryLevel != null && s.batteryLevel <= 15);
+                const batteryWarning = lowBatteryStatus ? `배터리가 ${Math.round(lowBatteryStatus.batteryLevel)}% 예요 · 위치 업데이트가 늦어지고 있어요` : null;
+                const acknowledge = async () => {
+                    setUrgentAlertAcked(prev => { const next = new Set(prev); next.add(urgent.id); return next; });
+                    try {
+                        await markAlertRead(urgent.id);
+                        setParentAlerts(prev => prev.map(a => a.id === urgent.id ? { ...a, read: true } : a));
+                    } catch (err) { console.error("[urgentAck]", err); }
+                };
+                return (
+                    <UrgentAlertOverlay
+                        open
+                        primaryAlert={urgent}
+                        childName={childName}
+                        batteryWarning={batteryWarning}
+                        onShowLocation={() => { acknowledge(); setShowChildTracker(true); }}
+                        onCall={() => { acknowledge(); if (parentPhones?.mom) window.location.href = `tel:${parentPhones.mom}`; }}
+                        onPushForce={() => { acknowledge(); showNotif("강제 알림 기능은 곧 지원될 예정이에요."); }}
+                        onAcknowledge={acknowledge}
+                        onClose={acknowledge}
+                    />
+                );
+            })()}
 
             {/* ── Phone Settings Modal (학부모 전용) ── */}
             {showPhoneSettings && <PhoneSettingsModal
