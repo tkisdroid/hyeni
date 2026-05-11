@@ -6039,9 +6039,9 @@ export default function KidsScheduler() {
                         <button
                             type="button"
                             onClick={() => setShowParentSettings(true)}
-                            style={{ fontSize: 18, padding: "6px 10px", borderRadius: 12, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}
+                            style={{ fontSize: 22, padding: "10px 14px", borderRadius: 14, border: "none", cursor: "pointer", background: "var(--bg-muted)", lineHeight: 1 }}
                             aria-label="설정">
-                            <ThreeDIcon name="settings" size={22} aria-label="설정" />
+                            <ThreeDIcon name="settings" size={26} aria-label="설정" />
                         </button>
                     )}
                     {/* Phase 5 KKUK-01: tap sends immediately; hold sends once
