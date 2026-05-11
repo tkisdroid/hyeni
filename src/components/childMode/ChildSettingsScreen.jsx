@@ -3,6 +3,7 @@
 // 자녀가 직접 만질 수 있는 최소 셋: 테마 / 알림 / 마스코트 표시 / 계정 read-only / 로그아웃
 // Theme picker는 lib/theme.js의 canonical THEME_PALETTE를 단일 source로 사용.
 
+import { useState } from "react";
 import { useBackHandler } from "../../lib/backHandler.js";
 import { THEME_PALETTE as THEME_DICT } from "../../lib/theme.js";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
@@ -97,6 +98,14 @@ export function ChildSettingsScreen({
         if (typeof onBack === "function") { onBack(); return true; }
         return false;
     });
+    // micro interaction — 색상 버튼 클릭 시 잠깐 bounce + 활성 버튼은 항상 scale 1.1 + halo + 체크
+    const [recentlyChanged, setRecentlyChanged] = useState(null);
+    const handleThemeClick = (color) => {
+        if (themeLocked) return;
+        onChangeTheme?.(color);
+        setRecentlyChanged(color);
+        window.setTimeout(() => setRecentlyChanged((prev) => (prev === color ? null : prev)), 600);
+    };
     return (
         <div
             className="hyeni-child-settings-screen"
@@ -138,16 +147,19 @@ export function ChildSettingsScreen({
                         <p style={{ margin: 0, fontSize: 12, color: "var(--fg-secondary)", marginBottom: "var(--space-3)", fontWeight: "var(--weight-medium)" }}>
                             {themeLocked ? "부모님이 잠궜어. 변경하려면 부모님께 부탁해줘." : "내 테마 색을 골라봐"}
                         </p>
-                        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", padding: "var(--space-2) 0" }}>
                             {THEME_OPTIONS.map((t) => {
                                 const active = t.color === currentTheme;
+                                const justPicked = recentlyChanged === t.color;
+                                const scale = justPicked ? 1.22 : active ? 1.1 : 1;
                                 return (
                                     <button
                                         key={t.color}
                                         type="button"
-                                        onClick={() => !themeLocked && onChangeTheme?.(t.color)}
+                                        onClick={() => handleThemeClick(t.color)}
                                         disabled={themeLocked}
                                         aria-label={`${t.label} 테마${active ? " (선택됨)" : ""}`}
+                                        aria-pressed={active}
                                         style={{
                                             width: 44, height: 44,
                                             borderRadius: "var(--radius-full)",
@@ -156,8 +168,23 @@ export function ChildSettingsScreen({
                                             cursor: themeLocked ? "not-allowed" : "pointer",
                                             opacity: themeLocked ? 0.4 : 1,
                                             padding: 0,
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            color: "#FFFFFF",
+                                            fontSize: 20,
+                                            fontWeight: 900,
+                                            lineHeight: 1,
+                                            textShadow: "0 1px 2px rgba(0,0,0,0.28)",
+                                            transform: `scale(${scale})`,
+                                            transition: "transform var(--duration-mascot-bounce, 600ms) var(--easing-soft-bounce, cubic-bezier(0.34, 1.56, 0.64, 1)), border-color 200ms ease, box-shadow 200ms ease",
+                                            boxShadow: active
+                                                ? `0 0 0 6px color-mix(in srgb, ${t.color} 28%, transparent), 0 6px 14px color-mix(in srgb, ${t.color} 35%, transparent)`
+                                                : "none",
                                         }}
-                                    />
+                                    >
+                                        {active ? <span aria-hidden="true">✓</span> : null}
+                                    </button>
                                 );
                             })}
                         </div>
