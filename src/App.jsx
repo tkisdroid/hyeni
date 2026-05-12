@@ -22,6 +22,8 @@ import { EventSheet } from "./components/multichild/EventModal/EventSheet.jsx";
 import { ChildDetailScreen } from "./components/multichild/ChildDetail/ChildDetailScreen.jsx";
 import { ChildHero } from "./components/childMode/ChildHero.jsx";
 import { ChildSettingsScreen } from "./components/childMode/ChildSettingsScreen.jsx";
+import { ChildAIChatScreen } from "./components/childMode/ChildAIChatScreen.jsx";
+import { loadChatSettings, saveChatSettings } from "./lib/aiChat.js";
 import { SendStickerSheet } from "./components/childMode/SendStickerSheet.jsx";
 import { ReceivedStickersSheet } from "./components/childMode/ReceivedStickersSheet.jsx";
 import { MemoBubble } from "./components/childMode/MemoBubble.jsx";
@@ -677,6 +679,9 @@ export default function KidsScheduler() {
     const [childDetailId, setChildDetailId] = useState(null);
     // Phase 3 — 자녀 모드 설정 / 스티커 보내기 / 마스코트 표시 토글
     const [showChildSettings, setShowChildSettings] = useState(false);
+    // AI 친구 대화 (아이모드) — 화면 토글 + 가족 설정 캐시
+    const [showChildAIChat, setShowChildAIChat] = useState(false);
+    const [aiChatSettings, setAiChatSettings] = useState(null); // { enabled, daily_limit, credit_balance }
     const [showSendStickerSheet, setShowSendStickerSheet] = useState(false);
     const [showReceivedStickersSheet, setShowReceivedStickersSheet] = useState(false);
     // Phase 4 — 부모 운영 화면 통합 진입점
@@ -2471,6 +2476,35 @@ export default function KidsScheduler() {
             showNotif("캐릭터 변경에 실패했어요. 잠시 후 다시 시도해 주세요.", "error");
         }
     }, [authUserId, familyId, familyInfo, myFamilyMember?.emoji, setFamilyInfo, showNotif]);
+
+    // AI 친구 대화 설정 — 가족 ID 가 생기면 한 번 로드. 부모/자녀 모두 캐시 필요(부모 설정 화면 + 자녀 진입 카드).
+    useEffect(() => {
+        if (!familyId) return;
+        let cancelled = false;
+        loadChatSettings(familyId)
+            .then((s) => { if (!cancelled) setAiChatSettings(s); })
+            .catch((e) => console.error("[ai-chat settings] load", e));
+        return () => { cancelled = true; };
+    }, [familyId]);
+
+    const handleSaveAIChatSettings = useCallback(async (patch) => {
+        if (!familyId) return;
+        const next = {
+            enabled: patch.enabled ?? !!aiChatSettings?.enabled,
+            daily_limit: patch.daily_limit ?? aiChatSettings?.daily_limit ?? 10,
+            credit_balance: patch.credit_balance ?? aiChatSettings?.credit_balance ?? 0,
+        };
+        const previous = aiChatSettings;
+        setAiChatSettings(next);
+        try {
+            await saveChatSettings(familyId, next, authUserId || null);
+        } catch (error) {
+            console.error("[ai-chat settings] save", error);
+            setAiChatSettings(previous);
+            showNotif("AI 친구 설정 저장에 실패했어요. 잠시 후 다시 시도해 주세요.", "error");
+        }
+    }, [familyId, authUserId, aiChatSettings, showNotif]);
+
     const addAlert = useCallback((msg, type = "parent") => {
         const id = Date.now() + Math.random();
         setAlerts(prev => [...prev, { id, msg, type }]);
@@ -6397,6 +6431,40 @@ export default function KidsScheduler() {
                         </button>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                        {aiChatSettings?.enabled && (
+                            <button
+                                type="button"
+                                onClick={() => setShowChildAIChat(true)}
+                                aria-label={`${(myFamilyMember?.emoji || "🐰")} AI 친구와 대화하기`}
+                                style={{
+                                    appearance: "none",
+                                    background: "linear-gradient(135deg, var(--theme-accent-soft, #FFE4ED) 0%, var(--bg-base) 100%)",
+                                    border: "1px solid var(--theme-accent-line, var(--line-soft))",
+                                    borderRadius: "var(--radius-card)",
+                                    padding: "var(--space-3) var(--space-4)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "var(--space-3)",
+                                    cursor: "pointer",
+                                    textAlign: "left",
+                                    fontFamily: "var(--font-sans)",
+                                    boxShadow: "var(--child-quick-card-shadow, 0 6px 16px rgba(31,24,28,0.06))",
+                                }}
+                            >
+                                <span style={{ fontSize: 34, lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 40, height: 40 }} aria-hidden="true">
+                                    {myFamilyMember?.emoji || "🐰"}
+                                </span>
+                                <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                                    <span style={{ fontSize: 14, fontWeight: "var(--weight-bold)", color: "var(--fg-primary)" }}>
+                                        AI 친구와 대화
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "var(--fg-tertiary)", fontWeight: "var(--weight-medium)", marginTop: 2 }}>
+                                        궁금한 거 물어봐도 돼
+                                    </span>
+                                </span>
+                                <span aria-hidden="true" style={{ color: "var(--fg-tertiary)" }}>›</span>
+                            </button>
+                        )}
                         <ChildCallCard phones={parentPhones} />
                         {familyId && (
                             <div className="child-playdate-card">
@@ -7609,6 +7677,17 @@ export default function KidsScheduler() {
                 />
             )}
 
+            {/* ── 자녀 모드 — AI 친구 대화 화면 ── */}
+            {!isParent && showChildAIChat && (
+                <ChildAIChatScreen
+                    onBack={() => setShowChildAIChat(false)}
+                    familyId={familyId}
+                    childUserId={authUser?.id}
+                    childName={authUser?.user_metadata?.name || familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.name || ""}
+                    characterEmoji={myFamilyMember?.emoji || "🐰"}
+                />
+            )}
+
             {/* ── Phase 3 자녀 스티커 보내기 sheet (기존 — 현재 미사용, 보존) ── */}
             {!isParent && showSendStickerSheet && (
                 <SendStickerSheet
@@ -7690,6 +7769,15 @@ export default function KidsScheduler() {
                     onDeleteAccount={() => {
                         // 실제 deleteUser RPC는 Phase 5에서 추가 — 현재는 안내만
                         showNotif("계정 삭제는 준비 중이에요. 고객센터로 문의해주세요");
+                    }}
+                    aiChatEnabled={!!aiChatSettings?.enabled}
+                    aiChatDailyLimit={aiChatSettings?.daily_limit ?? 10}
+                    aiChatCreditBalance={aiChatSettings?.credit_balance ?? 0}
+                    onChangeAIChatEnabled={(v) => handleSaveAIChatSettings({ enabled: !!v })}
+                    onChangeAIChatDailyLimit={(n) => handleSaveAIChatSettings({ daily_limit: n })}
+                    onTopUpAIChatCredits={() => {
+                        // 크레딧 구매 화면은 추후 IAP/구독 시스템과 연동 예정. 현재는 안내만.
+                        showNotif("대화 크레딧 구매는 준비 중이에요. 곧 만나요!");
                     }}
                 />
             )}
