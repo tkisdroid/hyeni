@@ -214,18 +214,62 @@ function savedPlaceToRow(place, familyId) {
 
 // ── Fetch all data for a family ─────────────────────────────────────────────
 
-export async function fetchEvents(familyId) {
+// Agent11 P1-002: previously this query had no LIMIT and no date filter, so
+// long-lived families (years of schedules) would download megabytes of JSON
+// on every cold start and on every Realtime missed-event refetch. We now:
+//   1) Cap the response with LIMIT (DEFAULT_FETCH_EVENTS_LIMIT) as a hard
+//      payload safety net.
+//   2) Optionally constrain by a date_key window — caller passes
+//      { rangeMonths: N } to request only the rows whose date_key falls
+//      within ±N months of `today` (default 36 months → 6-year window).
+//   3) Client-side filter the rows after read because date_key is a text
+//      column with 0-indexed month and is not lexicographically sortable
+//      (e.g. "2026-3-1" > "2026-10-1" by string compare). Adding a sortable
+//      timestamp column is a DB migration owned by the fix-db agent.
+//
+// Backwards compatible: callers that pass no opts get the legacy "all rows
+// for this family" semantics, just bounded by LIMIT.
+const DEFAULT_FETCH_EVENTS_LIMIT = 5000;
+const DEFAULT_FETCH_EVENTS_RANGE_MONTHS = 36;
+
+export async function fetchEvents(familyId, opts = {}) {
+  const { rangeMonths = null, limit = DEFAULT_FETCH_EVENTS_LIMIT } = opts;
+
   const { data, error } = await supabase
     .from("events")
     .select("*, events_children(child_id)")
-    .eq("family_id", familyId);
+    .eq("family_id", familyId)
+    .limit(limit);
 
   if (error) {
     console.error("[sync] fetchEvents error:", error);
     return lsGet(LS_EVENTS, {});
   }
 
-  const map = rowsToEventMap(data || []);
+  let rows = data || [];
+
+  // Optional client-side date-window filter. We compute the [start, end]
+  // window in YYYY-M-D form (month is 0-indexed to match the app convention)
+  // and parse each row's date_key the same way. Rows missing date_key fall
+  // through (rare; defensive).
+  if (Number.isFinite(rangeMonths) && rangeMonths > 0) {
+    const now = new Date();
+    const startD = new Date(now.getFullYear(), now.getMonth() - rangeMonths, 1);
+    const endD = new Date(now.getFullYear(), now.getMonth() + rangeMonths + 1, 0);
+    const startMs = startD.getTime();
+    const endMs = endD.getTime();
+    rows = rows.filter((row) => {
+      if (!row.date_key) return true;
+      const parts = String(row.date_key).split("-").map(Number);
+      if (parts.length !== 3) return true;
+      const [y, m, d] = parts;
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return true;
+      const t = new Date(y, m, d).getTime();
+      return t >= startMs && t <= endMs;
+    });
+  }
+
+  const map = rowsToEventMap(rows);
   lsSet(LS_EVENTS, map);
   return map;
 }
@@ -723,13 +767,22 @@ export async function fetchChildLocations(familyId) {
 // with _dispose() + _channels attached so unsubscribe() can tear down all
 // 8 channels in one call.
 
-function subscribeTableChanges(channelName, tableName, familyId, eventSpec, handler) {
+// onMissedChange: optional callback invoked whenever the channel transitions
+// to CHANNEL_ERROR / TIMED_OUT — i.e. while we were disconnected the database
+// may have advanced and the next SUBSCRIBED will not replay the gap. Callers
+// pass a fetcher that re-syncs the affected table so the UI does not stay
+// stale. Fixes Agent11 P1-001 (no missed-event refetch on reconnect).
+function subscribeTableChanges(channelName, tableName, familyId, eventSpec, handler, onMissedChange) {
   // eventSpec: "*" for all events, or "INSERT"/"UPDATE"/"DELETE"
   let retryCount = 0;
   const MAX_RETRIES = 10;
   const BASE_DELAY_MS = 2000;
   let retryTimer = null;
   let disposed = false;
+  // Fire onMissedChange exactly once per "lost connection" episode — between
+  // the CHANNEL_ERROR and the next SUBSCRIBED. Avoids a thundering refetch
+  // when retries flap.
+  let missedRefetchPending = false;
 
   const ch = supabase
     .channel(channelName)
@@ -745,9 +798,23 @@ function subscribeTableChanges(channelName, tableName, familyId, eventSpec, hand
       if (status === "SUBSCRIBED") {
         console.log(`[Realtime] Subscribed to ${channelName}`);
         retryCount = 0;
+        if (missedRefetchPending && typeof onMissedChange === "function") {
+          missedRefetchPending = false;
+          // Best-effort: a thrown promise here is swallowed so it never
+          // breaks the subscribe callback.
+          try {
+            const result = onMissedChange();
+            if (result && typeof result.catch === "function") {
+              result.catch((e) => console.warn(`[Realtime] ${channelName} missed-refetch failed`, e));
+            }
+          } catch (e) {
+            console.warn(`[Realtime] ${channelName} missed-refetch threw`, e);
+          }
+        }
       }
       if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !disposed) {
         console.error(`[Realtime] ${channelName} ${status}`, err);
+        missedRefetchPending = true;
         if (retryCount < MAX_RETRIES) {
           const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCount), 60000);
           retryCount++;
@@ -796,32 +863,50 @@ export function subscribeFamily(familyId, callbacks) {
     onAudioChunk,
     onChildDeviceStatus,
     onChildDeviceStatusRequest,
+    // onMissedRefetch(tableName) — invoked when a per-table channel reconnects
+    // after CHANNEL_ERROR / TIMED_OUT. Caller is expected to re-fetch that
+    // table so the UI does not stay stale on the events that fired during
+    // the disconnect. Optional; subscriptions still work without it.
+    onMissedRefetch,
   } = callbacks;
+
+  const requestRefetch = typeof onMissedRefetch === "function"
+    ? (table) => () => {
+        try { onMissedRefetch(table); } catch (e) {
+          console.warn(`[Realtime] onMissedRefetch(${table}) threw`, e);
+        }
+      }
+    : () => undefined;
 
   // ── Per-table postgres_changes channels (D-B02) ──────────────────────────
   const eventsCh = subscribeTableChanges(
     `events-${familyId}`, "events", familyId, "*",
-    onEventsChange
+    onEventsChange,
+    requestRefetch("events")
   );
 
   const academiesCh = subscribeTableChanges(
     `academies-${familyId}`, "academies", familyId, "*",
-    onAcademiesChange
+    onAcademiesChange,
+    requestRefetch("academies")
   );
 
   const memosCh = subscribeTableChanges(
     `memos-${familyId}`, "memos", familyId, "*",
-    onMemosChange
+    onMemosChange,
+    requestRefetch("memos")
   );
 
   const savedPlacesCh = subscribeTableChanges(
     `saved_places-${familyId}`, "saved_places", familyId, "*",
-    onSavedPlacesChange
+    onSavedPlacesChange,
+    requestRefetch("saved_places")
   );
 
   const familySubCh = subscribeTableChanges(
     `family_subscription-${familyId}`, "family_subscription", familyId, "*",
-    onFamilySubscriptionChange  // undefined handler is fine — events simply drop
+    onFamilySubscriptionChange,  // undefined handler is fine — events simply drop
+    requestRefetch("family_subscription")
   );
 
   // memo_replies: subscribe to "*" so the receiver also gets read_by UPDATEs
@@ -832,17 +917,20 @@ export function subscribeFamily(familyId, callbacks) {
     `memo_replies-${familyId}`, "memo_replies", familyId, "*",
     onMemoRepliesChange
       ? (eventType, newRow, oldRow) => onMemoRepliesChange(newRow, eventType, oldRow)
-      : null
+      : null,
+    requestRefetch("memo_replies")
   );
 
   const dailySuppliesCh = subscribeTableChanges(
     `daily_supplies-${familyId}`, "daily_supplies", familyId, "*",
-    onDailySuppliesChange
+    onDailySuppliesChange,
+    requestRefetch("daily_supplies")
   );
 
   const familyMembersCh = subscribeTableChanges(
     `family_members-${familyId}`, "family_members", familyId, "*",
-    onFamilyMembersChange
+    onFamilyMembersChange,
+    requestRefetch("family_members")
   );
 
   // child_locations: postgres_changes serves as a fallback for the broadcast
@@ -864,7 +952,8 @@ export function subscribeFamily(familyId, callbacks) {
             source: "realtime_db",
           });
         }
-      : null
+      : null,
+    requestRefetch("child_locations")
   );
 
   // ── Broadcast-only channel (D-B06) ───────────────────────────────────────
