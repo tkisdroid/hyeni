@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -6,9 +7,18 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const FEEDBACK_TO_EMAIL = Deno.env.get("FEEDBACK_TO_EMAIL") || "tkisdroid@gmail.com";
+// QA P1 (Agent 10): operator email moved to env var. No hardcoded fallback to
+// avoid leaking personal addresses in source / git history. Both
+// FEEDBACK_TO_EMAIL (legacy) and FEEDBACK_OPERATOR_EMAIL (new canonical) are
+// honored to keep deployment migration smooth.
+const FEEDBACK_TO_EMAIL =
+  Deno.env.get("FEEDBACK_OPERATOR_EMAIL") ||
+  Deno.env.get("FEEDBACK_TO_EMAIL") ||
+  "";
 const FEEDBACK_FROM_EMAIL = Deno.env.get("FEEDBACK_FROM_EMAIL") || "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -33,6 +43,29 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
+  // QA P1 (Agent 10): JWT verification before sending email to prevent anon
+  // abuse / spam through Resend on the operator's quota. Requires
+  // Authorization: Bearer <user-jwt>.
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  if (!authHeader.toLowerCase().startsWith("bearer ")) {
+    return jsonResponse({ error: "auth_required" }, 401);
+  }
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    return jsonResponse({ error: "auth_required" }, 401);
+  }
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error("[feedback-email] missing env: SUPABASE_URL/SUPABASE_ANON_KEY");
+    return jsonResponse({ error: "server_misconfigured" }, 500);
+  }
+  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data: userRes, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !userRes?.user?.id) {
+    return jsonResponse({ error: "auth_required" }, 401);
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await req.json();
@@ -55,13 +88,15 @@ Deno.serve(async (req) => {
     appOrigin: sanitizeLine(payload.appOrigin),
   };
 
-  if (!RESEND_API_KEY || !FEEDBACK_FROM_EMAIL) {
+  if (!RESEND_API_KEY || !FEEDBACK_FROM_EMAIL || !FEEDBACK_TO_EMAIL) {
     return jsonResponse({
       ok: true,
       mock: true,
       reason: !RESEND_API_KEY
         ? "Missing RESEND_API_KEY"
-        : "Missing FEEDBACK_FROM_EMAIL",
+        : !FEEDBACK_FROM_EMAIL
+          ? "Missing FEEDBACK_FROM_EMAIL"
+          : "Missing FEEDBACK_OPERATOR_EMAIL/FEEDBACK_TO_EMAIL",
       received: normalizedPayload,
     });
   }
