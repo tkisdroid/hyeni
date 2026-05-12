@@ -42,6 +42,7 @@ import { identify as identifySubscriptionUser, purchase as purchaseSubscription 
 import { sendBroadcastWhenReady } from "./lib/realtime.js";
 import { getChildMemoQuickReplies, getMemoPreview } from "./lib/memoDisplay.js";
 import { isMemoForSelectedChild } from "./lib/memoRealtime.js";
+import { subscribeOnline, getQueueSize } from "./lib/offlineQueue.js";
 import { LOCATION_TRAIL_GRADIENT_STOPS, buildLocationDaySummary } from "./lib/locationTrailDisplay.js";
 import {
     LOCATION_TRAIL_JITTER_M,
@@ -771,6 +772,10 @@ export default function KidsScheduler() {
     // 1+ consecutive failure, retrying soon; "circuit_open" = breaker open,
     // 5-min cooldown active.
     const [syncDegraded, setSyncDegraded] = useState(null);
+    // Agent11 P1-003: offline detection. Drives the offline banner.
+    // queuedMutations counts pending mutations waiting on reconnect (in-memory).
+    const [isOffline, setIsOffline] = useState(typeof navigator !== "undefined" ? !navigator.onLine : false);
+    const [queuedMutations, setQueuedMutations] = useState(0);
 
     // ── Arrival tracking ───────────────────────────────────────────────────────
     const [arrivedSet, setArrivedSet] = useState(new Set());
@@ -2533,6 +2538,18 @@ export default function KidsScheduler() {
         }, 30000);
         return () => clearInterval(poll);
     }, [familyId, isParent, selectedChild?.id, myFamilyMemberId]);
+
+    // ── Offline detection (Agent11 P1-003) ─────────────────────────────────────
+    // navigator.onLine is the cheapest reliable signal in both browser and
+    // Capacitor WebView. We mirror it into React state so the banner re-renders
+    // and refresh queuedMutations after each flip / drain.
+    useEffect(() => {
+        const unsub = subscribeOnline((online) => {
+            setIsOffline(!online);
+            setQueuedMutations(getQueueSize());
+        });
+        return () => { try { unsub(); } catch { /* ignore */ } };
+    }, []);
 
     // ── 꾹 (emergency ping) ────────────────────────────────────────────────────
     const showNotif = useCallback((msg, type = "success") => {
@@ -5938,6 +5955,26 @@ export default function KidsScheduler() {
                     {syncDegraded === "circuit_open"
                         ? "일시적으로 연결이 불안정해요 — 5분 뒤 자동 재시도"
                         : "일부 기능을 일시적으로 불러오지 못했어요 — 잠시 뒤 자동 재시도합니다"}
+                </div>
+            )}
+
+            {/* Agent11 P1-003: offline banner. Displayed whenever navigator.onLine
+                flips false. Includes pending-mutation count so the user knows we
+                will retry automatically on reconnect. */}
+            {isOffline && (
+                <div role="status" aria-live="polite" style={{
+                    position: "fixed", top: syncDegraded ? 100 : 64, left: "50%", transform: "translateX(-50%)",
+                    background: "var(--status-negative-subtle, #FEE2E2)",
+                    color: "var(--status-negative-strong, #DC2626)",
+                    borderRadius: 16, padding: "8px 14px", fontWeight: 700, fontSize: 12,
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.08)", zIndex: 241,
+                    maxWidth: "calc(100vw - 32px)", textAlign: "center",
+                    animation: "slideDown 0.3s ease", whiteSpace: "nowrap",
+                    overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                    {queuedMutations > 0
+                        ? `오프라인 — 저장하지 못한 변경 ${queuedMutations}건은 연결되면 자동으로 다시 보낼게요`
+                        : "오프라인 상태예요 — 연결이 돌아오면 다시 시도할게요"}
                 </div>
             )}
 
