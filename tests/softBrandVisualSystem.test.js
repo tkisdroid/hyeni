@@ -101,6 +101,14 @@ describe("Soft Brand visual system", () => {
     expect(appCss).not.toMatch(/\.hyeni-app-shell\s*\{[^}]*user-select:\s*none/i);
   });
 
+  test("Korean copy wraps by word units across app pages", () => {
+    expect(appCss).toContain("word-break: keep-all !important");
+    expect(appCss).toContain("line-break: strict");
+    expect(appCss).toContain("overflow-wrap: break-word");
+    expect(appCss).toContain(".hyeni-app-shell :where(input, select, pre, code, kbd, samp)");
+    expect(appCss).toContain("word-break: normal !important");
+  });
+
   test("non-semantic app chrome uses the selected theme variables", () => {
     expect(appCss).toContain("--hyeni-theme-gradient");
     expect(appCss).toContain("--hyeni-pink: var(--theme-accent)");

@@ -69,6 +69,21 @@
   letter-spacing: 0 !important;
 }
 
+/* Korean copy wraps by eojeol (space-delimited word units) instead of splitting
+   syllables. Fixed-format values keep browser-default breaking behavior. */
+.hyeni-app-shell,
+.hyeni-app-shell :where(:not(input):not(select):not(pre):not(code):not(kbd):not(samp)) {
+  word-break: keep-all !important;
+  overflow-wrap: break-word;
+  line-break: strict;
+}
+
+.hyeni-app-shell :where(input, select, pre, code, kbd, samp) {
+  word-break: normal !important;
+  overflow-wrap: normal;
+  line-break: auto;
+}
+
 .hyeni-app-shell button,
 .hyeni-app-shell input,
 .hyeni-app-shell textarea,
