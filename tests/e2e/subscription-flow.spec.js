@@ -561,7 +561,7 @@ test.describe.fixme("subscription and premium flow", () => {
     await installMockBrowser(childPage);
     await childPage.goto("/");
     await childPage.getByRole("button", { name: /🐰 아이/ }).click();
-    await childPage.getByPlaceholder("XXXXXXXX").fill(pairCode);
+    await childPage.getByRole("textbox", { name: "페어링 코드 8자리" }).fill(pairCode);
     await childPage.getByText("🔗 연결하기").click();
     await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible();
 
@@ -620,7 +620,7 @@ test.describe.fixme("subscription and premium flow", () => {
     await installMockBrowser(childPage);
     await childPage.goto("/");
     await childPage.getByRole("button", { name: /🐰 아이/ }).click();
-    await childPage.getByPlaceholder("XXXXXXXX").fill(pairCode);
+    await childPage.getByRole("textbox", { name: "페어링 코드 8자리" }).fill(pairCode);
     await childPage.getByText("🔗 연결하기").click();
     await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible();
 
@@ -665,7 +665,7 @@ test.describe.fixme("subscription and premium flow", () => {
     await installMockBrowser(childPage);
     await childPage.goto("/");
     await childPage.getByRole("button", { name: /🐰 아이/ }).click();
-    await childPage.getByPlaceholder("XXXXXXXX").fill(pairCode);
+    await childPage.getByRole("textbox", { name: "페어링 코드 8자리" }).fill(pairCode);
     await childPage.getByText("🔗 연결하기").click();
     await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible();
     await expect(childPage.getByText("오늘의 준비물").first()).toBeVisible();
@@ -713,7 +713,7 @@ test.describe.fixme("subscription and premium flow", () => {
     await installMockBrowser(childPage);
     await childPage.goto("/");
     await childPage.getByRole("button", { name: /🐰 아이/ }).click();
-    await childPage.getByPlaceholder("XXXXXXXX").fill(pairCode);
+    await childPage.getByRole("textbox", { name: "페어링 코드 8자리" }).fill(pairCode);
     await childPage.getByText("🔗 연결하기").click();
     await expect(childPage.getByText("🎉 부모님과 연동됐어요!")).toBeVisible();
     await childPage.evaluate(() => {

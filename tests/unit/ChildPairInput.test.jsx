@@ -63,6 +63,13 @@ describe("ChildPairInput QR scanner", () => {
     joinFamily.mockResolvedValue({ family_id: "family-1" });
   });
 
+  it("does not draw an overlapping placeholder over the custom code boxes", () => {
+    render(<ChildPairInput userId="child-user" onPaired={vi.fn()} />);
+
+    expect(screen.getByLabelText("페어링 코드 8자리")).not.toHaveAttribute("placeholder");
+    expect(screen.queryByPlaceholderText("XXXXXXXX")).not.toBeInTheDocument();
+  });
+
   it("requests native camera permission before opening getUserMedia", async () => {
     const order = [];
     const cameraPlugin = {

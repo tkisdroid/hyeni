@@ -591,7 +591,6 @@ function CodeInput({ code, onChange, onSubmit }) {
                 inputMode="text"
                 autoCapitalize="characters"
                 autoComplete="off"
-                placeholder="XXXXXXXX"
                 aria-label="페어링 코드 8자리"
                 style={{
                     position: "absolute",

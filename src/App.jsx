@@ -286,6 +286,9 @@ function QuickUtilityActionButton({ action }) {
 // ─────────────────────────────────────────────────────────────────────────────
 const LOCATION_HISTORY_MIN_DISTANCE_M = 15;
 const LOCATION_HISTORY_MAX_AGE_MS = 5 * 60_000;
+const LOCATION_REFRESH_POLL_ATTEMPTS = 20;
+const LOCATION_REFRESH_BACKGROUND_POLL_ATTEMPTS = 8;
+const LOCATION_REFRESH_POLL_INTERVAL_MS = 1500;
 
 async function saveDetailedLocationHistory(userId, familyId, previousPoint, currentPoint) {
     if (!userId || !familyId || !currentPoint) return;
@@ -324,6 +327,7 @@ async function saveDetailedLocationHistory(userId, familyId, previousPoint, curr
 const getDIM = (y, m) => new Date(y, m + 1, 0).getDate();
 const getFD = (y, m) => new Date(y, m, 1).getDay();
 const fmtT = (d) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+const DEFAULT_SCHEDULE_TIME = "09:00";
 const SCHEDULE_TIME_FIRST_MINUTES = 7 * 60;
 const SCHEDULE_TIME_LAST_MINUTES = 22 * 60 + 30;
 const SCHEDULE_TIME_SLOTS = Array.from(
@@ -341,6 +345,16 @@ const parseScheduleTimeMinutes = (time, fallback = 9 * 60) => {
 const formatScheduleTimeValue = (minutes) => {
     const safe = Math.min(23 * 60 + 59, Math.max(0, Math.round(minutes)));
     return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
+};
+const normalizeScheduleTimeValue = (time, fallback = DEFAULT_SCHEDULE_TIME) => {
+    const minutes = parseScheduleTimeMinutes(time, null);
+    return minutes == null ? fallback : formatScheduleTimeValue(minutes);
+};
+const normalizeScheduleEndTimeValue = (time, startTime) => {
+    const minutes = parseScheduleTimeMinutes(time, null);
+    const startMinutes = parseScheduleTimeMinutes(startTime);
+    if (minutes == null || minutes <= startMinutes) return null;
+    return formatScheduleTimeValue(minutes);
 };
 const formatKoreanScheduleTime = (time) => {
     const minutes = parseScheduleTimeMinutes(time);
@@ -510,6 +524,8 @@ export default function KidsScheduler() {
         try { return roleStorage?.getItem("hyeni-my-role") || null; } catch { return null; }
     });           // "parent" | "child" | null (role selection)
     const [showChildEntry, setShowChildEntry] = useState(false);  // Phase 1 §3.4 자녀 첫 인사 transition
+    const [childEntryAuthPending, setChildEntryAuthPending] = useState(false);
+    const [childEntryError, setChildEntryError] = useState("");
     const [showTrialInvite, setShowTrialInvite] = useState(false);
     const [featureLock, setFeatureLock] = useState({ open: false, feature: null, title: "", body: "" });
     const [showDisclosure, setShowDisclosure] = useState(false);
@@ -1012,7 +1028,7 @@ export default function KidsScheduler() {
 
     // ── Add form ───────────────────────────────────────────────────────────────
     const [newTitle, setNewTitle] = useState("");
-    const [newTime, setNewTime] = useState("09:00");
+    const [newTime, setNewTime] = useState(DEFAULT_SCHEDULE_TIME);
     const [newEndTime, setNewEndTime] = useState("");
     const [timeSelectionTarget, setTimeSelectionTarget] = useState("start");
     const [newCategory, setNewCategory] = useState("school");
@@ -2535,8 +2551,11 @@ export default function KidsScheduler() {
         const fetchPromise = fetchLatestLocations();
 
         const pollFreshLocation = async () => {
-            for (let attempt = 0; attempt < 8; attempt += 1) {
-                await new Promise((resolve) => setTimeout(resolve, 1200));
+            const maxPollAttempts = showChildTracker
+                ? LOCATION_REFRESH_POLL_ATTEMPTS
+                : LOCATION_REFRESH_BACKGROUND_POLL_ATTEMPTS;
+            for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
+                await new Promise((resolve) => setTimeout(resolve, LOCATION_REFRESH_POLL_INTERVAL_MS));
                 const isFresh = await fetchLatestLocations();
                 await refreshLocationTrail();
                 if (isFresh) return true;
@@ -3686,6 +3705,15 @@ export default function KidsScheduler() {
     const openManualAddEventModal = (targetDateKey = null) => {
         setAddEventDateKey(typeof targetDateKey === "string" && targetDateKey ? targetDateKey : null);
         setEventChildSelection(getDefaultEventChildSelection());
+        setEditingEventId(null);
+        setNewTitle("");
+        setNewTime(DEFAULT_SCHEDULE_TIME);
+        setNewEndTime("");
+        setNewMemo("");
+        setNewLocation(null);
+        setSelectedPreset(null);
+        setWeeklyRepeat(false);
+        setRepeatWeeks(4);
         setTimeSelectionTarget("start");
         setShowAddModal(true);
     };
@@ -3921,7 +3949,7 @@ export default function KidsScheduler() {
         setAddEventDateKey(null);
         setEditingEventId(event.id);
         setNewTitle(event.title || "");
-        setNewTime(event.time || "09:00");
+        setNewTime(normalizeScheduleTimeValue(event.time));
         setNewEndTime(event.endTime || "");
         setTimeSelectionTarget("start");
         setNewCategory(event.category || "school");
@@ -3949,10 +3977,12 @@ export default function KidsScheduler() {
 
         // Edit mode: update single existing event in place.
         if (editingEventId) {
+            const eventStartTime = normalizeScheduleTimeValue(newTime);
+            const eventEndTime = normalizeScheduleEndTimeValue(newEndTime, eventStartTime);
             const patch = {
                 title,
-                time: newTime,
-                endTime: newEndTime || null,
+                time: eventStartTime,
+                endTime: eventEndTime,
                 category: newCategory,
                 emoji,
                 color: cat.color,
@@ -3984,7 +4014,7 @@ export default function KidsScheduler() {
             const targetId = editingEventId;
             const messageDateKey = foundDateKey || dateKey;
             setEditingEventId(null);
-            setNewTitle(""); setNewTime("09:00"); setNewEndTime(""); setTimeSelectionTarget("start"); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4);
+            setNewTitle(""); setNewTime(DEFAULT_SCHEDULE_TIME); setNewEndTime(""); setTimeSelectionTarget("start"); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4);
             setAddEventDateKey(null);
             setShowAddModal(false);
             showNotif("✅ 일정이 수정됐어요!");
@@ -3997,7 +4027,7 @@ export default function KidsScheduler() {
                         familyId,
                         senderUserId: authUser.id,
                         title: `✏️ 일정 수정: ${emoji} ${title}`,
-                        message: `${messageDateKey.replace(/-/g, "/")} ${newTime} "${title}"로 수정됐어요`,
+                        message: `${messageDateKey.replace(/-/g, "/")} ${eventStartTime} "${title}"로 수정됐어요`,
                     });
                 } catch (err) {
                     console.error("[updateEvent] Supabase error:", err);
@@ -4028,9 +4058,11 @@ export default function KidsScheduler() {
         const allEvents = [];
         const baseDateKey = scheduleDraftDateKey;
         const optimisticEventScope = getEventScopeFromSelection(effectiveEventChildSelection);
+        const eventStartTime = normalizeScheduleTimeValue(newTime);
+        const eventEndTime = normalizeScheduleEndTimeValue(newEndTime, eventStartTime);
         for (let w = 0; w < totalWeeks; w++) {
             const dk = w === 0 ? baseDateKey : addDaysToDateKey(baseDateKey, w * 7);
-            allEvents.push({ ev: { id: generateUUID(), title, time: newTime, endTime: newEndTime || null, category: newCategory, emoji, color: cat.color, bg: cat.bg, memo: newMemo.trim(), location: newLocation, notifOverride: null, ...optimisticEventScope }, dateKey: dk });
+            allEvents.push({ ev: { id: generateUUID(), title, time: eventStartTime, endTime: eventEndTime, category: newCategory, emoji, color: cat.color, bg: cat.bg, memo: newMemo.trim(), location: newLocation, notifOverride: null, ...optimisticEventScope }, dateKey: dk });
         }
 
         // Optimistic local update
@@ -4041,7 +4073,7 @@ export default function KidsScheduler() {
             }
             return updated;
         });
-        setNewTitle(""); setNewTime("09:00"); setNewEndTime(""); setTimeSelectionTarget("start"); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4);
+        setNewTitle(""); setNewTime(DEFAULT_SCHEDULE_TIME); setNewEndTime(""); setTimeSelectionTarget("start"); setNewCategory("school"); setNewMemo(""); setNewLocation(null); setSelectedPreset(null); setWeeklyRepeat(false); setRepeatWeeks(4);
         setAddEventDateKey(null);
         setShowAddModal(false);
         showNotif(weeklyRepeat ? `${totalWeeks}주 반복 일정이 추가됐어요!` : "일정이 추가됐어요!");
@@ -4062,7 +4094,7 @@ export default function KidsScheduler() {
                     title: `📅 새 일정: ${emoji} ${title}`,
                     message: weeklyRepeat
                         ? `${baseDateKey.replace(/-/g, "/")}부터 매주 ${totalWeeks}주간 "${title}" 일정이 추가됐어요`
-                        : `${baseDateKey.replace(/-/g, "/")} ${newTime}에 "${title}" 일정이 추가됐어요`,
+                        : `${baseDateKey.replace(/-/g, "/")} ${eventStartTime}에 "${title}" 일정이 추가됐어요`,
                 });
             } catch (err) {
                 console.error("[addEvent] Supabase error:", err);
@@ -4171,8 +4203,9 @@ export default function KidsScheduler() {
         const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
         setEditingEventId(null);
         setAddEventDateKey(todayKey);
+        setEventChildSelection(getDefaultEventChildSelection());
         setNewTitle("");
-        setNewTime("");
+        setNewTime(DEFAULT_SCHEDULE_TIME);
         setNewEndTime("");
         setNewLocation(null);
         setSelectedPreset(null);
@@ -5037,6 +5070,8 @@ export default function KidsScheduler() {
     );
     // ── Handle child role selection (anonymous login + pair code input) ────────
     const handleChildSelect = async () => {
+        setChildEntryAuthPending(true);
+        setChildEntryError("");
         try {
             const user = await anonymousLogin();
             setAuthUser(user);
@@ -5044,6 +5079,9 @@ export default function KidsScheduler() {
             // ChildPairInput overlay will show automatically (myRole=child + !familyId)
         } catch (err) {
             console.error("[child login]", err);
+            setChildEntryError("아이 모드를 준비하지 못했어요");
+        } finally {
+            setChildEntryAuthPending(false);
         }
     };
 
@@ -5081,8 +5119,66 @@ export default function KidsScheduler() {
     if (showChildEntry) return (
         <ChildEntryTransition onComplete={() => {
             setShowChildEntry(false);
-            handleChildSelect();
+            void handleChildSelect();
         }} />
+    );
+
+    if (childEntryAuthPending || childEntryError) return (
+        <div
+            role={childEntryError ? "alert" : "status"}
+            aria-live="polite"
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 500,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 16,
+                padding: "calc(env(safe-area-inset-top, 0px) + 28px) 22px calc(env(safe-area-inset-bottom, 0px) + 22px)",
+                background: "linear-gradient(180deg, #FFE7EE 0%, #FFF6F2 52%, #F4E4FB 100%)",
+                fontFamily: FF,
+                textAlign: "center",
+            }}
+        >
+            <AppBrandLogo size={64} radius={18} shadow={false} />
+            <HyeniMascot variant={childEntryError ? "thinking" : "wave"} size={128} aria-label="" />
+            <div style={{ maxWidth: 320 }}>
+                <h1 style={{ margin: 0, fontSize: 24, lineHeight: 1.25, fontWeight: 900, color: "#2A1A20", letterSpacing: 0 }}>
+                    {childEntryError || "부모님 코드 화면을 준비하고 있어요"}
+                </h1>
+                <p style={{ margin: "10px 0 0", fontSize: 14, lineHeight: 1.55, fontWeight: 700, color: "#7A6770", wordBreak: "keep-all" }}>
+                    {childEntryError
+                        ? "네트워크 상태를 확인한 뒤 다시 시도해 주세요. 선택한 자녀 모드는 유지할게요."
+                        : "곧 부모님 연결 코드를 입력할 수 있어요."}
+                </p>
+            </div>
+            {childEntryError && (
+                <div style={{ width: "100%", maxWidth: 320, display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => { void handleChildSelect(); }}
+                        style={{ width: "100%" }}
+                    >
+                        다시 시도
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => {
+                            setChildEntryError("");
+                            setShowChildEntry(false);
+                            setMyRole(null);
+                        }}
+                        style={{ width: "100%" }}
+                    >
+                        역할 다시 선택
+                    </button>
+                </div>
+            )}
+        </div>
     );
 
     // Phase 1 §3.1 — Splash + 세션 복원 로딩
@@ -5802,7 +5898,7 @@ export default function KidsScheduler() {
                             <div style={{ display: "flex", gap: 8 }}>
                                 <button onClick={() => { setVoicePreview(null); setCurrentYear(parseInt(voicePreview.dateKey.split("-")[0])); setCurrentMonth(parseInt(voicePreview.dateKey.split("-")[1])); setSelectedDate(parseInt(voicePreview.dateKey.split("-")[2])); setActiveView(PARENT_VIEWS.CALENDAR); }}
                                     style={{ flex: 1, padding: "11px", background: "linear-gradient(135deg,var(--status-positive),#059669)", color: "white", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✅ 달력에서 보기</button>
-                                <button onClick={() => { setVoicePreview(null); setNewTitle(voicePreview.ev.title); setNewTime(voicePreview.ev.time); setNewEndTime(voicePreview.ev.endTime || ""); setTimeSelectionTarget("start"); setNewCategory(voicePreview.ev.category); setNewLocation(voicePreview.ev.location); setEvents(prev => ({ ...prev, [voicePreview.dateKey]: (prev[voicePreview.dateKey] || []).filter(e => e.id !== voicePreview.ev.id) })); setShowAddModal(true); }}
+                                <button onClick={() => { setVoicePreview(null); setNewTitle(voicePreview.ev.title); setNewTime(normalizeScheduleTimeValue(voicePreview.ev.time)); setNewEndTime(voicePreview.ev.endTime || ""); setTimeSelectionTarget("start"); setNewCategory(voicePreview.ev.category); setNewLocation(voicePreview.ev.location); setEvents(prev => ({ ...prev, [voicePreview.dateKey]: (prev[voicePreview.dateKey] || []).filter(e => e.id !== voicePreview.ev.id) })); setShowAddModal(true); }}
                                     style={{ flex: 1, padding: "11px", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✏️ 수정</button>
                                 <button onClick={undoVoiceEvent} style={{ padding: "11px 14px", background: "var(--bg-muted)", color: "var(--fg-secondary)", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>↩</button>
                             </div>
@@ -7063,12 +7159,13 @@ export default function KidsScheduler() {
 
                         {isParent && pairedChildren.length > 0 && (() => {
                             // ChildSelector stores family_members.id values in childIds (events_children FK target).
+                            const displayedSelection = getEffectiveEventChildSelection(eventChildSelection);
                             const selectedNames = pairedChildren
-                                .filter((c) => eventChildSelection.childIds.includes(c.id))
+                                .filter((c) => displayedSelection.childIds.includes(c.id))
                                 .map((c) => c.name);
                             const allChildNames = pairedChildren.map((c) => c.name).join(", ");
                             let msg;
-                            if (eventChildSelection.familyAll) {
+                            if (displayedSelection.familyAll) {
                                 msg = `📡 저장 시 가족 전체 (${allChildNames})에게 전송`;
                             } else if (selectedNames.length > 0) {
                                 msg = `📡 저장 시 ${selectedNames.join(", ")}에게만 전송`;
@@ -7112,7 +7209,7 @@ export default function KidsScheduler() {
                                             setSelectedPreset(p);
                                             setNewCategory(p.category);
                                             const last = findLastEventByTitle(p.label);
-                                            if (last) { setNewTime(last.time); if (last.location) setNewLocation(last.location); }
+                                            if (last) { setNewTime(normalizeScheduleTimeValue(last.time)); if (last.location) setNewLocation(last.location); }
                                         }}
                                             style={{ padding: "6px 12px", borderRadius: 16, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FF, border: active ? "2px solid var(--theme-accent)" : "2px solid var(--bg-muted)", background: active ? "var(--theme-accent-soft)" : "var(--bg-subtle)", color: active ? "var(--theme-accent-text)" : "#6B7280", transition: "all 0.15s" }}>
                                             {p.emoji} {p.label}

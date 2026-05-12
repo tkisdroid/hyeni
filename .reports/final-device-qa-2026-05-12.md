@@ -2,126 +2,122 @@
 
 ## Devices
 
-- Device A, parent: `R5CY****6QE`, Samsung SM-A556S, Android target app `com.hyeni.calendar`
-- Device B, child: `ZY22****TQD`, Motorola razr 40 ultra, Android target app `com.hyeni.calendar`
+- Device A, parent: `R5CY***6QE`, Samsung SM-A556S
+- Device B, child: `R5CY***FNZ`, Samsung SM-S937N
+- Package: `com.hyeni.calendar`
 - `adb devices -l`: both devices connected as `device`
 
 ## Build Under Test
 
 - Branch: `final/production-polish-and-real-device-qa`
-- Commit: `678e5dd Stabilize production polish and device QA`
+- Baseline: `35d965b Improve onboarding guidance and validation`
 - APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 - AAB: `android/app/build/outputs/bundle/release/app-release.aab`
 - APK install:
-  - Device A: `adb -s R5CY40EE6QE install -r ...app-debug.apk` => `Success`
-  - Device B: `adb -s ZY22H9VTQD install -r ...app-debug.apk` => `Success`
+  - Device A: `adb -s R5CY40EE6QE install -r android/app/build/outputs/apk/debug/app-debug.apk` => `Success`
+  - Device B: `adb -s R5CY521CFNZ install -r android/app/build/outputs/apk/debug/app-debug.apk` => `Success`
 
-## Evidence Paths
+## Post-Fix Physical Cycles
 
-Screenshots and UI dumps:
+These cycles ran after the latest app-code change and APK reinstall. Scope was the user-reported critical path: initial role entry, pair-code UI, wrong-code guidance, real pairing persistence, child foreground location service, parent child-status/tracker location display, and app-origin critical logcat scan.
 
-- `.reports/final-device-qa/screenshots/final-parent-after-external-browser.png`
-- `.reports/final-device-qa/screenshots/final-parent-after-external-browser.xml`
-- `.reports/final-device-qa/screenshots/final-child-locked-after-external-browser.png`
-- `.reports/final-device-qa/screenshots/final-child-locked-after-external-browser.xml`
-- Earlier blocker/evolution captures are also retained under `.reports/final-device-qa/screenshots/`.
+### Cycle 1: `cycle3c`
 
-Logcat:
+- Evidence JSON: `.reports/final-device-qa/cycle3c-evidence.json`
+- Pair code used: `KID-61853626`
+- Checks:
+  - child did not return to role gate: pass
+  - no `XXXXXXXX` pair-code placeholder overlap: pass
+  - wrong pair code shows guidance: pass
+  - real pair persisted to `family_members.user_id`: pass
+  - child `LocationService` foreground evidence: pass
+  - parent tracker opened from child status surface: pass
+  - app-origin critical logcat patterns: 0
+- Screenshots:
+  - `.reports/final-device-qa/screenshots/cycle3c-child-01-pair-input.png`
+  - `.reports/final-device-qa/screenshots/cycle3c-child-03-home.png`
+  - `.reports/final-device-qa/screenshots/cycle3c-parent-02-home.png`
+  - `.reports/final-device-qa/screenshots/cycle3c-parent-03-tracker.png`
 
-- `.reports/final-device-qa/logcat/final-parent-after-external-browser-raw.log`
-- `.reports/final-device-qa/logcat/final-parent-after-external-browser-filtered.log`
-- `.reports/final-device-qa/logcat/final-child-after-external-browser-raw.log`
-- `.reports/final-device-qa/logcat/final-child-after-external-browser-filtered.log`
+### Cycle 2: `cycle3d`
 
-## Cycle Status
+- Evidence JSON: `.reports/final-device-qa/cycle3d-evidence.json`
+- Pair code used: `KID-DE16AAE1`
+- Checks:
+  - child did not return to role gate: pass
+  - no `XXXXXXXX` pair-code placeholder overlap: pass
+  - wrong pair code shows guidance: pass
+  - real pair persisted to `family_members.user_id`: pass
+  - child `LocationService` foreground evidence: pass
+  - parent tracker opened from child status surface: pass
+  - app-origin critical logcat patterns: 0
+- Screenshots:
+  - `.reports/final-device-qa/screenshots/cycle3d-child-01-pair-input.png`
+  - `.reports/final-device-qa/screenshots/cycle3d-child-03-home.png`
+  - `.reports/final-device-qa/screenshots/cycle3d-parent-02-home.png`
+  - `.reports/final-device-qa/screenshots/cycle3d-parent-03-tracker.png`
 
-Cycle count: **0**
+## Broader Physical Evidence From Earlier Same-Day Runs
 
-Reason: Device B remained on secure Android keyguard:
+Before the final dwell-time fix, broader physical cycles also verified schedule default time/sync, memo/reply realtime, kkuk, remote-audio free gate, and cold-start restore. Because app code changed afterward, those earlier cycles are supporting evidence only and do not satisfy the strict final two-cycle completion rule.
 
-```text
-isKeyguardShowing=true
-mDreamingLockscreen=true
-mCurrentFocus=Window{... NotificationShade}
-```
+Key supporting screenshots:
 
-Because the goal requires real interaction on both physical devices, no parent/child end-to-end cycle was marked as started or passed.
-
-## Device Actions Completed
-
-- Installed latest debug APK on both devices.
-- Cleared app data on both devices:
-  - `adb -s <serial> shell pm clear com.hyeni.calendar`
-- Cleared logcat on both devices:
-  - `adb -s <serial> logcat -c`
-- Launched app with `monkey -p com.hyeni.calendar ...`.
-- Captured screenshots, UI XML, raw logcat, and filtered logcat.
-- Device A showed role selection screen with parent/child guidance and disabled Next state.
-- Device B started the app process but stayed blocked by keyguard.
+- `.reports/final-device-qa/screenshots/cycle1c-parent-02-schedule-synced.png`
+- `.reports/final-device-qa/screenshots/cycle1c-child-02-schedule-synced.png`
+- `.reports/final-device-qa/screenshots/cycle1c-parent-03-memo-reply.png`
+- `.reports/final-device-qa/screenshots/cycle1c-parent-04-kkuk.png`
+- `.reports/final-device-qa/screenshots/cycle1c-parent-05-remote-audio-gate.png`
+- `.reports/final-device-qa/screenshots/cycle2-parent-02-schedule-synced.png`
+- `.reports/final-device-qa/screenshots/cycle2-child-02-schedule-synced.png`
 
 ## Logcat Review
 
-Resolved during this session:
+Sanitized logs are stored under `.reports/final-device-qa/logcat/` and are ignored by git. `cycle3c` and `cycle3d` app-origin scans found no:
 
-- `BackgroundLocation.then() is not implemented on android` no longer appears after non-thenable native plugin wrapper.
-- `Capacitor/BrowserPlugin: Error binding to custom tabs service` no longer appears after removing `@capacitor/browser` and replacing it with local `ExternalBrowserPlugin`.
+- `FATAL EXCEPTION`
+- React runtime error
+- Capacitor bridge error
+- unhandled rejection
+- app-origin `ANR`
+- permission crash
 
-Current filtered logs:
-
-- Device A: no app-origin fatal exception, React runtime error, unhandled rejection, `BackgroundLocation.then`, duplicate plugin registration, BrowserPlugin error, Supabase/RLS unexpected error, or ANR found.
-- Device A includes `FCM token sync skipped: push context not ready yet`; classified as expected pre-auth startup state, not a crash.
-- Device B includes Motorola `SafeInvoker` system/vendor errors and repeated native health logs with `keyguardLocked=true`; classified as device/vendor/keyguard noise, not app-origin crash evidence.
-
-## Required Real-Device E2E Matrix
-
-The following required flows are **not passed** because Device B is locked:
-
-- A. onboarding/signup/role branching
-- B. pairing
-- C. permissions/safety setup
-- D. location/realtime sync
-- E. push/schedule notifications
-- F. schedule CRUD
-- G. places/safe/danger zones
-- H. SOS/ForceRing/safety signals
-- I. remote audio / microphone consent / FGS notification
-- J. memo/sticker/communication
-- K. subscription/premium gates
-- L. settings/logout/recovery
-- M. accessibility/layout on actual devices
+`cycle3b` contained a non-app `ANR` line from pid `7479` (`AppExitInfoManager`) while the Hyeni child app pid was `7157`; it was classified as system/other-app noise and the scanner was tightened to app-origin matching before `cycle3c` and `cycle3d`.
 
 ## Automated Support Gates
 
-These passed and support the code state, but do not replace physical-device QA:
+These passed and support the code state, but do not replace the remaining full physical-device matrix:
 
 - `npm run lint`
-- `npm run test`: `106 passed`, `719 tests`
+- `npm run test`: `106 passed`, `722 tests`
 - `npm run build`
-- `npm run test:e2e`: `46 passed`, `11 skipped`
-- `npx playwright test --config=playwright.real.config.js --reporter=line`: `43 passed`
+- `npm run test:e2e`: `49 passed`, `11 skipped`
+- `npx playwright test --config=playwright.real.config.js`: `43 passed`
 - `npm audit --audit-level=high`: `0 vulnerabilities`
-- `npx cap sync android`: pass
-- `android/.\\gradlew clean`: pass
-- `android/.\\gradlew :app:assembleDebug`: pass
-- `android/.\\gradlew :app:bundleRelease`: pass
+- `npx cap sync android`
+- `android/.\\gradlew clean`
+- `android/.\\gradlew :app:assembleDebug`
+- `android/.\\gradlew :app:bundleRelease`
 
 ## Failure / Fix / Reverification History
 
-- Found app-origin `BackgroundLocation.then()` logcat error on physical-device launch.
-  - Root cause: Capacitor plugin proxy was Promise-assimilated through a synthetic `then` property.
-  - Fix: wrapped native plugin proxy so `then` is undefined; added unit test.
-  - Reverified: automated gates passed; physical logcat no longer contains `BackgroundLocation.then`.
-- Found `Capacitor/BrowserPlugin` error on Device B with no Custom Tabs service.
-  - Root cause: `@capacitor/browser` binds Custom Tabs on resume even before OAuth usage.
-  - Fix: removed dependency and replaced OAuth open/close path with local `ExternalBrowserPlugin`.
-  - Reverified: `npx cap sync android` now reports only 2 Capacitor plugins; physical logcat no longer contains BrowserPlugin error.
+- Pair-code overlap:
+  - Root cause: hidden input placeholder `XXXXXXXX` rendered over the visual code boxes beside `KID-`.
+  - Fix: removed the placeholder and kept `aria-label="페어링 코드 8자리"`.
+  - Reverified: unit test, mocked E2E selector updates, physical screenshots `cycle3c` and `cycle3d`.
+- Child mode bounce:
+  - Root cause: anonymous-login pending/error state could fall through to role selection.
+  - Fix: explicit pending/error UI and retry path.
+  - Reverified: mocked E2E and physical `cycle3c`/`cycle3d`.
+- Parent child-status location update:
+  - Root cause: polling window was too short for slower GPS/device refresh.
+  - Fix: longer refresh polling and background attempts.
+  - Reverified: mocked E2E and physical parent tracker screenshots.
+- Dwell duration regression:
+  - Root cause: current location snapshots were appended to same-place history after a long time gap, inflating dwell duration.
+  - Fix: split dwell clusters when sample gaps exceed 15 minutes.
+  - Reverified: unit test and mocked E2E.
 
-## Next Required Step
+## Remaining Device QA Work
 
-Physically unlock Device B `ZY22****TQD`, then rerun from clean app data:
-
-1. Cycle 1 full parent/child E2E.
-2. Cycle 2 full parent/child E2E.
-3. No code changes between Cycle 1 and Cycle 2.
-
-Until those two cycles pass, this build is not certified for Google Play submission.
+The strict `/goal` matrix is not complete. The next physical pass must run two full clean cycles without code changes across signup/login, pairing, permissions, location/realtime, notifications, schedule CRUD, places/safe/danger zones, SOS/ForceRing, remote audio, memo/stickers, subscription, settings/logout/recovery, and layout/accessibility.

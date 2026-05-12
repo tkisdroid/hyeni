@@ -89,13 +89,12 @@ test.describe("real child anonymous flow", () => {
     await page.goto("/");
     await clickRoleGate(page, "child", { timeoutMs: 15_000 });
 
-    // The pair-code input is identified by its maxlength/placeholder (8-char
-    // upper-case code after the KID- prefix). Scoping to this input avoids
+    // The pair-code input is identified by its accessible label to avoid
     // collisions with unrelated screens ("🤖 AI로 일정입력" etc.).
-    const input = page.locator('input[maxlength="8"][placeholder="XXXXXXXX"]').first();
+    const input = page.getByRole("textbox", { name: "페어링 코드 8자리" });
     await expect(input).toBeVisible({ timeout: 20_000 });
 
-    await input.fill("XXXXXXXX");
+    await input.fill("ABCDEFGH");
     await input.press("Enter");
 
     // The app should surface an error (alert, toast, inline message) rather

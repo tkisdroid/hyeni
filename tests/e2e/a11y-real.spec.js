@@ -59,8 +59,7 @@ test.describe("accessibility: key screens", () => {
 
     // Wait for the pair-code input to mount.
     await page
-      .locator('input[maxlength="8"][placeholder="XXXXXXXX"]')
-      .first()
+      .getByRole("textbox", { name: "페어링 코드 8자리" })
       .waitFor({ state: "visible", timeout: 20_000 });
 
     const results = await new AxeBuilder({ page })

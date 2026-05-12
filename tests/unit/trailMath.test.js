@@ -27,6 +27,7 @@ import {
     LOCATION_TRAIL_JITTER_M,
     LOCATION_TRAIL_DWELL_RADIUS_M,
     LOCATION_TRAIL_DWELL_MIN_MS,
+    LOCATION_TRAIL_DWELL_MAX_SAMPLE_GAP_MS,
 } from "../../src/lib/trailMath.js";
 
 describe("haversineM", () => {
@@ -467,6 +468,19 @@ describe("buildTrailDwellPlaces", () => {
         expect(result[0].timeLabel).not.toContain("08:23");
     });
 
+    it("같은 장소라도 히스토리 간격이 크게 끊기면 현재 스냅샷을 체류시간에 합산하지 않는다", () => {
+        const t0 = new Date(2026, 4, 6, 8, 23).getTime();
+        const result = buildTrailDwellPlaces([
+            { lat: 37.56650, lng: 126.97800, recordedMs: t0 },
+            { lat: 37.56662, lng: 126.97804, recordedMs: t0 + 5 * 60_000 },
+            { lat: 37.56673, lng: 126.97807, recordedMs: t0 + 11 * 60_000 },
+            { lat: 37.56650, lng: 126.97800, recordedMs: t0 + 3 * 60 * 60_000 },
+        ]);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].timeLabel).toBe("11분 머무름");
+    });
+
     it("recordedMs 없으면 무시", () => {
         const result = buildTrailDwellPlaces([
             { lat: 1, lng: 1 },
@@ -487,6 +501,10 @@ describe("constants", () => {
 
     it("LOCATION_TRAIL_DWELL_MIN_MS = 10분", () => {
         expect(LOCATION_TRAIL_DWELL_MIN_MS).toBe(10 * 60_000);
+    });
+
+    it("LOCATION_TRAIL_DWELL_MAX_SAMPLE_GAP_MS = 15분", () => {
+        expect(LOCATION_TRAIL_DWELL_MAX_SAMPLE_GAP_MS).toBe(15 * 60_000);
     });
 });
 
