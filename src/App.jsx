@@ -812,6 +812,7 @@ export default function KidsScheduler() {
     const [parentAlerts, setParentAlerts] = useState([]);
     const [showAlertPanel, setShowAlertPanel] = useState(false);
     const [showAlertCenter, setShowAlertCenter] = useState(false);
+    const generalAlertPopupSeenRef = useRef(new Set());
     const [urgentAlertAcked, setUrgentAlertAcked] = useState(() => new Set());
     const [aiEnabled, setAiEnabled] = useState(() => {
         try { return localStorage.getItem("hyeni-ai-enabled") !== "false"; } catch { return true; }
@@ -3671,6 +3672,28 @@ export default function KidsScheduler() {
         const interval = setInterval(loadParentAlerts, 60000);
         return () => clearInterval(interval);
     }, [familyId, myRole, loadParentAlerts]);
+
+    useEffect(() => {
+        if (!isParent || showAlertCenter) return;
+        const URGENT_TYPES = new Set(["sos", "sos_followup", "danger_zone", "danger_exit"]);
+        const nextGeneralAlert = (parentAlerts || []).find(alert =>
+            alert?.id &&
+            !alert.read &&
+            !generalAlertPopupSeenRef.current.has(alert.id) &&
+            !(URGENT_TYPES.has(alert.alert_type) || alert.severity === "urgent")
+        );
+        if (!nextGeneralAlert) return;
+        (parentAlerts || []).forEach(alert => {
+            if (
+                alert?.id &&
+                !alert.read &&
+                !(URGENT_TYPES.has(alert.alert_type) || alert.severity === "urgent")
+            ) {
+                generalAlertPopupSeenRef.current.add(alert.id);
+            }
+        });
+        setShowAlertCenter(true);
+    }, [isParent, parentAlerts, showAlertCenter]);
 
     // ── AI: Analyze memo sentiment ───────────────────────────────────────────
     const analyzeMemoSentiment = useCallback(async (memoText, eventTitle) => {

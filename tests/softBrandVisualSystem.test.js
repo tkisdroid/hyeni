@@ -352,6 +352,12 @@ describe("Soft Brand visual system", () => {
     expect(dashboardEventSource).not.toContain("DESIGN.colors.pink");
   });
 
+  test("parent alerts open a visible popup instead of staying hidden in the center", () => {
+    expect(appSource).toContain("generalAlertPopupSeenRef");
+    expect(appSource).toContain("generalAlertPopupSeenRef.current.has(alert.id)");
+    expect(appSource).toContain("setShowAlertCenter(true)");
+  });
+
   test("schedule add modal controls follow the selected theme variables", () => {
     // Phase 2: ADD MODAL 블록이 EventSheet 로 이관 — 마커도 그에 맞춰 갱신.
     const modalStart = appSource.indexOf("{/* ── EVENT SHEET (Phase 2) ── */}");

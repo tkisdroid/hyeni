@@ -11,6 +11,8 @@ describe("AlertBanner", () => {
 
     it("alert 1개 메시지 + 라벨 표시", () => {
         render(<AlertBanner alerts={[{ id: "a1", type: "parent", msg: "안녕" }]} onDismiss={() => {}} />);
+        expect(screen.getByRole("dialog", { name: "일반 알림 팝업" })).toBeInTheDocument();
+        expect(screen.getByText("일반 알림")).toBeInTheDocument();
         expect(screen.getByText("부모님 알림")).toBeInTheDocument();
         expect(screen.getByText("안녕")).toBeInTheDocument();
     });
@@ -49,5 +51,12 @@ describe("AlertBanner", () => {
         ]} onDismiss={() => {}} />);
         expect(screen.getByText("p")).toBeInTheDocument();
         expect(screen.getByText("c")).toBeInTheDocument();
+    });
+
+    it("긴급 type은 alertdialog 팝업으로 강조", () => {
+        render(<AlertBanner alerts={[{ id: "e1", type: "emergency", msg: "아직 도착하지 않았어요" }]} onDismiss={() => {}} />);
+        expect(screen.getByRole("alertdialog", { name: "긴급 알림 팝업" })).toBeInTheDocument();
+        expect(screen.getByText("긴급 알림")).toBeInTheDocument();
+        expect(screen.getByText("아직 도착하지 않았어요")).toBeInTheDocument();
     });
 });
