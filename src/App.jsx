@@ -2091,6 +2091,56 @@ export default function KidsScheduler() {
                 if (targetUserId && targetUserId !== authUser.id) return;
                 void publishChildDeviceStatusRef.current();
             },
+            // ── Missed-event recovery (Agent11 P1-001) ────────────────────────
+            // When a per-table channel reconnects after CHANNEL_ERROR/TIMED_OUT
+            // we cannot replay the gap, so re-fetch the affected table once.
+            // Tables not owned by App.jsx state (daily_supplies, family_subscription,
+            // child_locations) fall through silently — the dedicated child-mode
+            // / billing screens handle their own re-sync.
+            onMissedRefetch: (tableName) => {
+                if (!familyId) return;
+                try {
+                    if (tableName === "events") {
+                        fetchEvents(familyId).then(map => {
+                            cacheEvents(map);
+                            setEvents(map);
+                        }).catch(err => console.warn("[missedRefetch] events", err));
+                    } else if (tableName === "academies") {
+                        fetchAcademies(familyId).then(list => {
+                            cacheAcademies(list);
+                            setAcademies(list);
+                        }).catch(err => console.warn("[missedRefetch] academies", err));
+                    } else if (tableName === "memos") {
+                        fetchMemos(familyId).then(map => {
+                            cacheMemos(map);
+                            setMemos(map);
+                        }).catch(err => console.warn("[missedRefetch] memos", err));
+                    } else if (tableName === "saved_places") {
+                        fetchSavedPlaces(familyId).then(list => {
+                            cacheSavedPlaces(list);
+                            setSavedPlaces(list);
+                        }).catch(err => console.warn("[missedRefetch] saved_places", err));
+                    } else if (tableName === "memo_replies") {
+                        const dk = dateKeyRef.current;
+                        const fetchChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
+                        if (dk) {
+                            fetchMemoReplies(familyId, dk, fetchChildId)
+                                .then(rows => setMemoReplies(rows || []))
+                                .catch(err => console.warn("[missedRefetch] memo_replies", err));
+                        }
+                    } else if (tableName === "family_members") {
+                        if (authUser?.id) {
+                            getMyFamily(authUser.id)
+                                .then(fam => setFamilyInfo(fam || null))
+                                .catch(err => console.warn("[missedRefetch] family_members", err));
+                        }
+                    }
+                    // daily_supplies / family_subscription / child_locations:
+                    // dedicated screens own their refetch.
+                } catch (err) {
+                    console.warn(`[missedRefetch] ${tableName} threw`, err);
+                }
+            },
         });
 
         return () => { unsubscribe(realtimeChannel.current); };
@@ -2415,6 +2465,13 @@ export default function KidsScheduler() {
     }, [isParent]);
 
     // ── Polling fallback: refetch every 30s in case Realtime misses changes ──
+    // Agent11 P1-001/P1-004: previously only 3 of 9 subscribed tables had a
+    // polling fallback (events, memos, saved_places). A silent realtime drop
+    // would leave academies/danger_zones/memo_replies stale until the user
+    // navigated away and back. The realtime layer now also re-fetches on
+    // reconnect (subscribeFamily.onMissedRefetch), but a periodic safety net
+    // catches the case where the realtime channel never fires CHANNEL_ERROR
+    // (e.g. silently degraded WebSocket frames).
     useEffect(() => {
         if (!familyId) return;
         const poll = setInterval(() => {
@@ -2443,9 +2500,39 @@ export default function KidsScheduler() {
                 else if (breaker.failures > 0) setSyncDegraded("transient");
                 else setSyncDegraded(null);
             });
+            // Agent11 P1-001: extended coverage for tables that previously had
+            // only realtime delivery and no fallback.
+            fetchAcademies(familyId).then(list => setAcademies(prev => {
+                const prevJson = JSON.stringify(prev);
+                const newJson = JSON.stringify(list);
+                if (prevJson !== newJson) { cacheAcademies(list); return list; }
+                return prev;
+            })).catch(err => console.warn("[poll] academies", err));
+            fetchDangerZones(familyId).then(list => setDangerZones(prev => {
+                const prevJson = JSON.stringify(prev);
+                const newJson = JSON.stringify(list);
+                if (prevJson !== newJson) return list;
+                return prev;
+            })).catch(err => console.warn("[poll] danger_zones", err));
+            // memo_replies: Agent11 P1-004 — active conversations were stale
+            // when realtime degraded silently. dateKeyRef holds the currently
+            // viewed date so we only re-fetch the visible thread.
+            const dk = dateKeyRef.current;
+            if (dk) {
+                const fetchChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
+                fetchMemoReplies(familyId, dk, fetchChildId)
+                    .then(rows => setMemoReplies(prev => {
+                        const next = rows || [];
+                        const prevJson = JSON.stringify(prev);
+                        const newJson = JSON.stringify(next);
+                        if (prevJson !== newJson) return next;
+                        return prev;
+                    }))
+                    .catch(err => console.warn("[poll] memo_replies", err));
+            }
         }, 30000);
         return () => clearInterval(poll);
-    }, [familyId]);
+    }, [familyId, isParent, selectedChild?.id, myFamilyMemberId]);
 
     // ── 꾹 (emergency ping) ────────────────────────────────────────────────────
     const showNotif = useCallback((msg, type = "success") => {
