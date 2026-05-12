@@ -8,9 +8,9 @@ import { AnimalIcon } from "../icons/AnimalIcon.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 function pickHeroCopy(eventCount) {
-    if (eventCount === 0) return { title: "오늘은 여유 있어요", sub: "혜니가 일정이 생기면 바로 알려줄게요" };
-    if (eventCount === 1) return { title: "오늘 일정 1개", sub: "천천히 같이 챙겨요" };
-    return { title: `오늘 일정 ${eventCount}개`, sub: "하나씩 같이 챙겨요" };
+    if (eventCount === 0) return { title: "오늘은 여유 있어요", sub: "오늘 등록된 일정이 없어요. 일정이 생기면 바로 알려줄게!" };
+    if (eventCount === 1) return { title: "오늘 일정 1개", sub: "천천히 같이 챙겨볼까요?" };
+    return { title: `오늘 일정 ${eventCount}개`, sub: "하나씩 같이 챙겨볼까요?" };
 }
 
 function formatNowTime(now = new Date()) {

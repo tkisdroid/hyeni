@@ -10,19 +10,19 @@ describe("ChildHero — copy 분기", () => {
         render(<ChildHero eventCount={0} now={fixedNow} />);
         expect(screen.getByRole("region", { name: "아이 홈 요약" })).toBeInTheDocument();
         expect(screen.getByText("오늘은 여유 있어요")).toBeInTheDocument();
-        expect(screen.getByText(/혜니가 일정이 생기면 바로 알려줄게요/)).toBeInTheDocument();
+        expect(screen.getByText(/오늘 등록된 일정이 없어요/)).toBeInTheDocument();
     });
 
     it("1개 → 오늘 일정 1개 copy", () => {
         render(<ChildHero eventCount={1} now={fixedNow} />);
         expect(screen.getByText("오늘 일정 1개")).toBeInTheDocument();
-        expect(screen.getByText(/천천히 같이 챙겨요/)).toBeInTheDocument();
+        expect(screen.getByText(/천천히 같이 챙겨볼까요/)).toBeInTheDocument();
     });
 
     it("2개 이상 → 오늘 일정 N개 표시", () => {
         render(<ChildHero eventCount={3} now={fixedNow} />);
         expect(screen.getByText("오늘 일정 3개")).toBeInTheDocument();
-        expect(screen.getByText(/하나씩 같이 챙겨요/)).toBeInTheDocument();
+        expect(screen.getByText(/하나씩 같이 챙겨볼까요/)).toBeInTheDocument();
     });
 
     it("현재 시각 표시", () => {

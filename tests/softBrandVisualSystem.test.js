@@ -395,7 +395,8 @@ describe("Soft Brand visual system", () => {
     expect(productPassCss).toContain("box-shadow: none");
     expect(appSource).toContain('shell: "var(--hyeni-product-canvas)"');
     expect(appSource).toContain('background: "var(--hyeni-product-canvas)"');
-    expect(appSource).toContain("<AppBrandLogo size={isParent ? 64 : 72}");
+    expect(appSource).toContain("<AppBrandLogo size={64}");
+    expect(appSource).toContain('className="child-header-avatar"');
     expect(productPassCss).not.toContain("border-radius: 30px");
     expect(productPassCss).not.toContain("dashboard-card");
   });

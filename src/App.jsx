@@ -6036,15 +6036,25 @@ export default function KidsScheduler() {
 
             {/* ── Header Row 1: Logo + 꾹 + 로그아웃 ── */}
             <div
-                className="hyeni-top-header"
-                style={{ maxWidth: contentMaxWidth, borderRadius: DESIGN.radius.xl, boxShadow: DESIGN.shadow.soft }}
+                className={`hyeni-top-header ${!isParent ? "hyeni-top-header--child" : ""}`}
+                style={{
+                    maxWidth: contentMaxWidth,
+                    borderRadius: isParent ? DESIGN.radius.xl : 0,
+                    boxShadow: isParent ? DESIGN.shadow.soft : "none",
+                }}
             >
                 <div className="hyeni-top-header-brand">
                     <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
-                        <AppBrandLogo size={isParent ? 64 : 72} radius={isParent ? 18 : 20} shadow={false} mood={appLogoMood} />
+                        {isParent ? (
+                            <AppBrandLogo size={64} radius={18} shadow={false} mood={appLogoMood} />
+                        ) : (
+                            <span className="child-header-avatar">
+                                <HyeniMascot variant="static" size={42} aria-label="혜니" />
+                            </span>
+                        )}
                     </div>
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-                        <div onClick={() => setActiveView(isParent ? PARENT_VIEWS.TODAY : PARENT_VIEWS.CALENDAR)} style={{ fontSize: isParent ? 16 : 18, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer" }}>혜니캘린더</div>
+                        <div onClick={() => setActiveView(isParent ? PARENT_VIEWS.TODAY : PARENT_VIEWS.CALENDAR)} style={{ fontSize: isParent ? 16 : 22, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", lineHeight: 1.1 }}>혜니캘린더</div>
                         {isParent && (
                             <div className="hyeni-top-header-mode-rail">
                                 <button
@@ -6137,7 +6147,7 @@ export default function KidsScheduler() {
                         onTouchEnd={endKkukPress}
                         onTouchCancel={cancelKkukPress}
                         style={{
-                            fontSize: isParent ? 13 : 15, height: isParent ? 40 : 44, padding: isParent ? "0 16px" : "0 20px", borderRadius: 12, border: "none", cursor: kkukCooldown ? "default" : "pointer",
+                            fontSize: isParent ? 13 : 15, height: isParent ? 40 : 44, padding: isParent ? "0 16px" : "0 18px 0 10px", borderRadius: isParent ? 12 : 999, border: "none", cursor: kkukCooldown ? "default" : "pointer",
                             fontWeight: 900, fontFamily: FF, whiteSpace: "nowrap",
                             background: kkukCooldown ? "var(--bg-muted)" : "var(--hyeni-theme-gradient)",
                             color: "var(--fg-on-primary)", boxShadow: kkukCooldown ? "none" : "var(--hyeni-theme-shadow-soft)",
@@ -6298,13 +6308,18 @@ export default function KidsScheduler() {
                             onClick={handleChildMemoOpen}
                             aria-label={`부모님 메모 ${memoPreviewCount || 0}개`}
                         >
-                            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                                <ThreeDIcon name="chat-heart" size={32} aria-label="메시지" />
-                                <span className="t-child-quick-label">메시지</span>
+                            <span className="child-quick-card__main">
+                                <span className="child-quick-card__icon">
+                                    <ThreeDIcon name="chat-heart" size={34} aria-label="메시지" />
+                                </span>
+                                <span className="child-quick-card__copy">
+                                    <span className="t-child-quick-label">메시지</span>
+                                    <span className="t-child-quick-meta">
+                                        {memoPreviewCount > 0 ? `${memoPreviewCount}개 보기` : "답장하기"}
+                                    </span>
+                                </span>
                             </span>
-                            <span className="t-child-quick-meta">
-                                {memoPreviewCount > 0 ? `${memoPreviewCount}개 · 눌러서 보기` : "눌러서 답장하기"}
-                            </span>
+                            <span className="child-quick-card__arrow" aria-hidden="true">›</span>
                             {memoPreviewCount > 0 && <span className="child-quick-card-dot" aria-hidden="true" />}
                         </button>
                         <button
@@ -6314,25 +6329,22 @@ export default function KidsScheduler() {
                             onClick={() => setShowReceivedStickersSheet(true)}
                             aria-label="받은 스티커 보기"
                         >
-                            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                                <ThreeDIcon name="gift" size={32} aria-label="받은 스티커" />
-                                <span className="t-child-quick-label" style={{ whiteSpace: "nowrap" }}>받은 스티커</span>
+                            <span className="child-quick-card__main">
+                                <span className="child-quick-card__icon">
+                                    <ThreeDIcon name="gift" size={34} aria-label="받은 스티커" />
+                                </span>
+                                <span className="child-quick-card__copy">
+                                    <span className="t-child-quick-label">받은 스티커</span>
+                                    <span className="t-child-quick-meta">응원 확인</span>
+                                </span>
                             </span>
-                            <span className="t-child-quick-meta">부모님이 보낸 응원 확인</span>
+                            <span className="child-quick-card__arrow" aria-hidden="true">›</span>
                         </button>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                         <ChildCallCard phones={parentPhones} />
                         {familyId && (
-                            <div
-                                style={{
-                                    background: "var(--bg-base)",
-                                    borderRadius: "var(--radius-card)",
-                                    padding: "var(--space-3) var(--space-4)",
-                                    border: "1px solid var(--line-soft)",
-                                    boxShadow: "var(--child-quick-card-shadow)",
-                                }}
-                            >
+                            <div className="child-playdate-card">
                                 <FriendPlaydateChildPanel familyId={familyId} currentUserId={authUser?.id} />
                             </div>
                         )}
