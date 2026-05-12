@@ -146,6 +146,13 @@ export function ParentSettingsScreen({
     onUnlinkChild,
     onCancelSubscription,
     onDeleteAccount,
+    // AI 친구 대화 (아이모드)
+    aiChatEnabled = false,
+    aiChatDailyLimit = 10,
+    aiChatCreditBalance = 0,
+    onChangeAIChatEnabled,
+    onChangeAIChatDailyLimit,
+    onTopUpAIChatCredits,
 }) {
     useBackHandler(() => {
         if (typeof onBack === "function") { onBack(); return true; }
@@ -191,6 +198,66 @@ export function ParentSettingsScreen({
                     <Row icon="👫" label="친구놀이 알림">
                         <Toggle value={notifyPlaydate} onChange={onChangeNotifyPlaydate || (() => {})} ariaLabel="친구놀이 알림" />
                     </Row>
+                </Section>
+
+                {/* 3-2. AI 친구 대화 (아이모드) */}
+                <Section title="AI 친구 대화">
+                    <Row icon="🤖" label="아이의 AI 친구">
+                        <Toggle
+                            value={!!aiChatEnabled}
+                            onChange={onChangeAIChatEnabled || (() => {})}
+                            ariaLabel="AI 친구 대화 활성화"
+                        />
+                    </Row>
+                    {aiChatEnabled && (
+                        <>
+                            <Row
+                                icon="💬"
+                                label="하루 대화 횟수"
+                                trailing={
+                                    <span style={{ fontSize: 11, color: "var(--fg-tertiary)" }}>
+                                        {aiChatDailyLimit}회
+                                    </span>
+                                }
+                            />
+                            <div
+                                role="group"
+                                aria-label="하루 대화 횟수 선택"
+                                style={{
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: "var(--space-2)",
+                                    padding: "var(--space-2) var(--space-4) var(--space-3)",
+                                }}
+                            >
+                                {[5, 10, 20, 30].map((opt) => {
+                                    const active = aiChatDailyLimit === opt;
+                                    return (
+                                        <button
+                                            key={opt}
+                                            type="button"
+                                            onClick={() => onChangeAIChatDailyLimit?.(opt)}
+                                            aria-pressed={active}
+                                            className={`btn btn-sm ${active ? "btn-primary" : "btn-secondary"}`}
+                                            style={{ height: 32, padding: "0 var(--space-3)", fontSize: 13 }}
+                                        >
+                                            {opt}회
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <Row
+                                icon="🎟"
+                                label="대화 크레딧"
+                                trailing={
+                                    <span style={{ fontSize: 12, color: "var(--fg-secondary)", fontWeight: "var(--weight-bold)" }}>
+                                        {aiChatCreditBalance > 0 ? `${aiChatCreditBalance}개` : "없음"}
+                                    </span>
+                                }
+                                onClick={onTopUpAIChatCredits}
+                            />
+                        </>
+                    )}
                 </Section>
 
                 {/* 4. 구독 */}
