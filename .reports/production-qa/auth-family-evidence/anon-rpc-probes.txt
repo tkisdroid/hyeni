@@ -1,0 +1,92 @@
+# RPC auth-gate probes
+
+## A. join_family_as_parent (anon — should fail with login-required)
+HTTP/1.1 400 Bad Request
+Date: Tue, 12 May 2026 17:04:27 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 96
+Connection: keep-alive
+CF-Ray: 9fab00ac3d2ac6c3-ICN
+CF-Cache-Status: DYNAMIC
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+proxy-status: PostgREST; error=P0001
+sb-gateway-version: 1
+sb-project-ref: qzrrscryacxhprnrtpjd
+sb-request-id: 019e1d25-a7a5-7527-a5ea-aaccae2490f3
+x-envoy-attempt-count: 1
+x-envoy-upstream-service-time: 202
+set-cookie: __cf_bm=mHBh0nOMbf66IEnv7DaISspa9FCLx2bdKamM1k7iV9Q-1778605467.5539222-1.0.1.1-VAZiePZUqEDnQ8ClR7fLNHSgIlfy2Upg35lmX4X7ZcKNFCdEbh_x4j0y6d0AvngQOqX3Cfb_R2W3WIc_LOYdMb.UB9oj49o_gBI1iUjy3gFJ4JsXqnVaxjtplFLJPykJ; HttpOnly; SameSite=None; Secure; Path=/; Domain=supabase.co; Expires=Tue, 12 May 2026 17:34:27 GMT
+alt-svc: h3=":443"; ma=86400
+
+{"code":"P0001","details":null,"hint":null,"message":"로그인 후 다시 시도해 주세요"}
+## B. add_sticker (anon — should fail with not authorized)
+HTTP/1.1 400 Bad Request
+Date: Tue, 12 May 2026 17:04:28 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 70
+Connection: keep-alive
+CF-Ray: 9fab00b0ce09f45e-ICN
+CF-Cache-Status: DYNAMIC
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+proxy-status: PostgREST; error=P0001
+sb-gateway-version: 1
+sb-project-ref: qzrrscryacxhprnrtpjd
+sb-request-id: 019e1d25-aa82-7111-a817-5756de38f414
+x-envoy-attempt-count: 1
+
+## C. is_primary_parent (anon — should return false or auth error)
+HTTP/1.1 200 OK
+Date: Tue, 12 May 2026 17:04:29 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 5
+Connection: keep-alive
+Content-Range: 0-0/*
+CF-Ray: 9fab00b46817aa62-ICN
+CF-Cache-Status: DYNAMIC
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+content-profile: public
+sb-gateway-version: 1
+sb-project-ref: qzrrscryacxhprnrtpjd
+sb-request-id: 019e1d25-accb-7a98-8736-cc182594cc0d
+
+## D. mark_memo_reply_read (anon)
+HTTP/1.1 404 Not Found
+Date: Tue, 12 May 2026 17:04:29 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+CF-Ray: 9fab00b62a0fd1ea-ICN
+CF-Cache-Status: DYNAMIC
+set-cookie: __cf_bm=9Rpug87Uaq0me4OGta1ks2n0nMmQE44VFoWhMYhd2f4-1778605469.1422641-1.0.1.1-pqMGdEGH1KpNj7cl0Rr4RiRQjGoNBuOz7L3O26IZ0c9IYI3IDWaapxh7YINCqMwZ4_RKl3RXQGzOFs_MKFDXZYTHVAqmv4JAb38NO9lQQsyRcK.gxWRqfoCtnhTsf2gU; HttpOnly; SameSite=None; Secure; Path=/; Domain=supabase.co; Expires=Tue, 12 May 2026 17:34:29 GMT
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+## E. force_ring_acknowledge (anon)
+HTTP/1.1 404 Not Found
+Date: Tue, 12 May 2026 17:04:30 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+CF-Ray: 9fab00bb6a81ea93-ICN
+CF-Cache-Status: DYNAMIC
+set-cookie: __cf_bm=DZjTO7CYFRhAGil6uu5rTj9eWbhlINeTFhS.hsCMW8s-1778605469.9847517-1.0.1.1-cs71UQupjhe_oXjWAXmL7IQ_V5DWabJLhXe.NpLsogzA86CW7gpnhJlIXWfw_Zj8RMXFrTNeYmpEoRCm5H0zGMsEkrd5ko6nWdthlRkxaGjj33gRKIPOMzfSTi1H.3dr; HttpOnly; SameSite=None; Secure; Path=/; Domain=supabase.co; Expires=Tue, 12 May 2026 17:34:30 GMT
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+## F. mark_memo_read (anon)
+HTTP/1.1 204 No Content
+Date: Tue, 12 May 2026 17:04:30 GMT
+Connection: keep-alive
+Content-Range: 0-0/*
+CF-Ray: 9fab00be9bc7ea12-ICN
+CF-Cache-Status: DYNAMIC
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff

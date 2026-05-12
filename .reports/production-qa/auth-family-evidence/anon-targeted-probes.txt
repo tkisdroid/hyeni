@@ -1,0 +1,134 @@
+# Targeted probes for cross-family enumeration vectors
+
+## 1. Pair code enumeration (anon try to read families.pair_code)
+HTTP/1.1 200 OK
+Date: Tue, 12 May 2026 17:03:53 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 2
+Connection: keep-alive
+Content-Range: */*
+CF-Ray: 9faaffd3dd753182-ICN
+CF-Cache-Status: DYNAMIC
+Content-Location: /families?select=id%2Cpair_code%2Cpair_code_expires_at
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+content-profile: public
+sb-gateway-version: 1
+sb-project-ref: qzrrscryacxhprnrtpjd
+
+## 2. family_members enumeration anon
+HTTP/1.1 200 OK
+Date: Tue, 12 May 2026 17:03:53 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 2
+Connection: keep-alive
+Content-Range: */*
+CF-Ray: 9faaffd4eb8747f8-ICN
+CF-Cache-Status: DYNAMIC
+Content-Location: /family_members?select=id%2Cfamily_id%2Crole%2Cname%2Cuser_id
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+content-profile: public
+sb-gateway-version: 1
+sb-project-ref: qzrrscryacxhprnrtpjd
+
+## 3. Try to read a specific family by guessed-uuid
+HTTP/1.1 200 OK
+Date: Tue, 12 May 2026 17:03:53 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 2
+Connection: keep-alive
+Content-Range: */*
+CF-Ray: 9faaffd6393030a3-ICN
+CF-Cache-Status: DYNAMIC
+Content-Location: /families?id=eq.00000000-0000-0000-0000-000000000000&select=%2A
+Server: cloudflare
+
+## 4. child_locations: try to read all locations as anon
+HTTP/1.1 200 OK
+Date: Tue, 12 May 2026 17:03:53 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 2
+Connection: keep-alive
+Content-Range: */*
+CF-Ray: 9faaffd71d4cd1e3-ICN
+CF-Cache-Status: DYNAMIC
+Content-Location: /child_locations?limit=5&select=user_id%2Clat%2Clng%2Cupdated_at
+Server: cloudflare
+
+## 5. force_ring_events anon
+HTTP/1.1 200 OK
+Date: Tue, 12 May 2026 17:03:53 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 2
+Connection: keep-alive
+Content-Range: */*
+CF-Ray: 9faaffd86eedb7e8-ICN
+CF-Cache-Status: DYNAMIC
+Content-Location: /force_ring_events?limit=5&select=%2A
+Server: cloudflare
+
+## 6. sos_events anon
+HTTP/1.1 200 OK
+Date: Tue, 12 May 2026 17:03:53 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 2
+Connection: keep-alive
+Content-Range: */*
+CF-Ray: 9faaffd98b22fd11-ICN
+CF-Cache-Status: DYNAMIC
+Content-Location: /sos_events?limit=5&select=%2A
+Server: cloudflare
+
+## 7. RPC: join_family with invalid pair code (anon)
+HTTP/1.1 400 Bad Request
+Date: Tue, 12 May 2026 17:03:54 GMT
+Content-Type: application/json; charset=utf-8
+Content-Length: 73
+Connection: keep-alive
+Server: cloudflare
+CF-Ray: 9faaffda6d991fb3-ICN
+CF-Cache-Status: DYNAMIC
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Content-Type-Options: nosniff
+proxy-status: PostgREST; error=P0001
+sb-gateway-version: 1
+sb-project-ref: qzrrscryacxhprnrtpjd
+sb-request-id: 019e1d25-248d-76ce-9941-40a292a45577
+x-envoy-attempt-count: 1
+
+## 8. RPC: regenerate_pair_code (should require auth)
+HTTP/1.1 400 Bad Request
+Date: Tue, 12 May 2026 17:03:54 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+CF-Ray: 9faaffdcef393077-ICN
+CF-Cache-Status: DYNAMIC
+set-cookie: __cf_bm=3JZKPN.GIf2ZE9lFQXBPJBkZnGx9qdfYv4D5CjhR5GQ-1778605434.3842342-1.0.1.1-.tD0zEx8.ORa.fNWF9Ua6Ix9rVcnIhaDZfwP7k0GakK48Uq3PmxTQ_f8mbByEXYjvNxntK61R5wQpxW6O_gA5CYuKu2VG6k5Cgs3oPsqvlRh9FmDyuYEPM_W9d73JzZt; HttpOnly; SameSite=None; Secure; Path=/; Domain=supabase.co; Expires=Tue, 12 May 2026 17:33:54 GMT
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+proxy-status: PostgREST; error=P0001
+sb-gateway-version: 1
+sb-project-ref: qzrrscryacxhprnrtpjd
+
+## 9. RPC: unpair_child (should require auth)
+HTTP/1.1 404 Not Found
+Date: Tue, 12 May 2026 17:03:54 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+CF-Ray: 9faaffde2b31aa3c-ICN
+CF-Cache-Status: DYNAMIC
+set-cookie: __cf_bm=9XKlE.qkNAT6oAUhmDigvcivrkkMud_dQDLKpfzlKkQ-1778605434.5857785-1.0.1.1-t7_uiZyA99uH8cFWPw7nnzSYBqEy17v9t.KKVHOlzuWiYESQBHSahqKpb0sy_JmOml0NvcHCFvN1EdNMJLOw1Zj4NxqRMVW3pL.ewMCBSHTPZ27ktL6tWpvHh2gAU.8Y; HttpOnly; SameSite=None; Secure; Path=/; Domain=supabase.co; Expires=Tue, 12 May 2026 17:33:54 GMT
+Server: cloudflare
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+proxy-status: PostgREST; error=PGRST202
+sb-gateway-version: 1
+sb-project-ref: qzrrscryacxhprnrtpjd

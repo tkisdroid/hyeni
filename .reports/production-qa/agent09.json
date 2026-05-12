@@ -1,0 +1,109 @@
+{
+  "agent": "09 UI / Soft Brand / Visual Regression Agent",
+  "status": "PASS",
+  "viewport_results": [
+    { "viewport": "320x568", "screens_captured": 4, "issues": ["role-card-title-wraps-2-lines"] },
+    { "viewport": "360x800", "screens_captured": 1, "issues": [] },
+    { "viewport": "375x812", "screens_captured": 4, "issues": [] },
+    { "viewport": "390x844", "screens_captured": 4, "issues": [] },
+    { "viewport": "430x932", "screens_captured": 1, "issues": [] },
+    { "viewport": "768x1024", "screens_captured": 1, "issues": [] },
+    { "viewport": "1024x768", "screens_captured": 1, "issues": [] },
+    { "viewport": "1280x720", "screens_captured": 1, "issues": [] },
+    { "viewport": "1440x900", "screens_captured": 1, "issues": [] },
+    { "viewport": "1920x1080", "screens_captured": 1, "issues": [] }
+  ],
+  "visual_diffs": [
+    {
+      "note": "No baseline available - visual diff is by inspection of captured PNGs against design spec, not against prior captures.",
+      "captures_total": 19,
+      "captures_directory": ".reports/production-qa/visual-diff/"
+    }
+  ],
+  "soft_brand_checks": [
+    { "rule": "warm cream + white surfaces", "status": "PASS", "evidence": "src/styles/tokens.css:56,60 - --bg-page #FBFAF6 / --bg-card #FFFFFF" },
+    { "rule": "restrained hyeni pink", "status": "PASS", "evidence": "splash captures show cream gradient bg with rose only on CTA + emphasis" },
+    { "rule": "selected theme color propagation", "status": "PASS", "evidence": "src/lib/theme.js applyThemeColor() sets --theme-accent* on documentElement" },
+    { "rule": "semantic colors preserved", "status": "PASS", "evidence": "src/styles/tokens.css:39-48 + 101-110 - status-positive/negative/cautionary tokens retained" },
+    { "rule": "Pretendard JP only, no extra fonts", "status": "PASS", "evidence": "src/index.css:13 - only Pretendard Variable @font-face; tokens-cartoon.css:120-126 comment explicitly forbids external CDN fonts" },
+    { "rule": "body weight 500", "status": "PASS", "evidence": "src/styles/tokens.css:598 body { font-weight: var(--weight-medium); }; runtime getComputedStyle reports '500' on all 10 viewports" },
+    { "rule": "card stroke + no shadow (elevated only floating)", "status": "PASS", "evidence": "src/styles/tokens.css:630-635 .card { border: 1px solid var(--line-soft); box-shadow: var(--shadow-none); }" },
+    { "rule": "radius consistency via tokens", "status": "PASS", "evidence": "src/styles/tokens.css:134-148 - --radius-* scale + aliases (card/control/pill/input)" },
+    { "rule": "shallow shadow", "status": "PASS", "evidence": "heavy shadow only on .card-elevated and brand glow variants" },
+    { "rule": "button text non-selectable", "status": "PASS", "evidence": "src/index.css:62-74 global user-select:none + touch-action:manipulation on button/a/[role=button]; .btn (tokens.css:715) and .btn-icon-circle (tokens.css:822-825) re-apply" },
+    { "rule": "emergency / destructive affordance preserved", "status": "PASS", "evidence": "src/styles/tokens.css:108 --status-danger #E03030; .btn-destructive (line 780-790) flat red; UrgentAlertOverlay.jsx:156 hero title uses var(--status-negative, #DC2626)" },
+    { "rule": "strong red restricted to SOS/긴급/하트", "status": "FAIL", "evidence": "src/lib/theme.js:41-44 - #EF4444 selectable as child theme color, propagates to chips/markers/rails. See issue 1." },
+    { "rule": "parent (mint) / child (rose) tone distinction", "status": "PASS", "evidence": "src/styles/tokens.css:729 .btn-primary rose + line 748 .btn-primary-mint defined; role-conditional rendering elsewhere" }
+  ],
+  "accessibility_surface_checks": [
+    { "check": "no unlabeled visible buttons", "status": "PASS", "count": 0 },
+    { "check": "img alt presence", "status": "WARN", "note": "5 decorative imgs have alt='' wrapped by aria-labelled div - valid WCAG decorative pattern" },
+    { "check": "heading landmark", "status": "PASS", "count": "present on every viewport" },
+    { "check": "focus-visible outline", "status": "PASS", "evidence": "src/styles/tokens.css:608-613" },
+    { "check": "reduced-motion media query", "status": "PASS", "evidence": "src/styles/tokens.css:616-623, 1045-1047" },
+    { "check": "WCAG AA contrast on visible text", "status": "FAIL_PARTIAL", "fails": [
+      { "text": "시작 (splash emphasis)", "ratio": 2.54, "min": 3.0, "severity": "P2" },
+      { "text": "chevron 22px (role card)", "ratio": 2.88, "min": 4.5, "severity": "P3 - decorative" }
+    ] }
+  ],
+  "screenshots": [
+    ".reports/production-qa/visual-diff/entry-splash/320x568.png",
+    ".reports/production-qa/visual-diff/entry-splash/360x800.png",
+    ".reports/production-qa/visual-diff/entry-splash/375x812.png",
+    ".reports/production-qa/visual-diff/entry-splash/390x844.png",
+    ".reports/production-qa/visual-diff/entry-splash/430x932.png",
+    ".reports/production-qa/visual-diff/entry-splash/768x1024.png",
+    ".reports/production-qa/visual-diff/entry-splash/1024x768.png",
+    ".reports/production-qa/visual-diff/entry-splash/1280x720.png",
+    ".reports/production-qa/visual-diff/entry-splash/1440x900.png",
+    ".reports/production-qa/visual-diff/entry-splash/1920x1080.png",
+    ".reports/production-qa/visual-diff/role-select/320x568.png",
+    ".reports/production-qa/visual-diff/role-select/375x812.png",
+    ".reports/production-qa/visual-diff/role-select/390x844.png",
+    ".reports/production-qa/visual-diff/parent-auth/320x568.png",
+    ".reports/production-qa/visual-diff/parent-auth/375x812.png",
+    ".reports/production-qa/visual-diff/parent-auth/390x844.png",
+    ".reports/production-qa/visual-diff/child-pair/320x568.png",
+    ".reports/production-qa/visual-diff/child-pair/375x812.png",
+    ".reports/production-qa/visual-diff/child-pair/390x844.png"
+  ],
+  "issues": [
+    {
+      "severity": "P2",
+      "title": "Strong red (#EF4444) is selectable as child theme accent",
+      "description": "Memory rule design_color_rules.md restricts saturated red to SOS/긴급/하트 affordances. The theme palette in src/lib/theme.js still exposes #EF4444 (label '빨강') as a per-child accent color. Selecting it propagates strong red to chips, hero rail, card borders, and map markers for that child, visually colliding with the SOS/emergency affordance language.",
+      "evidence_path": "src/lib/theme.js:41-44 + src/components/multichild/ChildPalette.js:7 + src/components/multichild/PairingWizard/ColorPicker.jsx:11",
+      "fix_hint": "Remove #EF4444 from the selectable palette and swap to a softer rose like #FF6B9B, or desaturate the per-child runtime variant while keeping the saturated red reserved for safety chrome."
+    },
+    {
+      "severity": "P2",
+      "title": "320x568 role-select CTA title wraps mid-word",
+      "description": "On the smallest supported viewport, role card titles '부모로 시작' and '자녀로 시작' wrap to two lines ('부모로 시 / 작'), looking broken as the first-impression screen. Mascot illustration consumes too much horizontal space relative to the title.",
+      "evidence_path": ".reports/production-qa/visual-diff/entry-splash/320x568.png",
+      "fix_hint": "On viewports under 360px, switch role card to a vertical (illustration above title) layout, reduce mascot size, or shorten copy to '부모' / '자녀'."
+    },
+    {
+      "severity": "P2",
+      "title": "Splash emphasis '시작' fails WCAG AA large-text contrast (2.54 < 3.0)",
+      "description": "The brand-rose accent on the splash heading word '시작' falls below the 3.0 WCAG AA large-text contrast minimum against the cream page background. Decorative emphasis only - meaning preserved without color - but still a measurable AA miss.",
+      "evidence_path": ".reports/production-qa/visual-diff/contrast-check.mjs (runtime output)",
+      "fix_hint": "Replace --brand-rose (#F779A8) with --brand-rose-deep (#D94F7F) for emphasis text, or pair the color with weight/underline."
+    },
+    {
+      "severity": "P3",
+      "title": "Role card chevron contrast 2.88 (decorative)",
+      "description": "22px chevron on role cards is below 4.5 AA but is purely decorative; whole card is clickable and the title carries the action.",
+      "evidence_path": ".reports/production-qa/visual-diff/contrast-check.mjs",
+      "fix_hint": "Add aria-hidden='true', or swap color to var(--fg-tertiary) (5.4 ratio)."
+    },
+    {
+      "severity": "P3",
+      "title": ".hyeni-v5-kid-chev uses font-weight 400 (the only literal 400 in codebase)",
+      "description": "Spec hard rule §4 forbids 400 for body. This is a decorative chevron, not body text, but ignores the token system (no --weight-* lower than 500 is defined).",
+      "evidence_path": "src/App.css:654",
+      "fix_hint": "Change to font-weight: var(--weight-medium); the existing opacity 0.55 already attenuates visual weight."
+    }
+  ],
+  "release_decision": "ALLOW",
+  "blocking_reasons": []
+}

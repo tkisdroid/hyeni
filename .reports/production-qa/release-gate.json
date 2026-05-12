@@ -1,0 +1,295 @@
+{
+  "agent": "12 Release Gate",
+  "release_decision": "BLOCK",
+  "reason": "Two P0 issues on a children-safety product (anon RLS bypass on push_idempotency + push_sent enabling emergency-push suppression) plus 18 P1 issues including unauthenticated Edge Functions, role escalation, location validation gaps, allowBackup JWT exposure, and unverified two-device pairing/calendar/memo/location/push runtime flows.",
+  "evaluated_at": "2026-05-12T18:09:42Z",
+  "branch": "final/production-polish-and-real-device-qa",
+  "head": "d5d183fa9d2cad168e8d8dcbc1139cede874217b",
+  "agent_status_summary": {
+    "01_repo_build_static": "FAIL — ALLOW_WITH_CAVEATS (self) — 2 P1 (Android lint NewApi/RECEIVER_EXPORTED, Playwright 24/60 fail), 2 P2, 2 P3",
+    "02_supabase_db_rls_realtime": "FAIL — BLOCK (self) — 2 P0 (push_idempotency + push_sent anon RLS bypass), 2 P1 (subscription-reconcile/ai-voice-parse no auth), 4 P2",
+    "03_auth_family_isolation": "PARTIAL_VERIFIED — ALLOW (self) — 0 P0, 2 P1 (child role-escalation via fm_upd, pair-code per-user rate limit), 2 P2; runtime pairing NOT_VERIFIED",
+    "04_calendar_memo_flow": "PARTIAL_VERIFIED — ALLOW (self) — 0 P0, 2 P1 (push body month off-by-one, non-atomic saveEventWithChildren), 3 P2, 1 P3; runtime NOT_VERIFIED",
+    "05_location_geolocation": "PARTIAL_VERIFIED — ALLOW (self) — 0 P0, 5 P1 (Kakao REST key bundled, unpair_child misses location_history, upsert_child_location no lat/lng range, record_location_history_rows anon+no validation, allowBackup), 1 P2, 4 P3; runtime NOT_VERIFIED",
+    "06_push_safety_force_ring": "FAIL — BLOCK (self) — carries 1 P0 + 1 P1 (get_pending_notifications anon-callable no internal auth check), 5 P2; runtime NOT_VERIFIED",
+    "07_android_two_device": "PARTIAL_VERIFIED — BLOCK (self) — install + cold-launch + mode-select + auth-screen + pair-input PASS on both devices; pairing/calendar/memo/location/push NOT_VERIFIED (OAuth requires manual)",
+    "08_web_e2e_real_services": "FAIL — ALLOW_WITH_CAVEATS (self) — mocked 24/60 fail (stale selectors after d5d183f + a4b5795), real-services 43/43 PASS, 3 P1 (test drift), 2 P3",
+    "09_ui_soft_brand": "PASS — ALLOW (self) — 0 P0/P1, 3 P2 (strong red selectable as child accent, 320x568 role-card wrap, splash contrast 2.54), 2 P3",
+    "10_security_privacy_policy": "PASS — ALLOW (self) — 0 P0, 3 P1 (allowBackup JWT, feedback-email unauth, ai-voice-parse unauth), 4 P2, 2 P3",
+    "11_performance_reliability": "PARTIAL_VERIFIED — BLOCK (self) — 4 P1 (realtime missed-event recovery, fetchEvents unbounded, no offline detection/queue, memo_replies polling gap), 7 P2, 3 P3"
+  },
+  "two_device_gate": {
+    "parent_device_serial": "R5CY40EE6QE",
+    "parent_device_model": "samsung SM-A556S (Android 16 / SDK 36)",
+    "child_device_serial": "ZY22H9VTQD",
+    "child_device_model": "motorola razr 40 ultra (Android 15 / SDK 35)",
+    "serials_differ": true,
+    "both_online": true,
+    "same_apk_installed": true,
+    "same_apk_evidence": ".reports/production-qa/android-two-device/parent-device-info.json + child-device-info.json (com.hyeni.calendar app-debug.apk on both)",
+    "parent_mode_verified": true,
+    "child_mode_verified": true,
+    "pairing_verified": false,
+    "calendar_sync_verified": false,
+    "memo_realtime_verified": false,
+    "location_parent_child_verified": false,
+    "push_safety_verified": false,
+    "parent_logcat_present": true,
+    "parent_logcat_path": ".reports/production-qa/android-two-device/parent-logcat.log (1,129,306 bytes)",
+    "child_logcat_present": true,
+    "child_logcat_path": ".reports/production-qa/android-two-device/child-logcat.log (753,259 bytes)",
+    "fatal_exceptions_in_logcat": 0,
+    "anr_in_logcat": 0,
+    "evidence": [
+      ".reports/production-qa/android-two-device/parent-device-info.json",
+      ".reports/production-qa/android-two-device/child-device-info.json",
+      ".reports/production-qa/android-two-device/parent-screenshots/01-launch.png",
+      ".reports/production-qa/android-two-device/parent-screenshots/02-mode-select.png",
+      ".reports/production-qa/android-two-device/parent-screenshots/03-after-mode-select.png",
+      ".reports/production-qa/android-two-device/parent-screenshots/04-auth-screen.png",
+      ".reports/production-qa/android-two-device/parent-screenshots/04b-auth-expanded.png",
+      ".reports/production-qa/android-two-device/child-screenshots/01-launch.png",
+      ".reports/production-qa/android-two-device/child-screenshots/02-mode-select.png",
+      ".reports/production-qa/android-two-device/child-screenshots/03-after-mode-select.png",
+      ".reports/production-qa/android-two-device/child-screenshots/07-pair-input.png",
+      ".reports/production-qa/android-two-device/parent-logcat.log",
+      ".reports/production-qa/android-two-device/child-logcat.log",
+      ".reports/production-qa/android-two-device/pairing-evidence.md"
+    ]
+  },
+  "issues_summary": {
+    "p0": 2,
+    "p1": 18,
+    "p2": 24,
+    "p3": 14
+  },
+  "blocking_issues": [
+    {
+      "id": "QA-001",
+      "severity": "P0",
+      "agent_source": "02",
+      "title": "push_idempotency anon-readable and anon-writable in production (RLS never enabled)",
+      "evidence_path": ".reports/production-qa/supabase-evidence/anon-probe-table.txt; supabase/migrations/20260421103838_push_idempotency_table.sql"
+    },
+    {
+      "id": "QA-002",
+      "severity": "P0",
+      "agent_source": "02",
+      "title": "push_sent anon-readable and anon-writable in production (RLS drift; migration declares but prod state lost it)",
+      "evidence_path": ".reports/production-qa/supabase-evidence/anon-probe-table.txt"
+    },
+    {
+      "id": "QA-003",
+      "severity": "P1",
+      "agent_source": "01",
+      "title": "Android lint: 2 errors in ForceRingActivity.java (NewApi L64, RECEIVER_EXPORTED L159)",
+      "evidence_path": ".reports/production-qa/build-logs/13b-lint-results-full.txt"
+    },
+    {
+      "id": "QA-004",
+      "severity": "P1",
+      "agent_source": "01+08",
+      "title": "Playwright critical-flows.spec.js: 24/60 fail (UI-vs-test selector drift from commits a4b5795 + d5d183f)",
+      "evidence_path": ".reports/production-qa/build-logs/09-npm-verify.log; .reports/production-qa/e2e-results/mocked-run.log"
+    },
+    {
+      "id": "QA-005",
+      "severity": "P1",
+      "agent_source": "02+10",
+      "title": "subscription-reconcile Edge Function lacks JWT verification (denial-of-wallet on Qonversion + DB writes)",
+      "evidence_path": "supabase/functions/subscription-reconcile/index.ts"
+    },
+    {
+      "id": "QA-006",
+      "severity": "P1",
+      "agent_source": "02+10",
+      "title": "ai-voice-parse Edge Function accepts unauthenticated callers (OpenAI gpt-4o cost abuse)",
+      "evidence_path": "supabase/functions/ai-voice-parse/index.ts"
+    },
+    {
+      "id": "QA-007",
+      "severity": "P1",
+      "agent_source": "10",
+      "title": "feedback-email Edge Function unauthenticated + leaks operator inbox address",
+      "evidence_path": "supabase/functions/feedback-email/index.ts:9,27-66"
+    },
+    {
+      "id": "QA-008",
+      "severity": "P1",
+      "agent_source": "03",
+      "title": "Child can self-mutate family_members.role to 'parent' via PATCH (escalates to subscriptions/force_ring/storage/daily_supplies write)",
+      "evidence_path": "supabase/migrations/20260506010000_family_members_fm_upd_policy.sql:25-29"
+    },
+    {
+      "id": "QA-009",
+      "severity": "P1",
+      "agent_source": "03",
+      "title": "Pair-code per-user rate limit defeated by unlimited anonymous signups (no captcha, no IP limit)",
+      "evidence_path": "supabase/migrations/20260421095748_pair_code_ttl_and_rotation.sql:35-43"
+    },
+    {
+      "id": "QA-010",
+      "severity": "P1",
+      "agent_source": "04",
+      "title": "Push body for edit_event renders 0-indexed month (May shows as '2026/4/13')",
+      "evidence_path": "src/App.jsx:4089"
+    },
+    {
+      "id": "QA-011",
+      "severity": "P1",
+      "agent_source": "04",
+      "title": "saveEventWithChildren is 3 sequential REST calls without transaction — partial failure desyncs events_children (event becomes invisible to every child)",
+      "evidence_path": "src/lib/sync.js:1080-1093"
+    },
+    {
+      "id": "QA-012",
+      "severity": "P1",
+      "agent_source": "05+10",
+      "title": "Kakao REST key (backend mobility/affiliate) embedded literally in dist/ and cached in SharedPreferences — domain/package restriction unverifiable",
+      "evidence_path": "dist/assets/index-DxioK-gY.js + android/app/src/main/java/com/hyeni/calendar/LocationService.java:209"
+    },
+    {
+      "id": "QA-013",
+      "severity": "P1",
+      "agent_source": "05",
+      "title": "unpair_child RPC does not purge location_history (former child's coords persist after unpair)",
+      "evidence_path": "supabase/migrations/20260429000010_unpair_child_rpc.sql"
+    },
+    {
+      "id": "QA-014",
+      "severity": "P1",
+      "agent_source": "05",
+      "title": "upsert_child_location RPC accepts out-of-range lat/lng (no CHECK constraint, no server validation)",
+      "evidence_path": "supabase/migrations/upsert_child_location"
+    },
+    {
+      "id": "QA-015",
+      "severity": "P1",
+      "agent_source": "05",
+      "title": "record_location_history_rows GRANTed to anon with no lat/lng range validation",
+      "evidence_path": "supabase/migrations/20260506020000_record_location_history.sql:73"
+    },
+    {
+      "id": "QA-016",
+      "severity": "P1",
+      "agent_source": "05+10",
+      "title": "android:allowBackup=true exposes user JWT + last coords + supabaseKey + fcmToken via adb backup (plaintext SharedPreferences)",
+      "evidence_path": "android/app/src/main/AndroidManifest.xml:33; android/app/src/main/java/com/hyeni/calendar/LocationService.java:202-209"
+    },
+    {
+      "id": "QA-017",
+      "severity": "P1",
+      "agent_source": "06",
+      "title": "get_pending_notifications RPC anon-callable with no internal auth check — anon can read any family's pending pushes (titles, bodies, requesterUserId)",
+      "evidence_path": "supabase/migrations/20260314000002_native_push_support.sql:44-60,95"
+    },
+    {
+      "id": "QA-018",
+      "severity": "P1",
+      "agent_source": "11",
+      "title": "Realtime CHANNEL_ERROR -> SUBSCRIBED reconnect does not trigger missed-event re-fetch (6 of 9 tables have no polling fallback)",
+      "evidence_path": "src/lib/sync.js realtime reconnect path; src/App.jsx:2412-2443"
+    },
+    {
+      "id": "QA-019",
+      "severity": "P1",
+      "agent_source": "11",
+      "title": "fetchEvents has no .range() / date filter — unbounded JSON payload grows with family age",
+      "evidence_path": "src/lib/sync.js:217"
+    },
+    {
+      "id": "QA-020",
+      "severity": "P1",
+      "agent_source": "11",
+      "title": "No offline detection, no mutation queue — failed insert rolls back and asks user to retry manually (commute/subway scenario)",
+      "evidence_path": "src/lib/sync.js; src/App.jsx"
+    }
+  ],
+  "non_blocking_issues": [
+    {"id": "QA-P2-01", "severity": "P2", "agent_source": "01", "title": "Main JS bundle 1.22 MB (374 KB gzip) — exceeds Vite 500 KB warning", "evidence_path": ".reports/production-qa/build-logs/08-npm-build.log"},
+    {"id": "QA-P2-02", "severity": "P2", "agent_source": "01", "title": "Android lint: 54 warnings (BatteryLife, UnusedAttribute, InlinedApi)", "evidence_path": ".reports/production-qa/build-logs/13b-lint-results-full.txt"},
+    {"id": "QA-P2-03", "severity": "P2", "agent_source": "02", "title": "Realtime publication coverage for location_history/remote_listen_sessions/sos_events NOT_VERIFIED", "evidence_path": "supabase/migrations/"},
+    {"id": "QA-P2-04", "severity": "P2", "agent_source": "02", "title": "QONVERSION_ALLOW_UNSIGNED_WEBHOOKS env override exists (silently disables signature check)", "evidence_path": "supabase/functions/qonversion-webhook/index.ts"},
+    {"id": "QA-P2-05", "severity": "P2", "agent_source": "02", "title": "Four post-Phase-1 migrations missing paired down files (operational debt)", "evidence_path": "supabase/migrations/down/"},
+    {"id": "QA-P2-06", "severity": "P2", "agent_source": "02+10", "title": "CORS Allow-Origin: * on unauthenticated Edge Functions", "evidence_path": "supabase/functions/*/index.ts CORS_HEADERS"},
+    {"id": "QA-P2-07", "severity": "P2", "agent_source": "03", "title": "mark_memo_read RPC executable by anon (returns 204; underlying RLS blocks state change but unnecessary surface)", "evidence_path": ".reports/production-qa/auth-family-evidence/anon-rpc-probes.txt"},
+    {"id": "QA-P2-08", "severity": "P2", "agent_source": "03", "title": "getMyFamily exposes pair_code to every family member including children", "evidence_path": "src/lib/auth.js:518,562"},
+    {"id": "QA-P2-09", "severity": "P2", "agent_source": "04", "title": "30s polling fallback omits memo_replies (memo page closed + realtime drop = stale)", "evidence_path": "src/App.jsx:2412-2443"},
+    {"id": "QA-P2-10", "severity": "P2", "agent_source": "04", "title": "events_children INSERT policy lacks family-scope check on child_id (defense-in-depth)", "evidence_path": "supabase/migrations/20260429000005_multichild_m5_rls_policies.sql:42-51"},
+    {"id": "QA-P2-11", "severity": "P2", "agent_source": "04", "title": "GRANT ALL ON daily_supplies TO anon (RLS blocks but inconsistent grant)", "evidence_path": "supabase/migrations/20260423090000_daily_supplies.sql:79"},
+    {"id": "QA-P2-12", "severity": "P2", "agent_source": "04", "title": "Self-user INSERT skip drops memos for multi-device same-user scenarios", "evidence_path": "src/App.jsx:2000"},
+    {"id": "QA-P2-13", "severity": "P2", "agent_source": "05", "title": "ShutdownReceiver posts to non-existent /rest/v1/locations table", "evidence_path": "android/app/src/main/java/com/hyeni/calendar/ShutdownReceiver.java:79"},
+    {"id": "QA-P2-14", "severity": "P2", "agent_source": "06", "title": "push-notify has no global rate limit (instant push spam in-family)", "evidence_path": "supabase/functions/push-notify/index.ts"},
+    {"id": "QA-P2-15", "severity": "P2", "agent_source": "06", "title": "push-notify has no body-size cap on title/message (oversized payload fails send)", "evidence_path": "supabase/functions/push-notify/index.ts"},
+    {"id": "QA-P2-16", "severity": "P2", "agent_source": "06", "title": "push-notify returns raw error strings on 500 paths (schema hints)", "evidence_path": "supabase/functions/push-notify/index.ts:493,623"},
+    {"id": "QA-P2-17", "severity": "P2", "agent_source": "06", "title": "remote_listen_sessions ended_at/duration_ms client-side only (crash leaves audit row open)", "evidence_path": "src/lib/remoteAudioCapture.js"},
+    {"id": "QA-P2-18", "severity": "P2", "agent_source": "06", "title": "kkuk_check_cooldown depends on sos_events insert success (cooldown bypass on retry)", "evidence_path": "supabase/migrations/20260421113053_phase5_safety_tables_and_rpc.sql"},
+    {"id": "QA-P2-19", "severity": "P2", "agent_source": "09", "title": "Strong red (#EF4444) is selectable as child theme accent — collides with SOS/긴급/하트 affordance", "evidence_path": "src/lib/theme.js:41-44"},
+    {"id": "QA-P2-20", "severity": "P2", "agent_source": "09", "title": "320x568 role-select CTA title wraps mid-word ('부모로 시 / 작')", "evidence_path": ".reports/production-qa/visual-diff/entry-splash/320x568.png"},
+    {"id": "QA-P2-21", "severity": "P2", "agent_source": "09", "title": "Splash emphasis '시작' fails WCAG AA large-text contrast (2.54 < 3.0)", "evidence_path": ".reports/production-qa/visual-diff/contrast-check.mjs"},
+    {"id": "QA-P2-22", "severity": "P2", "agent_source": "10", "title": "Release builds minifyEnabled=false (Java source ships in clear; ProGuard not applied)", "evidence_path": "android/app/build.gradle:38-44"},
+    {"id": "QA-P2-23", "severity": "P2", "agent_source": "11", "title": "No Sentry / equivalent — production crashes invisible", "evidence_path": "src/main.jsx"},
+    {"id": "QA-P2-24", "severity": "P2", "agent_source": "11", "title": "Error boundary leaks full stack trace to end users", "evidence_path": "src/main.jsx:38-41"}
+  ],
+  "not_verified_items": [
+    "Two-device pairing flow runtime (Agent 07 step 6+): parent OAuth -> family create -> pair code -> child enter -> paired home",
+    "Calendar/memo cross-device realtime sync (Agent 04 runtime)",
+    "Child location origin + parent observation (Agent 05 runtime)",
+    "Push/safety end-to-end on real devices: SOS, force_ring, kkuk, instant push (Agent 06 runtime)",
+    "Remote listen persistent FGS notification visible on child device (Agent 06 runtime)",
+    "Force ring full-screen intent over lockscreen behavior on real device (Agent 06 runtime)",
+    "Realtime publication coverage for location_history/remote_listen_sessions/sos_events (Agent 02 F-005)",
+    "QONVERSION_ALLOW_UNSIGNED_WEBHOOKS production env state (Agent 02 F-006)",
+    "Kakao console domain/package restriction for bundled REST_KEY + APP_KEY (Agent 05 + Agent 10 VULN-006)"
+  ],
+  "deferred_items": [
+    {"label": "two-device-pairing-runtime", "reason": "OAuth handoff requires manual tester credentials; production-touching automation forbidden. Re-dispatch follow-up agent once tester completes pairing.", "blocking_for_release": true},
+    {"label": "calendar-sync-runtime", "reason": "Blocked on pairing", "blocking_for_release": true},
+    {"label": "memo-realtime-runtime", "reason": "Blocked on pairing", "blocking_for_release": true},
+    {"label": "location-parent-child-runtime", "reason": "Blocked on pairing", "blocking_for_release": true},
+    {"label": "push-safety-runtime", "reason": "Blocked on pairing", "blocking_for_release": true},
+    {"label": "force-ring-real-device-lockscreen", "reason": "Blocked on pairing + needs lockscreen capture", "blocking_for_release": true},
+    {"label": "remote-listen-persistent-notification", "reason": "Blocked on pairing + premium entitlement seed", "blocking_for_release": true}
+  ],
+  "required_fixes_before_release": [
+    {"id": "QA-001", "fix": "ALTER TABLE public.push_idempotency ENABLE ROW LEVEL SECURITY; CREATE POLICY service_only ON public.push_idempotency USING (false) WITH CHECK (false); REVOKE ALL ON public.push_idempotency FROM anon, authenticated; (table is service-role-only)", "file": "supabase/migrations/<new>_lock_down_push_idempotency.sql + production state assertion script"},
+    {"id": "QA-002", "fix": "Re-apply RLS to push_sent in production; assert via anon probe before deploy. Add CI guard that fails if any RLS-required table is unprotected in prod.", "file": "supabase/migrations/<new>_re_lock_push_sent.sql + .reports/production-qa/supabase-evidence/ probe baseline"},
+    {"id": "QA-003", "fix": "Wrap KeyguardManager#requestDismissKeyguard in Build.VERSION.SDK_INT >= O guard (or @TargetApi(26)); add ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED) for the stopReceiver.", "file": "android/app/src/main/java/com/hyeni/calendar/ForceRingActivity.java:64,159"},
+    {"id": "QA-004", "fix": "Update tests to use getByRole('heading',{name:'긴급 알림'}) and drop getByText('학부모 모드') assertion (chip is now display:none in compact header by design). 24 critical-flow tests share the same selector pattern.", "file": "tests/e2e/critical-flows.spec.js"},
+    {"id": "QA-005", "fix": "Add getClaims() verify-jwt gate at function entry; require service_role for cron-style invocations. Alternative: enable verify_jwt in supabase/functions/subscription-reconcile/deno.json.", "file": "supabase/functions/subscription-reconcile/index.ts"},
+    {"id": "QA-006", "fix": "Add getClaims() JWT check; add per-family rate limit (e.g. 30/hr); restrict CORS to production domain.", "file": "supabase/functions/ai-voice-parse/index.ts"},
+    {"id": "QA-007", "fix": "Add getClaims() JWT check + per-user rate limit; remove hardcoded operator-email fallback; restrict CORS.", "file": "supabase/functions/feedback-email/index.ts:9,27-66"},
+    {"id": "QA-008", "fix": "Add BEFORE UPDATE trigger on family_members raising on role change; OR rewrite fm_upd WITH CHECK to (role = (SELECT role FROM family_members fm0 WHERE fm0.id = family_members.id)); add CHECK constraint role IN ('parent','child').", "file": "supabase/migrations/20260506010000_family_members_fm_upd_policy.sql:25-29"},
+    {"id": "QA-009", "fix": "Add IP-based rate limit via Edge Function wrapper around join_family; bump pair code to 12 chars (48 bits) OR require captcha on signInAnonymously.", "file": "supabase/migrations/20260421095748_pair_code_ttl_and_rotation.sql:35-43"},
+    {"id": "QA-010", "fix": "src/App.jsx:4089 — split messageDateKey by '-', render as ${y}/${m+1}/${d} or '${m+1}월 ${d}일'. Audit any other path consuming raw dateKey for display.", "file": "src/App.jsx:4089"},
+    {"id": "QA-011", "fix": "Wrap events upsert + events_children delete + insert in a SECURITY DEFINER RPC (single transaction). Fallback: set is_family_event=true when childIds.length===0 to avoid invisible-event failure mode.", "file": "src/lib/sync.js:1080-1093"},
+    {"id": "QA-012", "fix": "Move Kakao REST key server-side (Edge Function proxy). Verify Kakao console domain/package restriction. Strip the cached copy from LocationService SharedPreferences.", "file": "dist/assets/index-DxioK-gY.js + android/app/src/main/java/com/hyeni/calendar/LocationService.java:209"},
+    {"id": "QA-013", "fix": "Extend unpair_child to DELETE FROM location_history WHERE user_id = p_child_user_id AND family_id = (...).", "file": "supabase/migrations/20260429000010_unpair_child_rpc.sql"},
+    {"id": "QA-014", "fix": "Add CHECK (lat BETWEEN -90 AND 90 AND lng BETWEEN -180 AND 180) to child_locations table; assert in upsert_child_location SQL.", "file": "supabase/migrations/<new>_lat_lng_check.sql + upsert_child_location"},
+    {"id": "QA-015", "fix": "REVOKE EXECUTE ON FUNCTION record_location_history_rows FROM anon; add lat/lng range assertion in function body.", "file": "supabase/migrations/20260506020000_record_location_history.sql:73"},
+    {"id": "QA-016", "fix": "Set android:allowBackup=false in AndroidManifest.xml; OR migrate SharedPreferences to EncryptedSharedPreferences + add res/xml/backup_rules.xml excluding hyeni_location_prefs.", "file": "android/app/src/main/AndroidManifest.xml:33"},
+    {"id": "QA-017", "fix": "Wrap function body with: IF NOT EXISTS (SELECT 1 FROM family_members WHERE family_id = p_family_id AND user_id = auth.uid()) THEN RETURN; END IF; OR REVOKE EXECUTE FROM anon and rely on FCM polling only.", "file": "supabase/migrations/20260314000002_native_push_support.sql:44-60"},
+    {"id": "QA-018", "fix": "On Realtime subscribe success after CHANNEL_ERROR, trigger fetchEvents/fetchMemos/fetchMemoReplies for current dateKey window. Add the missing 6 tables (memo_replies, academies, daily_supplies, child_locations, family_members, family_subscription) to the 30s polling loop.", "file": "src/lib/sync.js + src/App.jsx:2412-2443"},
+    {"id": "QA-019", "fix": "Add date filter (start_date >= now()-90d AND start_date < now()+180d) and .range(0, 499) to fetchEvents.", "file": "src/lib/sync.js:217"},
+    {"id": "QA-020", "fix": "Add @capacitor/network listener (web: navigator.onLine fallback). Queue failed mutations in IndexedDB and replay on reconnect.", "file": "src/lib/sync.js + new src/lib/offlineQueue.js"}
+  ],
+  "evidence_summary": [
+    {"agent": "01", "report": ".reports/production-qa/build-static-report.md", "machine": ".reports/production-qa/agent01.json", "evidence_dir": ".reports/production-qa/build-logs/"},
+    {"agent": "02", "report": ".reports/production-qa/supabase-db-rls-realtime-report.md", "machine": ".reports/production-qa/agent02.json", "evidence_dir": ".reports/production-qa/supabase-evidence/"},
+    {"agent": "03", "report": ".reports/production-qa/auth-family-isolation-report.md", "machine": ".reports/production-qa/agent03.json", "evidence_dir": ".reports/production-qa/auth-family-evidence/"},
+    {"agent": "04", "report": ".reports/production-qa/calendar-memo-flow-report.md", "machine": ".reports/production-qa/agent04.json", "evidence_dir": "N/A (static analysis only)"},
+    {"agent": "05", "report": ".reports/production-qa/location-geolocation-report.md", "machine": ".reports/production-qa/agent05.json", "evidence_dir": ".reports/production-qa/location-evidence/"},
+    {"agent": "06", "report": ".reports/production-qa/push-safety-report.md", "machine": ".reports/production-qa/agent06.json", "evidence_dir": ".reports/production-qa/push-safety-evidence/"},
+    {"agent": "07", "report": ".reports/production-qa/android-two-device/pairing-evidence.md", "machine": ".reports/production-qa/agent07.json", "evidence_dir": ".reports/production-qa/android-two-device/"},
+    {"agent": "08", "report": ".reports/production-qa/web-e2e-report.md", "machine": ".reports/production-qa/agent08.json", "evidence_dir": ".reports/production-qa/e2e-results/"},
+    {"agent": "09", "report": ".reports/production-qa/visual-regression-report.md", "machine": ".reports/production-qa/agent09.json", "evidence_dir": ".reports/production-qa/visual-diff/"},
+    {"agent": "10", "report": ".reports/production-qa/security-privacy-policy-report.md", "machine": ".reports/production-qa/agent10.json", "evidence_dir": ".reports/production-qa/security-evidence/"},
+    {"agent": "11", "report": ".reports/production-qa/performance-reliability-report.md", "machine": ".reports/production-qa/agent11.json", "evidence_dir": ".reports/production-qa/performance-evidence/"}
+  ],
+  "risk_acceptance_required": true,
+  "reports_written": [
+    ".reports/production-qa/production-readiness-summary.md",
+    ".reports/production-qa/release-gate.json",
+    ".reports/production-qa/issues.json"
+  ]
+}

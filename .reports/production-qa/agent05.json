@@ -1,0 +1,57 @@
+{
+  "agent": "05 Location / Geolocation / Map / Trail Agent",
+  "status": "PARTIAL_VERIFIED",
+  "permission_matrix": [
+    {"permission": "ACCESS_FINE_LOCATION", "declared": true, "manifest_line": 7, "runtime_handler": "LocationPlugin.java:62"},
+    {"permission": "ACCESS_COARSE_LOCATION", "declared": true, "manifest_line": 8, "runtime_handler": "LocationPlugin.java (bundled)"},
+    {"permission": "ACCESS_BACKGROUND_LOCATION", "declared": true, "manifest_line": 9, "runtime_handler": "LocationPlugin.java:74 (no rationale UI before request)"},
+    {"permission": "FOREGROUND_SERVICE_LOCATION", "declared": true, "manifest_line": 11, "runtime_handler": "LocationService.java:255-260"},
+    {"permission": "FOREGROUND_SERVICE", "declared": true, "manifest_line": 10, "runtime_handler": "implicit"}
+  ],
+  "static_analysis": {
+    "capacitor_plugin": "Native BackgroundLocation plugin (LocationPlugin.java) wraps LocationService; no @capacitor/geolocation pkg; web fallback uses navigator.geolocation with enableHighAccuracy:true and 10-15s timeouts",
+    "location_service_java": "Foreground service starts cleanly on SDK 34+. Permission gate at line 243 prevents crash. JWT cached in SharedPreferences (hyeni_location_prefs), refreshed every 50min. Three-tier upload retry: user JWT -> refreshed JWT -> anon key. Kalman filter + stationary detection (5s moving / 30s stationary). Last coordinates persisted for ShutdownReceiver replay.",
+    "validation": "Client: saveLocationHistoryRows uses Number.isFinite gate only (no range check). Server: upsert_child_location and record_location_history_rows RPCs lack lat/lng CHECK. Native: handleLocation rejects accuracy > 50m only.",
+    "masking": "No raw lat/lng written to console/logcat. LocationService logs accuracy + stationary flags at Log.d/Log.i but never the coords themselves."
+  },
+  "db_schema_checks": [
+    {"table": "child_locations", "constraints": ["PK user_id", "FK auth.users", "FK families"], "concerns": ["no lat/lng CHECK", "RLS verified parent+member SELECT, user_id=auth.uid() write"]},
+    {"table": "location_history", "constraints": ["is_estimated bool added 20260507"], "concerns": ["no lat/lng CHECK", "no retention/TTL", "not deleted by unpair_child"]},
+    {"table": "saved_places", "constraints": ["family_id FK", "location jsonb"], "concerns": ["no structural lat/lng CHECK (jsonb)", "premium-tier INSERT gate OK"]},
+    {"table": "danger_zones", "constraints": ["family_id FK", "lat/lng double precision NOT NULL"], "concerns": ["no lat/lng CHECK", "no radius_m CHECK bounds"]},
+    {"table": "academies", "constraints": ["not in supabase/migrations/"], "concerns": ["deployed schema opaque from this checkout"]}
+  ],
+  "anon_probe_results": [
+    {"target": "GET /child_locations", "http": 200, "body": "[]", "verdict": "PASS"},
+    {"target": "GET /location_history", "http": 200, "body": "[]", "verdict": "PASS"},
+    {"target": "GET /saved_places", "http": 200, "body": "[]", "verdict": "PASS"},
+    {"target": "GET /academies", "http": 200, "body": "[]", "verdict": "PASS"},
+    {"target": "GET /danger_zones", "http": 200, "body": "[]", "verdict": "PASS"},
+    {"target": "POST /child_locations (random uuids)", "http": 401, "body": "42501 RLS violation", "verdict": "PASS"},
+    {"target": "RPC upsert_child_location (lat=999.9 lng=-999.9 random uuids)", "http": 409, "body": "23503 FK violation only; no lat/lng range check", "verdict": "FAIL_VALIDATION (L-003)"},
+    {"target": "RPC record_location_history_rows (lat=91 lng=181 random uuids)", "http": 204, "body": "success (authz fail -> CONTINUE skip); no lat/lng range check", "verdict": "FAIL_VALIDATION (L-004)"}
+  ],
+  "kakao_map_check": {
+    "api_key_exposed": true,
+    "concerns": [
+      "VITE_KAKAO_REST_KEY (backend mobility/affiliate key) embedded literally in dist/assets/index-DxioK-gY.js",
+      "Same REST key cached in LocationService SharedPreferences (line 209); allowBackup=true exposes via adb backup",
+      "VITE_KAKAO_APP_KEY (Maps JS SDK key) is public by design - referrer whitelist is the mitigation but not statically verifiable"
+    ]
+  },
+  "runtime_evidence": "NOT_VERIFIED - awaits paired devices",
+  "issues": [
+    {"id": "L-001", "severity": "P1", "title": "Kakao REST key shipped in client bundle and APK", "evidence": "grep dist/assets/index-DxioK-gY.js for 32-hex confirms"},
+    {"id": "L-002", "severity": "P1", "title": "unpair_child RPC does not purge location_history", "evidence": "supabase/migrations/20260429000010_unpair_child_rpc.sql omits this table"},
+    {"id": "L-003", "severity": "P1", "title": "upsert_child_location RPC accepts out-of-range lat/lng", "evidence": "anon probe with lat=999.9 reached FK check, would write if FK passed"},
+    {"id": "L-004", "severity": "P1", "title": "record_location_history_rows granted to anon without lat/lng validation", "evidence": "supabase/migrations/20260506020000:73 GRANT EXECUTE TO anon"},
+    {"id": "L-005", "severity": "P1", "title": "allowBackup=true exposes JWT + last coords (37.5*, 126.9*)", "evidence": "AndroidManifest.xml:33 + no res/xml/backup_rules.xml; confirms Agent 10"},
+    {"id": "L-006", "severity": "P2", "title": "ShutdownReceiver posts to non-existent /rest/v1/locations table", "evidence": "ShutdownReceiver.java:79"},
+    {"id": "L-007", "severity": "P3", "title": "No DB-level lat/lng CHECK on five tables", "evidence": "schema review"},
+    {"id": "L-008", "severity": "P3", "title": "location_history has no retention/TTL", "evidence": "no migration found"},
+    {"id": "L-009", "severity": "P3", "title": "danger_zones.radius_m has no CHECK on bounds", "evidence": "20260317100000:29"},
+    {"id": "L-010", "severity": "P3", "title": "ACCESS_BACKGROUND_LOCATION requested without rationale UI", "evidence": "LocationPlugin.java:74"}
+  ],
+  "release_decision": "ALLOW",
+  "blocking_reasons": []
+}

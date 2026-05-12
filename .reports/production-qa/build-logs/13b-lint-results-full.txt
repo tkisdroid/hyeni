@@ -1,0 +1,414 @@
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationPlugin.java:270: Warning: Field requires API level 26 (current min is 24): android.provider.Settings#ACTION_APP_NOTIFICATION_SETTINGS [InlinedApi]
+            intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationPlugin.java:271: Warning: Field requires API level 26 (current min is 24): android.provider.Settings#EXTRA_APP_PACKAGE [InlinedApi]
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, ctx.getPackageName());
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "InlinedApi":
+   This check scans through all the Android API field references in the
+   application and flags certain constants, such as static final integers and
+   Strings, which were introduced in later versions. These will actually be
+   copied into the class files rather than being referenced, which means that
+   the value is available even when running on older devices. In some cases
+   that's fine, and in other cases it can result in a runtime crash or
+   incorrect behavior. It depends on the context, so consider the code
+   carefully and decide whether it's safe and can be suppressed or whether the
+   code needs to be guarded.
+
+   If you really want to use this API and don't need to support older devices
+   just set the minSdkVersion in your build.gradle or AndroidManifest.xml
+   files.
+
+   If your code is deliberately accessing newer APIs, and you have ensured
+   (e.g. with conditional execution) that this code will only ever be called
+   on a supported platform, then you can annotate your class or method with
+   the @TargetApi annotation specifying the local minimum SDK to apply, such
+   as @TargetApi(11), such that this check considers 11 rather than your
+   manifest file's minimum SDK as the required API level.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\ForceRingActivity.java:64: Error: Call requires API level 26 (current min is 24): android.app.KeyguardManager#requestDismissKeyguard [NewApi]
+            km.requestDismissKeyguard(this, null);
+               ~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NewApi":
+   This check scans through all the Android API calls in the application and
+   warns about any calls that are not available on all versions targeted by
+   this application (according to its minimum SDK attribute in the manifest).
+
+   If you really want to use this API and don't need to support older devices
+   just set the minSdkVersion in your build.gradle or AndroidManifest.xml
+   files.
+
+   If your code is deliberately accessing newer APIs, and you have ensured
+   (e.g. with conditional execution) that this code will only ever be called
+   on a supported platform, then you can annotate your class or method with
+   the @TargetApi annotation specifying the local minimum SDK to apply, such
+   as @TargetApi(11), such that this check considers 11 rather than your
+   manifest file's minimum SDK as the required API level.
+
+   If you are deliberately setting android: attributes in style definitions,
+   make sure you place this in a values-vNN folder in order to avoid running
+   into runtime conflicts on certain devices where manufacturers have added
+   custom attributes whose ids conflict with the new ones on later platforms.
+
+   Similarly, you can use tools:targetApi="11" in an XML file to indicate that
+   the element will only be inflated in an adequate context.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\AndroidManifest.xml:77: Warning: Attribute showWhenLocked is only used in API level 27 and higher (current min is 24) [UnusedAttribute]
+            android:showWhenLocked="true"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\AndroidManifest.xml:79: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 24) [UnusedAttribute]
+            android:turnScreenOn="true" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\AndroidManifest.xml:86: Warning: Attribute showWhenLocked is only used in API level 27 and higher (current min is 24) [UnusedAttribute]
+            android:showWhenLocked="true"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\AndroidManifest.xml:88: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 24) [UnusedAttribute]
+            android:turnScreenOn="true" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\AndroidManifest.xml:133: Warning: Attribute turnScreenOn is only used in API level 27 and higher (current min is 24) [UnusedAttribute]
+            android:turnScreenOn="true"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedAttribute":
+   This check finds attributes set in XML files that were introduced in a
+   version newer than the oldest version targeted by your application (with
+   the minSdkVersion attribute).
+
+   This is not an error; the application will simply ignore the attribute.
+   However, if the attribute is important to the appearance or functionality
+   of your application, you should consider finding an alternative way to
+   achieve the same result with only available attributes, and then you can
+   optionally create a copy of the layout in a layout-vNN folder which will be
+   used on API NN or higher where you can take advantage of the newer
+   attribute.
+
+   Note: This check does not only apply to attributes. For example, some tags
+   can be unused too, such as the new <tag> element in layouts introduced in
+   API 21.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationPlugin.java:251: Warning: Use of REQUEST_IGNORE_BATTERY_OPTIMIZATIONS violates the Play Store Content Policy regarding acceptable use cases, as described in https://developer.android.com/training/monitoring-device-state/doze-standby.html [BatteryLife]
+            intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "BatteryLife":
+   This issue flags code that either
+   * negatively affects battery life, or
+   * uses APIs that have recently changed behavior to prevent background tasks
+   from consuming memory and battery excessively.
+
+   Generally, you should be using WorkManager instead.
+
+   For more details on how to update your code, please see
+   https://developer.android.com/topic/performance/background-optimization
+
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\ForceRingActivity.java:159: Error: stopReceiver is missing RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED flag for unprotected broadcasts registered for com.hyeni.calendar.FORCE_RING_STOP [UnspecifiedRegisterReceiverFlag]
+            registerReceiver(stopReceiver, filter);
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnspecifiedRegisterReceiverFlag":
+   In Android U, all receivers registering for non-system broadcasts are
+   required to include a flag indicating the receiver's exported state. Apps
+   registering for non-system broadcasts should use the
+   ContextCompat#registerReceiver APIs with flags set to either
+   RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED.
+
+   If you are not expecting broadcasts from other apps on the device, register
+   your receiver with RECEIVER_NOT_EXPORTED to protect your receiver on all
+   platform releases.
+
+   https://developer.android.com/reference/androidx/core/content/ContextCompat#registerReceiver(android.content.Context,android.content.BroadcastReceiver,android.content.IntentFilter,int)
+
+C:\Users\TK\Desktop\hyeni-1\android\app\build.gradle:64: Warning: A newer version of androidx.work:work-runtime than 2.9.1 is available: 2.11.2 [GradleDependency]
+    implementation 'androidx.work:work-runtime:2.9.1'
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\build.gradle:66: Warning: A newer version of com.google.firebase:firebase-bom than 34.10.0 is available: 34.13.0 [GradleDependency]
+    implementation platform('com.google.firebase:firebase-bom:34.10.0')
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\AndroidManifest.xml:54: Warning: Expecting android:screenOrientation="unspecified" or "fullSensor" for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices [LockedOrientationActivity]
+            android:screenOrientation="portrait"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "LockedOrientationActivity":
+   The <activity> element should not be locked to any orientation so that
+   users can take advantage of the multi-window environments and larger
+   screens available on Android. To fix the issue, consider declaring the
+   corresponding activity element with `screenOrientation="unspecified"`or
+   fullSensor attribute.
+
+   https://developer.android.com/topic/arc/window-management
+
+C:\Users\TK\Desktop\hyeni-1\android\app\build.gradle:62: Warning: A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.3.2 [NewerVersionAvailable]
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NewerVersionAvailable":
+   This detector checks with a central repository to see if there are newer
+   versions available for the dependencies used by this project. This is
+   similar to the GradleDependency check, which checks for newer versions
+   available in the Android SDK tools and libraries, but this works with any
+   MavenCentral dependency, and connects to the library every time, which
+   makes it more flexible but also much slower.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\AndroidManifest.xml:54: Warning: Fixed screen orientations will be ignored in most cases, starting from Android 16. Android is moving toward a model where apps are expected to adapt to various orientations, display sizes, and aspect ratios. [DiscouragedApi]
+            android:screenOrientation="portrait"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DiscouragedApi":
+   Discouraged APIs are allowed and are not deprecated, but they may be unfit
+   for common use (e.g. due to slow performance or subtle behavior).
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\AmbientListenService.java:479: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\DeviceStatusReporter.java:159: Warning: Unnecessary; SDK_INT is never < 24 [ObsoleteSdkInt]
+        boolean batteryOptimizationsIgnored = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\DeviceStatusReporter.java:162: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+        boolean powerSaveMode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\DeviceStatusReporter.java:187: Warning: Unnecessary; SDK_INT is never < 24 [ObsoleteSdkInt]
+        boolean dndAccess = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\DeviceStatusReporter.java:279: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\DeviceStatusReporter.java:327: Warning: Unnecessary; SDK_INT is never < 24 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || nm == null) return "all";
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\LocationPlugin.java:202: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\LocationService.java:325: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\LocationService.java:2021: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationPlugin.java:107: Warning: Unnecessary; SDK_INT is never < 24 [ObsoleteSdkInt]
+        boolean batteryOptimizationsIgnored = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationPlugin.java:110: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+        boolean powerSaveMode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationPlugin.java:132: Warning: Unnecessary; SDK_INT is never < 24 [ObsoleteSdkInt]
+        boolean dndAccess = Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationPlugin.java:250: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationPlugin.java:394: Warning: Unnecessary; SDK_INT is never < 24 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || nm == null) return "all";
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationScheduleManager.java:133: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationScheduleManager.java:135: Warning: Unnecessary; Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT is never true here [ObsoleteSdkInt]
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\NotificationScheduleManager.java:167: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\drawable-v24: Warning: This folder configuration (v24) is unnecessary; minSdkVersion is 24. Merge all the resources in this folder into drawable. [ObsoleteSdkInt]
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_force_ring.xml:7: Warning: Possible overdraw: Root element paints background #DC2626 with a theme that also paints a background (inferred theme is @style/Theme_Hyeni_ForceRing_Fullscreen) [Overdraw]
+    android:background="#DC2626"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "Overdraw":
+   If you set a background drawable on a root view, then you should use a
+   custom theme where the theme background is null. Otherwise, the theme
+   background will be painted first, only to have your custom background
+   completely cover it; this is called "overdraw".
+
+   NOTE: This detector relies on figuring out which layouts are associated
+   with which activities based on scanning the Java code, and it's currently
+   doing that using an inexact pattern matching algorithm. Therefore, it can
+   incorrectly conclude which activity the layout is associated with and then
+   wrongly complain that a background-theme is hidden.
+
+   If you want your custom background on multiple pages, then you should
+   consider making a custom theme with your custom background and just using
+   that theme instead of a root element background.
+
+   Of course it's possible that your custom drawable is translucent and you
+   want it to be mixed with the background. However, you will get better
+   performance if you pre-mix the background with your drawable and use that
+   resulting image or color as a custom theme background instead.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_main.xml:2: Warning: The resource R.layout.activity_main appears to be unused [UnusedResources]
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+^
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\xml\config.xml:2: Warning: The resource R.xml.config appears to be unused [UnusedResources]
+<widget version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+^
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\drawable\ic_launcher_background.xml:2: Warning: The resource R.drawable.ic_launcher_background appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\drawable-v24\ic_launcher_foreground.xml:1: Warning: The resource R.drawable.ic_launcher_foreground appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\raw\notif_cute.wav: Warning: The resource R.raw.notif_cute appears to be unused [UnusedResources]
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\drawable\splash.png: Warning: The resource R.drawable.splash appears to be unused [UnusedResources]
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\values\strings.xml:5: Warning: The resource R.string.package_name appears to be unused [UnusedResources]
+    <string name="package_name">com.hyeni.calendar</string>
+            ~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\values\strings.xml:6: Warning: The resource R.string.custom_url_scheme appears to be unused [UnusedResources]
+    <string name="custom_url_scheme">com.hyeni.calendar</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests =true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests =true.
+   ,
+
+   Available options:
+
+   **skip-libraries** (default is true):
+   Whether the unused resource check should skip reporting unused resources in libraries.
+
+   Many libraries will declare resources that are part of the library surface; other modules depending on the library will also reference the resources. To avoid reporting all these resources as unused (in the context of a library), the unused resource check normally skips reporting unused resources in libraries. Instead, run the unused resource check on the consuming app module (along with `checkDependencies=true`).
+
+   However, there are cases where you want to check that all the resources declared in a library are used; in that case, you can disable the skip option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UnusedResources">
+           <option name="skip-libraries" value="true" />
+       </issue>
+   </lint>
+   ```
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\mipmap-anydpi-v26\ic_launcher.xml:2: Warning: The application adaptive icon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\mipmap-anydpi-v26\ic_launcher_round.xml:2: Warning: The application adaptive roundIcon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+
+   Explanation for issues of type "MonochromeLauncherIcon":
+   If android:roundIcon and android:icon are both in your manifest, you must
+   either remove the reference to android:roundIcon if it is not needed; or,
+   supply the monochrome icon in the drawable defined by the android:roundIcon
+   and android:icon attribute.
+
+   For example, if android:roundIcon and android:icon are both in the
+   manifest, a launcher might choose to use android:roundIcon over
+   android:icon to display the adaptive app icon. Therefore, your themed
+   application iconwill not show if your monochrome attribute is not also
+   specified in android:roundIcon.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\drawable-land-xxxhdpi\splash.png: Warning: The image splash.png varies significantly in its density-independent (dip) size across the various density versions: drawable-land-hdpi/splash.png: 533x320 dp (800x480 px), drawable-land-mdpi/splash.png: 480x320 dp (480x320 px), drawable-land-xhdpi/splash.png: 640x360 dp (1280x720 px), drawable-land-xxhdpi/splash.png: 533x320 dp (1600x960 px), drawable-land-xxxhdpi/splash.png: 480x320 dp (1920x1280 px) [IconDipSize]
+
+   Explanation for issues of type "IconDipSize":
+   Checks the all icons which are provided in multiple densities, all compute
+   to roughly the same density-independent pixel (dip) size. This catches
+   errors where images are either placed in the wrong folder, or icons are
+   changed to new sizes but some folders are forgotten.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\drawable\splash.png: Warning: The splash.png icon has identical contents in the following configuration folders: drawable-land-mdpi, drawable [IconDuplicatesConfig]
+
+   Explanation for issues of type "IconDuplicatesConfig":
+   If an icon is provided under different configuration parameters such as
+   drawable-hdpi or -v11, they should typically be different. This detector
+   catches cases where the same icon is provided in different configuration
+   folder which is usually not intentional.
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\drawable\splash.png: Warning: Found bitmap drawable res/drawable/splash.png in densityless folder [IconLocation]
+
+   Explanation for issues of type "IconLocation":
+   The res/drawable folder is intended for density-independent graphics such
+   as shapes defined in XML. For bitmaps, move it to drawable-mdpi and
+   consider providing higher and lower resolution versions in drawable-ldpi,
+   drawable-hdpi and drawable-xhdpi. If the icon really is density independent
+   (for example a solid color) you can place it in drawable-nodpi.
+
+   https://developer.android.com/guide/practices/screens_support.html
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\java\com\hyeni\calendar\ForceRingActivity.java:168: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                countdownText.setText("알람 자동 종료까지 " + secondsLeft + "초");
+                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetTextI18n":
+   When calling TextView#setText
+   * Never call Number#toString() to format numbers; it will not handle
+   fraction separators and locale-specific digits properly. Consider using
+   String#format with proper format specifications (%d or %f) instead.
+   * Do not pass a string literal (e.g. "Hello") to display text. Hardcoded
+   text can not be properly translated to other languages. Consider using
+   Android resource strings instead.
+   * Do not build messages by concatenating text chunks. Such messages can not
+   be properly translated.
+
+   https://developer.android.com/guide/topics/resources/localization.html
+
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_force_ring.xml:15: Warning: Hardcoded string "🚨", should use @string resource [HardcodedText]
+      android:text="🚨"
+      ~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_force_ring.xml:23: Warning: Hardcoded string "응급 신호", should use @string resource [HardcodedText]
+      android:text="응급 신호"
+      ~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_force_ring.xml:59: Warning: Hardcoded string "부모님이 남긴 메시지", should use @string resource [HardcodedText]
+        android:text="부모님이 남긴 메시지"
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_force_ring.xml:89: Warning: Hardcoded string "✓ 확인했어요", should use @string resource [HardcodedText]
+      android:text="✓ 확인했어요"
+      ~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_force_ring.xml:102: Warning: Hardcoded string "※ 부모님이 응급 신호로 보낸 알람이라 무음모드를 우회했어요", should use @string resource [HardcodedText]
+      android:text="※ 부모님이 응급 신호로 보낸 알람이라 무음모드를 우회했어요"
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_push_alert.xml:24: Warning: Hardcoded string "🔔", should use @string resource [HardcodedText]
+            android:text="🔔"
+            ~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_push_alert.xml:63: Warning: Hardcoded string "앱 열기", should use @string resource [HardcodedText]
+                android:text="앱 열기"
+                ~~~~~~~~~~~~~~~~~~~
+C:\Users\TK\Desktop\hyeni-1\android\app\src\main\res\layout\activity_push_alert.xml:77: Warning: Hardcoded string "닫기", should use @string resource [HardcodedText]
+                android:text="닫기"
+                ~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "HardcodedText":
+   Hardcoding text attributes directly in layout files is bad for several
+   reasons:
+
+   * When creating configuration variations (for example for landscape or
+   portrait) you have to repeat the actual text (and keep it up to date when
+   making changes)
+
+   * The application cannot be translated to other languages by just adding
+   new translations for existing string resources.
+
+   There are quickfixes to automatically extract this hardcoded string into a
+   resource lookup.
+
+2 errors, 54 warnings

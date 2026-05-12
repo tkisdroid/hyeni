@@ -1,0 +1,134 @@
+{
+  "agent": "06 Push / FCM / Remote Listen / SOS / Force Ring Agent",
+  "status": "FAIL",
+  "run_at_utc": "2026-05-13T00:00:00Z",
+  "branch": "final/production-polish-and-real-device-qa",
+  "head_commit": "d5d183f",
+  "evidence_dir": ".reports/production-qa/push-safety-evidence/",
+
+  "push_static": {
+    "flow": "Capacitor PushNotifications -> NativeNotification plugin (Android) -> SW fallback -> Notification API. FCM registration via BackgroundLocation.getFcmToken() upserted into fcm_tokens with onConflict (user_id,fcm_token). Server uses push-notify Edge Function with VAPID (web) + FCM v1 HTTP API (Android).",
+    "idempotency": "Idempotency-Key header + body.idempotency_key UUID mirror -> INSERT push_idempotency unique key. 23505 short-circuits with duplicate:true. BUT push_idempotency table has no RLS in production (Agent 02 P0 carryforward) so anon can pre-claim keys and suppress emergency pushes.",
+    "fallback": "pending_notifications row inserted unconditionally (D-A04). Android LocationService polls via get_pending_notifications SECURITY DEFINER RPC. NEW P1: that RPC is GRANTED TO anon and has no internal auth - any anon can read pending pushes for any family_id.",
+    "concerns": [
+      "N2 [P2] no per-user/per-IP rate limit on push-notify",
+      "N3 [P2] no body-size cap on instant title/message (only force_ring 80-char cap)",
+      "N4 [P2] String(err) / pg-error message returned on 500 paths"
+    ]
+  },
+
+  "remote_listen_static": {
+    "persistent_notification": true,
+    "audio_permission_gate": true,
+    "audit_row": true,
+    "wrong_family_blocked": true,
+    "concerns": [
+      "N5 [P2] remote_listen_sessions.duration_ms / ended_at set client-side only - client crash leaves audit row open",
+      "Edge Function validateRemoteListenEntitlement (L100-125) gates on family_subscription.status + remote_listen_enabled kill switch - PASS",
+      "AmbientListenService Android-14+ falls back from TYPE_MICROPHONE to TYPE_SPECIAL_USE then stopSelf() because OS mutes mic in SPECIAL_USE - PASS (clean failure, not silent stream)"
+    ]
+  },
+
+  "sos_static": {
+    "audit_row": true,
+    "cooldown": true,
+    "concerns": [
+      "N6 [P2] kkuk_check_cooldown RPC inspects only sos_events. If sos_events INSERT fails after dispatch, cooldown won't trigger on retry. Acceptable for emergency.",
+      "Realtime broadcast + push-notify + audit row are all fire-and-forget. Failure on one channel does not block the others - intentional emergency design.",
+      "sos_events RLS: SELECT family-scoped, INSERT requires sender_user_id = auth.uid(), no UPDATE/DELETE policies (immutable). Agent 02 verified anon 401."
+    ]
+  },
+
+  "force_ring_static": {
+    "audit_row": true,
+    "cooldown": true,
+    "android_lint_p1_carryforward": true,
+    "concerns": [
+      "force_ring_events RLS: INSERT requires parent role + initiator_user_id = auth.uid(); UPDATE limited to initiator or target; no DELETE policy.",
+      "UNIQUE PARTIAL INDEX on (family_id) WHERE stopped_at IS NULL -> one active per family.",
+      "UNIQUE INDEX on client_request_hash -> request dedup.",
+      "Quota: 1/day free, 10/day premium via force_ring_check_quota SECURITY DEFINER (REVOKE FROM anon).",
+      "data-only FCM with TTL 600s + direct_boot_ok - works while device locked.",
+      "ForceRingActivity.java L64 requestDismissKeyguard - lint NewApi P1 (Agent 01 carryforward).",
+      "ForceRingActivity.java L159 pre-Tiramisu registerReceiver missing RECEIVER_NOT_EXPORTED flag - lint P1 (Agent 01 carryforward)."
+    ]
+  },
+
+  "edge_function_anon_probes": [
+    {"name": "push-notify",           "method": "static-only", "result": "PASS",           "note": "in-function getClaims L428-451 (sub or service_role required)"},
+    {"name": "ai-child-monitor",      "method": "static-only", "result": "PASS",           "note": "in-function getClaims L293-316; minor: no family check on data.familyId"},
+    {"name": "naver-auth",            "method": "static-only", "result": "PASS_BY_DESIGN", "note": "OAuth handler, intentional --no-verify-jwt"},
+    {"name": "send-sms",              "method": "static-only", "result": "PASS",           "note": "standardwebhooks signature secret"},
+    {"name": "ai-voice-parse",        "method": "static-only", "result": "FAIL",           "note": "P1 carryforward F-004 - no auth gate, OpenAI cost abuse"},
+    {"name": "subscription-reconcile","method": "static-only", "result": "FAIL",           "note": "P1 carryforward F-003 - no auth gate, opens service-role client"},
+    {"name": "feedback-email",        "method": "static-only", "result": "FAIL",           "note": "P2 carryforward F-008 - no auth, no rate limit"},
+    {"name": "qonversion-webhook",    "method": "static-only", "result": "NOT_VERIFIED",   "note": "P2 carryforward F-006 - QONVERSION_ALLOW_UNSIGNED_WEBHOOKS env override"}
+  ],
+
+  "carryforward": [
+    "P0 - Agent 02 F-001/F-002: push_idempotency + push_sent anon RLS bypass (emergency push suppression)",
+    "P1 - Agent 02 F-003: subscription-reconcile JWT missing",
+    "P1 - Agent 02 F-004: ai-voice-parse JWT missing",
+    "P1 - Agent 01: ForceRingActivity.java L64 NewApi + L159 RECEIVER_EXPORTED",
+    "P2 - Agent 02 F-006: QONVERSION_ALLOW_UNSIGNED_WEBHOOKS env override",
+    "P2 - Agent 02 F-008: feedback-email open relay"
+  ],
+
+  "runtime_evidence": "NOT_VERIFIED - paired devices unavailable, anon HTTP probes blocked by Claude Code auto-mode classifier (see push-safety-evidence/probe-summary.txt)",
+
+  "issues": [
+    {
+      "severity": "P1",
+      "id": "N1",
+      "title": "get_pending_notifications RPC anon-callable with no internal auth check",
+      "description": "20260314000002_native_push_support.sql L44-60 + L95 GRANT EXECUTE TO anon. SECURITY DEFINER function filters only on p_family_id arg. Any anon caller with a family_id UUID can SELECT id/title/body/data jsonb/created_at of every undelivered pending notification (1-day expires_at). Surface includes child names, event titles, urgent/severity/alertType, requesterUserId. Recommend: revoke from anon OR add internal check (p_family_id IN (SELECT family_id FROM family_members WHERE user_id = auth.uid())).",
+      "evidence_path": "supabase/migrations/20260314000002_native_push_support.sql",
+      "carryforward": false
+    },
+    {
+      "severity": "P2",
+      "id": "N2",
+      "title": "push-notify has no global rate limit",
+      "description": "Only force_ring has quota (1/10 per day). Instant push (kkuk, parent_alert, sos, new_event, remote_listen) relies on idempotency dedup. An authenticated member could spam pushes in their family.",
+      "evidence_path": "supabase/functions/push-notify/index.ts",
+      "carryforward": false
+    },
+    {
+      "severity": "P2",
+      "id": "N3",
+      "title": "push-notify has no body-size cap on title/message",
+      "description": "Only force_ring truncates message to 80 chars. FCM 4KB hard cap caps blast radius but oversized payload causes failed sends.",
+      "evidence_path": "supabase/functions/push-notify/index.ts",
+      "carryforward": false
+    },
+    {
+      "severity": "P2",
+      "id": "N4",
+      "title": "push-notify returns raw error strings on 500 paths",
+      "description": "L493 String(err) and L623 insertErr.message exposed to client. Low risk (strings, not stack traces) but pg error text may leak schema hints.",
+      "evidence_path": "supabase/functions/push-notify/index.ts",
+      "carryforward": false
+    },
+    {
+      "severity": "P2",
+      "id": "N5",
+      "title": "remote_listen_sessions ended_at/duration_ms set client-side only",
+      "description": "Client crash leaves an open audit row indefinitely; UX bug not security issue.",
+      "evidence_path": "src/lib/remoteAudioCapture.js",
+      "carryforward": false
+    },
+    {
+      "severity": "P2",
+      "id": "N6",
+      "title": "kkuk_check_cooldown depends on sos_events insert success",
+      "description": "If audit row insert fails after dispatch, cooldown won't gate retries. Acceptable for emergency (must deliver) but worth tracking.",
+      "evidence_path": "supabase/migrations/20260421113053_phase5_safety_tables_and_rpc.sql",
+      "carryforward": false
+    }
+  ],
+
+  "release_decision": "BLOCK",
+  "blocking_reasons": [
+    "Agent 02 F-001/F-002 (P0) - push_idempotency + push_sent anon RLS bypass enables emergency push suppression on a children-safety product. This single P0 defeats every PASS in this agent's report."
+  ]
+}

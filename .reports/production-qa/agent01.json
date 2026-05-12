@@ -1,0 +1,145 @@
+{
+  "agent": "01 Repo / Build / Static Agent",
+  "status": "FAIL",
+  "git": {
+    "branch": "final/production-polish-and-real-device-qa",
+    "head": "d5d183fa9d2cad168e8d8dcbc1139cede874217b",
+    "dirty": true,
+    "dirty_notes": "Working tree has many untracked screenshot/evidence files under .reports/final-device-qa/ from prior QA cycles. No source files are dirty."
+  },
+  "environment": {
+    "node": "v24.13.1",
+    "npm": "11.13.0",
+    "gradle": "8.14.3",
+    "platform": "win32"
+  },
+  "commands_run": [
+    {"step": 1, "command": "git status --short", "exit_code": 0, "duration_ms": null, "log_path": ".reports/production-qa/build-logs/01-git-status.log"},
+    {"step": 2, "command": "git rev-parse HEAD", "exit_code": 0, "duration_ms": null, "log_path": ".reports/production-qa/build-logs/02-git-head.log"},
+    {"step": 3, "command": "node --version", "exit_code": 0, "duration_ms": null, "log_path": ".reports/production-qa/build-logs/03-node-version.log"},
+    {"step": 4, "command": "npm --version", "exit_code": 0, "duration_ms": null, "log_path": ".reports/production-qa/build-logs/04-npm-version.log"},
+    {"step": 5, "command": "npm ci", "exit_code": 0, "duration_ms": 11459, "log_path": ".reports/production-qa/build-logs/05-npm-ci.log"},
+    {"step": 6, "command": "npm run lint", "exit_code": 0, "duration_ms": 15944, "log_path": ".reports/production-qa/build-logs/06-npm-lint.log"},
+    {"step": 7, "command": "npm run test", "exit_code": 0, "duration_ms": 20902, "log_path": ".reports/production-qa/build-logs/07-npm-test.log", "notes": "108 test files, 729 tests, all passed"},
+    {"step": 8, "command": "npm run build", "exit_code": 0, "duration_ms": 9792, "log_path": ".reports/production-qa/build-logs/08-npm-build.log", "notes": "Vite production build OK. Warning: index-DxioK-gY.js bundle 1.22 MB (374 KB gzip) exceeds 500 KB chunk size warning."},
+    {"step": 9, "command": "npm run verify", "exit_code": 1, "duration_ms": 419641, "log_path": ".reports/production-qa/build-logs/09-npm-verify.log", "notes": "Unit tests 729 pass; Playwright e2e: 25 passed, 24 failed, 11 skipped. P1."},
+    {"step": 10, "command": "npx cap sync android", "exit_code": 0, "duration_ms": 7024, "log_path": ".reports/production-qa/build-logs/10-cap-sync.log"},
+    {"step": 11, "command": "android/gradlew.bat assembleDebug --no-daemon", "exit_code": 0, "duration_ms": 25674, "log_path": ".reports/production-qa/build-logs/11-gradle-assembleDebug.log"},
+    {"step": 12, "command": "android/gradlew.bat test --no-daemon", "exit_code": 0, "duration_ms": 28118, "log_path": ".reports/production-qa/build-logs/12-gradle-test.log"},
+    {"step": 13, "command": "android/gradlew.bat :app:lintDebug --no-daemon", "exit_code": 1, "duration_ms": 42666, "log_path": ".reports/production-qa/build-logs/13-gradle-lint.log", "notes": "Lint found 2 errors, 54 warnings. Full text report at 13b-lint-results-full.txt."},
+    {"step": 14, "command": "npm audit --production --json", "exit_code": 0, "duration_ms": 1627, "log_path": ".reports/production-qa/build-logs/15-npm-audit.json"}
+  ],
+  "artifacts": [
+    {"name": "vite dist", "path": "dist/", "exists": true, "size_bytes": 5307351},
+    {"name": "android APK debug", "path": "android/app/build/outputs/apk/debug/app-debug.apk", "exists": true, "size_bytes": 16584172},
+    {"name": "android cap-synced assets", "path": "android/app/src/main/assets/public/", "exists": true, "size_bytes": null},
+    {"name": "lint results (full)", "path": ".reports/production-qa/build-logs/13b-lint-results-full.txt", "exists": true, "size_bytes": 29037}
+  ],
+  "secret_scan": {
+    "scope": ["dist/", "src/", "android/app/", "android/app/build/outputs/apk/debug/app-debug.apk"],
+    "patterns_checked": [
+      "service_role",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "FCM_SERVER_KEY",
+      "firebase-private-key",
+      "BEGIN PRIVATE KEY",
+      "BEGIN RSA PRIVATE",
+      "eyJ JWT pattern (decoded for role)",
+      "KAKAO_SECRET / KAKAO_REST_API_KEY",
+      "NAVER_CLIENT_SECRET",
+      "QONVERSION_SECRET",
+      "FIREBASE_API_KEY",
+      "GOOGLE_API_KEY="
+    ],
+    "findings": [
+      {
+        "severity": "INFO",
+        "type": "supabase-anon-jwt",
+        "file": "dist/assets/index-DxioK-gY.js (and cap-synced copy in android/app/src/main/assets/public/...)",
+        "details": "Decoded JWT payload role='anon', ref='qzrrscryacxhprnrtpjd'. Public anon key — safe to ship to client. Not a leak.",
+        "evidence_path": ".reports/production-qa/build-logs/14-jwt-found.txt"
+      }
+    ],
+    "leaks": []
+  },
+  "vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0,
+    "raw_log": ".reports/production-qa/build-logs/15-npm-audit.json"
+  },
+  "console_log_residue": {
+    "total_occurrences": 27,
+    "files": {
+      "src/App.jsx": 6,
+      "src/components/childMode/ChildPairInput.jsx": 1,
+      "src/lib/kakaoMap.js": 1,
+      "src/lib/nativeLocationService.js": 5,
+      "src/lib/pushNotifications.js": 7,
+      "src/lib/remoteAudioCapture.js": 1,
+      "src/lib/sync.js": 6
+    },
+    "severity": "P3",
+    "note": "Production console.log calls remain in 7 source files. None contain obvious secrets. Cosmetic / log-spam concern only."
+  },
+  "issues": [
+    {
+      "id": "P1-01",
+      "severity": "P1",
+      "title": "Android lint: 2 errors (NewApi + UnspecifiedRegisterReceiverFlag) in ForceRingActivity.java",
+      "description": "android/gradlew.bat :app:lintDebug FAILED. Errors: (1) ForceRingActivity.java:64 calls KeyguardManager#requestDismissKeyguard which requires API 26 but minSdk=24 [NewApi]. (2) ForceRingActivity.java:159 registers stopReceiver for com.hyeni.calendar.FORCE_RING_STOP without RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED flag [UnspecifiedRegisterReceiverFlag] — required on Android 14+ targets. APK still builds (assembleDebug PASS); these manifest at runtime on lower-API devices or higher-API receiver scenarios.",
+      "evidence_path": ".reports/production-qa/build-logs/13b-lint-results-full.txt",
+      "evidence_lines": [30, 107]
+    },
+    {
+      "id": "P1-02",
+      "severity": "P1",
+      "title": "Playwright e2e: 24 of 60 critical-flow tests failing",
+      "description": "npm run verify failed at the e2e stage. Unit tests (vitest) pass 729/729, but Playwright critical-flows.spec.js reports 24 failed, 25 passed, 11 skipped. First observed failure: 'parent mode covers emergency, location, scheduling...' — expects img[name='혜니'] to be visible. Failures cluster around parent-mode dashboard / calendar / map-refresh redesign assertions. Does not block APK build; hand off to web/UI QA agent.",
+      "evidence_path": ".reports/production-qa/build-logs/09-npm-verify.log"
+    },
+    {
+      "id": "P2-01",
+      "severity": "P2",
+      "title": "Main JS bundle 1.22 MB (374 KB gzip) — exceeds Vite 500 KB chunk warning",
+      "description": "dist/assets/index-DxioK-gY.js is a single 1.22 MB chunk. Vite emits chunk-size warning. Not blocking but a startup / cold-load performance concern on mid/low-end Android. Recommend manualChunks split (kakao maps, supabase, qonversion).",
+      "evidence_path": ".reports/production-qa/build-logs/08-npm-build.log"
+    },
+    {
+      "id": "P2-02",
+      "severity": "P2",
+      "title": "Android lint: 54 warnings (UnusedAttribute, BatteryLife, InlinedApi, etc.)",
+      "description": "lint reports 54 non-error warnings (see full report). Notables: BatteryLife — REQUEST_IGNORE_BATTERY_OPTIMIZATIONS may violate Play Store content policy if not justified (NotificationPlugin.java:251). UnusedAttribute — turnScreenOn/showWhenLocked declared in manifest target API 27+ but minSdk=24. None blocking, but Play Store review-time concerns.",
+      "evidence_path": ".reports/production-qa/build-logs/13b-lint-results-full.txt"
+    },
+    {
+      "id": "P3-01",
+      "severity": "P3",
+      "title": "27 console.log() calls remaining in production src/",
+      "description": "console.log present in src/App.jsx (6), src/lib/pushNotifications.js (7), src/lib/sync.js (6), src/lib/nativeLocationService.js (5), and 3 other files. No secrets in scanned strings, but production log spam.",
+      "evidence_path": null
+    },
+    {
+      "id": "P3-02",
+      "severity": "P3",
+      "title": "Gradle deprecation warnings (incompatible with Gradle 9.0)",
+      "description": "Both assembleDebug and test runs warn 'Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.' Non-blocking now (Gradle 8.14.3), but blocks future upgrades.",
+      "evidence_path": ".reports/production-qa/build-logs/11-gradle-assembleDebug.log"
+    }
+  ],
+  "release_decision": "ALLOW_WITH_CAVEATS",
+  "blocking_reasons": [],
+  "non_blocking_concerns": [
+    "Android lint errors (P1-01) should be resolved before Play Store release but do not block debug APK production.",
+    "Playwright e2e regressions (P1-02) indicate web-layer issues — hand off to web/UI QA agent."
+  ],
+  "p_counts": {
+    "P0": 0,
+    "P1": 2,
+    "P2": 2,
+    "P3": 2
+  }
+}
