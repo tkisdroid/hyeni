@@ -177,6 +177,16 @@ describe("Soft Brand visual system", () => {
     expect(autoRenewalSource).toContain("color-mix(in srgb, var(--fg-primary)");
   });
 
+  test("premium-only popups use Hyeni mascot instead of legacy 2D or emoji icons", () => {
+    expect(featureLockSource).toContain("HyeniMascot");
+    expect(trialInviteSource).toContain("HyeniMascot");
+    expect(featureLockSource).not.toContain("HyeniGirl");
+    expect(trialInviteSource).not.toContain("ParentMomDuo");
+    expect(featureLockSource).not.toContain("copy?.emoji");
+    expect(featureLockSource).not.toContain("💎");
+    expect(paywallCopySource).not.toContain("emoji:");
+  });
+
   test("multi-child dashboard chrome uses theme variables for shared accents", () => {
     expect(miniMapSource).toContain("var(--theme-accent-soft)");
     expect(miniMapSource).toContain("var(--theme-accent-line)");
