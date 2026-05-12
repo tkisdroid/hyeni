@@ -36,6 +36,7 @@ describe("parent location management entry", () => {
     // 텍스트(일정/장소관리)는 동일 위치, 마커만 <Calendar/MapPin> 컴포넌트로.
     expect(app).toContain("<CalendarPlus size={16} strokeWidth={1.75} />");
     expect(app).toContain('<span className="tabbar-label">일정등록</span>');
+    expect(app).not.toContain('<span className="tabbar-label">일정</span>');
     expect(app).toContain("<MapPin size={16} strokeWidth={1.75} />");
     expect(app).toContain('<span className="tabbar-label">장소</span>');
   });

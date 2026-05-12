@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Sun, Sparkles, Home, Calendar, CalendarDays, CalendarPlus, MapPin, MessageCircle, Users } from "lucide-react";
+import { Sun, Sparkles, Home, CalendarPlus, MapPin, MessageCircle, Users } from "lucide-react";
 import { anonymousLogin, getSession, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, updateMyProfile, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
 import { getAuthProvider, syncAuthProfile } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
@@ -253,13 +253,37 @@ function deferEffectStateUpdate(callback) {
 
 function QuickUtilityActionButton({ action }) {
     if (!action) return null;
-    const { key, icon, iconKey, label, ariaLabel, palette, onClick } = action;
+    const {
+        key,
+        icon,
+        iconKey,
+        label,
+        ariaLabel,
+        palette,
+        onClick,
+        disabled,
+        title,
+        onMouseDown,
+        onMouseUp,
+        onMouseLeave,
+        onTouchStart,
+        onTouchEnd,
+        onTouchCancel,
+    } = action;
 
     return (
         <button
             key={key}
             type="button"
             onClick={onClick}
+            disabled={disabled}
+            title={title}
+            onMouseDown={onMouseDown}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseLeave}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchCancel}
             className="hyeni-v5-action-chip"
             data-action-key={key}
             style={{
@@ -4250,13 +4274,6 @@ export default function KidsScheduler() {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
     };
-    const handleParentCalendarTabClick = () => {
-        closeParentManagementPanels();
-        setActiveView(PARENT_VIEWS.CALENDAR);
-        window.requestAnimationFrame(() => {
-            window.scrollTo({ top: 0, behavior: "auto" });
-        });
-    };
     const handleParentMapTabClick = () => {
         // 하단 장소 탭 → 설정 스타일 PlaceManagerScreen 으로 통일 (이전: AcademyManager).
         setShowSavedPlaceMgr(false);
@@ -4297,7 +4314,7 @@ export default function KidsScheduler() {
             window.scrollTo({ top: 0, behavior: "auto" });
         });
     };
-    // Tab guards for multi-child parents: per-child tabs (today / 일정 / 장소 /
+    // Tab guards for multi-child parents: per-child tabs (today / 장소 /
     // 메모) need a chosen child first. Family tab is intentionally exempt so
     // the parent can manage pairings before any child is selected.
     const requireSelectedChildOrHint = (action, label) => () => {
@@ -4350,9 +4367,8 @@ export default function KidsScheduler() {
         return "statusHappy";
     }, [isParent, parentAlerts, childDeviceStatusMap, todayEvents, appMoodNowMs]);
     const parentBottomTabCount = (pairedChildren.length >= 1 ? 1 : 0)
-        + 3
-        + (parentCapabilities.canManagePlaces ? 1 : 0)
-        + 2;
+        + 4
+        + (parentCapabilities.canManagePlaces ? 1 : 0);
     const renderParentBottomTabbar = (activeTab = PARENT_VIEWS.TODAY, extraClassName = "") => (
         <nav
             className={`hyeni-v5-tabbar${extraClassName ? ` ${extraClassName}` : ""}`}
@@ -4374,17 +4390,6 @@ export default function KidsScheduler() {
             <button type="button" className={activeTab === PARENT_VIEWS.TODAY ? "active" : undefined} onClick={handleParentTodayTabClick} style={{ fontFamily: FF }}>
                 <span aria-hidden="true" className="tabbar-icon"><Sun size={16} strokeWidth={1.75} /></span>
                 <span className="tabbar-label">오늘</span>
-            </button>
-            <button
-              type="button"
-              className={activeTab === PARENT_VIEWS.CALENDAR ? "active" : undefined}
-              onClick={requireSelectedChildOrHint(handleParentCalendarTabClick, "일정")}
-              style={{ fontFamily: FF }}
-            >
-              <span aria-hidden="true" className="tabbar-icon">
-                <CalendarDays size={16} strokeWidth={1.75} />
-              </span>
-              <span className="tabbar-label">일정</span>
             </button>
             <button
               type="button"
@@ -4936,6 +4941,26 @@ export default function KidsScheduler() {
                         ariaLabel: "빠른 일정입력",
                         palette: quickThemePalette,
                         onClick: openAiSchedule,
+                    }}
+                />
+            )}
+            {isParent && (
+                <QuickUtilityActionButton
+                    action={{
+                        key: "kkuk",
+                        iconKey: "heart",
+                        label: "꾹",
+                        ariaLabel: "꾹 보내기",
+                        title: "꾹 보내기",
+                        palette: quickThemePalette,
+                        disabled: kkukCooldown,
+                        onClick: handleKkukClick,
+                        onMouseDown: beginKkukPress,
+                        onMouseUp: endKkukPress,
+                        onMouseLeave: cancelKkukPress,
+                        onTouchStart: beginKkukPress,
+                        onTouchEnd: endKkukPress,
+                        onTouchCancel: cancelKkukPress,
                     }}
                 />
             )}
@@ -5923,7 +5948,7 @@ export default function KidsScheduler() {
                             </div>
                             <div style={{ fontSize: 11, color: "var(--fg-tertiary)", marginBottom: 12, padding: "6px 10px", background: "var(--bg-subtle)", borderRadius: 8 }}>🎙 인식: "{voicePreview.rawText}"</div>
                             <div style={{ display: "flex", gap: 8 }}>
-                                <button onClick={() => { setVoicePreview(null); setCurrentYear(parseInt(voicePreview.dateKey.split("-")[0])); setCurrentMonth(parseInt(voicePreview.dateKey.split("-")[1])); setSelectedDate(parseInt(voicePreview.dateKey.split("-")[2])); setActiveView(PARENT_VIEWS.CALENDAR); }}
+                                <button onClick={() => { setVoicePreview(null); setCurrentYear(parseInt(voicePreview.dateKey.split("-")[0])); setCurrentMonth(parseInt(voicePreview.dateKey.split("-")[1])); setSelectedDate(parseInt(voicePreview.dateKey.split("-")[2])); setActiveView(PARENT_VIEWS.TODAY); }}
                                     style={{ flex: 1, padding: "11px", background: "linear-gradient(135deg,var(--status-positive),#059669)", color: "white", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✅ 달력에서 보기</button>
                                 <button onClick={() => { setVoicePreview(null); setNewTitle(voicePreview.ev.title); setNewTime(normalizeScheduleTimeValue(voicePreview.ev.time)); setNewEndTime(voicePreview.ev.endTime || ""); setTimeSelectionTarget("start"); setNewCategory(voicePreview.ev.category); setNewLocation(voicePreview.ev.location); setEvents(prev => ({ ...prev, [voicePreview.dateKey]: (prev[voicePreview.dateKey] || []).filter(e => e.id !== voicePreview.ev.id) })); setShowAddModal(true); }}
                                     style={{ flex: 1, padding: "11px", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", border: "none", borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FF }}>✏️ 수정</button>
@@ -6036,17 +6061,22 @@ export default function KidsScheduler() {
 
             {/* ── Header Row 1: Logo + 꾹 + 로그아웃 ── */}
             <div
-                className={`hyeni-top-header ${!isParent ? "hyeni-top-header--child" : ""}`}
+                className={`hyeni-top-header ${isParent ? "hyeni-top-header--parent-compact" : "hyeni-top-header--child"}`}
                 style={{
                     maxWidth: contentMaxWidth,
-                    borderRadius: isParent ? DESIGN.radius.xl : 0,
-                    boxShadow: isParent ? DESIGN.shadow.soft : "none",
+                    borderRadius: isParent ? 16 : 0,
+                    boxShadow: "none",
                 }}
             >
                 <div className="hyeni-top-header-brand">
                     <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
                         {isParent ? (
-                            <AppBrandLogo size={64} radius={18} shadow={false} mood={appLogoMood} />
+                            <AppBrandLogo
+                                size={36}
+                                radius={12}
+                                shadow={false}
+                                mood={["statusScheduled", "statusBusy"].includes(appLogoMood) ? "diary" : appLogoMood === "statusDanger" ? "sad" : "static"}
+                            />
                         ) : (
                             <span className="child-header-avatar">
                                 <HyeniMascot variant="static" size={42} aria-label="혜니" />
@@ -6054,17 +6084,17 @@ export default function KidsScheduler() {
                         )}
                     </div>
                     <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-                        <div onClick={() => setActiveView(isParent ? PARENT_VIEWS.TODAY : PARENT_VIEWS.CALENDAR)} style={{ fontSize: isParent ? 16 : 22, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", lineHeight: 1.1 }}>혜니캘린더</div>
+                        <div onClick={() => setActiveView(isParent ? PARENT_VIEWS.TODAY : PARENT_VIEWS.CALENDAR)} style={{ fontSize: isParent ? 15 : 22, fontWeight: 900, color: "var(--theme-accent-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", lineHeight: 1.1 }}>혜니캘린더</div>
                         {isParent && (
                             <div className="hyeni-top-header-mode-rail">
                                 <button
                                     type="button"
                                     onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
                                     style={{
-                                        fontSize: 10.5,
+                                        fontSize: 9.5,
                                         fontWeight: 800,
-                                        height: 22,
-                                        padding: "0 9px",
+                                        height: 19,
+                                        padding: "0 8px",
                                         borderRadius: 999,
                                         cursor: "pointer",
                                         fontFamily: FF,
@@ -6085,10 +6115,10 @@ export default function KidsScheduler() {
                                     type="button"
                                     onClick={() => { setActiveView(PARENT_VIEWS.FAMILY); }}
                                     style={{
-                                        fontSize: 10.5,
+                                        fontSize: 9.5,
                                         fontWeight: 800,
-                                        height: 22,
-                                        padding: "0 9px",
+                                        height: 19,
+                                        padding: "0 8px",
                                         borderRadius: 999,
                                         border: pairedChildren.length > 0
                                             ? "1px solid var(--brand-lavender-line, #DDD1FF)"
@@ -6137,41 +6167,43 @@ export default function KidsScheduler() {
                     {/* Phase 5 KKUK-01: tap sends immediately; hold sends once
                          after 500ms without waiting for release. Cooldown is
                          still driven by kkukCooldown state + server RPC. */}
-                    <button
-                        disabled={kkukCooldown}
-                        onClick={handleKkukClick}
-                        onMouseDown={beginKkukPress}
-                        onMouseUp={endKkukPress}
-                        onMouseLeave={cancelKkukPress}
-                        onTouchStart={beginKkukPress}
-                        onTouchEnd={endKkukPress}
-                        onTouchCancel={cancelKkukPress}
-                        style={{
-                            fontSize: isParent ? 13 : 15, height: isParent ? 40 : 44, padding: isParent ? "0 16px" : "0 18px 0 10px", borderRadius: isParent ? 12 : 999, border: "none", cursor: kkukCooldown ? "default" : "pointer",
-                            fontWeight: 900, fontFamily: FF, whiteSpace: "nowrap",
-                            background: kkukCooldown ? "var(--bg-muted)" : "var(--hyeni-theme-gradient)",
-                            color: "var(--fg-on-primary)", boxShadow: kkukCooldown ? "none" : "var(--hyeni-theme-shadow-soft)",
-                            transition: "all 0.2s", transform: kkukCooldown ? "scale(0.95)" : "scale(1)",
-                            userSelect: "none",
-                            WebkitTouchCallout: "none",
-                            display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0,
-                        }}
-                        title="꾹 보내기"
-                        aria-label="꾹 보내기">
-                        {!isParent && myFamilyMember ? (
-                            <ChildAvatar
-                                child={myFamilyMember}
-                                size={24}
-                                radius={9}
-                                fontSize={11}
-                                decorative
-                                style={{ border: "2px solid rgba(255,255,255,0.88)" }}
-                            />
-                        ) : (
-                            <ThreeDIcon name="heart" size={isParent ? 14 : 16} aria-label="꾹" />
-                        )}
-                        <span>꾹</span>
-                    </button>
+                    {!isParent && (
+                        <button
+                            disabled={kkukCooldown}
+                            onClick={handleKkukClick}
+                            onMouseDown={beginKkukPress}
+                            onMouseUp={endKkukPress}
+                            onMouseLeave={cancelKkukPress}
+                            onTouchStart={beginKkukPress}
+                            onTouchEnd={endKkukPress}
+                            onTouchCancel={cancelKkukPress}
+                            style={{
+                                fontSize: 15, height: 44, padding: "0 18px 0 10px", borderRadius: 999, border: "none", cursor: kkukCooldown ? "default" : "pointer",
+                                fontWeight: 900, fontFamily: FF, whiteSpace: "nowrap",
+                                background: kkukCooldown ? "var(--bg-muted)" : "var(--hyeni-theme-gradient)",
+                                color: "var(--fg-on-primary)", boxShadow: kkukCooldown ? "none" : "var(--hyeni-theme-shadow-soft)",
+                                transition: "all 0.2s", transform: kkukCooldown ? "scale(0.95)" : "scale(1)",
+                                userSelect: "none",
+                                WebkitTouchCallout: "none",
+                                display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0,
+                            }}
+                            title="꾹 보내기"
+                            aria-label="꾹 보내기">
+                            {myFamilyMember ? (
+                                <ChildAvatar
+                                    child={myFamilyMember}
+                                    size={24}
+                                    radius={9}
+                                    fontSize={11}
+                                    decorative
+                                    style={{ border: "2px solid rgba(255,255,255,0.88)" }}
+                                />
+                            ) : (
+                                <ThreeDIcon name="heart" size={16} aria-label="꾹" />
+                            )}
+                            <span>꾹</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -6416,16 +6448,17 @@ export default function KidsScheduler() {
               return (
                 <div style={{ width: "100%", maxWidth: contentMaxWidth, padding: "0 16px", boxSizing: "border-box" }}>
                   <section
+                    className="hyeni-parent-today-hero"
                     aria-label={`${childName} 오늘 요약`}
                     style={{
                       position: "relative",
                       background: "linear-gradient(135deg, var(--brand-mint-soft, #DDF7EA) 0%, #F0FBF5 60%, var(--brand-rose-soft, #FFF0F5) 100%)",
-                      borderRadius: 28,
-                      padding: "20px 16px 20px 18px",
-                      marginBottom: 14,
+                      borderRadius: 22,
+                      padding: "14px 14px 14px 16px",
+                      marginBottom: 10,
                       overflow: "hidden",
                       boxShadow: "var(--shadow-soft, 0 8px 24px rgba(31, 24, 28, 0.06))",
-                      minHeight: 200,
+                      minHeight: 132,
                       display: "flex",
                       alignItems: "stretch",
                       gap: 8,
@@ -6439,7 +6472,7 @@ export default function KidsScheduler() {
                         borderRadius: 999,
                         background: "rgba(255,255,255,0.85)",
                         border: "1px solid rgba(49,196,141,0.18)",
-                        fontSize: 11,
+                        fontSize: 10.5,
                         fontWeight: 800,
                         color: "var(--brand-mint-text, #087653)",
                         letterSpacing: 0,
@@ -6448,7 +6481,7 @@ export default function KidsScheduler() {
                       </span>
                       <h2 style={{
                         margin: 0,
-                        fontSize: 22,
+                        fontSize: 18,
                         fontWeight: 900,
                         color: "#202024",
                         letterSpacing: 0,
@@ -6470,12 +6503,12 @@ export default function KidsScheduler() {
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 6,
-                          padding: "10px 14px",
+                          padding: "8px 12px",
                           border: "none",
                           background: "linear-gradient(135deg, var(--brand-mint, #31C48D) 0%, var(--brand-mint-deep, #15936B) 100%)",
                           color: "#FFFFFF",
                           borderRadius: 999,
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: 800,
                           cursor: "pointer",
                           fontFamily: FF,
@@ -6495,17 +6528,19 @@ export default function KidsScheduler() {
                       style={{
                         position: "relative",
                         flexShrink: 0,
-                        width: 132,
+                        width: 96,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         pointerEvents: "none",
                       }}
                     >
-                      <span style={{ position: "absolute", top: 0, left: -4, fontSize: 18, opacity: 0.85 }}>☁️</span>
-                      <span style={{ position: "absolute", bottom: 24, right: 0, fontSize: 14, opacity: 0.7 }}>✨</span>
-                      <span style={{ position: "absolute", bottom: 4, left: 4, fontSize: 12, opacity: 0.7 }}>💗</span>
-                      <HyeniMascot variant={appLogoMood} size={128} aria-label="" />
+                      <HyeniMascot
+                        variant={todayEventCount === 0 ? "cheer" : "diary"}
+                        size={92}
+                        className="hyeni-parent-hero-mascot-image"
+                        aria-label=""
+                      />
                     </div>
                   </section>
                 </div>
@@ -6810,10 +6845,7 @@ export default function KidsScheduler() {
 
                     {renderSelectedDateMovementSummary()}
 
-                    {renderParentBottomTabbar(
-                        activeView === PARENT_VIEWS.CALENDAR ? PARENT_VIEWS.CALENDAR : PARENT_VIEWS.TODAY,
-                        "hyeni-v5-tabbar-fixed"
-                    )}
+                    {renderParentBottomTabbar(PARENT_VIEWS.TODAY, "hyeni-v5-tabbar-fixed")}
 
                 </section>
             ) : <>
@@ -7152,7 +7184,7 @@ export default function KidsScheduler() {
                                 }
                             }}
                             onConfirm={openConfirmDialog}
-                            onClose={() => setActiveView(PARENT_VIEWS.CALENDAR)} />
+                            onClose={() => setActiveView(PARENT_VIEWS.TODAY)} />
                     ) : (
                         <ParentSetupScreen onCreateFamily={() => setShowCreateWizard(true)} onJoinAsParent={handleJoinAsParent} />
                     )}
@@ -7175,11 +7207,11 @@ export default function KidsScheduler() {
                     setSelectedPreset(null);
                     setWeeklyRepeat(false);
                     setRepeatWeeks(4);
-                    if (activeView === PARENT_VIEWS.EVENT_ADD) setActiveView(PARENT_VIEWS.CALENDAR);
+                    if (activeView === PARENT_VIEWS.EVENT_ADD) setActiveView(PARENT_VIEWS.TODAY);
                 }}
                 onSave={async () => {
                     await addEvent();
-                    if (activeView === PARENT_VIEWS.EVENT_ADD) setActiveView(PARENT_VIEWS.CALENDAR);
+                    if (activeView === PARENT_VIEWS.EVENT_ADD) setActiveView(PARENT_VIEWS.TODAY);
                 }}
             >
                 {(showAddModal || activeView === PARENT_VIEWS.EVENT_ADD) && (

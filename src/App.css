@@ -681,6 +681,43 @@ a:focus-visible {
   min-width: 0;
 }
 
+.hyeni-top-header--parent-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: color-mix(in srgb, var(--theme-accent-line) 62%, transparent);
+}
+
+.hyeni-top-header--parent-compact .hyeni-top-header-brand {
+  gap: 8px;
+}
+
+.hyeni-top-header--parent-compact .hyeni-top-header-mode-rail {
+  display: none;
+}
+
+.hyeni-top-header--parent-compact .hyeni-top-header-actions {
+  gap: 6px;
+}
+
+.hyeni-top-header--parent-compact .hyeni-top-header-actions button {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+}
+
+.hyeni-parent-today-hero .hyeni-parent-hero-mascot-image {
+  background: transparent !important;
+  filter: drop-shadow(0 10px 18px rgba(31, 26, 34, 0.10));
+}
+
+.hyeni-v5-action-chip[data-action-key="kkuk"] {
+  color: var(--brand-rose-text, var(--theme-accent-text));
+  border-color: var(--brand-rose-line, var(--theme-accent-line));
+}
+
 @media (max-width: 390px) {
   .hyeni-top-header {
     grid-template-columns: 1fr;
@@ -688,6 +725,14 @@ a:focus-visible {
 
   .hyeni-top-header-actions {
     width: 100%;
+  }
+
+  .hyeni-top-header.hyeni-top-header--parent-compact {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .hyeni-top-header--parent-compact .hyeni-top-header-actions {
+    width: auto;
   }
 }
 
