@@ -8,6 +8,12 @@ import { normalizeKakaoAppKey } from "./kakaoMap.js";
 
 export const ROUTE_REQUEST_TIMEOUT_MS = 12_000;
 
+// TODO(Agent05 L-001 / fix-db follow-up): VITE_KAKAO_REST_KEY ships in the
+// production JS bundle. Move walking-directions calls behind a Supabase Edge
+// Function `kakao-proxy` so the REST secret stays server-side. The single
+// console.warn lives in nativeLocationService.js to avoid double-logging at
+// startup; this comment is a load-bearing reminder for the eventual
+// migration.
 const KAKAO_REST_KEY = normalizeKakaoAppKey(import.meta.env?.VITE_KAKAO_REST_KEY);
 const KAKAO_WALKING_DIRECTIONS_URL = "https://apis-navi.kakaomobility.com/affiliate/walking/v1/directions";
 const OSM_FOOT_DIRECTIONS_URL = "https://routing.openstreetmap.de/routed-foot/route/v1/foot";

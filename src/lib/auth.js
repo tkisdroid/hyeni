@@ -4,7 +4,12 @@ import { clearFamilyInfoCache } from "./familyInfoCache.js";
 import { clearEntitlementCache } from "./entitlementCache.js";
 import { openNativeBrowser } from "./nativeBrowser.js";
 
-const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
+// Removed: KAKAO_REST_KEY constant was defined here but never read in this
+// module. Agent05 L-001 — VITE_KAKAO_REST_KEY ships in the prod bundle and
+// must be eliminated end-to-end via a Supabase Edge Function proxy. Removing
+// the dead reference here cuts one ingest path; nativeLocationService.js
+// and walkingRoute.js still consume the env var (deprecation warning added)
+// pending the Edge proxy migration owned by fix-db.
 const NATIVE_OAUTH_REDIRECT_URL = "hyenicalendar://auth-callback";
 const CHILD_PHOTO_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7d
 const CHILD_PHOTO_SIGNED_URL_CACHE_SAFETY_MS = 5 * 60 * 1000;
