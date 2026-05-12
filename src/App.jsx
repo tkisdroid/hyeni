@@ -4032,6 +4032,22 @@ export default function KidsScheduler() {
         return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
     };
 
+    // ── dateKey → human label ("YYYY/M/D") ─────────────────────────────────────
+    // dateKey 내부 month는 JS Date.getMonth() 결과로 0-indexed 저장됩니다
+    // (App.jsx 전반 컨벤션). 사용자에게 보이는 push body/문구에서는 +1 해야
+    // "5월 15일"을 5/15로 정상 표기합니다. 이전에 dk.replace(/-/g, "/")만 쓰면
+    // 5월 일정을 "2026/4/15"로 잘못 표기하던 버그가 있었습니다.
+    const formatDateKeyForDisplay = (dk) => {
+        if (!dk || typeof dk !== "string") return "";
+        const parts = dk.split("-");
+        if (parts.length !== 3) return dk.replace(/-/g, "/");
+        const [y, m, d] = parts.map(Number);
+        if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+            return dk.replace(/-/g, "/");
+        }
+        return `${y}/${m + 1}/${d}`;
+    };
+
     // ── Open edit modal: pre-populate fields with existing event ───────────────
     const openEditEventModal = (event) => {
         if (!event) return;
@@ -4120,7 +4136,7 @@ export default function KidsScheduler() {
                         familyId,
                         senderUserId: authUser.id,
                         title: `✏️ 일정 수정: ${emoji} ${title}`,
-                        message: `${messageDateKey.replace(/-/g, "/")} ${eventStartTime} "${title}"로 수정됐어요`,
+                        message: `${formatDateKeyForDisplay(messageDateKey)} ${eventStartTime} "${title}"로 수정됐어요`,
                     });
                 } catch (err) {
                     console.error("[updateEvent] Supabase error:", err);
@@ -4186,8 +4202,8 @@ export default function KidsScheduler() {
                     senderUserId: authUser.id,
                     title: `📅 새 일정: ${emoji} ${title}`,
                     message: weeklyRepeat
-                        ? `${baseDateKey.replace(/-/g, "/")}부터 매주 ${totalWeeks}주간 "${title}" 일정이 추가됐어요`
-                        : `${baseDateKey.replace(/-/g, "/")} ${eventStartTime}에 "${title}" 일정이 추가됐어요`,
+                        ? `${formatDateKeyForDisplay(baseDateKey)}부터 매주 ${totalWeeks}주간 "${title}" 일정이 추가됐어요`
+                        : `${formatDateKeyForDisplay(baseDateKey)} ${eventStartTime}에 "${title}" 일정이 추가됐어요`,
                 });
             } catch (err) {
                 console.error("[addEvent] Supabase error:", err);
