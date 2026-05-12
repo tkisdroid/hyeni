@@ -514,7 +514,9 @@ describe("Soft Brand visual system", () => {
     expect(stickerSource).not.toContain("#FFF0F5");
     expect(stickerSource).not.toContain("#F9A8D4");
     expect(stickerSource).not.toContain("#EC4899");
-    expect(kkukSource).toContain("showKkukReceived.emoji");
+    expect(appSource).toContain("showKkukReceived.emoji");
+    expect(appSource).toContain("kkukProfileChild");
+    expect(kkukSource).toContain("<ChildAvatar");
     expect(kkukSource).toContain("var(--theme-accent-line)");
     expect(kkukSource).toContain("var(--theme-accent-soft)");
     expect(kkukSource).not.toContain("<svg width=\"120\"");

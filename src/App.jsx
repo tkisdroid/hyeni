@@ -735,7 +735,7 @@ export default function KidsScheduler() {
     }, [activeThemeColor]);
 
     const [editingLocForEvent, setEditingLocForEvent] = useState(null);
-    const [showKkukReceived, setShowKkukReceived] = useState(null); // { from: "엄마"|"아이", emoji, timestamp }
+    const [showKkukReceived, setShowKkukReceived] = useState(null); // { from, emoji, photoUrl, senderId, timestamp }
     const [kkukCooldown, setKkukCooldown] = useState(false);
     const [showChildMemoPage, setShowChildMemoPage] = useState(false);
     // RES-02: sync degradation banner state. null = healthy; "transient" =
@@ -1929,13 +1929,21 @@ export default function KidsScheduler() {
                     recentKkukKeys.current.set(payload.dedup_key, now);
                 }
 
-                const senderLabel = payload.senderRole === "parent" ? "엄마" : "아이";
                 const members = familyInfoRef.current?.members || [];
+                const senderMember = members.find(member => member.user_id === payload.senderId);
+                const senderLabel = payload.senderName || (payload.senderRole === "parent" ? "엄마" : (senderMember?.name || "아이"));
                 const senderChildEmoji = payload.senderRole === "child"
-                    ? members.find(member => member.user_id === payload.senderId)?.emoji
+                    ? senderMember?.emoji
                     : members.find(member => member.role === "child" && member.user_id === authUser?.id)?.emoji;
                 const senderEmoji = payload.senderEmoji || senderChildEmoji || (payload.senderRole === "parent" ? "👨‍👩‍👧" : "👧");
-                setShowKkukReceived({ from: senderLabel, emoji: senderEmoji, timestamp: Date.now() });
+                const senderPhotoUrl = payload.senderPhotoUrl || senderMember?.photo_url || null;
+                setShowKkukReceived({
+                    from: senderLabel,
+                    emoji: senderEmoji,
+                    photoUrl: senderPhotoUrl,
+                    senderId: payload.senderId || null,
+                    timestamp: Date.now(),
+                });
                 // Vibrate if supported
                 if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
                 // Native notification (wakes screen on Android)
@@ -2654,10 +2662,14 @@ export default function KidsScheduler() {
         const dedupKey = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
             ? crypto.randomUUID()
             : `${authUser.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+        const senderMember = senderRole === "child"
+            ? familyInfo?.members?.find(member => member.user_id === authUser.id)
+            : null;
         const kkukPayload = { senderId: authUser.id, senderRole, timestamp: Date.now(), dedup_key: dedupKey };
         if (senderRole === "child") {
-            const senderMember = familyInfo?.members?.find(member => member.user_id === authUser.id);
+            kkukPayload.senderName = senderMember?.name || senderLabel;
             kkukPayload.senderEmoji = senderMember?.emoji || "👧";
+            kkukPayload.senderPhotoUrl = senderMember?.photo_url || null;
         }
 
         // Local UX feedback fires immediately — kkukCooldown above already
@@ -4165,6 +4177,21 @@ export default function KidsScheduler() {
         if (!Number.isFinite(hour) || !Number.isFinite(minute)) return true;
         return (hour * 60 + minute) >= nowMinutes;
     }) || todayEvents[0] || null;
+    const nextTodayEventLocationLabel = typeof nextTodayEvent?.location === "string"
+        ? nextTodayEvent.location
+        : (nextTodayEvent?.location?.address || "");
+    const kkukSenderMember = showKkukReceived?.senderId
+        ? familyInfo?.members?.find(member => member.user_id === showKkukReceived.senderId)
+        : null;
+    const kkukProfileChild = showKkukReceived
+        ? {
+            ...(kkukSenderMember || {}),
+            name: showKkukReceived.from || kkukSenderMember?.name || "아이",
+            emoji: showKkukReceived.emoji || kkukSenderMember?.emoji || "🐰",
+            photo_url: showKkukReceived.photoUrl || kkukSenderMember?.photo_url || null,
+            color_hex: kkukSenderMember?.color_hex || activeThemeColor || undefined,
+        }
+        : null;
     const getEventStartMinutes = (event) => {
         const [hour, minute] = String(event?.time || "00:00").split(":").map(Number);
         if (!Number.isFinite(hour) || !Number.isFinite(minute)) return Number.POSITIVE_INFINITY;
@@ -5043,8 +5070,8 @@ export default function KidsScheduler() {
                             if (!entitlement.canUse(FEATURES.REMOTE_AUDIO)) {
                                 openFeatureLock(
                                     FEATURES.REMOTE_AUDIO,
-                                    "",
-                                    "주변 소리 듣기는 프리미엄 회원만 사용할 수 있어요. 프리미엄을 시작하면 아이 기기 주변 소리를 최대 1분 동안 확인할 수 있어요."
+                                    "주변소리듣기는 프리미엄 전용이예요",
+                                    "프리미엄을 시작하면 부모님이 요청할 때 아이 기기에서 고지 후 최대 1분 동안 주변 소리를 확인할 수 있어요."
                                 );
                                 return;
                             }
@@ -6121,7 +6148,19 @@ export default function KidsScheduler() {
                         }}
                         title="꾹 보내기"
                         aria-label="꾹 보내기">
-                        <ThreeDIcon name="heart" size={isParent ? 14 : 16} aria-label="꾹" /> 꾹
+                        {!isParent && myFamilyMember ? (
+                            <ChildAvatar
+                                child={myFamilyMember}
+                                size={24}
+                                radius={9}
+                                fontSize={11}
+                                decorative
+                                style={{ border: "2px solid rgba(255,255,255,0.88)" }}
+                            />
+                        ) : (
+                            <ThreeDIcon name="heart" size={isParent ? 14 : 16} aria-label="꾹" />
+                        )}
+                        <span>꾹</span>
                     </button>
                 </div>
             </div>
@@ -6207,7 +6246,7 @@ export default function KidsScheduler() {
 
             {/* Phase 3 — 자녀 모드 hero (Playful-Character) */}
             {activeView === PARENT_VIEWS.CALENDAR && !isParent && (
-                <section style={{ width: "100%", maxWidth: contentMaxWidth, padding: isNativeApp ? "calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-screen-pad) var(--space-3)" : "var(--space-3) var(--space-screen-pad)" }}>
+                <section className="hyeni-child-home" style={{ width: "100%", maxWidth: contentMaxWidth, padding: isNativeApp ? "var(--space-2) var(--space-screen-pad) var(--space-3)" : "var(--space-3) var(--space-screen-pad)" }}>
                     <ChildHero
                         eventCount={todayEvents.length}
                         showMascot={childShowMascot}
@@ -6220,21 +6259,7 @@ export default function KidsScheduler() {
                         <button
                             type="button"
                             onClick={() => setRouteEvent(nextTodayEvent)}
-                            style={{
-                                marginTop: "var(--space-3)",
-                                width: "100%",
-                                padding: "var(--space-4)",
-                                borderRadius: "var(--radius-2xl)",
-                                background: "var(--bg-base)",
-                                border: "1px solid var(--line-soft)",
-                                boxShadow: "var(--child-quick-card-shadow)",
-                                textAlign: "left",
-                                cursor: "pointer",
-                                fontFamily: "inherit",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "var(--space-3)",
-                            }}
+                            className="child-next-card hyeni-micro-tap"
                             aria-label={`다음 일정 · ${nextTodayEvent.time || ""} ${nextTodayEvent.title || ""} 길찾기`}
                         >
                             <CategoryIcon
@@ -6242,11 +6267,12 @@ export default function KidsScheduler() {
                                 size={36}
                                 aria-label=""
                             />
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                                <span style={{ display: "block", fontSize: 12, color: "var(--fg-secondary)", fontWeight: "var(--weight-semibold)" }}>다음 일정 · {nextTodayEvent.time || ""}</span>
-                                <span style={{ display: "block", fontSize: 16, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nextTodayEvent.title}</span>
+                            <span className="child-next-card__body">
+                                <span className="child-next-card__eyebrow">다음 일정 · {nextTodayEvent.time || "시간 미정"}</span>
+                                <span className="child-next-card__title">{nextTodayEvent.title}</span>
+                                <span className="child-next-card__meta">{nextTodayEventLocationLabel || "장소가 정해지면 여기에 보여줄게요"}</span>
                             </span>
-                            <span aria-hidden="true" style={{ fontSize: 18, color: "var(--fg-tertiary)", flexShrink: 0 }}>›</span>
+                            <span className="child-next-card__action">길찾기</span>
                         </button>
                     )}
                 </section>
@@ -6263,6 +6289,7 @@ export default function KidsScheduler() {
             {/* ── Phase 3 자녀 모드 빠른 실행 grid (2x2) + 부모 연락 + 친구만남 ── */}
             {!isParent && (
                 <div style={{ width: "100%", maxWidth: contentMaxWidth, padding: "0 var(--space-screen-pad)", marginBottom: "var(--space-3)" }}>
+                    <div className="child-section-label">바로 할 수 있어요</div>
                     <div className="child-quick-grid" style={{ marginBottom: "var(--space-3)" }}>
                         <button
                             type="button"
@@ -8071,7 +8098,17 @@ export default function KidsScheduler() {
                         position: "relative",
                     }}>
                         <span aria-hidden="true" style={{ position: "absolute", inset: 10, borderRadius: 28, background: "var(--theme-accent-soft)" }} />
-                        <span aria-hidden="true" style={{ position: "relative", fontSize: 54, lineHeight: 1 }}>{showKkukReceived.emoji || "👧"}</span>
+                        <ChildAvatar
+                            child={kkukProfileChild}
+                            size={86}
+                            radius={28}
+                            fontSize={34}
+                            style={{
+                                position: "relative",
+                                border: "2px solid rgba(255,255,255,0.95)",
+                                boxShadow: "0 10px 22px color-mix(in srgb, var(--theme-accent) 18%, transparent)",
+                            }}
+                        />
                     </div>
                     <div style={{ fontSize: 44, lineHeight: 1, marginBottom: 16, animation: "kkukFloat 2s ease-in-out infinite", color: "var(--theme-accent-text)" }}>♥</div>
                     <div style={{ fontSize: 28, fontWeight: 900, color: "var(--theme-accent-text)", marginBottom: 8, textAlign: "center" }}>

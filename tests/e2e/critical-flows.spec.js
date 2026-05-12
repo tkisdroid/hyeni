@@ -1801,8 +1801,8 @@ test.describe("critical Hyeni flows", () => {
     await page.getByRole("textbox", { name: "페어링 코드 8자리" }).fill("804DF582");
     await page.getByRole("button", { name: "연결하기", exact: true }).click();
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("img", { name: "🐰 캐릭터" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("img", { name: "혜니", exact: true })).toBeVisible();
     await expect(page.getByText("영어 학원").first()).toBeVisible();
     await expect(page.getByText("서울특별시 중구 세종대로 110").first()).toBeVisible();
     await expect(page.getByText(/GPS 정확도/)).toHaveCount(0);
@@ -1825,7 +1825,7 @@ test.describe("critical Hyeni flows", () => {
     await expect(page.getByText("부모님과 연결하기")).toBeVisible();
     await page.getByRole("button", { name: /QR로 연결하기/ }).click();
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
 
     expect(state.rpcCalls.some((call) => call.name === "join_family")).toBeTruthy();
     expect(await page.evaluate(() => window.__hyeniCameraCalls?.getUserMedia || 0)).toBeGreaterThan(0);
@@ -1839,7 +1839,7 @@ test.describe("critical Hyeni flows", () => {
     });
     await page.goto("/");
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("img", { name: "🐰 캐릭터" })).toBeVisible();
 
     await page.getByRole("button", { name: "설정" }).click();
@@ -1862,8 +1862,8 @@ test.describe("critical Hyeni flows", () => {
     });
     await page.goto("/");
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "🧭 길찾기" }).click();
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "🧭 길찾기", exact: true }).click();
 
     await expect(page.getByRole("button", { name: "길안내 시작" })).toBeVisible();
     await expect(page.getByText("경로 검색 중")).toBeHidden({ timeout: 8_000 });
@@ -1888,8 +1888,8 @@ test.describe("critical Hyeni flows", () => {
     });
     await page.goto("/");
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "🧭 길찾기" }).click();
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "🧭 길찾기", exact: true }).click();
 
     const beforeUrl = page.url();
     await page.getByRole("button", { name: "길안내 시작" }).click();

@@ -67,8 +67,8 @@ export const FEATURE_LOCK = Object.freeze({
   },
   [FEATURES.REMOTE_AUDIO]: {
     emoji: "🎙️",
-    title: "주변 소리 듣기는 프리미엄 전용이에요",
-    body: "부모 기기에서 아이 기기의 주변 소리를 원격으로 확인하려면 프리미엄 체험 또는 구독이 필요해요.",
+    title: "주변소리듣기는 프리미엄 전용이예요",
+    body: "프리미엄을 시작하면 부모님이 요청할 때 아이 기기에서 고지 후 최대 1분 동안 주변 소리를 확인할 수 있어요.",
   },
   [FEATURES.REALTIME_LOCATION]: {
     emoji: "📍",

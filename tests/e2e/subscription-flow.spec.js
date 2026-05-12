@@ -607,7 +607,7 @@ test.describe.fixme("subscription and premium flow", () => {
     await parentPage.getByText("나중에").click();
 
     await parentPage.getByRole("button", { name: "🎙️ 주변소리", exact: true }).click();
-    await expect(parentPage.getByText("주변 소리 듣기는 프리미엄 전용이에요")).toBeVisible();
+    await expect(parentPage.getByText("주변소리듣기는 프리미엄 전용이예요")).toBeVisible();
     await parentPage.getByText("7일 무료 체험 시작").click();
     await expect(parentPage.getByText("자동 갱신 안내")).toBeVisible();
     await parentPage.getByRole("button", { name: "안내를 확인했고 계속할게요" }).evaluate((button) => button.click());
@@ -675,7 +675,7 @@ test.describe.fixme("subscription and premium flow", () => {
     await expect(childPage.getByRole("button", { name: "🔔 일정알림", exact: true })).toHaveCount(0);
     await expect(childPage.getByRole("button", { name: "💌 피드백 보내기", exact: true })).toHaveCount(0);
 
-    const routeButton = childPage.getByRole("button", { name: "🧭 길찾기 모드", exact: true });
+    const routeButton = childPage.getByRole("button", { name: /길찾기/ });
     await expect(routeButton).toBeVisible();
     await routeButton.click();
     await expect(childPage.getByText("토끼가 길 안내 중~ 🐰")).toBeVisible();

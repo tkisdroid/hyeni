@@ -18,6 +18,9 @@ describe("child safety setup gate", () => {
     expect(wizard).toContain("위치 확인, 일정 알림, 위급 연결");
     expect(wizard).toContain("언제든 기기 설정에서 바꿀 수 있어요");
     expect(wizard).toContain("한 번에 모두 허용");
+    expect(wizard).toContain("HyeniMascot");
+    expect(wizard).toContain("처음 설정을 도와주는 혜니");
+    expect(wizard).not.toContain("HyeniGirl");
   });
 
   it("covers microphone, notifications, full-screen alerts, battery, location, and service readiness", () => {

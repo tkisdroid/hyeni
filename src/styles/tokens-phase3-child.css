@@ -4,18 +4,18 @@
    ========================================================================== */
 :root {
   /* === Child hero — 자녀 홈 상단 카드 === */
-  --child-hero-padding:        var(--space-6);
-  --child-hero-min-height:     180px;
-  --child-hero-radius:         var(--radius-2xl);
+  --child-hero-padding:        18px 18px 20px;
+  --child-hero-min-height:     206px;
+  --child-hero-radius:         28px;
   --child-hero-bg:
     linear-gradient(135deg,
       var(--theme-accent-soft) 0%,
       color-mix(in srgb, var(--theme-accent) 8%, var(--bg-base)) 100%);
-  --child-hero-mascot-size:    112px;
+  --child-hero-mascot-size:    148px;
 
   /* === Child quick-action grid === */
-  --child-quick-card-height:   88px;
-  --child-quick-card-radius:   var(--radius-2xl);
+  --child-quick-card-height:   96px;
+  --child-quick-card-radius:   22px;
   --child-quick-card-padding:  var(--space-3) var(--space-4);
   --child-quick-card-gap:      var(--space-2);
   --child-quick-grid-cols:     2;
@@ -65,7 +65,8 @@
 
 /* --- Phase 3 typography --- */
 .t-child-hero-title {
-  font-size: 22px;
+  margin: 4px 0 0;
+  font-size: 25px;
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
   letter-spacing: 0;
@@ -75,9 +76,10 @@
 }
 .t-child-hero-sub {
   font-size: 14px;
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   color: var(--fg-secondary);
   margin-top: var(--space-1);
+  margin-bottom: 0;
   word-break: keep-all;
   overflow-wrap: break-word;
 }
@@ -101,7 +103,7 @@
 .child-hero {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: 14px;
   padding: var(--child-hero-padding);
   min-height: var(--child-hero-min-height);
   border-radius: var(--child-hero-radius);
@@ -109,10 +111,31 @@
   border: 1px solid var(--theme-accent-line);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-accent) 10%, transparent);
 }
+.child-hero--friendly {
+  overflow: hidden;
+}
 .child-hero-mascot {
+  position: relative;
   width: var(--child-hero-mascot-size);
   height: var(--child-hero-mascot-size);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.child-hero-animal-badge {
+  position: absolute;
+  right: 4px;
+  bottom: 10px;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.92);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--theme-accent) 16%, transparent);
+  border: 1px solid var(--theme-accent-line);
 }
 .child-hero-character {
   width: 100%;
@@ -127,12 +150,56 @@
   font-size: 54px;
   line-height: 1;
 }
-.child-hero-body { flex: 1; min-width: 0; padding-right: 56px; }
+.child-hero-body {
+  flex: 1;
+  min-width: 0;
+  padding-right: 48px;
+}
+.child-hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--theme-accent-line);
+  color: var(--theme-accent-text);
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  white-space: nowrap;
+}
+.child-hero-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.child-hero-status-row span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--fg-secondary);
+  border: 1px solid color-mix(in srgb, var(--theme-accent-line) 76%, transparent);
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
 
 .child-quick-grid {
   display: grid;
   grid-template-columns: repeat(var(--child-quick-grid-cols), 1fr);
   gap: var(--child-quick-card-gap);
+}
+.child-section-label {
+  margin: 2px 0 8px;
+  color: var(--fg-secondary);
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0;
 }
 .child-quick-card {
   display: flex;
@@ -149,6 +216,7 @@
   font-family: inherit;
   transition: transform var(--duration-fast) var(--easing-cheer);
   position: relative;
+  min-width: 0;
 }
 .child-quick-card:active { transform: scale(0.97); }
 .child-quick-card[data-tone="memo"] {
@@ -167,6 +235,89 @@
   height: 8px;
   border-radius: var(--radius-full);
   background: var(--theme-accent);
+}
+
+.child-next-card {
+  margin-top: var(--space-3);
+  width: 100%;
+  padding: 14px;
+  border-radius: 22px;
+  background: var(--bg-base);
+  border: 1px solid var(--theme-accent-line);
+  box-shadow: var(--child-quick-card-shadow);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 74px;
+}
+.child-next-card__body {
+  flex: 1;
+  min-width: 0;
+}
+.child-next-card__eyebrow {
+  display: block;
+  color: var(--theme-accent-text);
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+}
+.child-next-card__title {
+  display: block;
+  margin-top: 2px;
+  color: var(--fg-primary);
+  font-size: 16px;
+  font-weight: var(--weight-bold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.child-next-card__meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--fg-tertiary);
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.child-next-card__action {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border-radius: var(--radius-full);
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+}
+
+@media (max-width: 390px) {
+  .child-hero {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .child-hero-mascot {
+    width: 118px;
+    height: 118px;
+  }
+  .child-hero-mascot > img {
+    width: 118px !important;
+    height: 118px !important;
+  }
+  .child-hero-animal-badge {
+    width: 40px;
+    height: 40px;
+    right: 0;
+    bottom: 8px;
+  }
+  .child-hero-body {
+    padding-right: 40px;
+  }
+  .t-child-hero-title {
+    font-size: 22px;
+  }
 }
 
 /* Memo bubble */
