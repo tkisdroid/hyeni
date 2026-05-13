@@ -2548,7 +2548,10 @@ export default function KidsScheduler() {
             setIsOffline(!online);
             setQueuedMutations(getQueueSize());
         });
-        return () => { try { unsub(); } catch { /* ignore */ } };
+        return () => {
+            try { unsub(); }
+            catch (err) { console.warn("[App] subscribeOnline cleanup failed", err); }
+        };
     }, []);
 
     // ── 꾹 (emergency ping) ────────────────────────────────────────────────────

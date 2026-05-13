@@ -235,10 +235,17 @@ const DEFAULT_FETCH_EVENTS_RANGE_MONTHS = 36;
 export async function fetchEvents(familyId, opts = {}) {
   const { rangeMonths = null, limit = DEFAULT_FETCH_EVENTS_LIMIT } = opts;
 
+  // Order before limit so the truncated set is deterministic and biased
+  // toward recent/upcoming events (PostgREST otherwise returns rows in an
+  // unspecified order, so a family with more than `limit` events could lose
+  // arbitrary rows from a cold fetch). date_key DESC keeps current/future
+  // schedules; id is a tie-break for events sharing the same day.
   const { data, error } = await supabase
     .from("events")
     .select("*, events_children(child_id)")
     .eq("family_id", familyId)
+    .order("date_key", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit);
 
   if (error) {
@@ -1186,29 +1193,50 @@ export async function saveEventWithChildren(event, selection) {
   // Snapshot the prior state so we can revert on partial failure.
   // We look up by id when present (edit path); the add path generates a
   // fresh UUID client-side so no snapshot exists.
+  //
+  // Supabase JS does NOT throw on RLS/network errors — it returns
+  // { data: null, error } and silently lets the await complete. If we treat
+  // a failed snapshot read the same as "no prior row found", a later step
+  // failure would trigger the new-row rollback path and HARD-DELETE an
+  // existing event the caller actually owned. To avoid that data-loss
+  // window we track `snapshotFailed` and downgrade the rollback to a no-op
+  // when the snapshot itself was unreliable.
   let priorEventRow = null;
   let priorChildLinks = [];
+  let snapshotFailed = false;
   if (eventRow.id) {
     try {
-      const { data: priorEv } = await supabase
+      const { data: priorEv, error: priorEvError } = await supabase
         .from("events")
         .select("*")
         .eq("id", eventRow.id)
         .maybeSingle();
-      if (priorEv) priorEventRow = priorEv;
+      if (priorEvError) {
+        snapshotFailed = true;
+        console.warn("[sync] saveEventWithChildren prior-event snapshot read failed", priorEvError);
+      } else if (priorEv) {
+        priorEventRow = priorEv;
+      }
 
-      const { data: priorLinks } = await supabase
+      const { data: priorLinks, error: priorLinksError } = await supabase
         .from("events_children")
         .select("child_id")
         .eq("event_id", eventRow.id);
-      priorChildLinks = (priorLinks || []).map((row) => row.child_id);
+      if (priorLinksError) {
+        snapshotFailed = true;
+        console.warn("[sync] saveEventWithChildren prior-links snapshot read failed", priorLinksError);
+      } else {
+        priorChildLinks = (priorLinks || []).map((row) => row.child_id);
+      }
     } catch (snapErr) {
-      // Snapshot is best-effort; a failed read here just degrades to the
-      // legacy behaviour (no rollback). Do not abort the write.
+      snapshotFailed = true;
       console.warn("[sync] saveEventWithChildren snapshot failed", snapErr);
     }
   }
-  const isNewRow = !priorEventRow;
+  // isNewRow is true only when the snapshot SUCCEEDED and found nothing —
+  // i.e. we are confident this is a fresh insert. If the snapshot read
+  // itself failed we must not take the hard-delete rollback path.
+  const isNewRow = !snapshotFailed && !priorEventRow;
 
   // Step 1: upsert events row.
   const { data: saved, error: eventError } = await supabase
