@@ -42,6 +42,7 @@ import { identify as identifySubscriptionUser, purchase as purchaseSubscription 
 import { sendBroadcastWhenReady } from "./lib/realtime.js";
 import { getChildMemoQuickReplies, getMemoPreview } from "./lib/memoDisplay.js";
 import { isMemoForSelectedChild } from "./lib/memoRealtime.js";
+import { subscribeOnline, getQueueSize } from "./lib/offlineQueue.js";
 import { LOCATION_TRAIL_GRADIENT_STOPS, buildLocationDaySummary } from "./lib/locationTrailDisplay.js";
 import {
     LOCATION_TRAIL_JITTER_M,
@@ -771,6 +772,10 @@ export default function KidsScheduler() {
     // 1+ consecutive failure, retrying soon; "circuit_open" = breaker open,
     // 5-min cooldown active.
     const [syncDegraded, setSyncDegraded] = useState(null);
+    // Agent11 P1-003: offline detection. Drives the offline banner.
+    // queuedMutations counts pending mutations waiting on reconnect (in-memory).
+    const [isOffline, setIsOffline] = useState(typeof navigator !== "undefined" ? !navigator.onLine : false);
+    const [queuedMutations, setQueuedMutations] = useState(0);
 
     // ── Arrival tracking ───────────────────────────────────────────────────────
     const [arrivedSet, setArrivedSet] = useState(new Set());
@@ -2091,6 +2096,56 @@ export default function KidsScheduler() {
                 if (targetUserId && targetUserId !== authUser.id) return;
                 void publishChildDeviceStatusRef.current();
             },
+            // ── Missed-event recovery (Agent11 P1-001) ────────────────────────
+            // When a per-table channel reconnects after CHANNEL_ERROR/TIMED_OUT
+            // we cannot replay the gap, so re-fetch the affected table once.
+            // Tables not owned by App.jsx state (daily_supplies, family_subscription,
+            // child_locations) fall through silently — the dedicated child-mode
+            // / billing screens handle their own re-sync.
+            onMissedRefetch: (tableName) => {
+                if (!familyId) return;
+                try {
+                    if (tableName === "events") {
+                        fetchEvents(familyId).then(map => {
+                            cacheEvents(map);
+                            setEvents(map);
+                        }).catch(err => console.warn("[missedRefetch] events", err));
+                    } else if (tableName === "academies") {
+                        fetchAcademies(familyId).then(list => {
+                            cacheAcademies(list);
+                            setAcademies(list);
+                        }).catch(err => console.warn("[missedRefetch] academies", err));
+                    } else if (tableName === "memos") {
+                        fetchMemos(familyId).then(map => {
+                            cacheMemos(map);
+                            setMemos(map);
+                        }).catch(err => console.warn("[missedRefetch] memos", err));
+                    } else if (tableName === "saved_places") {
+                        fetchSavedPlaces(familyId).then(list => {
+                            cacheSavedPlaces(list);
+                            setSavedPlaces(list);
+                        }).catch(err => console.warn("[missedRefetch] saved_places", err));
+                    } else if (tableName === "memo_replies") {
+                        const dk = dateKeyRef.current;
+                        const fetchChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
+                        if (dk) {
+                            fetchMemoReplies(familyId, dk, fetchChildId)
+                                .then(rows => setMemoReplies(rows || []))
+                                .catch(err => console.warn("[missedRefetch] memo_replies", err));
+                        }
+                    } else if (tableName === "family_members") {
+                        if (authUser?.id) {
+                            getMyFamily(authUser.id)
+                                .then(fam => setFamilyInfo(fam || null))
+                                .catch(err => console.warn("[missedRefetch] family_members", err));
+                        }
+                    }
+                    // daily_supplies / family_subscription / child_locations:
+                    // dedicated screens own their refetch.
+                } catch (err) {
+                    console.warn(`[missedRefetch] ${tableName} threw`, err);
+                }
+            },
         });
 
         return () => { unsubscribe(realtimeChannel.current); };
@@ -2415,6 +2470,13 @@ export default function KidsScheduler() {
     }, [isParent]);
 
     // ── Polling fallback: refetch every 30s in case Realtime misses changes ──
+    // Agent11 P1-001/P1-004: previously only 3 of 9 subscribed tables had a
+    // polling fallback (events, memos, saved_places). A silent realtime drop
+    // would leave academies/danger_zones/memo_replies stale until the user
+    // navigated away and back. The realtime layer now also re-fetches on
+    // reconnect (subscribeFamily.onMissedRefetch), but a periodic safety net
+    // catches the case where the realtime channel never fires CHANNEL_ERROR
+    // (e.g. silently degraded WebSocket frames).
     useEffect(() => {
         if (!familyId) return;
         const poll = setInterval(() => {
@@ -2443,9 +2505,51 @@ export default function KidsScheduler() {
                 else if (breaker.failures > 0) setSyncDegraded("transient");
                 else setSyncDegraded(null);
             });
+            // Agent11 P1-001: extended coverage for tables that previously had
+            // only realtime delivery and no fallback.
+            fetchAcademies(familyId).then(list => setAcademies(prev => {
+                const prevJson = JSON.stringify(prev);
+                const newJson = JSON.stringify(list);
+                if (prevJson !== newJson) { cacheAcademies(list); return list; }
+                return prev;
+            })).catch(err => console.warn("[poll] academies", err));
+            fetchDangerZones(familyId).then(list => setDangerZones(prev => {
+                const prevJson = JSON.stringify(prev);
+                const newJson = JSON.stringify(list);
+                if (prevJson !== newJson) return list;
+                return prev;
+            })).catch(err => console.warn("[poll] danger_zones", err));
+            // memo_replies: Agent11 P1-004 — active conversations were stale
+            // when realtime degraded silently. dateKeyRef holds the currently
+            // viewed date so we only re-fetch the visible thread.
+            const dk = dateKeyRef.current;
+            if (dk) {
+                const fetchChildId = isParent ? (selectedChild?.id ?? null) : (myFamilyMemberId ?? null);
+                fetchMemoReplies(familyId, dk, fetchChildId)
+                    .then(rows => setMemoReplies(prev => {
+                        const next = rows || [];
+                        const prevJson = JSON.stringify(prev);
+                        const newJson = JSON.stringify(next);
+                        if (prevJson !== newJson) return next;
+                        return prev;
+                    }))
+                    .catch(err => console.warn("[poll] memo_replies", err));
+            }
         }, 30000);
         return () => clearInterval(poll);
-    }, [familyId]);
+    }, [familyId, isParent, selectedChild?.id, myFamilyMemberId]);
+
+    // ── Offline detection (Agent11 P1-003) ─────────────────────────────────────
+    // navigator.onLine is the cheapest reliable signal in both browser and
+    // Capacitor WebView. We mirror it into React state so the banner re-renders
+    // and refresh queuedMutations after each flip / drain.
+    useEffect(() => {
+        const unsub = subscribeOnline((online) => {
+            setIsOffline(!online);
+            setQueuedMutations(getQueueSize());
+        });
+        return () => { try { unsub(); } catch { /* ignore */ } };
+    }, []);
 
     // ── 꾹 (emergency ping) ────────────────────────────────────────────────────
     const showNotif = useCallback((msg, type = "success") => {
@@ -4032,6 +4136,22 @@ export default function KidsScheduler() {
         return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
     };
 
+    // ── dateKey → human label ("YYYY/M/D") ─────────────────────────────────────
+    // dateKey 내부 month는 JS Date.getMonth() 결과로 0-indexed 저장됩니다
+    // (App.jsx 전반 컨벤션). 사용자에게 보이는 push body/문구에서는 +1 해야
+    // "5월 15일"을 5/15로 정상 표기합니다. 이전에 dk.replace(/-/g, "/")만 쓰면
+    // 5월 일정을 "2026/4/15"로 잘못 표기하던 버그가 있었습니다.
+    const formatDateKeyForDisplay = (dk) => {
+        if (!dk || typeof dk !== "string") return "";
+        const parts = dk.split("-");
+        if (parts.length !== 3) return dk.replace(/-/g, "/");
+        const [y, m, d] = parts.map(Number);
+        if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+            return dk.replace(/-/g, "/");
+        }
+        return `${y}/${m + 1}/${d}`;
+    };
+
     // ── Open edit modal: pre-populate fields with existing event ───────────────
     const openEditEventModal = (event) => {
         if (!event) return;
@@ -4120,7 +4240,7 @@ export default function KidsScheduler() {
                         familyId,
                         senderUserId: authUser.id,
                         title: `✏️ 일정 수정: ${emoji} ${title}`,
-                        message: `${messageDateKey.replace(/-/g, "/")} ${eventStartTime} "${title}"로 수정됐어요`,
+                        message: `${formatDateKeyForDisplay(messageDateKey)} ${eventStartTime} "${title}"로 수정됐어요`,
                     });
                 } catch (err) {
                     console.error("[updateEvent] Supabase error:", err);
@@ -4186,8 +4306,8 @@ export default function KidsScheduler() {
                     senderUserId: authUser.id,
                     title: `📅 새 일정: ${emoji} ${title}`,
                     message: weeklyRepeat
-                        ? `${baseDateKey.replace(/-/g, "/")}부터 매주 ${totalWeeks}주간 "${title}" 일정이 추가됐어요`
-                        : `${baseDateKey.replace(/-/g, "/")} ${eventStartTime}에 "${title}" 일정이 추가됐어요`,
+                        ? `${formatDateKeyForDisplay(baseDateKey)}부터 매주 ${totalWeeks}주간 "${title}" 일정이 추가됐어요`
+                        : `${formatDateKeyForDisplay(baseDateKey)} ${eventStartTime}에 "${title}" 일정이 추가됐어요`,
                 });
             } catch (err) {
                 console.error("[addEvent] Supabase error:", err);
@@ -5835,6 +5955,26 @@ export default function KidsScheduler() {
                     {syncDegraded === "circuit_open"
                         ? "일시적으로 연결이 불안정해요 — 5분 뒤 자동 재시도"
                         : "일부 기능을 일시적으로 불러오지 못했어요 — 잠시 뒤 자동 재시도합니다"}
+                </div>
+            )}
+
+            {/* Agent11 P1-003: offline banner. Displayed whenever navigator.onLine
+                flips false. Includes pending-mutation count so the user knows we
+                will retry automatically on reconnect. */}
+            {isOffline && (
+                <div role="status" aria-live="polite" style={{
+                    position: "fixed", top: syncDegraded ? 100 : 64, left: "50%", transform: "translateX(-50%)",
+                    background: "var(--status-negative-subtle, #FEE2E2)",
+                    color: "var(--status-negative-strong, #DC2626)",
+                    borderRadius: 16, padding: "8px 14px", fontWeight: 700, fontSize: 12,
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.08)", zIndex: 241,
+                    maxWidth: "calc(100vw - 32px)", textAlign: "center",
+                    animation: "slideDown 0.3s ease", whiteSpace: "nowrap",
+                    overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                    {queuedMutations > 0
+                        ? `오프라인 — 저장하지 못한 변경 ${queuedMutations}건은 연결되면 자동으로 다시 보낼게요`
+                        : "오프라인 상태예요 — 연결이 돌아오면 다시 시도할게요"}
                 </div>
             )}
 

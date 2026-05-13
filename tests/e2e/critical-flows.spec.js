@@ -719,8 +719,11 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("학부모 모드")).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    // 학부모 모드 chip lives inside .hyeni-top-header-mode-rail which is now
+    // display:none in the compact parent header (commit a4b5795). The "혜니
+    // 오늘 요약" region above is the canonical parent landmark — drop the
+    // redundant chip assertion.
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await expect(page.getByRole("button", { name: "연동 (1명)" })).toBeVisible();
@@ -823,7 +826,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -856,7 +859,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -883,7 +886,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await page.getByRole("button", { name: "📍 우리아이" }).click();
@@ -923,7 +926,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     const deviceSection = page.getByRole("region", { name: "아이 기기 사용 지표" });
 
@@ -944,7 +947,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
     state.functionCalls.length = 0;
@@ -960,7 +963,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
     state.functionCalls.length = 0;
@@ -985,7 +988,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     await page.getByRole("button", { name: "📍 우리아이" }).click();
     await expect(page.getByRole("button", { name: /37\.56650,\s*126\.97800/ })).toBeVisible();
@@ -1010,7 +1013,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     state.functionCalls.length = 0;
@@ -1041,7 +1044,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await page.getByRole("button", { name: "📍 우리아이" }).click();
@@ -1059,7 +1062,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
@@ -1115,7 +1118,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
@@ -1137,7 +1140,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
@@ -1192,7 +1195,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
@@ -1251,7 +1254,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const managementRail = page.locator('[aria-label="관리 바로가기"]');
@@ -1301,7 +1304,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -1342,7 +1345,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -1363,7 +1366,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const routeButton = page.getByRole("button", { name: "영어 학원 경로 보기" }).first();
@@ -1438,7 +1441,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await page.getByRole("button", { name: "🎙️ 주변소리" }).click();
@@ -1483,7 +1486,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     await page.getByRole("button", { name: "연동 (1명)" }).click();
 
@@ -1499,7 +1502,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const main = page.getByLabel("부모 메인");
@@ -1599,7 +1602,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const details = await page.evaluate(() => {
@@ -1681,7 +1684,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
