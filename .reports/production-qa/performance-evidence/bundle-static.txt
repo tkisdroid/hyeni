@@ -1,0 +1,100 @@
+Agent 11 — static evidence snapshot
+Branch: final/production-polish-and-real-device-qa @ d5d183f
+Date: 2026-05-13
+
+[1] BUNDLE SIZES (dist/assets/, ls -la)
+-rw-r--r-- 1 TK 197121     332 May 13 01:24 index-DOT3FCEG.js
+-rw-r--r-- 1 TK 197121  140971 May 13 01:24 index-DPZybzbb.css
+-rw-r--r-- 1 TK 197121 1220006 May 13 01:24 index-DxioK-gY.js
+-rw-r--r-- 1 TK 197121     842 May 13 01:24 web-BF8Xp7jL.js
+-rw-r--r-- 1 TK 197121    2152 May 13 01:24 web-ycsLKkPk.js
+
+Main bundle:  1,220,006 B (1,192 KB / ~1.22 MB)
+Gzip(main):     373,545 B (~365 KB)  — exceeds Vite 500 kB raw warn; gzip is under 500 kB.
+CSS:            140,971 B
+Stub entries (DOT3FCEG, web-*): <3 KB — chunk-splitting placeholders only.
+
+[2] vite.config.js (entire file)
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+export default defineConfig({ plugins: [react()] })
+
+-> No build.rollupOptions, no manualChunks, no esbuild.drop, no esbuild.minify override.
+
+[3] dynamic import() / React.lazy
+React.lazy in src/: 0 matches
+import() in src/: 5 matches, all conditional Capacitor/OAuth bridges:
+  src/App.jsx:1377    await import("./lib/auth.js")  // OAuth callback
+  src/App.jsx:1407    await import("@capacitor/app")
+  src/App.jsx:1438    await import("./lib/auth.js")
+  src/App.jsx:2891    await import("@capacitor/app")
+  src/lib/nativePlugins.js:6  await import("@capacitor/core")
+
+[4] node_modules dep sizes (du -sk)
+lucide-react              37,415 KB  — named import only at App.jsx:2 + stickerIcons.jsx:23 (tree-shakes)
+@supabase                  7,495 KB
+react-mobile-picker           48 KB
+react-dom                  7,238 KB
+@qonversion                5,308 KB
+
+[5] index.html resource hints
+No preconnect / preload / dns-prefetch — only manifest + apple-touch-icon.
+
+[6] console.* in production bundle
+Count in dist/assets/index-DxioK-gY.js: 20 (console.log|warn|error)
+Count in src/ console.log only: 27 (across 7 files; per Agent 01)
+
+[7] Subscriber / channel cleanup verification
+sync.js:951 unsubscribe() iterates ch._channels[]; per-table channels have ch._dispose = () => { disposed = true; clearTimeout(retryTimer); }
+sync.js:944 broadcastCh._dispose calls each postgres channel's _dispose.
+App.jsx:2091 useEffect cleanup: () => { unsubscribe(realtimeChannel.current); }
+
+[8] Realtime backoff verification
+sync.js:728-758  subscribeTableChanges retry loop:
+  MAX_RETRIES = 10
+  BASE_DELAY_MS = 2000
+  delay = Math.min(2000 * 2^retryCount, 60000)
+sync.js:910-928  broadcast channel retry same algorithm with separate counter.
+
+[9] Polling fallback (App.jsx:2413-2443) — only events / memos / saved_places
+  fetchEvents(familyId).then(map => setEvents(...))
+  fetchMemos(familyId).then(map => setMemos(...))
+  fetchSavedPlaces(familyId, { meta: true }).then(({ list, breaker }) => ...)
+Period: 30 s
+NOT polled: memo_replies, academies, daily_supplies, child_locations, family_members, family_subscription, danger_zones
+
+[10] Offline detection
+grep "navigator\.onLine|@capacitor/network|Network\.addListener" src/:  0 matches.
+grep "window\.addEventListener\('offline'|'online" src/:  0 matches.
+
+[11] AndroidManifest.xml — BOOT receiver verification
+android/app/src/main/AndroidManifest.xml:15  uses-permission RECEIVE_BOOT_COMPLETED
+android/app/src/main/AndroidManifest.xml:151 receiver BootReceiver
+android/app/src/main/AndroidManifest.xml:156-157 intent-filter BOOT_COMPLETED + LOCKED_BOOT_COMPLETED
+
+[12] Error Boundary stack-trace leak
+src/main.jsx:38-41
+  <details ...>
+    <summary>상세 오류 정보</summary>
+    <pre>{stack}{componentStack}</pre>
+  </details>
+
+[13] App.jsx line count
+wc -l src/App.jsx  ->  8198 lines (single megacomponent)
+wc -l src/lib/sync.js -> 1096 lines
+Total src/ jsx+js files: 159
+
+[14] DB select("*") audit  (only files in src/)
+src/lib/sync.js:220   fetchEvents       *  + events_children(child_id)  — no date filter / no .range()  (P1)
+src/lib/sync.js:241   fetchEventById    *  + events_children(child_id) — single id  (OK)
+src/lib/sync.js:254   fetchAcademies    *                                (P3)
+src/lib/sync.js:276   fetchMemos        *                                (P3, deprecated table)
+src/lib/sync.js:310   fetchSavedPlaces  *  + circuit-breaker             (OK)
+src/lib/sync.js:1025  fetchDangerZones  *                                (OK)
+src/lib/childSubscriptions.js:56  *                                       (P3)
+
+[15] Monitoring deps in package.json
+Searched for: sentry, datadog, bugsnag, rollbar, posthog, mixpanel, amplitude
+-> 0 matches.
+
+End of evidence.

@@ -1,0 +1,111 @@
+{
+  "agent": "11 Performance / Reliability / Offline Agent",
+  "status": "PARTIAL_VERIFIED",
+  "bundle_analysis": {
+    "main_kb": 1192,
+    "gzipped_kb": 365,
+    "code_split": false,
+    "concerns": [
+      "Vite default warn exceeded (>500 KB gzip-bound assets)",
+      "No manualChunks in vite.config.js",
+      "No React.lazy on parent-only or settings screens",
+      "No preconnect / preload in index.html",
+      "20 console.* statements survive in production bundle (no esbuild.drop)",
+      "App.jsx is a single 8,198-line component"
+    ]
+  },
+  "db_query_patterns": {
+    "n_plus_one": [],
+    "select_star": [
+      "src/lib/sync.js:217 fetchEvents (no date pagination)",
+      "src/lib/sync.js:251 fetchAcademies",
+      "src/lib/sync.js:273 fetchMemos (deprecated table)",
+      "src/lib/sync.js:299 fetchSavedPlaces (breaker-wrapped, OK)",
+      "src/lib/sync.js:1022 fetchDangerZones",
+      "src/lib/childSubscriptions.js:56"
+    ],
+    "no_pagination": [
+      "src/lib/sync.js:217 fetchEvents — no .range(), no date filter; unbounded by family age"
+    ]
+  },
+  "memory_leak_patterns": {
+    "useeffect_cleanup_missing": [],
+    "interval_leak": [],
+    "notes": [
+      "All 9 setInterval call sites cleaned up.",
+      "All 30 addEventListener call sites paired with removeEventListener.",
+      "Set-accumulator refs (firedNotifs, firedExactStatuses, arrivedSet, departedAlerts, academyFocusAlertedRef) grow over a session; bounded by event count but no day-rollover prune. P3."
+    ]
+  },
+  "offline_handling": {
+    "detection": false,
+    "retry": false,
+    "queue": false,
+    "optimistic_rollback": true,
+    "service_worker_cache_strategy": false,
+    "notes": [
+      "No navigator.onLine / @capacitor/network listener anywhere in src/.",
+      "Optimistic update + rollback present for events (insert/edit/delete) and voice events.",
+      "Failed mutation surfaces a toast and rolls back state; user must retry manually.",
+      "Service worker (public/sw.js) handles Web Push only; no fetch-event offline cache."
+    ]
+  },
+  "realtime_reconnect": {
+    "channel_error_backoff": true,
+    "max_retries": 10,
+    "backoff_cap_ms": 60000,
+    "missed_event_refetch_on_reconnect": false,
+    "polling_fallback_period_s": 30,
+    "polling_fallback_tables": ["events", "memos", "saved_places"],
+    "polling_fallback_missing": ["memo_replies", "academies", "daily_supplies", "child_locations", "family_members", "family_subscription", "danger_zones"]
+  },
+  "android_lifecycle": {
+    "background_handled": true,
+    "killed_fallback": true,
+    "boot_receiver": true,
+    "boot_receiver_path": "android/app/src/main/java/com/hyeni/calendar/BootReceiver.java",
+    "appStateChange_subscribed": false,
+    "visibilitychange_handled": true,
+    "service_dead_restart_on_resume": true
+  },
+  "error_boundary": {
+    "top_level": true,
+    "top_level_path": "src/main.jsx:15-51",
+    "stack_trace_leak": true,
+    "stack_trace_leak_path": "src/main.jsx:38-41",
+    "global_unhandledrejection_handler": false,
+    "global_error_handler": false
+  },
+  "monitoring": {
+    "sentry_or_equiv": false,
+    "datadog": false,
+    "posthog": false,
+    "console_log_count_src": 27,
+    "console_log_count_prod_bundle": 20,
+    "feedback_endpoint_only": true
+  },
+  "runtime_evidence": "NOT_VERIFIED — awaits paired devices",
+  "issues": [
+    {"id": "AGENT11-P1-001", "severity": "P1", "area": "Realtime missed-event recovery", "description": "CHANNEL_ERROR -> SUBSCRIBED reconnect does not trigger a re-fetch; polling fallback covers only 3 of 9 tables. Stale data on reconnect."},
+    {"id": "AGENT11-P1-002", "severity": "P1", "area": "DB pagination", "description": "fetchEvents has no .range() / date filter — unbounded JSON payload over years."},
+    {"id": "AGENT11-P1-003", "severity": "P1", "area": "Offline / queue", "description": "No online detection, no mutation queue; failed insert rolls back and asks user to retry manually."},
+    {"id": "AGENT11-P1-004", "severity": "P1", "area": "Polling gap (memo_replies)", "description": "Confirms Agent 04 P2 — active conversations stale if realtime degraded."},
+    {"id": "AGENT11-P2-005", "severity": "P2", "area": "Bundle size", "description": "1.22 MB / 365 KB gzip; no manualChunks; no React.lazy."},
+    {"id": "AGENT11-P2-006", "severity": "P2", "area": "Monitoring", "description": "No Sentry / equivalent. Production crashes invisible."},
+    {"id": "AGENT11-P2-007", "severity": "P2", "area": "Error boundary stack-trace leak", "description": "src/main.jsx:38-41 shows full stack to end users."},
+    {"id": "AGENT11-P2-008", "severity": "P2", "area": "Console statements in prod bundle", "description": "20 occurrences in dist/assets/index-DxioK-gY.js."},
+    {"id": "AGENT11-P2-009", "severity": "P2", "area": "App.jsx megacomponent", "description": "8,198 lines; whole-tree re-renders on every state change."},
+    {"id": "AGENT11-P2-010", "severity": "P2", "area": "MapPicker hot scan", "description": "Object.values(events).flat().find(...) on every render at App.jsx:7725."},
+    {"id": "AGENT11-P2-011", "severity": "P2", "area": "Global async error handler", "description": "No window 'error' / 'unhandledrejection' listener."},
+    {"id": "AGENT11-P3-012", "severity": "P3", "area": "appStateChange not subscribed", "description": "Only visibilitychange used."},
+    {"id": "AGENT11-P3-013", "severity": "P3", "area": "Set-accumulator refs", "description": "firedNotifs/firedExactStatuses/etc grow per session, no day-rollover prune."},
+    {"id": "AGENT11-P3-014", "severity": "P3", "area": "index.html preconnect/preload", "description": "No preconnect for Supabase / Kakao; no Pretendard preload."}
+  ],
+  "release_decision": "BLOCK",
+  "blocking_reasons": [
+    "AGENT11-P1-001: realtime missed-event recovery gap (no re-fetch on reconnect; 6 of 9 tables have no polling fallback)",
+    "AGENT11-P1-002: fetchEvents unbounded payload (no date pagination)",
+    "AGENT11-P1-003: no offline detection nor mutation queue (kid commute / subway scenario)",
+    "AGENT11-P1-004: memo_replies polling fallback missing (active conversations break on realtime drop)"
+  ]
+}

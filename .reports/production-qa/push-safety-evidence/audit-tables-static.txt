@@ -1,0 +1,77 @@
+Audit / safety table static checks - 2026-05-13
+=================================================
+
+Source: supabase/migrations/
+
+force_ring_events (20260427041200_force_ring.sql):
+  - RLS ENABLED.
+  - SELECT: family_members of family_id.
+  - INSERT: initiator_user_id = auth.uid() AND role=parent in family.
+  - UPDATE_INITIATOR: initiator_user_id = auth.uid().
+  - UPDATE_TARGET:    target_user_id    = auth.uid().
+  - No DELETE policy -> immutable audit (service_role only).
+  - UNIQUE PARTIAL INDEX ON (family_id) WHERE stopped_at IS NULL.
+  - UNIQUE INDEX ON client_request_hash WHERE NOT NULL.
+  - force_ring_check_quota(uuid): SECURITY DEFINER, revoked from anon.
+  STATUS: PASS.
+
+remote_listen_sessions (20260421113053_phase5_safety_tables_and_rpc.sql):
+  - RLS ENABLED.
+  - SELECT: family_members of family_id.
+  - INSERT: family_members of family_id.
+  - UPDATE: family_members of family_id AND
+            (initiator_user_id = auth.uid() OR child_user_id = auth.uid()).
+  - No DELETE policy -> append-mostly audit.
+  - family_subscription.remote_listen_enabled BOOL DEFAULT TRUE kill switch.
+  STATUS: PASS (Agent 02 anon 401 confirmed).
+
+sos_events (20260421113053):
+  - RLS ENABLED.
+  - SELECT: family_members of family_id.
+  - INSERT: family_members of family_id AND sender_user_id = auth.uid().
+  - No UPDATE / DELETE policy -> immutable.
+  - kkuk_check_cooldown(uuid): SECURITY DEFINER 5s cooldown probe.
+  STATUS: PASS (Agent 02 anon 401 confirmed).
+
+fcm_tokens (20260314000002_native_push_support.sql):
+  - RLS ENABLED.
+  - users_manage_own_fcm_tokens: user_id = auth.uid() for ALL.
+  - UNIQUE (user_id, fcm_token).
+  - cascade DELETE on auth.users + families.
+  STATUS: PASS (Agent 02 anon 401).
+
+push_subscriptions (20260313000000_push_tables.sql):
+  - RLS ENABLED.
+  - users_manage_own_subs: user_id = auth.uid() for ALL.
+  - UNIQUE (user_id, endpoint).
+  STATUS: PASS (Agent 02 anon 401).
+
+pending_notifications (20260314000002):
+  - RLS ENABLED (Agent 02 confirmed).
+  - SELECT/UPDATE via SECURITY DEFINER RPCs granted to anon,
+    authenticated, service_role.
+  STATUS: PASS RLS layer; concern flagged below.
+  NEW FINDING N1 [P1]:
+    get_pending_notifications(p_family_id uuid) is SECURITY DEFINER and
+    GRANTED to anon. It filters only on p_family_id with no auth check
+    inside the function. Any caller (even anon) with a family_id UUID
+    can read title/body/data jsonb of every pending notification.
+    Mitigated by: family_id is a UUID (256-bit search space) and rows
+    expire in 1 day. Still a data-leakage surface on a safety product.
+    Suggested fix: add p_family_id IN (SELECT family_id FROM
+    public.family_members WHERE user_id = auth.uid()) guard, or REVOKE
+    EXECUTE FROM anon.
+
+push_idempotency (20260421103838_push_idempotency_table.sql):
+  - Migration creates the table WITHOUT ENABLE ROW LEVEL SECURITY and
+    WITHOUT any CREATE POLICY.
+  - Agent 02 confirmed live state: anon SELECT 323, anon INSERT 201,
+    anon DELETE 204.
+  - CARRYFORWARD P0 (Agent 02 F-001/F-002):
+    emergency push suppression vector via pre-claim.
+
+push_sent (20260313000000_push_tables.sql):
+  - Migration declares ENABLE ROW LEVEL SECURITY + USING (false) for SELECT.
+  - Agent 02 confirmed live state has drifted: anon SELECT 182, INSERT 201,
+    DELETE 204.
+  - CARRYFORWARD P0 (Agent 02 F-001).

@@ -1,0 +1,85 @@
+push-notify static trace - 2026-05-13
+======================================
+
+Source: supabase/functions/push-notify/index.ts (1580 lines)
+
+Auth gate (L411-451):
+  - All non-OPTIONS requests require Authorization: Bearer <jwt>.
+  - getClaims() via authClient.auth.getClaims(token) re-verifies signature
+    in-function (gateway deployed with --no-verify-jwt for supabase#42244).
+  - service_role JWTs allowed without sub claim (cron path).
+  - Any other JWT must carry sub claim, else 401.
+
+Action routing (L465-490):
+  body.action in {
+    playdate_started, playdate_ended,
+    force_ring, force_ring_stop, force_ring_reminder,
+    new_event, new_memo, kkuk, parent_alert,
+    remote_listen, remote_listen_stop,
+    request_location, request_device_status,
+    emergency, sos
+  } -> handleInstantNotification + per-action helpers.
+  Unknown action -> falls through to handleCronNotification (cron mode).
+
+Family membership gate (handleInstantNotification, L863-884):
+  - Non-service_role callers MUST be a member of body.familyId
+    (family_members SELECT). Service-role bypasses.
+
+Primary-parent gate (L887-914):
+  - canCallerSendAction() in ./notificationRouting.ts gates remote-control
+    actions: co-parents (role=parent but families.parent_id != user) cannot
+    trigger remote_listen/request_location/force_ring/etc.
+
+force_ring authorization (handleForceRing, L498-690):
+  - L507-515: caller must be role=parent in family.
+  - L519-532: client_request_hash dedup (return existing event_id).
+  - L535-547: force_ring_check_quota (free 1/day, premium 10/day) -> 429.
+  - L552-581: target_user_id must be child in same family, else 404.
+  - L598-624: INSERT force_ring_events; UNIQUE partial idx ON family_id
+    WHERE stopped_at IS NULL prevents concurrent active events -> 423.
+  - L627-646: FCM lookup; if no tokens, mark stopped_at delivery_failed.
+  - L662-683: data-only FCM with TTL 600s, direct_boot_ok.
+
+Idempotency (L926-949):
+  - Idempotency-Key header OR body.idempotency_key (UUID).
+  - INSERT push_idempotency, 23505 unique-violation = duplicate (200).
+  - 22P02 invalid UUID = 400.
+  - Other error = log + proceed (best-effort).
+
+Memo recipient routing (L1051-1074):
+  - new_memo with targetChildUserId: only that child + parents.
+
+Parent recipient routing (L1080-1106):
+  - sos -> both parents, kkuk -> primary parent only
+    (selectParentRecipientsForAction in ./notificationRouting.ts).
+
+Pending notifications fallback (L1138-1180):
+  - Inserted regardless of FCM recipient count (D-A04).
+  - remote_listen/request_location set expires_at (5min/2min).
+
+NEW FINDINGS (Agent 06):
+  G1 [P2] No per-user/per-IP rate limit on push-notify. Force ring has
+        quota; instant push (kkuk/new_event/remote_listen/parent_alert/sos)
+        has only idempotency dedup. An authenticated family member could
+        spam kkuk or parent_alert push within their family.
+  G2 [P2] No body size cap on title/message for instant notifications;
+        only force_ring trims message to 80 chars. FCM hard-caps at 4KB
+        so worst-case is fcm_send failure, not pivot.
+  G3 [P2] L493 + L623 return String(err) / pg-error message to client
+        on uncaught failure. Low risk: error strings, not stack traces.
+  G4 [P2] L850: when callerRole === 'service_role', body.senderUserId
+        is trusted as override. service_role JWT is service-only, so the
+        bypass is acceptable; flagged for review only.
+
+Carryforward (Agent 02):
+  - P0 push_idempotency anon RLS bypass:
+    An attacker who knows a family_id can pre-INSERT an idempotency-key
+    BEFORE the parent sends a force_ring or sos. The Edge Function's
+    L930-948 INSERT then hits 23505 and short-circuits "duplicate: true"
+    without dispatching the push. CRITICAL for child safety -- emergency
+    notifications can be silently suppressed.
+  - P0 push_sent anon RLS bypass:
+    Same suppression pattern for cron 15min/5min event reminders.
+
+Force-ring ack flow: ForceRingActivity (android/.../ForceRingActivity.java
+L184-229) POSTs to /rpc/force_ring_acknowledge with stored access token.

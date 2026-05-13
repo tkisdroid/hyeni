@@ -1,0 +1,147 @@
+{
+  "agent": "02 Supabase DB / Migration / RLS / Realtime Agent",
+  "status": "FAIL",
+  "run_at_utc": "2026-05-12T12:55:00Z",
+  "db_environment": "production-readonly",
+  "project_ref": "qzrrscryacxhprnrtpjd",
+  "migrations": {
+    "total": 69,
+    "down_files_present": 50,
+    "destructive_with_rollback": 0,
+    "destructive_without_rollback": 0,
+    "pre_phase1_carveout_no_down": 15,
+    "post_phase1_missing_down": 4,
+    "issues": [
+      "Post-Phase-1 missing down files: 20260423090000_daily_supplies.sql, 20260424000000_join_family_as_parent_rpc.sql, 20260429160000_rls_returning_visibility.sql, 20260511000000_memo_replies_add_child_id.sql",
+      "push_idempotency table migration (20260421103838) creates the table but never enables RLS and defines no policies — Postgres default leaves anon with full SELECT/INSERT/DELETE",
+      "0 occurrences of DISABLE ROW LEVEL SECURITY in any migration",
+      "1 occurrence of USING (true) — public_places SELECT to authenticated; intentional and acceptable",
+      "Monotonic timestamp ordering verified across all 69 files"
+    ]
+  },
+  "rls_evidence": [
+    {"table": "families", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "family_members", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "events", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "events_children", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "child_locations", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "location_history", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "saved_places", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "academies", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "danger_zones", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "memos", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "memo_replies", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "remote_listen_sessions", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "sos_events", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "force_ring_events", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "pending_notifications", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "fcm_tokens", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "family_subscription", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "subscriptions", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "user_profiles", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "public_places", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": ["USING (true) SELECT to authenticated by design"]},
+    {"table": "friend_playdate_sessions", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "emergency_audio_chunks", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "push_subscriptions", "rls_enabled": true, "anon_select_count": 0, "anon_insert_status": 401, "concerns": []},
+    {"table": "push_idempotency", "rls_enabled": false, "anon_select_count": 323, "anon_insert_status": 201, "concerns": ["P0: anon SELECT/INSERT/DELETE all return 2xx", "migration never enables RLS", "exposes family_id + action enumeration"]},
+    {"table": "push_sent", "rls_enabled": false, "anon_select_count": 182, "anon_insert_status": 201, "concerns": ["P0: migration declares ENABLE ROW LEVEL SECURITY + USING (false) but prod state has drifted", "anon SELECT/INSERT/DELETE all return 2xx"]},
+    {"table": "daily_supplies", "rls_enabled": null, "anon_select_count": null, "anon_insert_status": 404, "concerns": ["Table not present on production"]}
+  ],
+  "realtime_evidence": [
+    {"table": "events", "in_publication": "assumed-baseline-pre-phase1", "replica_identity": "FULL"},
+    {"table": "memos", "in_publication": "assumed-baseline-pre-phase1", "replica_identity": "FULL"},
+    {"table": "memo_replies", "in_publication": true, "replica_identity": "FULL"},
+    {"table": "academies", "in_publication": "assumed-baseline-pre-phase1", "replica_identity": "FULL"},
+    {"table": "saved_places", "in_publication": true, "replica_identity": "FULL"},
+    {"table": "family_subscription", "in_publication": true, "replica_identity": "FULL"},
+    {"table": "child_locations", "in_publication": true, "replica_identity": "FULL"},
+    {"table": "family_members", "in_publication": true, "replica_identity": "FULL"},
+    {"table": "force_ring_events", "in_publication": true, "replica_identity": "DEFAULT-or-unknown"},
+    {"table": "friend_playdate_sessions", "in_publication": true, "replica_identity": "DEFAULT-or-unknown"},
+    {"table": "subscriptions", "in_publication": true, "replica_identity": "DEFAULT-or-unknown"},
+    {"table": "events_children", "in_publication": true, "replica_identity": "DEFAULT-or-unknown"},
+    {"table": "daily_supplies", "in_publication": true, "replica_identity": "FULL"},
+    {"table": "pending_notifications", "in_publication": false, "replica_identity": "n/a", "note": "Polling fallback by design"},
+    {"table": "location_history", "in_publication": "not-found", "replica_identity": "n/a"},
+    {"table": "remote_listen_sessions", "in_publication": "not-found", "replica_identity": "n/a"},
+    {"table": "sos_events", "in_publication": "not-found", "replica_identity": "n/a"}
+  ],
+  "edge_function_audit": [
+    {"name": "push-notify", "jwt_check": true, "service_role_use": "server-only", "cors": "*", "concerns": []},
+    {"name": "ai-voice-parse", "jwt_check": false, "service_role_use": "none", "cors": "*", "concerns": ["P1: no auth gate", "OpenAI cost abuse vector", "image mode escalates to gpt-4o"]},
+    {"name": "ai-child-monitor", "jwt_check": true, "service_role_use": "none", "cors": "*", "concerns": ["No family membership check; minor"]},
+    {"name": "qonversion-webhook", "jwt_check": "hmac-or-allow-unsigned-env-flag", "service_role_use": "server-only", "cors": "implicit", "concerns": ["P2 NOT_VERIFIED: QONVERSION_ALLOW_UNSIGNED_WEBHOOKS=1 env override silently disables signature check"]},
+    {"name": "subscription-reconcile", "jwt_check": false, "service_role_use": "server-only", "cors": "implicit", "concerns": ["P1: no auth gate; anyone can trigger Qonversion fan-out + DB upserts"]},
+    {"name": "send-sms", "jwt_check": "standardwebhooks-secret", "service_role_use": "none", "cors": "implicit", "concerns": []},
+    {"name": "naver-auth", "jwt_check": "intentional-no-verify-jwt-for-oauth", "service_role_use": "server-only (admin API)", "cors": "*", "concerns": ["OAuth code single-use; acceptable"]},
+    {"name": "feedback-email", "jwt_check": false, "service_role_use": "none", "cors": "*", "concerns": ["P2: no auth + no rate limit; spam and Resend cost abuse vector"]}
+  ],
+  "service_role_leak_check": {
+    "scope": ["dist/", "src/", "public/", "android/app/src/"],
+    "patterns_searched": ["service_role", "SUPABASE_SERVICE_ROLE_KEY", "JWT with role=service_role payload", "OPENAI_API_KEY", "RESEND_API_KEY", "NCP_SENS_SECRET", "FCM_PRIVATE_KEY", "VAPID_PRIVATE"],
+    "findings": [],
+    "note": "Only the anon JWT is present in dist bundle (expected)."
+  },
+  "issues": [
+    {
+      "severity": "P0",
+      "id": "F-001",
+      "title": "push_idempotency + push_sent anon-readable and anon-writable in production",
+      "description": "Anon role with the published key can SELECT/INSERT/DELETE on public.push_idempotency (323 rows visible) and public.push_sent (182 rows visible). Enables emergency push suppression (idempotency-key pre-claim short-circuits push-notify), timed-reminder suppression (pre-insert push_sent dedup rows), and family-activity enumeration. Verified live with 201 INSERT and 204 DELETE on both tables (probe rows cleaned up). Migration code for push_sent declares ENABLE ROW LEVEL SECURITY + USING (false) -> production state has drifted. Migration code for push_idempotency never declares RLS at all.",
+      "evidence_path": ".reports/production-qa/supabase-evidence/anon-probe-table.txt"
+    },
+    {
+      "severity": "P0",
+      "id": "F-002",
+      "title": "push_idempotency migration never enables RLS",
+      "description": "20260421103838_push_idempotency_table.sql creates the table without ENABLE ROW LEVEL SECURITY and without any CREATE POLICY. Root-cause source for F-001 column 1.",
+      "evidence_path": "supabase/migrations/20260421103838_push_idempotency_table.sql"
+    },
+    {
+      "severity": "P1",
+      "id": "F-003",
+      "title": "subscription-reconcile Edge Function lacks JWT verification",
+      "description": "POST handler opens a service-role Supabase client and fans out to up to 100 stale subscriptions per call without any auth gate. Denial-of-wallet vector on Qonversion API and DB writes.",
+      "evidence_path": "supabase/functions/subscription-reconcile/index.ts"
+    },
+    {
+      "severity": "P1",
+      "id": "F-004",
+      "title": "ai-voice-parse accepts unauthenticated callers",
+      "description": "No getClaims() check; body is forwarded to OpenAI chat/completions. Image mode escalates to gpt-4o. Trivial OpenAI-key cost abuse + free image inference relay.",
+      "evidence_path": "supabase/functions/ai-voice-parse/index.ts"
+    },
+    {
+      "severity": "P2",
+      "id": "F-005",
+      "title": "Realtime publication coverage for audit/safety tables NOT_VERIFIED",
+      "description": "No ALTER PUBLICATION add for location_history, remote_listen_sessions, sos_events. Acceptable if client does not subscribe via postgres_changes; cannot verify statically.",
+      "evidence_path": "supabase/migrations/"
+    },
+    {
+      "severity": "P2",
+      "id": "F-006",
+      "title": "QONVERSION_ALLOW_UNSIGNED_WEBHOOKS env override exists",
+      "description": "qonversion-webhook/index.ts:23 - if env=1, signature verification is bypassed. Cannot read function env via anon. Marked NOT_VERIFIED.",
+      "evidence_path": "supabase/functions/qonversion-webhook/index.ts"
+    },
+    {
+      "severity": "P2",
+      "id": "F-007",
+      "title": "Four post-Phase-1 migrations missing paired down files",
+      "description": "Convention violation per supabase/migrations/down/README.md Rule 1. None destructive - operational debt only.",
+      "evidence_path": "supabase/migrations/down/"
+    },
+    {
+      "severity": "P2",
+      "id": "F-008",
+      "title": "feedback-email is open relay to admin inbox",
+      "description": "No JWT check, no rate limit, CORS *. Spam + Resend cost abuse.",
+      "evidence_path": "supabase/functions/feedback-email/index.ts"
+    }
+  ],
+  "release_decision": "BLOCK",
+  "blocking_reasons": [
+    "F-001 (P0): anon RLS bypass on push_idempotency and push_sent enables emergency-push suppression on a children-safety product"
+  ]
+}

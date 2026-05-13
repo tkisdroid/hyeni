@@ -1,0 +1,139 @@
+{
+  "agent": "04 Calendar / Memo / Daily Flow Agent",
+  "status": "PARTIAL_VERIFIED",
+  "run_at_utc": "2026-05-12T17:30:00Z",
+  "branch": "final/production-polish-and-real-device-qa",
+  "commit": "d5d183f",
+  "project_ref": "qzrrscryacxhprnrtpjd",
+  "calendar_static_analysis": {
+    "crud_correctness": "PASS — insertEvent/updateEvent/deleteEvent paths in src/lib/sync.js correctly map camelCase->snake_case; saveEventWithChildren handles M:N via upsert + delete-then-insert on events_children",
+    "isolation": "PASS — visibleEvents filter uses family_members.id (not auth.uid); parent uses selectedChild.id; child uses myFamilyMemberId; is_family_event=true bypasses both",
+    "optimistic_update": "PASS for edit branch (snapshot + revert on catch); PARTIAL for insert branch (no rollback, relies on 30s poll to clean up)",
+    "realtime_catch_join": "PASS — fetchEventById re-fetches events_children join on every INSERT/UPDATE postgres_changes notification",
+    "month_indexing": "0-indexed consistently across insert/edit/filter/sticker/memo; dateLabel uses +1 for display",
+    "recurrence": "weekly repeat generates N independent events (no RRULE) — intentional per product scope",
+    "concerns": [
+      "F1 P1: push body for edit_event renders 0-indexed month verbatim (2026-04-13 means May 13 to user) — App.jsx:4089",
+      "F2 P1: saveEventWithChildren is 3 sequential REST calls without transaction — partial failure desyncs events_children",
+      "insert-branch optimistic update has no rollback path (eventually corrected by 30s poll)"
+    ]
+  },
+  "memo_static_analysis": {
+    "realtime_setup": "PASS — memo_replies postgres_changes channel + broadcast memo_reply fallback both wired; 1s reconciler polls while memo page open",
+    "read_state": "PASS — mark_memo_reply_read RPC (SECURITY DEFINER, atomic append) with read-modify-write fallback; IntersectionObserver triggers after 3s continuous visibility",
+    "multichild_isolation": "PASS — server-side .eq(child_id) filter + client-side isMemoForSelectedChild policy B (NULL ignored)",
+    "self_echo": "INSERT handler drops on newRow.user_id === authUser.id — assumes one device per user; multi-device same-user (co-parent on phone+tablet) misses realtime, relies on 1s poll",
+    "concerns": [
+      "F3 P2: 30s polling fallback does not include memo_replies — memo-page-closed + realtime drop = stale until page reopens",
+      "F6 P2: self-user INSERT skip drops memos for multi-device same-user scenarios"
+    ]
+  },
+  "timezone_handling": {
+    "utc_storage": true,
+    "asia_seoul_display": true,
+    "dateKey_uses_local_time": true,
+    "leap_year_safe": true,
+    "year_boundary_safe": true,
+    "dst_relevant": false,
+    "concerns": [
+      "F7 P3: cross-timezone parent/child (parent KST, child EST) may see dateKey mismatch — by design ko-KR product"
+    ]
+  },
+  "realtime_publication_check": [
+    {"table": "events", "in_publication": true, "replica_identity": "FULL", "client_subscribes": true, "verdict": "PASS"},
+    {"table": "events_children", "in_publication": true, "replica_identity": "DEFAULT", "client_subscribes": false, "verdict": "PASS — coupled via events upsert"},
+    {"table": "memos", "in_publication": true, "replica_identity": "FULL", "client_subscribes": true, "verdict": "PASS"},
+    {"table": "memo_replies", "in_publication": true, "replica_identity": "FULL", "client_subscribes": true, "verdict": "PASS"},
+    {"table": "academies", "in_publication": true, "replica_identity": "FULL", "client_subscribes": true, "verdict": "PASS"},
+    {"table": "saved_places", "in_publication": true, "replica_identity": "FULL", "client_subscribes": true, "verdict": "PASS"},
+    {"table": "family_subscription", "in_publication": true, "replica_identity": "FULL", "client_subscribes": true, "verdict": "PASS"},
+    {"table": "daily_supplies", "in_publication": true, "replica_identity": "FULL", "client_subscribes": true, "verdict": "PASS"},
+    {"table": "child_locations", "in_publication": true, "replica_identity": "FULL", "client_subscribes": true, "verdict": "PASS"},
+    {"table": "family_members", "in_publication": true, "replica_identity": "(separate migration)", "client_subscribes": true, "verdict": "PASS"}
+  ],
+  "polling_fallback_coverage": {
+    "interval_ms": 30000,
+    "covered_tables": ["events", "memos", "saved_places"],
+    "uncovered_tables": ["memo_replies", "academies", "family_subscription", "daily_supplies", "child_locations", "family_members"],
+    "additional_polls": [
+      {"target": "memo_replies", "interval_ms": 1000, "scope": "memo page open only"},
+      {"target": "child_locations", "interval_ms": "see Agent 02"},
+      {"target": "parent_alerts", "interval_ms": 60000}
+    ],
+    "verdict": "PASS — gaps acceptable per current UX (background staleness self-heals on page open)"
+  },
+  "korean_emoji_handling": {
+    "column_type": "text (PostgreSQL UTF-8)",
+    "emoji_4byte_safe": true,
+    "verdict": "PASS"
+  },
+  "runtime_evidence": "NOT_VERIFIED — awaits paired devices",
+  "issues": [
+    {
+      "id": "F1",
+      "severity": "P1",
+      "area": "calendar.notif",
+      "title": "Push body shows wrong month (off-by-one) on edit_event",
+      "description": "App.jsx:4089 builds push message body by replacing - with / in messageDateKey. messageDateKey month is 0-indexed (currentMonth = today.getMonth()) so May 13 renders as 2026/4/13. Saved data unaffected; user-facing notification copy mislabels month.",
+      "evidence": "src/App.jsx:4089",
+      "recommended_fix": "Split messageDateKey by '-', render as ${y}/${m+1}/${d} or ${y}년 ${m+1}월 ${d}일. Audit any other path consuming raw dateKey for display."
+    },
+    {
+      "id": "F2",
+      "severity": "P1",
+      "area": "calendar.transaction",
+      "title": "saveEventWithChildren is non-atomic; partial failure desyncs events_children",
+      "description": "Sequence is (1) upsert events, (2) delete all events_children for event_id, (3) insert new events_children rows. Each call is a separate REST request with no transaction wrapper. If step 3 fails (network glitch, RLS rejection), step 1+2 commit and the event ends up with no children — disappears from every child's filter because is_family_event=false and child_ids=[].",
+      "evidence": "src/lib/sync.js:1080-1093",
+      "recommended_fix": "Wrap in a SECURITY DEFINER RPC (single transaction). Alternative: fall back to is_family_event=true when childIds.length === 0 to avoid the 'invisible event' failure mode."
+    },
+    {
+      "id": "F3",
+      "severity": "P2",
+      "area": "memo.realtime",
+      "title": "30s polling fallback omits memo_replies",
+      "description": "App.jsx:2412 30-second poll covers events + memos + saved_places. memo_replies relies on the 1s memo-page-open poll only. Memo page closed + realtime drop = stale until user opens memo page.",
+      "evidence": "src/App.jsx:2412-2443",
+      "recommended_fix": "Add a quiet fetchMemoRepliesForDateKeys call for the current dateKey window in the 30s loop. Low cost."
+    },
+    {
+      "id": "F4",
+      "severity": "P2",
+      "area": "events_children.rls",
+      "title": "events_children INSERT policy lacks family-scope check on child_id",
+      "description": "RLS WITH CHECK validates event_id is in caller's family events, but does not validate child_id is in caller's family_members. A misbehaving authenticated client with primary parent role could insert (event_id, foreign_child_id). No known attack vector via current UX (selectedChild is family-scoped) but defense-in-depth gap.",
+      "evidence": "supabase/migrations/20260429000005_multichild_m5_rls_policies.sql:42-51; supabase/migrations/20260429120000_coparent_permissions.sql:116-130",
+      "recommended_fix": "Extend WITH CHECK to require child_id IN (SELECT id FROM family_members WHERE family_id = (SELECT family_id FROM events WHERE id = event_id))."
+    },
+    {
+      "id": "F5",
+      "severity": "P2",
+      "area": "daily_supplies.grant",
+      "title": "GRANT ALL ON daily_supplies TO anon",
+      "description": "Grant exposes all DML to anon. RLS blocks because auth.uid() is null, but the grant is broader than other tables (which use GRANT TO authenticated only). Inconsistent + raises attack surface.",
+      "evidence": "supabase/migrations/20260423090000_daily_supplies.sql:79",
+      "recommended_fix": "REVOKE ALL ON daily_supplies FROM anon; GRANT SELECT, INSERT, UPDATE ON daily_supplies TO authenticated;"
+    },
+    {
+      "id": "F6",
+      "severity": "P2",
+      "area": "memo.realtime",
+      "title": "Self-user INSERT skip drops memos for multi-device same-user",
+      "description": "onMemoRepliesChange handler skips when newRow.user_id === authUser.id to prevent optimistic double-render. Same user on two devices (e.g. co-parent on phone + tablet) means device B misses realtime; only the 1s memo-page poll recovers.",
+      "evidence": "src/App.jsx:2000",
+      "recommended_fix": "Replace self-skip with device-id check (sender_device_id in broadcast payload) OR rely on the existing id dedup at line 2009 to handle optimistic state without needing self-skip."
+    },
+    {
+      "id": "F7",
+      "severity": "P3",
+      "area": "calendar.timezone",
+      "title": "Cross-timezone parent/child see dateKey mismatch",
+      "description": "dateKey is device-local (today.getMonth()/getDate()). Parent in KST and child in EST will compute different dateKey for same UTC moment near midnight. Memo for 2026-05-12 on child side may not match parent's 2026-05-13.",
+      "evidence": "src/App.jsx:1134 (dateKey construction)",
+      "recommended_fix": "Out-of-scope for v1.0 (Asia/Seoul product). For v1.1+: standardize on Asia/Seoul-derived dateKey via Intl.DateTimeFormat."
+    }
+  ],
+  "release_decision": "ALLOW",
+  "blocking_reasons": [],
+  "summary_line": "STATUS=PARTIAL_VERIFIED | P0=0 P1=2 | calendar_static=PASS memo_static=PASS publications=10/10 OK"
+}

@@ -1,0 +1,32 @@
+# Agent 03 anon RLS probe (READ-ONLY — no writes, GET/SELECT only)
+# Run at: 2026-05-12T17:03:05Z
+# Project ref: qzrrscryacxhprnrtpjd
+
+table                          sel_status   rows_total
+---------------------------------------------------------------
+families                       200          0         
+family_members                 200          0         
+events                         200          0         
+events_children                200          0         
+child_locations                200          0         
+location_history               200          0         
+memos                          200          0         
+memo_replies                   200          0         
+saved_places                   200          0         
+academies                      200          0         
+danger_zones                   200          0         
+subscriptions                  200          0         
+family_subscription            200          0         
+remote_listen_sessions         200          0         
+sos_events                     200          0         
+force_ring_events              200          0         
+pending_notifications          200          0         
+fcm_tokens                     200          0         
+push_subscriptions             200          0         
+pair_attempts                  200          0         
+stickers                       200          0         
+user_profiles                  200          0         
+friend_playdate_sessions       200          0         
+public_places                  200          0         
+child_audio_chunks             404          ?         
+emergency_audio_chunks         200          0         

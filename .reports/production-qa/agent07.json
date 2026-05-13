@@ -1,0 +1,160 @@
+{
+  "agent": "07 Android Two-Device Parent/Child Runtime Agent",
+  "status": "PARTIAL_VERIFIED",
+  "devices": {
+    "parent": {
+      "serial": "R5CY40EE6QE",
+      "model": "SM-A556S",
+      "manufacturer": "samsung",
+      "android_version": "16",
+      "sdk": "36",
+      "mode": "parent",
+      "online": true,
+      "install_success": true,
+      "evidence": [
+        ".reports/production-qa/android-two-device/parent-device-info.json",
+        ".reports/production-qa/android-two-device/parent-screenshots/01-launch.png",
+        ".reports/production-qa/android-two-device/parent-screenshots/01-launch.xml",
+        ".reports/production-qa/android-two-device/parent-screenshots/02-mode-select.png",
+        ".reports/production-qa/android-two-device/parent-screenshots/02-mode-select.xml",
+        ".reports/production-qa/android-two-device/parent-screenshots/03-after-mode-select.png",
+        ".reports/production-qa/android-two-device/parent-screenshots/03-after-mode-select.xml",
+        ".reports/production-qa/android-two-device/parent-screenshots/04-auth-screen.png",
+        ".reports/production-qa/android-two-device/parent-screenshots/04-auth-screen.xml",
+        ".reports/production-qa/android-two-device/parent-screenshots/04b-auth-expanded.png",
+        ".reports/production-qa/android-two-device/parent-screenshots/04b-auth-expanded.xml",
+        ".reports/production-qa/android-two-device/parent-logcat.log"
+      ]
+    },
+    "child": {
+      "serial": "ZY22H9VTQD",
+      "model": "motorola razr 40 ultra",
+      "manufacturer": "motorola",
+      "android_version": "15",
+      "sdk": "35",
+      "mode": "child",
+      "online": true,
+      "install_success": true,
+      "evidence": [
+        ".reports/production-qa/android-two-device/child-device-info.json",
+        ".reports/production-qa/android-two-device/child-screenshots/01-launch.png",
+        ".reports/production-qa/android-two-device/child-screenshots/01-launch.xml",
+        ".reports/production-qa/android-two-device/child-screenshots/02-mode-select.png",
+        ".reports/production-qa/android-two-device/child-screenshots/02-mode-select.xml",
+        ".reports/production-qa/android-two-device/child-screenshots/03-after-mode-select.png",
+        ".reports/production-qa/android-two-device/child-screenshots/03-after-mode-select.xml",
+        ".reports/production-qa/android-two-device/child-screenshots/07-pair-input.png",
+        ".reports/production-qa/android-two-device/child-screenshots/07-pair-input.xml",
+        ".reports/production-qa/android-two-device/child-logcat.log"
+      ]
+    }
+  },
+  "two_device_flows": [
+    {
+      "name": "install",
+      "status": "PASS",
+      "evidence": [
+        "adb -s R5CY40EE6QE install -r app-debug.apk -> Success",
+        "adb -s ZY22H9VTQD install -r app-debug.apk -> Success"
+      ]
+    },
+    {
+      "name": "app-data-clear",
+      "status": "PASS",
+      "evidence": [
+        "pm clear com.hyeni.calendar -> Success on both"
+      ]
+    },
+    {
+      "name": "cold-launch",
+      "status": "PASS",
+      "evidence": [
+        "PARENT pid=7230 alive",
+        "CHILD pid=31908 alive",
+        "no FATAL/ANR/Force closed in logcat for either device"
+      ]
+    },
+    {
+      "name": "mode-select-screen-renders",
+      "status": "PASS",
+      "evidence": [
+        "01-launch.xml shows '누구로 시작할까요?', '부모로 시작', '자녀로 시작' on both devices"
+      ]
+    },
+    {
+      "name": "role-toggle-and-next",
+      "status": "PASS",
+      "evidence": [
+        "PARENT tap 부모로 시작 (539,1058) then 다음 (539,2079) -> reached auth screen",
+        "CHILD tap 자녀로 시작 (539,1492) then 다음 (539,2397) -> reached pair input screen"
+      ]
+    },
+    {
+      "name": "parent-auth-screen-renders",
+      "status": "PASS",
+      "evidence": [
+        "04-auth-screen.xml shows 카카오/네이버/구글 + '아이디 · 비밀번호로 로그인' + 가입하기",
+        "04b-auth-expanded.xml shows '로그인' CTA after expansion"
+      ]
+    },
+    {
+      "name": "child-pair-input-screen-renders",
+      "status": "PASS",
+      "evidence": [
+        "07-pair-input.xml shows '부모님과 연결하기', '부모님 앱에 있는 연동 코드를 입력해 주세요', 'QR로 연결하기', '코드는 24시간 동안만 사용할 수 있어요'"
+      ]
+    },
+    {
+      "name": "parent-authentication",
+      "status": "NOT_VERIFIED",
+      "reason": "OAuth requires external app handoff; email/password requires pre-existing test account. Cannot safely automate without touching production data."
+    },
+    {
+      "name": "family-create-and-pair-code",
+      "status": "NOT_VERIFIED",
+      "reason": "Blocked by parent-authentication step."
+    },
+    {
+      "name": "child-enters-pair-code",
+      "status": "NOT_VERIFIED",
+      "reason": "Blocked by pair code issuance step."
+    },
+    {
+      "name": "paired-state-home-screens",
+      "status": "NOT_VERIFIED",
+      "reason": "Blocked by pairing step."
+    }
+  ],
+  "logcat_summary": [
+    {"signal": "FATAL EXCEPTION", "parent_count": 0, "child_count": 0},
+    {"signal": "ANR", "parent_count": 0, "child_count": 0},
+    {"signal": "Force closed", "parent_count": 0, "child_count": 0},
+    {"signal": "com.hyeni.calendar E/", "parent_count": 0, "child_count": 0},
+    {"signal": "AmbientListen plugin registered", "parent": true, "child": true},
+    {"signal": "FCM token primed", "parent": true, "child": true},
+    {"signal": "RealtimeMovingContextProvider hit", "parent": true, "child": "not_observed_pre_auth"}
+  ],
+  "screenshots": [
+    "parent-screenshots/01-launch.png (mode select)",
+    "parent-screenshots/02-mode-select.png (parent role selected, helper text gone)",
+    "parent-screenshots/03-after-mode-select.png == 04-auth-screen.png (auth options + welcome)",
+    "parent-screenshots/04b-auth-expanded.png (email/password form expanded)",
+    "child-screenshots/01-launch.png (mode select)",
+    "child-screenshots/02-mode-select.png (child role selected)",
+    "child-screenshots/03-after-mode-select.png == 07-pair-input.png (pair code input + QR)"
+  ],
+  "manual_steps_required": [
+    "Complete authentication on PARENT (R5CY40EE6QE) using OAuth or a pre-existing test email/password account.",
+    "Create family on PARENT and capture the 6-digit pair code (06-pair-code-shown).",
+    "Enter the pair code on CHILD (ZY22H9VTQD) via the '부모님과 연결하기' screen (08-paired-state on parent, 09-paired-state on child).",
+    "Verify PARENT home shows the newly paired CHILD card (10-home parent).",
+    "Verify CHILD home shows real-time data + parent-issued schedule (11-home child).",
+    "Re-run a follow-up agent or manual QA pass to capture screenshots 06-11 after manual pairing."
+  ],
+  "issues": [],
+  "release_decision": "BLOCK",
+  "blocking_reasons": [
+    "End-to-end parent/child pairing flow not verified on real devices — OAuth/family-create/pair-entry/paired-home unverified.",
+    "PARTIAL_VERIFIED status: pre-auth runtime is healthy on both devices but the headline two-device pairing flow has no evidence."
+  ]
+}
