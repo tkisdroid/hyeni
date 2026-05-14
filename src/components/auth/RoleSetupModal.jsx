@@ -12,7 +12,13 @@ import { HyeniMascot } from "./HyeniMascot.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 export function RoleSetupModal({ onSelect, loading }) {
-    const [authView, setAuthView] = useState(null);  // null | "login" | "signup"
+    const [authView, setAuthView] = useState(() => {
+        try {
+            const visited = localStorage.getItem("hyeni-has-visited");
+            const lastRole = localStorage.getItem("hyeni-last-role");
+            return visited && !lastRole ? "login" : null;
+        } catch { return null; }
+    });  // null | "login" | "signup"
     const [selected, setSelected] = useState(null);  // null | "parent" | "child"
     const isReturning = (() => {
         try { return !!localStorage.getItem("hyeni-has-visited"); } catch { return false; }

@@ -5,14 +5,13 @@
 // cartoon-status. 모든 핸들러/state/codeSent 흐름 보존.
 
 import { useState } from "react";
-import { requestPhoneSignupCode, verifyPhoneSignupCode } from "../../lib/accountAuth.js";
+import { requestPhoneSignupCode, verifyPhoneSignupCode, checkLoginIdAvailability, isValidLoginId } from "../../lib/accountAuth.js";
 import { useBackHandler } from "../../lib/backHandler.js";
 import { rememberParentPairingIntent, clearParentPairingIntent } from "../../lib/parentPairingIntent.js";
 import { AppBrandLogo } from "./AppBrandLogo.jsx";
 import { BirthdatePicker } from "../birthdate/BirthdatePicker.jsx";
 import { HeartsBackground } from "../decoration/HeartsBackground.jsx";
 import {
-    ParentMomDuo,
     ParentMom,
     ParentDad,
     ParentGuardian,
@@ -31,7 +30,32 @@ export function ParentSignupScreen({ onBack }) {
     const [signup, setSignup] = useState({ name: "", loginId: "", password: "", passwordConfirm: "", gender: "", birthdate: "", phone: "" });
     const [otp, setOtp] = useState("");
     const [pendingSignup, setPendingSignup] = useState(null);
+    const [idCheck, setIdCheck] = useState({ status: "idle", message: "" });
     const codeSent = !!pendingSignup && !pendingSignup.session;
+
+    const passwordRuleOk = signup.password.length >= 6;
+    const passwordMatchOk = signup.passwordConfirm.length > 0 && signup.password === signup.passwordConfirm;
+
+
+    const handleCheckLoginId = async () => {
+        if (codeSent || busy) return;
+        const loginId = signup.loginId.trim().toLowerCase();
+        if (!isValidLoginId(loginId)) {
+            setIdCheck({ status: "invalid", message: "ID는 영문 소문자, 숫자, ., _, - 조합 4~24자로 입력해 주세요" });
+            return;
+        }
+        setBusy("id-check");
+        setIdCheck({ status: "checking", message: "중복 확인 중..." });
+        try {
+            const available = await checkLoginIdAvailability(loginId);
+            if (available) setIdCheck({ status: "ok", message: "사용 가능한 ID예요" });
+            else setIdCheck({ status: "dup", message: "이미 사용 중인 ID예요" });
+        } catch (err) {
+            setIdCheck({ status: "error", message: err?.message || "중복 확인에 실패했어요" });
+        } finally {
+            setBusy("");
+        }
+    };
 
     const handleRequestCode = async (event) => {
         event.preventDefault();
@@ -125,7 +149,7 @@ export function ParentSignupScreen({ onBack }) {
                             overflow: "hidden",
                         }}
                     >
-                        <ParentMomDuo size={108} ariaLabel="" />
+                        <span style={{ display:"flex", gap:8 }}><span><AppBrandLogo size={40} radius={10} shadow={false} /></span><span style={{ marginTop: 8 }}><AppBrandLogo size={32} radius={9} shadow={false} /></span><span style={{ marginTop: 14 }}><AppBrandLogo size={28} radius={8} shadow={false} /></span></span>
                     </span>
                     <h1 className="cartoon-title">학부모 가입</h1>
                     <p className="cartoon-subtitle">혜니캘린더에 처음 오셨군요</p>
@@ -150,14 +174,23 @@ export function ParentSignupScreen({ onBack }) {
                         </label>
                         <label className="cartoon-field">
                             <span className="cartoon-label">아이디</span>
+                            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
                             <input
                                 value={signup.loginId}
-                                onChange={(e) => setSignup((p) => ({ ...p, loginId: e.target.value }))}
+                                onChange={(e) => {
+                                    const next = e.target.value;
+                                    setSignup((p) => ({ ...p, loginId: next }));
+                                    setIdCheck({ status: "idle", message: "" });
+                                }}
                                 autoComplete="username"
                                 placeholder="parent01"
                                 disabled={codeSent}
                                 className="input"
+                                style={{ flex: 1 }}
                             />
+                            <button type="button" className="btn btn-secondary" disabled={codeSent || !!busy} onClick={handleCheckLoginId} style={{ minHeight: 44, padding: "0 14px", whiteSpace: "nowrap" }}>중복확인</button>
+                            </div>
+                            {idCheck.message && <span className="cartoon-caption" style={{ color: idCheck.status === "ok" ? "#1C8245" : "#B87A00" }}>{idCheck.message}</span>}
                         </label>
                         <label className="cartoon-field">
                             <span className="cartoon-label">비밀번호</span>
@@ -171,6 +204,9 @@ export function ParentSignupScreen({ onBack }) {
                                 className="input"
                             />
                         </label>
+                        <div className="cartoon-caption" style={{ color: signup.password.length === 0 ? "#7A6770" : passwordRuleOk ? "#1C8245" : "#B87A00" }}>
+                            {signup.password.length === 0 ? "비밀번호는 6자 이상 입력해 주세요" : passwordRuleOk ? "비밀번호 조건이 충족됐어요" : "비밀번호는 6자 이상이어야 해요"}
+                        </div>
                         <label className="cartoon-field">
                             <span className="cartoon-label">비밀번호 확인</span>
                             <input
@@ -183,28 +219,32 @@ export function ParentSignupScreen({ onBack }) {
                                 className="input"
                             />
                         </label>
+                        <div className="cartoon-caption" style={{ color: signup.passwordConfirm.length === 0 ? "#7A6770" : passwordMatchOk ? "#1C8245" : "#B87A00" }}>
+                            {signup.passwordConfirm.length === 0 ? "비밀번호를 한 번 더 입력해 주세요" : passwordMatchOk ? "비밀번호가 일치해요" : "비밀번호가 일치하지 않아요"}
+                        </div>
                         <fieldset
                             disabled={codeSent}
                             style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", border: "none", padding: 0, margin: 0 }}
                         >
                             <legend className="cartoon-label" style={{ paddingBottom: "var(--space-1)" }}>역할</legend>
                             <div role="radiogroup" aria-label="역할" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
-                                {ROLE_OPTIONS.map(({ value }) => {
-                                    const selected = signup.gender === value;
+                                {ROLE_OPTIONS.map((opt) => {
+                                    const RoleIllust = opt.Illust;
+                                    const selected = signup.gender === opt.value;
                                     return (
                                         <button
-                                            key={value}
+                                            key={opt.value}
                                             type="button"
                                             role="radio"
                                             aria-checked={selected}
                                             disabled={codeSent}
-                                            onClick={() => setSignup((p) => ({ ...p, gender: value }))}
+                                            onClick={() => setSignup((p) => ({ ...p, gender: opt.value }))}
                                             className="cartoon-role-chip"
                                         >
                                             <span className="cartoon-role-chip-frame">
-                                                <Illust size={36} ariaLabel="" />
+                                                <RoleIllust size={36} ariaLabel="" />
                                             </span>
-                                            <span>{value}</span>
+                                            <span>{opt.value}</span>
                                         </button>
                                     );
                                 })}

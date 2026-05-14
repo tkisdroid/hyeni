@@ -3,7 +3,7 @@
 // Public props (`onBack`, `onSignupClick`) + 핸들러/state/useBackHandler 동작 보존.
 
 import { useState } from "react";
-import { kakaoLogin, googleLogin, naverLogin } from "../../lib/auth.js";
+import { kakaoLogin, googleLogin } from "../../lib/auth.js";
 import { signInWithLoginId } from "../../lib/accountAuth.js";
 import { useBackHandler } from "../../lib/backHandler.js";
 import { rememberParentPairingIntent, clearParentPairingIntent } from "../../lib/parentPairingIntent.js";
@@ -44,22 +44,6 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
             clearParentPairingIntent();
             console.error("[googleLogin]", err);
             setError(err?.message || "구글 로그인이 잠시 멈췄어요. 다시 해볼까요?");
-        } finally {
-            setBusy("");
-        }
-    };
-
-    const handleNaver = async () => {
-        setBusy("naver");
-        setError("");
-        setMessage("");
-        rememberParentPairingIntent();
-        try {
-            await naverLogin();
-        } catch (err) {
-            clearParentPairingIntent();
-            console.error("[naverLogin]", err);
-            setError(err?.message || "네이버 로그인이 잠시 멈췄어요. 다시 해볼까요?");
         } finally {
             setBusy("");
         }
@@ -206,28 +190,8 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                         }
                         label="구글로 계속하기"
                     />
-                    <ProviderButton
-                        onClick={handleNaver}
-                        busy={busy === "naver"}
-                        disabled={!!busy}
-                        background="#FFFFFF"
-                        color="#2A1A20"
-                        icon={
-                            <span style={{
-                                display: "inline-flex",
-                                width: 20,
-                                height: 20,
-                                background: "#03C75A",
-                                color: "#FFFFFF",
-                                borderRadius: 4,
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontWeight: 800,
-                                fontSize: 13,
-                            }}>N</span>
-                        }
-                        label="네이버로 계속하기"
-                    />
+
+                    <p style={{ margin: "2px 4px 4px", fontSize: 12, color: "#7A6770" }}>카카오/구글 간편로그인은 학부모 가입 후 설정에서 연동할 수 있어요.</p>
 
                     {!showIdPw ? (
                         <button

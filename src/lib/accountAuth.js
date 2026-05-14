@@ -238,18 +238,27 @@ export async function syncAuthProfile(user, fallback = {}, client = supabase) {
   return profile;
 }
 
+
+export async function checkLoginIdAvailability(loginId, client = supabase) {
+  const normalizedLoginId = normalizeLoginId(loginId);
+  if (!isValidLoginId(normalizedLoginId)) {
+    throw new Error("ID는 영문 소문자, 숫자, ., _, - 조합 4~24자로 입력해 주세요");
+  }
+
+  const { data: available, error } = await client.rpc("is_login_id_available", {
+    p_login_id: normalizedLoginId,
+  });
+  if (error) throw error;
+  return available !== false;
+}
+
 export async function requestPhoneSignupCode(input, client = supabase) {
   const validation = validateParentSignupForm(input);
   if (!validation.ok) throw new Error(firstValidationError(validation.errors));
 
   const { name, loginId, password, gender, birthdate, phoneAuth, phoneStorage } = validation.values;
-  if (typeof client.rpc === "function") {
-    const { data: available, error: availabilityError } = await client.rpc("is_login_id_available", {
-      p_login_id: loginId,
-    });
-    if (availabilityError) throw availabilityError;
-    if (available === false) throw new Error("이미 사용 중인 ID예요");
-  }
+  const idAvailable = await checkLoginIdAvailability(loginId, client);
+  if (!idAvailable) throw new Error("이미 사용 중인 ID예요");
 
   const metadata = {
     auth_provider: "phone",
