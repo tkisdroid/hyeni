@@ -1158,140 +1158,37 @@ export async function markAlertRead(alertId) {
 }
 
 // ── Multi-child event saving ─────────────────────────────────────────────────
-
-// saveEventWithChildren performs three sequential REST calls:
-//   1) upsert events row
-//   2) delete events_children for that event id
-//   3) insert new events_children links (skipped when familyAll)
 //
-// Supabase JS does not expose multi-statement transactions, so a partial
-// failure between steps 1-3 used to leave the event row visible with
-// is_family_event=false AND no child_ids — i.e. an "orphaned" schedule that
-// no child can see. We now apply client-side compensation: snapshot the
-// pre-write state, then on partial failure either revert the row to its
-// snapshot or hard-delete it when the snapshot did not exist.
-//
-// TODO(QA Agent04 F2 / fix-db follow-up): replace this 3-call dance with a
-// single SECURITY DEFINER RPC `save_event_with_children(...)` so the database
-// owns atomicity. This client-side helper is the safe interim — it bounds
-// the bug surface to network races where rollback itself fails, instead of
-// every partial network failure.
+// saveEventWithChildren calls a single SECURITY INVOKER Postgres function
+// `public.save_event_with_children(p_event, p_child_ids, p_family_all, p_expected_updated_at)`
+// that performs (1) events row upsert, (2) events_children delete,
+// (3) events_children insert in a single transaction. This eliminates the
+// prior 3-call client dance plus its snapshot/rollback logic — and the
+// data-loss window where a rollback could overwrite a concurrent edit with
+// a stale snapshot.
 export async function saveEventWithChildren(event, selection) {
   const { childIds = [], familyAll = false } = selection || {};
 
-  // Convert camelCase event fields → snake_case row via the shared eventToRow
-  // helper so the DB upsert matches the actual `events` schema (date_key,
-  // end_time, notif_override, created_by). Without this the upsert hits
-  // PGRST204 ("Could not find the 'dateKey' column of 'events'") and the
-  // events_children insert never runs.
+  // Build the event row in the same snake_case shape the RPC's
+  // jsonb_populate_record(NULL::public.events, ...) expects.
   const { familyId, userId, dateKey, ...evCore } = event;
   const eventRow = {
     ...eventToRow(evCore, familyId, dateKey, userId),
     is_family_event: !!familyAll,
   };
 
-  // Snapshot the prior state so we can revert on partial failure.
-  // We look up by id when present (edit path); the add path generates a
-  // fresh UUID client-side so no snapshot exists.
-  //
-  // Supabase JS does NOT throw on RLS/network errors — it returns
-  // { data: null, error } and silently lets the await complete. If we treat
-  // a failed snapshot read the same as "no prior row found", a later step
-  // failure would trigger the new-row rollback path and HARD-DELETE an
-  // existing event the caller actually owned. To avoid that data-loss
-  // window we track `snapshotFailed` and downgrade the rollback to a no-op
-  // when the snapshot itself was unreliable.
-  let priorEventRow = null;
-  let priorChildLinks = [];
-  let snapshotFailed = false;
-  if (eventRow.id) {
-    try {
-      const { data: priorEv, error: priorEvError } = await supabase
-        .from("events")
-        .select("*")
-        .eq("id", eventRow.id)
-        .maybeSingle();
-      if (priorEvError) {
-        snapshotFailed = true;
-        console.warn("[sync] saveEventWithChildren prior-event snapshot read failed", priorEvError);
-      } else if (priorEv) {
-        priorEventRow = priorEv;
-      }
-
-      const { data: priorLinks, error: priorLinksError } = await supabase
-        .from("events_children")
-        .select("child_id")
-        .eq("event_id", eventRow.id);
-      if (priorLinksError) {
-        snapshotFailed = true;
-        console.warn("[sync] saveEventWithChildren prior-links snapshot read failed", priorLinksError);
-      } else {
-        priorChildLinks = (priorLinks || []).map((row) => row.child_id);
-      }
-    } catch (snapErr) {
-      snapshotFailed = true;
-      console.warn("[sync] saveEventWithChildren snapshot failed", snapErr);
-    }
-  }
-  // isNewRow is true only when the snapshot SUCCEEDED and found nothing —
-  // i.e. we are confident this is a fresh insert. If the snapshot read
-  // itself failed we must not take the hard-delete rollback path.
-  const isNewRow = !snapshotFailed && !priorEventRow;
-
-  // Step 1: upsert events row.
-  const { data: saved, error: eventError } = await supabase
-    .from("events")
-    .upsert(eventRow)
-    .select()
-    .single();
-  if (eventError) throw eventError;
-
-  // Step 2: clear prior child links so we can rewrite the M:N join from
-  // scratch.
-  const { error: deleteError } = await supabase
-    .from("events_children")
-    .delete()
-    .eq("event_id", saved.id);
-  if (deleteError) {
-    // Roll back step 1.
-    try {
-      if (isNewRow) {
-        await supabase.from("events").delete().eq("id", saved.id);
-      } else if (priorEventRow) {
-        await supabase.from("events").upsert(priorEventRow);
-      }
-    } catch (rollbackErr) {
-      console.error("[sync] saveEventWithChildren rollback (step 2) failed", rollbackErr);
-    }
-    throw deleteError;
-  }
-
-  // Step 3: insert the new links. Skip when familyAll (the event is for
-  // every child and the join table stays empty for that row).
-  if (!familyAll && childIds.length > 0) {
-    const links = childIds.map((cid) => ({ event_id: saved.id, child_id: cid }));
-    const { error: linkError } = await supabase.from("events_children").insert(links);
-    if (linkError) {
-      // Roll back steps 1 and 2 so the user never sees an "orphaned" event
-      // that no child can read.
-      try {
-        if (isNewRow) {
-          await supabase.from("events").delete().eq("id", saved.id);
-        } else {
-          if (priorEventRow) {
-            await supabase.from("events").upsert(priorEventRow);
-          }
-          if (priorChildLinks.length > 0) {
-            const restoreLinks = priorChildLinks.map((cid) => ({ event_id: saved.id, child_id: cid }));
-            await supabase.from("events_children").insert(restoreLinks);
-          }
-        }
-      } catch (rollbackErr) {
-        console.error("[sync] saveEventWithChildren rollback (step 3) failed", rollbackErr);
-      }
-      throw linkError;
-    }
-  }
-
-  return saved;
+  const { data, error } = await supabase.rpc("save_event_with_children", {
+    p_event: eventRow,
+    p_child_ids: familyAll ? [] : childIds,
+    p_family_all: !!familyAll,
+    // event.updatedAt is the timestamp the client saw at edit time. The RPC
+    // raises SQLSTATE 40001 ("concurrent_modification") if the row moved on
+    // since then. Today's callers (App.jsx voice/manual add) pass an event
+    // without updatedAt so this is null and the check is skipped — leaving
+    // last-write-wins atomicity. A follow-up plan will route the edit path
+    // through here with a real expected timestamp.
+    p_expected_updated_at: event?.updatedAt ?? null,
+  });
+  if (error) throw error;
+  return data;
 }
