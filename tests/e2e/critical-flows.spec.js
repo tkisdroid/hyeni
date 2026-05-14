@@ -121,6 +121,11 @@ async function installCriticalMocks(page, options = {}) {
     extraChild = false,
     deviceLocation = { latitude: 37.5665, longitude: 126.978, accuracy: 12 },
     qrRawValue = "",
+    refreshLocationAfterGets = 2,
+    initialLocationUpdatedAt = null,
+    seedSession = true,
+    authSignupDelayMs = 0,
+    authSignupStatus = 200,
   } = options;
   const state = {
     paired: role === "parent" ? true : initiallyPaired,
@@ -132,6 +137,7 @@ async function installCriticalMocks(page, options = {}) {
     functionCalls: [],
     rpcCalls: [],
     routeRequests: [],
+    authSignupCalls: 0,
     locationRefreshRequests: 0,
     childLocationGetsAfterRefresh: 0,
     enableRefreshedLocation: false,
@@ -139,29 +145,31 @@ async function installCriticalMocks(page, options = {}) {
   const userId = role === "child" ? CHILD_ID : PARENT_ID;
 
   await page.addInitScript(
-    ({ projectRef, role, userId, familyId, deviceLocation, qrRawValue }) => {
+    ({ projectRef, role, userId, familyId, deviceLocation, qrRawValue, seedSession }) => {
       const expiresAt = Math.floor(Date.now() / 1000) + 3600;
-      window.localStorage.setItem(
-        `sb-${projectRef}-auth-token`,
-        JSON.stringify({
-          access_token: "test-token",
-          refresh_token: "test-refresh",
-          token_type: "bearer",
-          expires_at: expiresAt,
-          expires_in: 3600,
-          user: {
-            id: userId,
-            aud: "authenticated",
-            role: "authenticated",
-            email: `${role}@example.com`,
-            app_metadata: { provider: role === "parent" ? "kakao" : "anonymous" },
-            user_metadata: {},
-            identities: [{ provider: role === "parent" ? "kakao" : "anonymous" }],
-          },
-        }),
-      );
-      window.sessionStorage.setItem("hyeni-my-role", role);
-      window.localStorage.setItem("hyeni-my-role", role);
+      if (seedSession) {
+        window.localStorage.setItem(
+          `sb-${projectRef}-auth-token`,
+          JSON.stringify({
+            access_token: "test-token",
+            refresh_token: "test-refresh",
+            token_type: "bearer",
+            expires_at: expiresAt,
+            expires_in: 3600,
+            user: {
+              id: userId,
+              aud: "authenticated",
+              role: "authenticated",
+              email: `${role}@example.com`,
+              app_metadata: { provider: role === "parent" ? "kakao" : "anonymous" },
+              user_metadata: {},
+              identities: [{ provider: role === "parent" ? "kakao" : "anonymous" }],
+            },
+          }),
+        );
+        window.sessionStorage.setItem("hyeni-my-role", role);
+        window.localStorage.setItem("hyeni-my-role", role);
+      }
       window.localStorage.setItem(
         "hyeni-entitlement-cache-v1",
         JSON.stringify({
@@ -373,7 +381,7 @@ async function installCriticalMocks(page, options = {}) {
         },
       };
     },
-    { projectRef: PROJECT_REF, role, userId, familyId: FAMILY_ID, deviceLocation, qrRawValue },
+    { projectRef: PROJECT_REF, role, userId, familyId: FAMILY_ID, deviceLocation, qrRawValue, seedSession },
   );
 
   await page.route("**/*", async (route) => {
@@ -445,6 +453,32 @@ async function installCriticalMocks(page, options = {}) {
 
     if (!url.hostname.endsWith("supabase.co")) {
       return route.continue();
+    }
+
+    if (url.pathname.includes("/auth/v1/signup")) {
+      state.authSignupCalls += 1;
+      if (authSignupDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, authSignupDelayMs));
+      }
+      if (authSignupStatus !== 200) {
+        return fulfillJson({ error: "signup_disabled", msg: "test injection" }, authSignupStatus);
+      }
+      return fulfillJson({
+        access_token: "test-token",
+        refresh_token: "test-refresh",
+        token_type: "bearer",
+        expires_in: 3600,
+        user: {
+          id: userId,
+          aud: "authenticated",
+          role: "authenticated",
+          email: `${role}@example.com`,
+          app_metadata: { provider: "anonymous" },
+          user_metadata: {},
+          identities: [{ provider: "anonymous" }],
+          is_anonymous: true,
+        },
+      });
     }
 
     if (url.pathname.includes("/auth/v1/user")) {
@@ -615,14 +649,16 @@ async function installCriticalMocks(page, options = {}) {
       const useRefreshedLocation = refreshLocationAfterRequest
         && state.enableRefreshedLocation
         && state.locationRefreshRequests > 0
-        && ++state.childLocationGetsAfterRefresh >= 2;
+        && ++state.childLocationGetsAfterRefresh >= refreshLocationAfterGets;
       if (method !== "GET") return fulfillJson([]);
       const locations = [
         {
           user_id: CHILD_ID,
           lat: useRefreshedLocation ? 37.5699 : 37.5665,
           lng: useRefreshedLocation ? 126.9822 : 126.978,
-          updated_at: new Date(Date.now() + (useRefreshedLocation ? 5000 : 0)).toISOString(),
+          updated_at: useRefreshedLocation
+            ? new Date(Date.now() + 5000).toISOString()
+            : (initialLocationUpdatedAt || new Date().toISOString()),
         },
       ];
       if (extraChild) {
@@ -683,8 +719,11 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("학부모 모드")).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    // 학부모 모드 chip lives inside .hyeni-top-header-mode-rail which is now
+    // display:none in the compact parent header (commit a4b5795). The "혜니
+    // 오늘 요약" region above is the canonical parent landmark — drop the
+    // redundant chip assertion.
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await expect(page.getByRole("button", { name: "연동 (1명)" })).toBeVisible();
@@ -787,7 +826,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -820,7 +859,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -828,9 +867,14 @@ test.describe("critical Hyeni flows", () => {
     await expect(page.getByRole("region", { name: "부모 캘린더" })).toBeVisible();
 
     await page.locator(".hyeni-v5-page-add").click();
+    const sheet = page.getByRole("dialog", { name: "새 일정" });
+    await expect(sheet.getByLabel("시작 시간 직접 입력")).toHaveValue("09:00");
+    await expect(sheet).toContainText("저장 시 혜니에게만 전송");
+    await expect(sheet).not.toContainText("아래에서 받을 아이를 선택해 주세요");
     await page.getByPlaceholder("예) 영어 학원, 태권도...").fill("기본 연결 일정");
     await page.locator("button.sheet-save").click();
 
+    await expect.poll(() => state.insertedEvents.find((event) => event.title === "기본 연결 일정")?.time).toBe("09:00");
     await expect.poll(() => state.insertedEventChildren.length).toBeGreaterThan(0);
     expect(state.insertedEventChildren).toContainEqual(
       expect.objectContaining({ child_id: "member-child-1" }),
@@ -842,7 +886,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await page.getByRole("button", { name: "📍 우리아이" }).click();
@@ -882,7 +926,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     const deviceSection = page.getByRole("region", { name: "아이 기기 사용 지표" });
 
@@ -903,7 +947,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
     state.functionCalls.length = 0;
@@ -919,7 +963,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_device_status")).toBeTruthy();
     state.functionCalls.length = 0;
@@ -944,7 +988,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     await page.getByRole("button", { name: "📍 우리아이" }).click();
     await expect(page.getByRole("button", { name: /37\.56650,\s*126\.97800/ })).toBeVisible();
@@ -956,6 +1000,33 @@ test.describe("critical Hyeni flows", () => {
 
     await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_location")).toBeTruthy();
     await expect(page.getByRole("button", { name: /37\.56990,\s*126\.98220/ })).toBeVisible({ timeout: 7_000 });
+  });
+
+  test("parent child status card keeps polling long enough for a slower device GPS fix", async ({ page }) => {
+    const state = await installCriticalMocks(page, {
+      role: "parent",
+      initiallyPaired: true,
+      refreshLocationAfterRequest: true,
+      refreshLocationAfterGets: 10,
+      initialLocationUpdatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "확인했어요" }).click();
+
+    state.functionCalls.length = 0;
+    state.locationRefreshRequests = 0;
+    state.childLocationGetsAfterRefresh = 0;
+    state.enableRefreshedLocation = true;
+
+    await page.getByRole("button", { name: /혜니 오늘 일정/ }).click();
+
+    await expect(page.getByRole("button", { name: "현재 위치 다시 확인" })).toBeVisible();
+    await expect.poll(() => state.functionCalls.some((call) => call.body?.action === "request_location")).toBeTruthy();
+    await expect.poll(() => state.childLocationGetsAfterRefresh, { timeout: 18_000 }).toBeGreaterThanOrEqual(10);
+    await expect(page.getByRole("button", { name: /37\.56990,\s*126\.98220/ })).toBeVisible({ timeout: 18_000 });
   });
 
   test("parent child tracker shows dwell duration instead of same-place time range", async ({ page }) => {
@@ -973,13 +1044,13 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await page.getByRole("button", { name: "📍 우리아이" }).click();
 
     await expect(page.getByText("오래 머문 곳")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("11분 머무름")).toBeVisible();
+    await expect(page.getByRole("button", { name: /11분 머무름/ })).toBeVisible();
     await expect(page.getByText(/08:23.*08:34|오전 08:23.*오전 08:34/)).toHaveCount(0);
   });
 
@@ -991,7 +1062,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
@@ -1047,7 +1118,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
@@ -1069,7 +1140,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
@@ -1124,7 +1195,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainCalendar = page.getByRole("region", { name: "캘린더" }).first();
@@ -1183,12 +1254,12 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const managementRail = page.locator('[aria-label="관리 바로가기"]');
     await managementRail.getByRole("button", { name: "장소관리" }).click();
-    await expect(page.getByText("📍 장소관리").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "학원·장소 관리" })).toBeVisible();
 
     const navState = await page.evaluate(() => {
       const nav = document.querySelector(".hyeni-manager-bottom-nav .hyeni-v5-tabbar");
@@ -1202,7 +1273,7 @@ test.describe("critical Hyeni flows", () => {
         bottomGap: rect ? Math.round(window.innerHeight - rect.bottom) : null,
       };
     });
-    expect(navState.activeText).toContain("장소관리");
+    expect(navState.activeText).toContain("장소");
     expect(navState.position).toBe("relative");
     expect(navState.visible).toBe(true);
     expect(navState.bottomGap).toBeLessThanOrEqual(24);
@@ -1233,7 +1304,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -1274,7 +1345,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -1295,7 +1366,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const routeButton = page.getByRole("button", { name: "영어 학원 경로 보기" }).first();
@@ -1370,7 +1441,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     await page.getByRole("button", { name: "🎙️ 주변소리" }).click();
@@ -1415,7 +1486,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
     await page.getByRole("button", { name: "연동 (1명)" }).click();
 
@@ -1431,7 +1502,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const main = page.getByLabel("부모 메인");
@@ -1531,7 +1602,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const details = await page.evaluate(() => {
@@ -1585,11 +1656,11 @@ test.describe("critical Hyeni flows", () => {
 
     expect(details.shellBackground).toContain("rgb(253, 250, 251)");
     expect(details.shellBackground).toContain("rgb(246, 240, 243)");
-    expect(details.heroBackground).toBe("none");
-    expect(details.heroColor).toBe("rgb(31, 26, 34)");
-    expect(details.heroBoxShadow).toBe("none");
-    expect(details.heroRadius).toBe("0px");
-    expect(details.heroCountColor).toBe("rgb(230, 92, 146)");
+    expect(details.heroBackground).toContain("linear-gradient");
+    expect(details.heroColor).toBe("rgb(56, 37, 45)");
+    expect(details.heroBoxShadow).toContain("rgba(31, 24, 28, 0.06)");
+    expect(details.heroRadius).toBe("28px");
+    expect(details.heroCountColor).toBe("");
     expect(details.sectionHeadColor).toBe("rgb(107, 95, 115)");
     expect(details.sectionHeadWeight).toBe("700");
     expect(details.kidCardBackground).toBe("rgb(255, 255, 255)");
@@ -1613,7 +1684,7 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
-    await expect(page.getByText("긴급 알림")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { level: 2, name: "긴급 알림" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "확인했어요" }).click();
 
     const mainTabbar = page.getByRole("navigation", { name: "부모 메인 탭" }).last();
@@ -1645,6 +1716,45 @@ test.describe("critical Hyeni flows", () => {
       todayButton?.click();
     });
     await expect(page.getByRole("region", { name: "혜니 오늘 요약" })).toBeVisible();
+  });
+
+  test("child role entry does not flash back to role selection while anonymous login is pending", async ({ page }) => {
+    const state = await installCriticalMocks(page, {
+      role: "child",
+      initiallyPaired: false,
+      seedSession: false,
+      authSignupDelayMs: 6000,
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: /누구로 시작/ })).toBeVisible();
+    await page.getByRole("button", { name: "자녀로 시작" }).click();
+    await page.getByRole("button", { name: "다음" }).click();
+
+    await expect(page.getByText("잠깐만, 부모님 코드 확인할게")).toBeVisible();
+    await expect.poll(() => state.authSignupCalls).toBe(1);
+    await expect(page.getByText("잠깐만, 부모님 코드 확인할게")).toBeHidden({ timeout: 2_000 });
+    await expect(page.getByRole("heading", { name: /누구로 시작/ })).toHaveCount(0);
+    await expect(page.getByText("부모님과 연결하기")).toBeVisible({ timeout: 8_000 });
+  });
+
+  test("child role entry shows retry guidance instead of returning to role selection when anonymous login fails", async ({ page }) => {
+    const state = await installCriticalMocks(page, {
+      role: "child",
+      initiallyPaired: false,
+      seedSession: false,
+      authSignupStatus: 401,
+    });
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: /누구로 시작/ })).toBeVisible();
+    await page.getByRole("button", { name: "자녀로 시작" }).click();
+    await page.getByRole("button", { name: "다음" }).click();
+
+    await expect.poll(() => state.authSignupCalls).toBe(1);
+    await expect(page.getByText("아이 모드를 준비하지 못했어요")).toBeVisible({ timeout: 4_000 });
+    await expect(page.getByRole("button", { name: "다시 시도" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /누구로 시작/ })).toHaveCount(0);
   });
 
   test("child memo keeps short Korean replies horizontal", async ({ page }) => {
@@ -1691,11 +1801,11 @@ test.describe("critical Hyeni flows", () => {
     await page.goto("/");
 
     await expect(page.getByText("부모님과 연결하기")).toBeVisible();
-    await page.getByPlaceholder("XXXXXXXX").fill("804DF582");
-    await page.getByRole("button", { name: "🔗 연결하기" }).click();
+    await page.getByRole("textbox", { name: "페어링 코드 8자리" }).fill("804DF582");
+    await page.getByRole("button", { name: "연결하기", exact: true }).click();
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("img", { name: "🐰 캐릭터" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("img", { name: "혜니", exact: true })).toBeVisible();
     await expect(page.getByText("영어 학원").first()).toBeVisible();
     await expect(page.getByText("서울특별시 중구 세종대로 110").first()).toBeVisible();
     await expect(page.getByText(/GPS 정확도/)).toHaveCount(0);
@@ -1718,7 +1828,7 @@ test.describe("critical Hyeni flows", () => {
     await expect(page.getByText("부모님과 연결하기")).toBeVisible();
     await page.getByRole("button", { name: /QR로 연결하기/ }).click();
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
 
     expect(state.rpcCalls.some((call) => call.name === "join_family")).toBeTruthy();
     expect(await page.evaluate(() => window.__hyeniCameraCalls?.getUserMedia || 0)).toBeGreaterThan(0);
@@ -1732,7 +1842,7 @@ test.describe("critical Hyeni flows", () => {
     });
     await page.goto("/");
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("img", { name: "🐰 캐릭터" })).toBeVisible();
 
     await page.getByRole("button", { name: "설정" }).click();
@@ -1755,8 +1865,8 @@ test.describe("critical Hyeni flows", () => {
     });
     await page.goto("/");
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "🧭 길찾기" }).click();
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "🧭 길찾기", exact: true }).click();
 
     await expect(page.getByRole("button", { name: "길안내 시작" })).toBeVisible();
     await expect(page.getByText("경로 검색 중")).toBeHidden({ timeout: 8_000 });
@@ -1781,8 +1891,8 @@ test.describe("critical Hyeni flows", () => {
     });
     await page.goto("/");
 
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "🧭 길찾기" }).click();
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: "🧭 길찾기", exact: true }).click();
 
     const beforeUrl = page.url();
     await page.getByRole("button", { name: "길안내 시작" }).click();

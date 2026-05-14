@@ -108,9 +108,10 @@ async function addFamilyMember(familyId, userId, role, name) {
   return Array.isArray(body) ? body[0] : body;
 }
 
-async function insertMemoReply(token, familyId, dateKey, userId, role, content, origin = "reply", createdAt = null) {
+async function insertMemoReply(token, familyId, dateKey, userId, role, content, origin = "reply", createdAt = null, childId = null) {
   const row = { family_id: familyId, date_key: dateKey, user_id: userId, user_role: role, content, origin };
   if (createdAt) row.created_at = createdAt;
+  if (childId) row.child_id = childId;
   const { ok, body } = await sbFetch("/rest/v1/memo_replies", {
     method: "POST",
     token,
@@ -169,13 +170,14 @@ async function openMemoComposer(page) {
 
 test.describe("Phase 5.5 memo bubble UX — 7 regression cases", () => {
   let parentSession, childSession, family;
+  let childMember;
 
   test.beforeAll(async () => {
     parentSession = await emailSignup("memo-parent");
     childSession = await anonSignup();
     family = await createFamily(parentSession.user.id);
     await addFamilyMember(family.id, parentSession.user.id, "parent", "부모");
-    await addFamilyMember(family.id, childSession.user.id, "child", "아이");
+    childMember = await addFamilyMember(family.id, childSession.user.id, "child", "아이");
   });
 
   test("(a) sender bubble renders <500ms after send (optimistic)", async ({ page }) => {
@@ -256,8 +258,8 @@ test.describe("Phase 5.5 memo bubble UX — 7 regression cases", () => {
     const dk = todayKey();
     const t1 = new Date(Date.now() - 60 * 1000).toISOString();
     const t2 = new Date(Date.now() - 30 * 1000).toISOString();
-    await insertMemoReply(parentSession.access_token, family.id, dk, parentSession.user.id, "parent", "grp-1", "reply", t1);
-    await insertMemoReply(parentSession.access_token, family.id, dk, parentSession.user.id, "parent", "grp-2", "reply", t2);
+    await insertMemoReply(parentSession.access_token, family.id, dk, parentSession.user.id, "parent", "grp-1", "reply", t1, childMember.id);
+    await insertMemoReply(parentSession.access_token, family.id, dk, parentSession.user.id, "parent", "grp-2", "reply", t2, childMember.id);
 
     await loginViaBrowserStorage(page, parentSession);
     await page.goto(APP_URL, { waitUntil: "domcontentloaded" });
@@ -284,8 +286,8 @@ test.describe("Phase 5.5 memo bubble UX — 7 regression cases", () => {
     const yMorning = new Date();
     yMorning.setDate(yMorning.getDate() - 1);
     yMorning.setHours(10, 0, 0, 0);
-    await insertMemoReply(parentSession.access_token, family.id, dkYesterday, parentSession.user.id, "parent", "day-prev", "reply", yMorning.toISOString());
-    await insertMemoReply(parentSession.access_token, family.id, dkToday, parentSession.user.id, "parent", "day-today", "reply", new Date().toISOString());
+    await insertMemoReply(parentSession.access_token, family.id, dkYesterday, parentSession.user.id, "parent", "day-prev", "reply", yMorning.toISOString(), childMember.id);
+    await insertMemoReply(parentSession.access_token, family.id, dkToday, parentSession.user.id, "parent", "day-today", "reply", new Date().toISOString(), childMember.id);
 
     await loginViaBrowserStorage(page, parentSession);
     await page.goto(APP_URL, { waitUntil: "domcontentloaded" });

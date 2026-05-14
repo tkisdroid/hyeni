@@ -2,8 +2,14 @@ import { supabase } from "./supabase.js";
 import { getUserDisplayName, getUserPhoneLocal, normalizePhoneForStorage } from "./accountAuth.js";
 import { clearFamilyInfoCache } from "./familyInfoCache.js";
 import { clearEntitlementCache } from "./entitlementCache.js";
+import { openNativeBrowser } from "./nativeBrowser.js";
 
-const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
+// Removed: KAKAO_REST_KEY constant was defined here but never read in this
+// module. Agent05 L-001 — VITE_KAKAO_REST_KEY ships in the prod bundle and
+// must be eliminated end-to-end via a Supabase Edge Function proxy. Removing
+// the dead reference here cuts one ingest path; nativeLocationService.js
+// and walkingRoute.js still consume the env var (deprecation warning added)
+// pending the Edge proxy migration owned by fix-db.
 const NATIVE_OAUTH_REDIRECT_URL = "hyenicalendar://auth-callback";
 const CHILD_PHOTO_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7d
 const CHILD_PHOTO_SIGNED_URL_CACHE_SAFETY_MS = 5 * 60 * 1000;
@@ -142,14 +148,7 @@ export async function kakaoLogin() {
       throw new Error("카카오 로그인 URL을 생성하지 못했습니다.");
     }
 
-    // Open in Chrome Custom Tabs so the WebView stays mounted. The deep-link
-    // callback (see App.jsx appUrlOpen handler) calls Browser.close().
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({
-      url: data.url,
-      windowName: "_self",
-      presentationStyle: "popover",
-    });
+    await openNativeBrowser(data.url);
   }
 }
 
@@ -175,12 +174,7 @@ export async function googleLogin() {
     if (!data?.url) {
       throw new Error("구글 로그인 URL을 만들지 못했어요. 잠시 후 다시 시도해 주세요.");
     }
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({
-      url: data.url,
-      windowName: "_self",
-      presentationStyle: "popover",
-    });
+    await openNativeBrowser(data.url);
   }
 }
 
@@ -253,12 +247,7 @@ export async function naverLogin() {
   const url = `${NAVER_AUTHORIZE_URL}?${authorizeParams.toString()}`;
 
   if (native) {
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({
-      url,
-      windowName: "_self",
-      presentationStyle: "popover",
-    });
+    await openNativeBrowser(url);
   } else {
     window.location.href = url;
   }
@@ -621,13 +610,14 @@ export async function saveParentPhones(familyId, momPhone, dadPhone) {
   if (error) throw error;
 }
 
-// 본인 프로필(이름/전화번호) 업데이트 — family_members + auth metadata 동시 반영.
-// fields: { name?: string, phone?: string }
+// 본인 프로필(이름/전화번호/캐릭터) 업데이트 — family_members + auth metadata 동시 반영.
+// fields: { name?: string, phone?: string, emoji?: string }
 export async function updateMyProfile(familyId, userId, fields) {
   if (!familyId || !userId || !fields) throw new Error("familyId/userId/fields required");
   const memberPatch = {};
   if (typeof fields.name === "string") memberPatch.name = fields.name.trim();
   if (typeof fields.phone === "string") memberPatch.phone = fields.phone.trim();
+  if (typeof fields.emoji === "string") memberPatch.emoji = fields.emoji.trim();
   if (Object.keys(memberPatch).length === 0) return;
   const { error: memberErr } = await supabase
     .from("family_members")

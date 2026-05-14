@@ -86,7 +86,7 @@ describe("native background command contracts", () => {
     expect(ambientService).toContain("private static final int DEFAULT_DURATION_SEC = 60;");
     expect(app).toContain("최대 1분 · 프리미엄 전용");
     expect(app).toContain("showRemoteAudio && isParent && entitlement.canUse(FEATURES.REMOTE_AUDIO)");
-    expect(app).toContain("주변 소리 듣기는 프리미엄 회원만 사용할 수 있어요.");
+    expect(app).toContain("주변소리듣기는 프리미엄 전용이예요");
     expect(pushNotify).toContain("remote_listen_requires_premium");
     expect(pushNotify).toContain("remote_listen_disabled_by_family");
   });

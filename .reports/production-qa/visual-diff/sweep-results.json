@@ -1,0 +1,327 @@
+{
+  "captured": [
+    {
+      "screen": "entry-splash",
+      "viewport": "320x568",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\320x568.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "360x800",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\360x800.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "375x812",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\375x812.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "390x844",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\390x844.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "430x932",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\430x932.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "768x1024",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\768x1024.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "1024x768",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\1024x768.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "1280x720",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\1280x720.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "1440x900",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\1440x900.png"
+    },
+    {
+      "screen": "entry-splash",
+      "viewport": "1920x1080",
+      "file": ".reports\\production-qa\\visual-diff\\entry-splash\\1920x1080.png"
+    }
+  ],
+  "viewportResults": {
+    "320x568": {
+      "viewport": "320x568",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "360x800": {
+      "viewport": "360x800",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "375x812": {
+      "viewport": "375x812",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "390x844": {
+      "viewport": "390x844",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "430x932": {
+      "viewport": "430x932",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "768x1024": {
+      "viewport": "768x1024",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "1024x768": {
+      "viewport": "1024x768",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "1280x720": {
+      "viewport": "1280x720",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "1440x900": {
+      "viewport": "1440x900",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    },
+    "1920x1080": {
+      "viewport": "1920x1080",
+      "screens_captured": 1,
+      "issues": [
+        {
+          "screen": "entry-splash",
+          "check": "missing-alt",
+          "actual": [
+            {
+              "src": "http://127.0.0.1:4174/assets/wink-star-Cz6eFUfX.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/phone-B2tmM6ZO.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/bell-DQy5TvPD.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/wave-Blu8zcB0.webp"
+            },
+            {
+              "src": "http://127.0.0.1:4174/assets/heart-D_rW6xiR.webp"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "issues": []
+}

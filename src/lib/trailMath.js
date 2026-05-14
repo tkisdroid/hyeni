@@ -20,6 +20,7 @@ export const LOCATION_TRAIL_JITTER_M = 8;
 // 묶는 오류가 있었음.
 export const LOCATION_TRAIL_DWELL_RADIUS_M = 50;
 export const LOCATION_TRAIL_DWELL_MIN_MS = 10 * 60_000;
+export const LOCATION_TRAIL_DWELL_MAX_SAMPLE_GAP_MS = 15 * 60_000;
 // Phase 6 movement summary: trail polyline 그릴 때 200m 미만의 작은 흔들림은
 // 합쳐서 한 chunk로 그려 noise 를 줄인다. 사용자 요구 "200m 이상의 큰 이동만
 // 정리해서 표시".
@@ -122,9 +123,10 @@ export function buildSelectedLocationTrail(locationTrail, selectedChild) {
 
     if (currentPoint) {
         const last = points[points.length - 1];
-        if (!last || haversineM(last.lat, last.lng, currentPoint.lat, currentPoint.lng) >= LOCATION_TRAIL_JITTER_M) {
+        const currentIsNotOlder = !last?.recordedMs || !currentPoint.recordedMs || currentPoint.recordedMs >= last.recordedMs;
+        if (currentIsNotOlder && (!last || haversineM(last.lat, last.lng, currentPoint.lat, currentPoint.lng) >= LOCATION_TRAIL_JITTER_M)) {
             points.push(currentPoint);
-        } else if (currentPoint.recordedMs && (!last.recordedMs || currentPoint.recordedMs > last.recordedMs)) {
+        } else if (currentIsNotOlder && currentPoint.recordedMs && (!last.recordedMs || currentPoint.recordedMs > last.recordedMs)) {
             points[points.length - 1] = { ...last, ...currentPoint };
         }
     }
@@ -406,6 +408,13 @@ export function buildTrailDwellPlaces(points) {
 
     timedPoints.forEach((point) => {
         if (!cluster.length) {
+            cluster = [point];
+            return;
+        }
+        const previous = cluster[cluster.length - 1];
+        const sampleGapMs = point.recordedMs - previous.recordedMs;
+        if (sampleGapMs > LOCATION_TRAIL_DWELL_MAX_SAMPLE_GAP_MS) {
+            flush();
             cluster = [point];
             return;
         }

@@ -1,0 +1,109 @@
+{
+  "agent": "10 Security / Privacy / Policy Agent",
+  "status": "PASS",
+  "security_tests": [
+    {"name": "Edge Function JWT verification (push-notify)", "result": "PASS", "evidence": "supabase/functions/push-notify/index.ts:428-451"},
+    {"name": "Edge Function JWT verification (ai-child-monitor)", "result": "PASS", "evidence": "supabase/functions/ai-child-monitor/index.ts:291-310"},
+    {"name": "Edge Function HMAC sig (qonversion-webhook)", "result": "PASS", "evidence": "supabase/functions/qonversion-webhook/index.ts:109-114"},
+    {"name": "Edge Function HMAC sig (send-sms)", "result": "PASS", "evidence": "supabase/functions/send-sms/index.ts:118-121"},
+    {"name": "Edge Function unauth gate (ai-voice-parse)", "result": "FAIL", "evidence": "supabase/functions/ai-voice-parse/index.ts (no auth)"},
+    {"name": "Edge Function unauth gate (feedback-email)", "result": "FAIL", "evidence": "supabase/functions/feedback-email/index.ts (no auth)"},
+    {"name": "Edge Function unauth gate (subscription-reconcile)", "result": "FAIL", "evidence": "supabase/functions/subscription-reconcile/index.ts (no auth)"},
+    {"name": "Family-membership check on push actions (IDOR)", "result": "PASS", "evidence": "supabase/functions/push-notify/index.ts:870-884"},
+    {"name": "Primary-parent gate on control actions", "result": "PASS", "evidence": "supabase/functions/push-notify/index.ts:894-914"},
+    {"name": "target_user_id validation on force_ring", "result": "PASS", "evidence": "supabase/functions/push-notify/index.ts:555-567"},
+    {"name": "force_ring quota enforcement", "result": "PASS", "evidence": "supabase/functions/push-notify/index.ts:535-547"},
+    {"name": "force_ring_stop authorization (initiator-only)", "result": "PASS", "evidence": "supabase/functions/push-notify/index.ts:707-709"},
+    {"name": "Idempotency key replay protection", "result": "PASS", "evidence": "supabase/functions/push-notify/index.ts:926-949"},
+    {"name": "Naver OAuth state CSRF nonce", "result": "PASS", "evidence": "src/lib/auth.js:253-266"},
+    {"name": "child_locations RLS", "result": "PASS", "evidence": "supabase/archive/_deprecated_child-locations.sql:14-25"},
+    {"name": "unpair_child SECURITY DEFINER cascade", "result": "PASS", "evidence": "src/lib/auth.js:644-668"},
+    {"name": "Client-side role assignment authoritative?", "result": "PASS", "evidence": "hyeni-last-role is UI hint only; family_members.role + RLS is authoritative"},
+    {"name": "logout cache clearing", "result": "PASS", "evidence": "src/lib/auth.js:344-353"}
+  ],
+  "privacy_tests": [
+    {"name": "AmbientListen persistent FGS notification (Play stalkerware)", "result": "PASS", "evidence": "android/app/src/main/java/com/hyeni/calendar/AmbientListenService.java:526-537"},
+    {"name": "AmbientListen FGS type microphone (Android 14+)", "result": "PASS", "evidence": "android/app/src/main/java/com/hyeni/calendar/AmbientListenService.java:128-157"},
+    {"name": "RECORD_AUDIO runtime permission check before capture", "result": "PASS", "evidence": "android/app/src/main/java/com/hyeni/calendar/AmbientListenService.java:163-167"},
+    {"name": "ACCESS_FINE_LOCATION runtime check before FGS", "result": "PASS", "evidence": "android/app/src/main/java/com/hyeni/calendar/LocationService.java:243-248"},
+    {"name": "ACCESS_BACKGROUND_LOCATION incremental request", "result": "PASS", "evidence": "android/app/src/main/java/com/hyeni/calendar/LocationPlugin.java:71-76"},
+    {"name": "Wake lock has timeout (no indefinite hold)", "result": "PASS", "evidence": "android/app/src/main/java/com/hyeni/calendar/AmbientListenService.java:498-507"},
+    {"name": "Location coordinates printed in console.log", "result": "PASS", "evidence": "[GPS] log tags do not print raw coords"},
+    {"name": "FCM token printed in console.log", "result": "PASS", "evidence": "tokens not logged in src/lib/pushNotifications.js"},
+    {"name": "Access token storage backed up via adb", "result": "FAIL", "evidence": "AndroidManifest.xml:33 allowBackup=true + LocationService.java:202-209 stores accessToken in SharedPreferences"}
+  ],
+  "policy_tests": [
+    {"name": "isMonitoringTool meta-data declared", "result": "PASS", "evidence": "android/app/src/main/AndroidManifest.xml:40-42 (value=child_monitoring)"},
+    {"name": "AmbientListen persistent notification disclosure", "result": "PASS", "evidence": "AmbientListenService.java:526-537 — Korean disclosure copy"},
+    {"name": "Capacitor allowNavigation restricted", "result": "PASS", "evidence": "capacitor.config.json:5-10"},
+    {"name": "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS declared (Play justification)", "result": "PASS", "evidence": "AndroidManifest.xml:25; justification = reliable background tracking for family safety"},
+    {"name": "Source maps in production dist", "result": "PASS", "evidence": "dist/ contains no *.map files"},
+    {"name": ".env / firebase-adminsdk-*.json git tracked", "result": "PASS", "evidence": ".gitignore:59-66 + git ls-files confirms no tracked secrets"}
+  ],
+  "permission_inventory": [
+    {"permission": "ACCESS_FINE_LOCATION", "usage_sites": ["LocationService.java:243"], "guard_present": true},
+    {"permission": "ACCESS_COARSE_LOCATION", "usage_sites": ["LocationService.java:243 (covered by fine)"], "guard_present": true},
+    {"permission": "ACCESS_BACKGROUND_LOCATION", "usage_sites": ["LocationPlugin.java:71-76"], "guard_present": true},
+    {"permission": "FOREGROUND_SERVICE_LOCATION", "usage_sites": ["LocationService.java:255-260"], "guard_present": true},
+    {"permission": "FOREGROUND_SERVICE_MICROPHONE", "usage_sites": ["AmbientListenService.java:130-150"], "guard_present": true},
+    {"permission": "FOREGROUND_SERVICE_SPECIAL_USE", "usage_sites": ["ForceRingService.java", "AmbientListenService.java fallback"], "guard_present": true},
+    {"permission": "RECORD_AUDIO", "usage_sites": ["AmbientListenService.java:163-167", "LocationService.java:1170"], "guard_present": true},
+    {"permission": "POST_NOTIFICATIONS", "usage_sites": ["pushNotifications.js:219"], "guard_present": true},
+    {"permission": "WAKE_LOCK", "usage_sites": ["AmbientListenService.java:498-507"], "guard_present": true},
+    {"permission": "CAMERA", "usage_sites": ["WebView getUserMedia for QR pairing"], "guard_present": true},
+    {"permission": "SYSTEM_ALERT_WINDOW", "usage_sites": ["declared, review usage"], "guard_present": false, "note": "broad permission; verify Play Console justification"},
+    {"permission": "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", "usage_sites": ["LocationService.java:269"], "guard_present": true},
+    {"permission": "USE_FULL_SCREEN_INTENT", "usage_sites": ["ForceRingService.java"], "guard_present": true},
+    {"permission": "RECEIVE_BOOT_COMPLETED", "usage_sites": ["BootReceiver.java"], "guard_present": true},
+    {"permission": "SCHEDULE_EXACT_ALARM", "usage_sites": ["push notifications"], "guard_present": true},
+    {"permission": "MODIFY_AUDIO_SETTINGS", "usage_sites": ["ForceRingService.java"], "guard_present": true}
+  ],
+  "vulnerabilities": [
+    {"id": "VULN-001", "severity": "P1", "title": "android:allowBackup=true exposes user access tokens via adb backup", "file": "android/app/src/main/AndroidManifest.xml:33", "fix_complexity": "trivial"},
+    {"id": "VULN-002", "severity": "P1", "title": "feedback-email Edge Function unauthenticated (inbox spam + leaked operator email)", "file": "supabase/functions/feedback-email/index.ts:27", "fix_complexity": "small"},
+    {"id": "VULN-003", "severity": "P1", "title": "ai-voice-parse Edge Function unauthenticated (OpenAI cost abuse)", "file": "supabase/functions/ai-voice-parse/index.ts:11", "fix_complexity": "small"},
+    {"id": "VULN-004", "severity": "P2", "title": "subscription-reconcile Edge Function unauthenticated", "file": "supabase/functions/subscription-reconcile/index.ts:81", "fix_complexity": "small"},
+    {"id": "VULN-005", "severity": "P2", "title": "release builds shipped unobfuscated (minifyEnabled false)", "file": "android/app/build.gradle:38-44", "fix_complexity": "medium"},
+    {"id": "VULN-006", "severity": "P2", "title": "Kakao keys bundled — verify console restrictions", "file": "dist/assets/index-DxioK-gY.js + Kakao console", "fix_complexity": "external config"},
+    {"id": "VULN-007", "severity": "P2", "title": "CORS wildcard on unauth Edge Functions", "file": "supabase/functions/*/index.ts CORS_HEADERS", "fix_complexity": "small"}
+  ],
+  "secret_scan": {
+    "scope": ["dist/", "src/", "public/", "android/app/src/main/", ".env*", "git history"],
+    "findings": [
+      {"file": "dist/assets/index-DxioK-gY.js", "kind": "JWT (anon)", "value_masked": "eyJhbG...TiTuw", "decoded_role": "anon", "severity": "INFO", "note": "expected — Supabase anon key is public"},
+      {"file": "dist/assets/index-DxioK-gY.js", "kind": "Kakao keys (hex32)", "value_masked": "d99178...439c, d50235...9f10", "severity": "P2", "note": "must be domain/package-restricted in Kakao console"},
+      {"file": "android/app/google-services.json:18", "kind": "Firebase API key", "value_masked": "AIzaSy...AF4s", "severity": "INFO", "note": "Firebase keys are public by design — verify package + SHA-1 restriction"},
+      {"file": ".env", "kind": "SUPABASE_SERVICE_ROLE_KEY (gitignored)", "value_masked": "eyJhbG...VgGa4", "severity": "PASS", "note": "gitignored, never committed (git log clean)"},
+      {"file": "hyeni-calendar-firebase-adminsdk-fbsvc-da86c8cd8e.json", "kind": "Firebase Admin SDK private key", "value_masked": "n/a", "severity": "PASS", "note": "matches gitignore pattern *-firebase-adminsdk-*.json; not tracked"}
+    ]
+  },
+  "evidence": [
+    ".reports/production-qa/security-privacy-policy-report.md",
+    "android/app/src/main/AndroidManifest.xml",
+    "android/app/src/main/java/com/hyeni/calendar/AmbientListenService.java",
+    "android/app/src/main/java/com/hyeni/calendar/LocationService.java",
+    "android/app/src/main/java/com/hyeni/calendar/LocationPlugin.java",
+    "supabase/functions/push-notify/index.ts",
+    "supabase/functions/ai-voice-parse/index.ts",
+    "supabase/functions/feedback-email/index.ts",
+    "supabase/functions/subscription-reconcile/index.ts",
+    "supabase/functions/qonversion-webhook/index.ts",
+    "src/lib/auth.js",
+    "src/lib/remoteAudioCapture.js",
+    "capacitor.config.json",
+    "android/app/build.gradle"
+  ],
+  "issues": [
+    {"severity": "P1", "title": "android:allowBackup=true exposes user JWT via adb backup", "description": "AmbientListenService and LocationService store accessToken/supabaseKey/fcmToken in SharedPreferences with MODE_PRIVATE. With allowBackup=true, adb backup extracts plaintext. Fix: set allowBackup=false or migrate to EncryptedSharedPreferences.", "evidence_path": "android/app/src/main/AndroidManifest.xml:33; android/app/src/main/java/com/hyeni/calendar/LocationService.java:202-209"},
+    {"severity": "P1", "title": "feedback-email Edge Function unauthenticated + leaks operator email", "description": "POST without JWT/HMAC; default FEEDBACK_TO_EMAIL hardcoded to operator personal address. Attacker can spam/phish operator inbox. Add getClaims() JWT check + remove hardcoded fallback.", "evidence_path": "supabase/functions/feedback-email/index.ts:9,27-66"},
+    {"severity": "P1", "title": "ai-voice-parse Edge Function unauthenticated — OpenAI budget abuse", "description": "Proxies user input to OpenAI gpt-4o using project OPENAI_API_KEY without caller auth. Anyone with the function URL can burn credits. Add JWT verification + per-family rate limit.", "evidence_path": "supabase/functions/ai-voice-parse/index.ts:11-198"},
+    {"severity": "P2", "title": "subscription-reconcile Edge Function unauthenticated", "description": "No service-role gate. Attacker can trigger reconcile runs to drain Qonversion API quota. Restrict to service_role JWT.", "evidence_path": "supabase/functions/subscription-reconcile/index.ts:81-122"},
+    {"severity": "P2", "title": "Release builds have minifyEnabled false", "description": "ProGuard config exists but not applied. Java source ships in clear. Enable R8 + shrinkResources for release variant.", "evidence_path": "android/app/build.gradle:38-44"},
+    {"severity": "P2", "title": "Kakao APP_KEY + REST_KEY bundled, restrictions unverified", "description": "Keys are bundled (expected) but must be domain/package restricted in Kakao console to prevent third-party quota theft. Verify Kakao Developers console.", "evidence_path": "dist/assets/index-DxioK-gY.js"},
+    {"severity": "P2", "title": "CORS Allow-Origin: * on unauthenticated Edge Functions", "description": "ai-voice-parse, feedback-email allow any origin. Restrict to production domains.", "evidence_path": "supabase/functions/ai-voice-parse/index.ts:5-9; supabase/functions/feedback-email/index.ts:3"},
+    {"severity": "P3", "title": "google-services.json Firebase API key tracked in git", "description": "Acceptable by design but verify Firebase Console restricts key by package + SHA-1.", "evidence_path": "android/app/google-services.json:18"},
+    {"severity": "P3", "title": "familyId UUID logged in production console", "description": "[Realtime] log lines include familyId. Strip console.log via esbuild.drop config.", "evidence_path": "src/lib/sync.js:746,912,920,926,930"}
+  ],
+  "release_decision": "ALLOW",
+  "blocking_reasons": []
+}

@@ -1,12 +1,12 @@
 // src/components/onboarding/ChildPermissionWizard.jsx
 // Phase 3 spec section 4.1 — Cartoon-warm 톤으로 재구성 (2026-05-08).
-// HeartsBackground + HyeniGirl + cartoon-pill 버튼 + perm-step cartoon 톤.
+// HeartsBackground + HyeniMascot + cartoon-pill 버튼 + perm-step cartoon 톤.
 // Mounted from src/App.jsx (isNativeApp && !isParent && !allReady && !dismissed).
 // Steps come from CHILD_SAFETY_SETUP_STEPS via getChildSafetySetupSteps.
 
 import { useState } from "react";
 import { HeartsBackground } from "../decoration/HeartsBackground.jsx";
-import { HyeniGirl } from "../decoration/CartoonIllustrations.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
 const FF = "var(--font-sans)";
 
@@ -53,23 +53,34 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                     borderBottom: "1px solid var(--theme-accent-line)",
                 }}
             >
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+                <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "112px minmax(0, 1fr)",
+                    alignItems: "center",
+                    gap: "var(--space-4)",
+                    marginBottom: "var(--space-3)",
+                }}>
                     <div
                         className={`${allReady ? "hyeni-mascot-cheer " : ""}hyeni-micro-icon`}
                         style={{
                             display: "inline-flex",
-                            alignItems: "flex-end",
+                            alignItems: "center",
                             justifyContent: "center",
-                            width: 72,
-                            height: 72,
-                            background: "var(--theme-accent-soft)",
-                            borderRadius: "50%",
+                            width: 112,
+                            height: 112,
+                            background: "linear-gradient(180deg, rgba(255,255,255,0.9), var(--theme-accent-soft))",
+                            borderRadius: 30,
                             border: "1px solid var(--theme-accent-line)",
                             overflow: "hidden",
                             flexShrink: 0,
+                            boxShadow: "var(--hyeni-theme-shadow-soft)",
                         }}
                     >
-                        <HyeniGirl size={64} ariaLabel="" />
+                        <HyeniMascot
+                            variant={allReady ? "cheer" : "wave"}
+                            size={104}
+                            aria-label="처음 설정을 도와주는 혜니"
+                        />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <h2

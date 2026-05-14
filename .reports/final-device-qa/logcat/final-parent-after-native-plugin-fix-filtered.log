@@ -1,0 +1,4 @@
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-native-plugin-fix-raw.log:2719:05-12 04:51:44.361 I/MainActivity( 9856): FCM token primed: ftk3ihuhT96f6XBljReY...
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-native-plugin-fix-raw.log:2720:05-12 04:51:44.362 I/FCMService( 9856): FCM token refreshed
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-native-plugin-fix-raw.log:2721:05-12 04:51:44.363 W/FCMService( 9856): FCM token sync skipped: push context not ready yet
+C:\Users\TK\Desktop\hyeni-1\.reports\final-device-qa\logcat\final-parent-after-native-plugin-fix-raw.log:2737:05-12 04:51:45.811 D/SemInputMotionEventDispatcher( 1232): registerMotionEventListener: already registered: com.samsung.android.hardware.secinputdev.taas.ExternalApi$5@82f593a

@@ -1,0 +1,30 @@
+# Anon role REST probe — production
+# Run: 2026-05-12T12:56:21Z
+# URL: https://qzrrscryacxhprnrtpjd.supabase.co
+
+families                       SELECT_range=Content-Range: */0        INSERT_anon=401
+family_members                 SELECT_range=Content-Range: */0        INSERT_anon=401
+events                         SELECT_range=Content-Range: */0        INSERT_anon=401
+events_children                SELECT_range=Content-Range: */0        INSERT_anon=401
+child_locations                SELECT_range=Content-Range: */0        INSERT_anon=401
+location_history               SELECT_range=Content-Range: */0        INSERT_anon=401
+saved_places                   SELECT_range=Content-Range: */0        INSERT_anon=401
+academies                      SELECT_range=Content-Range: */0        INSERT_anon=401
+danger_zones                   SELECT_range=Content-Range: */0        INSERT_anon=401
+memos                          SELECT_range=Content-Range: */0        INSERT_anon=401
+memo_replies                   SELECT_range=Content-Range: */0        INSERT_anon=401
+remote_listen_sessions         SELECT_range=Content-Range: */0        INSERT_anon=401
+sos_events                     SELECT_range=Content-Range: */0        INSERT_anon=401
+force_ring_events              SELECT_range=Content-Range: */0        INSERT_anon=401
+pending_notifications          SELECT_range=Content-Range: */0        INSERT_anon=401
+fcm_tokens                     SELECT_range=Content-Range: */0        INSERT_anon=401
+push_idempotency               SELECT_range=Content-Range: 0-322/323  INSERT_anon=400
+family_subscription            SELECT_range=Content-Range: */0        INSERT_anon=401
+subscriptions                  SELECT_range=Content-Range: */0        INSERT_anon=401
+user_profiles                  SELECT_range=Content-Range: */0        INSERT_anon=401
+public_places                  SELECT_range=Content-Range: */0        INSERT_anon=401
+friend_playdate_sessions       SELECT_range=Content-Range: */0        INSERT_anon=401
+emergency_audio_chunks         SELECT_range=Content-Range: */0        INSERT_anon=401
+push_subscriptions             SELECT_range=Content-Range: */0        INSERT_anon=401
+push_sent                      SELECT_range=Content-Range: 0-181/182  INSERT_anon=400
+daily_supplies                 SELECT_range=                          INSERT_anon=404

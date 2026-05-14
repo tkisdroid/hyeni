@@ -6,21 +6,23 @@ import { ChildHero } from "../../src/components/childMode/ChildHero.jsx";
 describe("ChildHero — copy 분기", () => {
     const fixedNow = new Date(2026, 4, 5, 14, 30);
 
-    it("0개 일정 → 자유시간 copy", () => {
+    it("0개 일정 → 혜니가 함께 챙기는 친근한 copy", () => {
         render(<ChildHero eventCount={0} now={fixedNow} />);
-        expect(screen.getByText("오늘은 자유시간!")).toBeInTheDocument();
-        expect(screen.getByText(/마음껏 놀아도 돼/)).toBeInTheDocument();
+        expect(screen.getByRole("region", { name: "아이 홈 요약" })).toBeInTheDocument();
+        expect(screen.getByText("오늘은 여유 있어요")).toBeInTheDocument();
+        expect(screen.getByText(/오늘 등록된 일정이 없어요/)).toBeInTheDocument();
     });
 
-    it("1개 → 1개 일정 있어 copy", () => {
+    it("1개 → 오늘 일정 1개 copy", () => {
         render(<ChildHero eventCount={1} now={fixedNow} />);
-        expect(screen.getByText(/1개 일정 있어/)).toBeInTheDocument();
+        expect(screen.getByText("오늘 일정 1개")).toBeInTheDocument();
+        expect(screen.getByText(/천천히 같이 챙겨볼까요/)).toBeInTheDocument();
     });
 
-    it("2개 이상 → 오늘 뭐 해? + N개 표시", () => {
+    it("2개 이상 → 오늘 일정 N개 표시", () => {
         render(<ChildHero eventCount={3} now={fixedNow} />);
-        expect(screen.getByText("오늘 뭐 해?")).toBeInTheDocument();
-        expect(screen.getByText(/3개 일정 있어/)).toBeInTheDocument();
+        expect(screen.getByText("오늘 일정 3개")).toBeInTheDocument();
+        expect(screen.getByText(/하나씩 같이 챙겨볼까요/)).toBeInTheDocument();
     });
 
     it("현재 시각 표시", () => {
@@ -35,7 +37,7 @@ describe("ChildHero — copy 분기", () => {
 
     it("홈 hero에서 혜니 캐릭터를 크게 표시", () => {
         render(<ChildHero eventCount={0} now={fixedNow} />);
-        expect(screen.getByAltText("혜니")).toHaveAttribute("width", "112");
+        expect(screen.getByAltText("혜니")).toHaveAttribute("width", "148");
     });
 
     it("onSettings 핸들러가 ⚙ 클릭 시 호출됨", () => {

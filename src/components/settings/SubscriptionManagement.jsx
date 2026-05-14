@@ -28,6 +28,7 @@ function ChildSlot({ child, subscribed, busy, onToggle }) {
             disabled={busy}
             data-child-id={child.id}
             data-user-id={child.user_id || ""}
+            data-filled={subscribed ? "true" : "false"}
             aria-label={`${childName} ${subscribed ? "구독 해지" : "구독 시작"}`}
             style={{
                 "--child-color": childColor,
@@ -283,6 +284,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                     {/* 월 플랜 */}
                     <button
                         type="button"
+                        className="plan-card"
                         onClick={() => setSelectedPlan("monthly")}
                         aria-pressed={selectedPlan === "monthly"}
                         style={{
@@ -321,6 +323,7 @@ export function SubscriptionManagement({ role, familyId, childList = [], onClose
                     {/* 년 플랜 — 추천 */}
                     <button
                         type="button"
+                        className="plan-card"
                         onClick={() => setSelectedPlan("annual")}
                         aria-pressed={selectedPlan === "annual"}
                         style={{

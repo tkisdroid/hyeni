@@ -1,0 +1,34 @@
+{
+  "cycle": "cycle3a",
+  "devices": {
+    "parent": "R5CY***6QE",
+    "child": "R5CY***FNZ"
+  },
+  "parentPid": "32401",
+  "childPid": "5152",
+  "familyIdPrefix": "98463456",
+  "pairCode": "KID-1070C52D",
+  "screenshots": {
+    "parentRoleGate": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\screenshots\\cycle3a-parent-00-role-gate.png",
+    "childRoleGate": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\screenshots\\cycle3a-child-00-role-gate.png",
+    "parentBeforePair": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\screenshots\\cycle3a-parent-01-before-pair.png",
+    "childPairInput": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\screenshots\\cycle3a-child-01-pair-input.png",
+    "childPairedOrPermission": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\screenshots\\cycle3a-child-02-paired-permission.png",
+    "childHome": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\screenshots\\cycle3a-child-03-home.png",
+    "parentHome": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\screenshots\\cycle3a-parent-02-home.png",
+    "parentTracker": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\screenshots\\cycle3a-parent-03-tracker.png"
+  },
+  "checks": {
+    "childDidNotReturnToRoleGate": true,
+    "noPairPlaceholderOverlap": true,
+    "wrongPairCodeShowsGuidance": true,
+    "childLocationServiceForeground": true,
+    "parentTrackerOpened": true,
+    "childPairPersistedInDb": true,
+    "noAppCriticalLogPattern": true
+  },
+  "logs": {
+    "parent": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\logcat\\cycle3a-parent-sanitized.log",
+    "child": "C:\\Users\\TK\\Desktop\\hyeni-1\\.reports\\final-device-qa\\logcat\\cycle3a-child-sanitized.log"
+  }
+}

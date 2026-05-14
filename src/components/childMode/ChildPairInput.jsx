@@ -11,18 +11,13 @@ import { FF } from "../../lib/styleHelpers.js";
 import { AppBrandLogo } from "../auth/AppBrandLogo.jsx";
 import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+import { getCameraPermissionPlugin } from "../../lib/nativePlugins.js";
 
 const QR_CAMERA_PERMISSION_MESSAGE = "카메라 권한이 필요해요. 권한을 허용한 뒤 다시 시도해 주세요.";
 
 async function getNativeCameraPermissionPlugin() {
-    if (typeof window === "undefined") return null;
     try {
-        const { Capacitor, registerPlugin } = await import("@capacitor/core");
-        const isNative = typeof Capacitor?.isNativePlatform === "function"
-            ? Capacitor.isNativePlatform()
-            : !!window.Capacitor?.isNativePlatform?.();
-        if (!isNative || typeof registerPlugin !== "function") return null;
-        return registerPlugin("CameraPermission");
+        return await getCameraPermissionPlugin();
     } catch (err) {
         console.warn("[qr-scan] native camera permission plugin unavailable:", err);
         return null;
@@ -303,7 +298,7 @@ export function ChildPairInput({ userId, onPaired }) {
                 }}
             >
                 <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
-                    <HyeniMascot variant="wave" size={180} aria-label="혜니" />
+                    <HyeniMascot variant="cheer" size={180} aria-label="혜니" />
                     <h1 style={{ marginTop: 24, fontSize: 26, fontWeight: 800, color: "#2A1A20", letterSpacing: 0 }}>
                         연결됐어요!
                         <span aria-hidden="true" style={{ marginLeft: 4, fontSize: 16, color: "#F779A8" }}>♥</span>

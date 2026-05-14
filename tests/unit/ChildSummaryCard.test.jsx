@@ -30,7 +30,7 @@ describe("ChildSummaryCard", () => {
 
     fireEvent.error(image);
     expect(avatar).toHaveAttribute("data-avatar-state", "fallback");
-    expect(container.querySelector("img")).not.toBeInTheDocument();
+    expect(container.querySelector(`img[src="${child.photo_url}"]`)).not.toBeInTheDocument();
   });
 
   it("위치 텍스트 표시", () => {

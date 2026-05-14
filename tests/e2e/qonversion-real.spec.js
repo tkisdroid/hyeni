@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { roleGateButton } from "./_helpers.js";
 
 /**
  * Real-services E2E: Qonversion (subscription) web-layer test.
@@ -33,7 +34,7 @@ test.describe("qonversion web fallback", () => {
     await page.waitForLoadState("networkidle");
 
     // Role gate renders — no Qonversion-triggered crash.
-    await expect(page.getByText(/학부모/).first()).toBeVisible({ timeout: 10_000 });
+    await expect(roleGateButton(page, "parent")).toBeVisible({ timeout: 10_000 });
     expect(pageErrors, `pageErrors: ${JSON.stringify(pageErrors)}`).toEqual([]);
 
     // Qonversion errors to console are acceptable (expected on web) but

@@ -26,9 +26,9 @@ describe("memo display helpers", () => {
 
   test("provides child-friendly quick replies", () => {
     expect(getChildMemoQuickReplies()).toEqual([
-      { icon: "👋", label: "다녀왔어요", text: "다녀왔어요 👋" },
-      { icon: "💗", label: "사랑해요", text: "사랑해요 💗" },
-      { icon: "📞", label: "전화해요", text: "조금 있다 전화해요" },
+      { iconName: "check", label: "다녀왔어요", text: "다녀왔어요 👋" },
+      { iconName: "heart", label: "사랑해요", text: "사랑해요 💗" },
+      { iconName: "phone-lavender", label: "전화해요", text: "조금 있다 전화해요" },
     ]);
   });
 });

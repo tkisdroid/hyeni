@@ -101,6 +101,14 @@ describe("Soft Brand visual system", () => {
     expect(appCss).not.toMatch(/\.hyeni-app-shell\s*\{[^}]*user-select:\s*none/i);
   });
 
+  test("Korean copy wraps by word units across app pages", () => {
+    expect(appCss).toContain("word-break: keep-all !important");
+    expect(appCss).toContain("line-break: strict");
+    expect(appCss).toContain("overflow-wrap: break-word");
+    expect(appCss).toContain(".hyeni-app-shell :where(input, select, pre, code, kbd, samp)");
+    expect(appCss).toContain("word-break: normal !important");
+  });
+
   test("non-semantic app chrome uses the selected theme variables", () => {
     expect(appCss).toContain("--hyeni-theme-gradient");
     expect(appCss).toContain("--hyeni-pink: var(--theme-accent)");
@@ -175,6 +183,16 @@ describe("Soft Brand visual system", () => {
     expect(trialInviteSource).toContain("color-mix(in srgb, var(--fg-primary)");
     expect(featureLockSource).toContain("color-mix(in srgb, var(--fg-primary)");
     expect(autoRenewalSource).toContain("color-mix(in srgb, var(--fg-primary)");
+  });
+
+  test("premium-only popups use Hyeni mascot instead of legacy 2D or emoji icons", () => {
+    expect(featureLockSource).toContain("HyeniMascot");
+    expect(trialInviteSource).toContain("HyeniMascot");
+    expect(featureLockSource).not.toContain("HyeniGirl");
+    expect(trialInviteSource).not.toContain("ParentMomDuo");
+    expect(featureLockSource).not.toContain("copy?.emoji");
+    expect(featureLockSource).not.toContain("💎");
+    expect(paywallCopySource).not.toContain("emoji:");
   });
 
   test("multi-child dashboard chrome uses theme variables for shared accents", () => {
@@ -334,6 +352,12 @@ describe("Soft Brand visual system", () => {
     expect(dashboardEventSource).not.toContain("DESIGN.colors.pink");
   });
 
+  test("parent alerts open a visible popup instead of staying hidden in the center", () => {
+    expect(appSource).toContain("generalAlertPopupSeenRef");
+    expect(appSource).toContain("generalAlertPopupSeenRef.current.has(alert.id)");
+    expect(appSource).toContain("setShowAlertCenter(true)");
+  });
+
   test("schedule add modal controls follow the selected theme variables", () => {
     // Phase 2: ADD MODAL 블록이 EventSheet 로 이관 — 마커도 그에 맞춰 갱신.
     const modalStart = appSource.indexOf("{/* ── EVENT SHEET (Phase 2) ── */}");
@@ -385,7 +409,7 @@ describe("Soft Brand visual system", () => {
     expect(productPassCss).toContain("--hyeni-product-shadow");
     expect(productPassCss).toContain(".hyeni-v5-parent-main");
     expect(productPassCss).toContain("grid-template-columns: repeat(4, minmax(0, 1fr));");
-    expect(productPassCss).toContain(".hyeni-v5-action-chip > span:first-child");
+    expect(productPassCss).toContain(".hyeni-v5-action-chip-icon");
     expect(productPassCss).toContain("color: var(--theme-accent-text)");
     expect(productPassCss).toContain(".hyeni-v5-event-icon");
     expect(productPassCss).toContain("background: var(--theme-accent-soft)");
@@ -395,7 +419,12 @@ describe("Soft Brand visual system", () => {
     expect(productPassCss).toContain("box-shadow: none");
     expect(appSource).toContain('shell: "var(--hyeni-product-canvas)"');
     expect(appSource).toContain('background: "var(--hyeni-product-canvas)"');
-    expect(appSource).toContain("<AppBrandLogo size={isParent ? 64 : 72}");
+    expect(appSource).toContain("<AppBrandLogo size={64}");
+    expect(appSource).toContain('className="child-header-avatar"');
+    expect(appSource).toContain("hyeni-top-header--parent-compact");
+    expect(appSource).toContain('className="hyeni-parent-today-hero"');
+    expect(appSource).toContain('key: "kkuk"');
+    expect(appSource).toContain('className="hyeni-parent-hero-mascot-image"');
     expect(productPassCss).not.toContain("border-radius: 30px");
     expect(productPassCss).not.toContain("dashboard-card");
   });
@@ -514,7 +543,9 @@ describe("Soft Brand visual system", () => {
     expect(stickerSource).not.toContain("#FFF0F5");
     expect(stickerSource).not.toContain("#F9A8D4");
     expect(stickerSource).not.toContain("#EC4899");
-    expect(kkukSource).toContain("showKkukReceived.emoji");
+    expect(appSource).toContain("showKkukReceived.emoji");
+    expect(appSource).toContain("kkukProfileChild");
+    expect(kkukSource).toContain("<ChildAvatar");
     expect(kkukSource).toContain("var(--theme-accent-line)");
     expect(kkukSource).toContain("var(--theme-accent-soft)");
     expect(kkukSource).not.toContain("<svg width=\"120\"");

@@ -1,0 +1,25 @@
+Edge-function anon probe attempt — 2026-05-13
+=================================================
+
+Goal: POST {} (no auth + anon JWT) to each Edge Function to confirm 401/403.
+
+Outcome: BLOCKED by Claude Code auto-mode classifier.
+Network curl against the live Supabase project was denied because it would
+constitute live probing of shared production infrastructure beyond the
+static-analysis scope.
+
+Static-source verification used instead — see push-safety-report.md.
+Each function's auth gate is read directly from its index.ts.
+
+Static reading of supabase/functions/<fn>/index.ts:
+- push-notify           : in-function getClaims() at L428-449 (Agent 10 PASS; re-verified)
+- ai-child-monitor      : in-function getClaims() at L293-316 (PASS)
+- naver-auth            : intentionally --no-verify-jwt; OAuth code exchange flow
+- send-sms              : standardwebhooks signature secret; PASS
+- ai-voice-parse        : NO auth gate, NO signature check — P1 (Agent 02 F-004 carryforward)
+- subscription-reconcile: NO auth gate, opens service-role client — P1 (Agent 02 F-003)
+- feedback-email        : NO auth gate, no rate limit — P2 (Agent 02 F-008)
+- qonversion-webhook    : HMAC OR QONVERSION_ALLOW_UNSIGNED_WEBHOOKS=1 bypass — P2 NOT_VERIFIED (Agent 02 F-006)
+
+Runtime HTTP-response verification: NOT_VERIFIED.
+Caller must rerun probes from a sanctioned harness when devices come online.

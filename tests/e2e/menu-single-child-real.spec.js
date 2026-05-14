@@ -3,6 +3,7 @@ import {
   seedLegacyFamily,
   loginAsExistingParent,
   srFetch,
+  openParentMemo,
 } from "./_helpers.js";
 
 /**
@@ -35,21 +36,18 @@ test("단일 자녀 부모: memo send → memo_replies.child_id 정확 INSERT", 
   const { parent_email, parent_password, family_id, child_id } = seed;
 
   await loginAsExistingParent(page, parent_email, parent_password);
+  await page.goto("/");
 
   // 단일 자녀이므로 홈 탭 hidden + 자동 pin selectedChildId === child_id 기대.
   // 부모는 calendar 화면으로 시작.
   await page.waitForLoadState("networkidle");
 
   // 메모 탭 진입 — 단일 자녀라도 selectedChildId가 자동 pin 되어 정상 동작해야 함.
-  const memoTab = page.getByRole("button", { name: /메모/ }).first();
-  await memoTab.click();
-
   // 메시지 입력 + 보내기.
-  const composer = page.getByPlaceholder(/메시지|메모/).first();
-  await composer.waitFor({ state: "visible", timeout: 10_000 });
+  const composer = await openParentMemo(page);
   await composer.fill("E2E 단일 자녀 테스트");
 
-  const sendBtn = page.getByRole("button", { name: /보내기|전송|보내|send/i }).first();
+  const sendBtn = page.getByRole("button", { name: "메시지 보내기", exact: true }).first();
   await sendBtn.click();
 
   // INSERT 반영 대기 (server roundtrip + realtime).

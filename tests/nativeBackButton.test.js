@@ -17,10 +17,10 @@ describe("native Android back button behavior", () => {
     expect(section).toContain("activeView");
     expect(section).toContain("if (s.showChildMemoPage)");
     expect(section).toContain("setShowChildMemoPage(false)");
-    expect(section).toContain('if (s.activeView !== "calendar")');
-    expect(section).toContain('setActiveView("calendar")');
+    expect(section).toContain("if (s.activeView !== PARENT_VIEWS.TODAY)");
+    expect(section).toContain("setActiveView(PARENT_VIEWS.TODAY)");
 
     expect(section.indexOf("if (s.showChildMemoPage)")).toBeLessThan(section.indexOf("CapApp.minimizeApp()"));
-    expect(section.indexOf('if (s.activeView !== "calendar")')).toBeLessThan(section.indexOf("CapApp.minimizeApp()"));
+    expect(section.indexOf("if (s.activeView !== PARENT_VIEWS.TODAY)")).toBeLessThan(section.indexOf("CapApp.minimizeApp()"));
   });
 });

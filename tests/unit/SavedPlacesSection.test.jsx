@@ -12,12 +12,12 @@ describe("SavedPlacesSection", () => {
     it("빈 상태 → 안전장소 추가 칩 강조", () => {
         const onAddSafe = vi.fn();
         render(<SavedPlacesSection list={[]} onAddSafe={onAddSafe} />);
-        const safeBtn = screen.getByText("🛡️ 안전장소 추가");
+        const safeBtn = screen.getByRole("button", { name: "안전장소 추가" });
         fireEvent.click(safeBtn);
         expect(onAddSafe).toHaveBeenCalled();
     });
 
-    it("자주가는 장소 + 안전장소 칩 모두 렌더 + 🛡️ 배지", () => {
+    it("자주가는 장소 + 안전장소 칩 모두 렌더", () => {
         const list = [
             { id: "p1", name: "집", is_playdate_safe: false },
             { id: "p2", name: "학교", is_playdate_safe: true },

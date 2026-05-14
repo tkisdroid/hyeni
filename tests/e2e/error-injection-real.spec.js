@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { clickRoleGate, roleGateButton } from "./_helpers.js";
 
 /**
  * Real-services E2E: error injection.
@@ -54,7 +55,7 @@ test.describe("error injection: network degradation", () => {
     await page.waitForLoadState("networkidle");
 
     // App must still render the role gate — role gate doesn't depend on REST.
-    const parentBtn = page.getByText(/학부모/).first();
+    const parentBtn = roleGateButton(page, "parent");
     await expect(parentBtn).toBeVisible({ timeout: 10_000 });
 
     // No uncaught errors from the 503s; they should be caught and logged.
@@ -78,9 +79,7 @@ test.describe("error injection: network degradation", () => {
     );
 
     await page.goto("/");
-    const childBtn = page.getByText(/^아이$/).first();
-    await expect(childBtn).toBeVisible({ timeout: 10_000 });
-    await childBtn.click();
+    await clickRoleGate(page, "child", { timeoutMs: 10_000 });
 
     // Give the app a window to handle the rejected signup.
     await page.waitForTimeout(2_500);

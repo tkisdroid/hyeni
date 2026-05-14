@@ -60,7 +60,11 @@ public class ForceRingActivity extends AppCompatActivity {
         KeyguardManager km = getSystemService(KeyguardManager.class);
         boolean isLocked = km != null && km.isKeyguardLocked();
         boolean isSecure = km != null && km.isKeyguardSecure();
-        if (isLocked && !isSecure && km != null) {
+        // requestDismissKeyguard is API 26+. On API 24-25, FLAG_DISMISS_KEYGUARD
+        // (already set above) handles non-secure keyguard dismissal — those
+        // older devices are a negligible install base and degrade gracefully.
+        if (isLocked && !isSecure && km != null
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             km.requestDismissKeyguard(this, null);
         }
 
@@ -153,11 +157,11 @@ public class ForceRingActivity extends AppCompatActivity {
             }
         };
         IntentFilter filter = new IntentFilter("com.hyeni.calendar.FORCE_RING_STOP");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(stopReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(stopReceiver, filter);
-        }
+        // ContextCompat backports the exported-flag requirement to all API
+        // levels — required by Android 14+ (UpsideDownCake) for non-system
+        // broadcasts. stopReceiver is internal to this app, so NOT_EXPORTED.
+        ContextCompat.registerReceiver(this, stopReceiver, filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
     private void startCountdown() {

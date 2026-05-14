@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ChildPairInput } from "../../src/components/childMode/ChildPairInput.jsx";
 import { joinFamily } from "../../src/lib/auth.js";
+import { clearNativePluginCacheForTests } from "../../src/lib/nativePlugins.js";
 
 const capacitorMocks = vi.hoisted(() => ({
   isNativePlatform: vi.fn(),
@@ -54,11 +55,19 @@ function mockMediaElement() {
 describe("ChildPairInput QR scanner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearNativePluginCacheForTests();
     capacitorMocks.isNativePlatform.mockReturnValue(true);
     mockMediaElement();
     vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     joinFamily.mockResolvedValue({ family_id: "family-1" });
+  });
+
+  it("does not draw an overlapping placeholder over the custom code boxes", () => {
+    render(<ChildPairInput userId="child-user" onPaired={vi.fn()} />);
+
+    expect(screen.getByLabelText("페어링 코드 8자리")).not.toHaveAttribute("placeholder");
+    expect(screen.queryByPlaceholderText("XXXXXXXX")).not.toBeInTheDocument();
   });
 
   it("requests native camera permission before opening getUserMedia", async () => {

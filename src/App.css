@@ -69,6 +69,21 @@
   letter-spacing: 0 !important;
 }
 
+/* Korean copy wraps by eojeol (space-delimited word units) instead of splitting
+   syllables. Fixed-format values keep browser-default breaking behavior. */
+.hyeni-app-shell,
+.hyeni-app-shell :where(:not(input):not(select):not(pre):not(code):not(kbd):not(samp)) {
+  word-break: keep-all !important;
+  overflow-wrap: break-word;
+  line-break: strict;
+}
+
+.hyeni-app-shell :where(input, select, pre, code, kbd, samp) {
+  word-break: normal !important;
+  overflow-wrap: normal;
+  line-break: auto;
+}
+
 .hyeni-app-shell button,
 .hyeni-app-shell input,
 .hyeni-app-shell textarea,
@@ -681,6 +696,43 @@ a:focus-visible {
   min-width: 0;
 }
 
+.hyeni-top-header--parent-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: color-mix(in srgb, var(--theme-accent-line) 62%, transparent);
+}
+
+.hyeni-top-header--parent-compact .hyeni-top-header-brand {
+  gap: 8px;
+}
+
+.hyeni-top-header--parent-compact .hyeni-top-header-mode-rail {
+  display: none;
+}
+
+.hyeni-top-header--parent-compact .hyeni-top-header-actions {
+  gap: 6px;
+}
+
+.hyeni-top-header--parent-compact .hyeni-top-header-actions button {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+}
+
+.hyeni-parent-today-hero .hyeni-parent-hero-mascot-image {
+  background: transparent !important;
+  filter: drop-shadow(0 10px 18px rgba(31, 26, 34, 0.10));
+}
+
+.hyeni-v5-action-chip[data-action-key="kkuk"] {
+  color: var(--brand-rose-text, var(--theme-accent-text));
+  border-color: var(--brand-rose-line, var(--theme-accent-line));
+}
+
 @media (max-width: 390px) {
   .hyeni-top-header {
     grid-template-columns: 1fr;
@@ -688,6 +740,14 @@ a:focus-visible {
 
   .hyeni-top-header-actions {
     width: 100%;
+  }
+
+  .hyeni-top-header.hyeni-top-header--parent-compact {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .hyeni-top-header--parent-compact .hyeni-top-header-actions {
+    width: auto;
   }
 }
 
@@ -734,9 +794,10 @@ a:focus-visible {
   border-color: var(--hyeni-pink-line-strong);
 }
 
-.hyeni-v5-action-chip > span:first-child {
+.hyeni-v5-action-chip-icon {
   font-size: 18px;
   line-height: 1;
+  flex: 0 0 auto;
 }
 
 .hyeni-v5-action-chip span:last-child {
@@ -3114,9 +3175,9 @@ a:focus-visible {
   --hyeni-product-canvas:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--theme-accent-soft) 54%, #fff 46%) 0%,
-      #fffdfb 42%,
-      #fffaf6 100%
+      rgb(253, 250, 251) 0%,
+      rgb(255, 253, 251) 42%,
+      rgb(246, 240, 243) 100%
     );
   --hyeni-product-surface: rgba(255, 255, 255, 0.92);
   --hyeni-product-surface-solid: #ffffff;
@@ -3231,7 +3292,7 @@ a:focus-visible {
   background: var(--theme-accent-soft);
 }
 
-.hyeni-v5-action-chip > span:first-child {
+.hyeni-v5-action-chip-icon {
   color: var(--theme-accent-text);
   font-size: 17px;
   font-weight: 850;
@@ -3254,7 +3315,7 @@ a:focus-visible {
   background: linear-gradient(135deg, var(--theme-accent-soft), var(--hyeni-product-surface-solid));
 }
 
-.hyeni-v5-action-chip[data-action-key="quick-schedule"] > span:first-child {
+.hyeni-v5-action-chip[data-action-key="quick-schedule"] .hyeni-v5-action-chip-icon {
   font-size: 20px;
 }
 
@@ -3575,6 +3636,10 @@ a:focus-visible {
   border-radius: 20px;
   background: var(--hyeni-product-surface-solid);
   box-shadow: none;
+}
+
+.hyeni-app-shell .hyeni-v1-home-event-list .hyeni-v5-event-card button.hyeni-v5-event-delete.hyeni-v5-event-delete {
+  display: none;
 }
 
 .hyeni-v5-event-icon {

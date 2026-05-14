@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { buildMessageItems, getMemoTime } from "../../lib/memoTime.js";
 import { getParentMemoQuickReplies } from "../../lib/memoDisplay.js";
 import { withParticle } from "../../lib/koreanParticle.js";
+import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
 import { MemoBubble } from "../childMode/MemoBubble.jsx";
-import { AnimalIcon } from "../icons/AnimalIcon.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 
@@ -25,9 +25,9 @@ function DateDivider({ label }) {
     );
 }
 
-function MineBubble({ text, time, sender = "나", isRead = false }) {
+function MineBubble({ text, time, sender = "나", isRead = false, ariaLabel }) {
     return (
-        <article style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, marginBottom: 16 }}>
+        <article aria-label={ariaLabel} style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#5F6368", fontSize: 11, fontWeight: 600 }}>
                 <strong style={{ color: "#202024", fontSize: 13, fontWeight: 800 }}>{sender}</strong>
                 <span>{time}</span>
@@ -79,9 +79,9 @@ function MineBubble({ text, time, sender = "나", isRead = false }) {
     );
 }
 
-function TheirBubble({ text, time, sender }) {
+function TheirBubble({ text, time, sender, ariaLabel }) {
     return (
-        <article style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 16 }}>
+        <article aria-label={ariaLabel} style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 16 }}>
             <span
                 aria-hidden="true"
                 style={{
@@ -134,7 +134,15 @@ function TheirBubble({ text, time, sender }) {
 
 // tabbar가 fixed bottom으로 렌더될 때 입력창 위로 올라오도록 추가 여백을 계산하는 상수.
 // hyeni-v5-tabbar-fixed 의 실측 높이(버튼 46px + 패딩 12px) + safe-area 여백.
-const TABBAR_HEIGHT = 72; // px
+const TABBAR_HEIGHT = 86; // px
+
+const QUICK_REPLY_ICON_BY_EMOJI = {
+    "👋": "chat-heart",
+    "📍": "pin-heart",
+    "⭐": "star-face",
+    "💗": "heart",
+    "📞": "phone-lavender",
+};
 
 export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, partnerName, onReplyRef, mode = "parent", quickReplies, emptyCopy, stickerCopy, bottomNavigation = null }) {
     const hasTabbar = bottomNavigation !== null;
@@ -142,7 +150,9 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
     const [isSending, setIsSending] = useState(false);
     const [sendError, setSendError] = useState("");
     const [lastFailedText, setLastFailedText] = useState("");
+    const [showOnboardingToast, setShowOnboardingToast] = useState(false);
     const threadRef = useRef(null);
+    const onboardingTimerRef = useRef(null);
     const today = new Date();
     const dateLabel = `오늘 · ${DAYS_KO[today.getDay()]}요일`;
     const title = "오늘의 메모";
@@ -197,6 +207,25 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
         });
         return () => window.cancelAnimationFrame(id);
     }, [messages.length]);
+
+    useEffect(() => {
+        let shouldShow = false;
+        try {
+            shouldShow = !window.localStorage.getItem("memoOnboardingV2Seen");
+            if (shouldShow) window.localStorage.setItem("memoOnboardingV2Seen", "1");
+        } catch {
+            shouldShow = false;
+        }
+        if (!shouldShow) return undefined;
+        const cancelDeferred = deferEffectStateUpdate(() => {
+            setShowOnboardingToast(true);
+            onboardingTimerRef.current = window.setTimeout(() => setShowOnboardingToast(false), 4000);
+        });
+        return () => {
+            cancelDeferred();
+            if (onboardingTimerRef.current) window.clearTimeout(onboardingTimerRef.current);
+        };
+    }, []);
 
     return (
         <main
@@ -319,6 +348,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                         // isMine + 상대(나 외 user_id) 가 read_by 에 들어있으면 읽음 표시.
                         const isReadByOther = isMine && Array.isArray(message.read_by)
                             && message.read_by.some(uid => uid && uid !== myUserId);
+                        const messageAriaLabel = `${sender} ${time} 메모: ${message.content}`;
 
                         if (mode === "child") {
                             const from = message.user_role === "parent" ? "parent" : "child";
@@ -326,7 +356,7 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                                 ? (isReadByOther ? `${time} · 읽음 ✓` : `${time} · 전송됨`)
                                 : `${sender} · ${time}`;
                             return (
-                                <div key={message.id} ref={replyRefAttach} aria-label={`${sender} ${time} 메모: ${message.content}`}>
+                                <div key={message.id} ref={replyRefAttach} aria-label={messageAriaLabel}>
                                     <MemoBubble from={from} stamp={stamp}>{message.content}</MemoBubble>
                                 </div>
                             );
@@ -336,11 +366,11 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                             <div
                                 key={message.id}
                                 ref={replyRefAttach}
-                                aria-label={`${sender} ${time} 메모: ${message.content}`}
+                                aria-label={messageAriaLabel}
                             >
                                 {isMine
-                                    ? <MineBubble text={message.content} time={time} sender="나" isRead={isReadByOther} />
-                                    : <TheirBubble text={message.content} time={time} sender={sender} />
+                                    ? <MineBubble text={message.content} time={time} sender="나" isRead={isReadByOther} ariaLabel={messageAriaLabel} />
+                                    : <TheirBubble text={message.content} time={time} sender={sender} ariaLabel={messageAriaLabel} />
                                 }
                             </div>
                         );
@@ -388,7 +418,9 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                                 minHeight: 36,
                             }}
                         >
-                            <span aria-hidden="true" style={{ fontSize: 16 }}>{item.icon}</span>
+                            <span aria-hidden="true" style={{ display: "inline-flex", width: 18, height: 18, alignItems: "center", justifyContent: "center" }}>
+                                <ThreeDIcon name={item.iconName || QUICK_REPLY_ICON_BY_EMOJI[item.icon] || "chat-heart"} size={18} aria-label="" />
+                            </span>
                             {item.label}
                         </button>
                     ))}
@@ -419,7 +451,41 @@ export function ParentMemoPage({ replies, onReplySubmit, myUserId, onClose, part
                         </button>
                     </div>
                 )}
+                {showOnboardingToast && (
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        aria-label="메모 화면이 새로워졌어요"
+                        style={{
+                            marginBottom: 8,
+                            padding: "9px 12px",
+                            borderRadius: 14,
+                            background: "var(--brand-mint-soft, #DDF7EA)",
+                            color: "var(--brand-mint-text, #087653)",
+                            fontSize: 12,
+                            fontWeight: 800,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 8,
+                        }}
+                    >
+                        <span>메모 화면이 새로워졌어요 ✨</span>
+                        <button
+                            type="button"
+                            aria-label="메모 안내 숨김"
+                            onClick={() => {
+                                setShowOnboardingToast(false);
+                                if (onboardingTimerRef.current) window.clearTimeout(onboardingTimerRef.current);
+                            }}
+                            style={{ minWidth: 28, minHeight: 28, padding: 0, border: "none", borderRadius: 10, background: "rgba(255,255,255,0.72)", color: "inherit", fontWeight: 900, cursor: "pointer" }}
+                        >
+                            ×
+                        </button>
+                    </div>
+                )}
                 <div
+                    className="hyeni-memo-composer"
                     style={{
                         display: "flex",
                         alignItems: "center",

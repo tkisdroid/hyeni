@@ -6,7 +6,11 @@ export function MemoBubble({ from, children, stamp }) {
     return (
         <div className="memo-bubble-row" data-from={from === "child" ? "child" : "parent"}>
             <div className="memo-bubble-stack">
-                <span className="memo-bubble" data-from={from === "child" ? "child" : "parent"}>
+                <span
+                    className="memo-bubble"
+                    data-from={from === "child" ? "child" : "parent"}
+                    style={{ wordBreak: "keep-all", whiteSpace: "pre-wrap", overflowWrap: "break-word" }}
+                >
                     {children}
                 </span>
                 {stamp && <span className="memo-bubble-stamp">{stamp}</span>}

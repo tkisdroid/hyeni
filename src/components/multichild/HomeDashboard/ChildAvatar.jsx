@@ -5,6 +5,7 @@ import {
   HYENI_DEFAULT_CHILD_IMAGE_URL,
 } from "../../../lib/childDefaultImage.js";
 import { deferEffectStateUpdate } from "../../../lib/deferEffectStateUpdate.js";
+import { AnimalIcon, resolveAnimalName } from "../../icons/AnimalIcon.jsx";
 
 function getFallbackGlyph(child) {
   if (child?.emoji) return child.emoji;
@@ -49,6 +50,7 @@ export function ChildAvatar({
   const showGlyph =
     (imageState === "fallback" && photoErrored) ||
     (imageState !== "loaded" && defaultImageFailed);
+  const animalName = child?.emoji ? resolveAnimalName({ emoji: child.emoji }) : null;
 
   return (
     <span
@@ -124,22 +126,31 @@ export function ChildAvatar({
       )}
       {/* 색상 기반 glyph — fallback 또는 photoUrl 없음 */}
       {showGlyph && (
-        <span
-          aria-hidden="true"
-          style={{
-            opacity: 1,
-            transition: "opacity 120ms ease",
-            fontSize: child?.emoji ? Math.round(size * 0.86) : fontSize,
-            lineHeight: 1,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          {getFallbackGlyph(child)}
-        </span>
+        animalName ? (
+          <AnimalIcon
+            name={animalName}
+            emoji={child.emoji}
+            size={Math.max(24, Math.round(size * 0.88))}
+            aria-label={`${child.emoji} 캐릭터`}
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            style={{
+              opacity: 1,
+              transition: "opacity 120ms ease",
+              fontSize: child?.emoji ? Math.round(size * 0.86) : fontSize,
+              lineHeight: 1,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            {getFallbackGlyph(child)}
+          </span>
+        )
       )}
     </span>
   );

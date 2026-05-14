@@ -24,16 +24,16 @@ export function getMemoPreview({ memoReplies, currentMemo, formatRelativeTime } 
 
 export function getParentMemoQuickReplies() {
   return [
-    { icon: "👋", label: "꾹 인사", text: "꾹 인사 보낼게 👋" },
-    { icon: "📍", label: "어디야?", text: "지금 어디야?" },
-    { icon: "⭐", label: "스티커", text: "스티커 칭찬을 보냈어요 ⭐" },
+    { iconName: "chat-heart", label: "꾹 인사", text: "꾹 인사 보낼게 👋" },
+    { iconName: "pin-heart", label: "어디야?", text: "지금 어디야?" },
+    { iconName: "star-face", label: "스티커", text: "스티커 칭찬을 보냈어요 ⭐" },
   ];
 }
 
 export function getChildMemoQuickReplies() {
   return [
-    { icon: "👋", label: "다녀왔어요", text: "다녀왔어요 👋" },
-    { icon: "💗", label: "사랑해요", text: "사랑해요 💗" },
-    { icon: "📞", label: "전화해요", text: "조금 있다 전화해요" },
+    { iconName: "check", label: "다녀왔어요", text: "다녀왔어요 👋" },
+    { iconName: "heart", label: "사랑해요", text: "사랑해요 💗" },
+    { iconName: "phone-lavender", label: "전화해요", text: "조금 있다 전화해요" },
   ];
 }

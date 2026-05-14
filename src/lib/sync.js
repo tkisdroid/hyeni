@@ -214,18 +214,69 @@ function savedPlaceToRow(place, familyId) {
 
 // ── Fetch all data for a family ─────────────────────────────────────────────
 
-export async function fetchEvents(familyId) {
+// Agent11 P1-002: previously this query had no LIMIT and no date filter, so
+// long-lived families (years of schedules) would download megabytes of JSON
+// on every cold start and on every Realtime missed-event refetch. We now:
+//   1) Cap the response with LIMIT (DEFAULT_FETCH_EVENTS_LIMIT) as a hard
+//      payload safety net.
+//   2) Optionally constrain by a date_key window — caller passes
+//      { rangeMonths: N } to request only the rows whose date_key falls
+//      within ±N months of `today` (default 36 months → 6-year window).
+//   3) Client-side filter the rows after read because date_key is a text
+//      column with 0-indexed month and is not lexicographically sortable
+//      (e.g. "2026-3-1" > "2026-10-1" by string compare). Adding a sortable
+//      timestamp column is a DB migration owned by the fix-db agent.
+//
+// Backwards compatible: callers that pass no opts get the legacy "all rows
+// for this family" semantics, just bounded by LIMIT.
+const DEFAULT_FETCH_EVENTS_LIMIT = 5000;
+const DEFAULT_FETCH_EVENTS_RANGE_MONTHS = 36;
+
+export async function fetchEvents(familyId, opts = {}) {
+  const { rangeMonths = null, limit = DEFAULT_FETCH_EVENTS_LIMIT } = opts;
+
+  // Order before limit so the truncated set is deterministic and biased
+  // toward recent/upcoming events (PostgREST otherwise returns rows in an
+  // unspecified order, so a family with more than `limit` events could lose
+  // arbitrary rows from a cold fetch). date_key DESC keeps current/future
+  // schedules; id is a tie-break for events sharing the same day.
   const { data, error } = await supabase
     .from("events")
     .select("*, events_children(child_id)")
-    .eq("family_id", familyId);
+    .eq("family_id", familyId)
+    .order("date_key", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit);
 
   if (error) {
     console.error("[sync] fetchEvents error:", error);
     return lsGet(LS_EVENTS, {});
   }
 
-  const map = rowsToEventMap(data || []);
+  let rows = data || [];
+
+  // Optional client-side date-window filter. We compute the [start, end]
+  // window in YYYY-M-D form (month is 0-indexed to match the app convention)
+  // and parse each row's date_key the same way. Rows missing date_key fall
+  // through (rare; defensive).
+  if (Number.isFinite(rangeMonths) && rangeMonths > 0) {
+    const now = new Date();
+    const startD = new Date(now.getFullYear(), now.getMonth() - rangeMonths, 1);
+    const endD = new Date(now.getFullYear(), now.getMonth() + rangeMonths + 1, 0);
+    const startMs = startD.getTime();
+    const endMs = endD.getTime();
+    rows = rows.filter((row) => {
+      if (!row.date_key) return true;
+      const parts = String(row.date_key).split("-").map(Number);
+      if (parts.length !== 3) return true;
+      const [y, m, d] = parts;
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return true;
+      const t = new Date(y, m, d).getTime();
+      return t >= startMs && t <= endMs;
+    });
+  }
+
+  const map = rowsToEventMap(rows);
   lsSet(LS_EVENTS, map);
   return map;
 }
@@ -723,13 +774,22 @@ export async function fetchChildLocations(familyId) {
 // with _dispose() + _channels attached so unsubscribe() can tear down all
 // 8 channels in one call.
 
-function subscribeTableChanges(channelName, tableName, familyId, eventSpec, handler) {
+// onMissedChange: optional callback invoked whenever the channel transitions
+// to CHANNEL_ERROR / TIMED_OUT — i.e. while we were disconnected the database
+// may have advanced and the next SUBSCRIBED will not replay the gap. Callers
+// pass a fetcher that re-syncs the affected table so the UI does not stay
+// stale. Fixes Agent11 P1-001 (no missed-event refetch on reconnect).
+function subscribeTableChanges(channelName, tableName, familyId, eventSpec, handler, onMissedChange) {
   // eventSpec: "*" for all events, or "INSERT"/"UPDATE"/"DELETE"
   let retryCount = 0;
   const MAX_RETRIES = 10;
   const BASE_DELAY_MS = 2000;
   let retryTimer = null;
   let disposed = false;
+  // Fire onMissedChange exactly once per "lost connection" episode — between
+  // the CHANNEL_ERROR and the next SUBSCRIBED. Avoids a thundering refetch
+  // when retries flap.
+  let missedRefetchPending = false;
 
   const ch = supabase
     .channel(channelName)
@@ -745,9 +805,23 @@ function subscribeTableChanges(channelName, tableName, familyId, eventSpec, hand
       if (status === "SUBSCRIBED") {
         console.log(`[Realtime] Subscribed to ${channelName}`);
         retryCount = 0;
+        if (missedRefetchPending && typeof onMissedChange === "function") {
+          missedRefetchPending = false;
+          // Best-effort: a thrown promise here is swallowed so it never
+          // breaks the subscribe callback.
+          try {
+            const result = onMissedChange();
+            if (result && typeof result.catch === "function") {
+              result.catch((e) => console.warn(`[Realtime] ${channelName} missed-refetch failed`, e));
+            }
+          } catch (e) {
+            console.warn(`[Realtime] ${channelName} missed-refetch threw`, e);
+          }
+        }
       }
       if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !disposed) {
         console.error(`[Realtime] ${channelName} ${status}`, err);
+        missedRefetchPending = true;
         if (retryCount < MAX_RETRIES) {
           const delay = Math.min(BASE_DELAY_MS * Math.pow(2, retryCount), 60000);
           retryCount++;
@@ -796,32 +870,50 @@ export function subscribeFamily(familyId, callbacks) {
     onAudioChunk,
     onChildDeviceStatus,
     onChildDeviceStatusRequest,
+    // onMissedRefetch(tableName) — invoked when a per-table channel reconnects
+    // after CHANNEL_ERROR / TIMED_OUT. Caller is expected to re-fetch that
+    // table so the UI does not stay stale on the events that fired during
+    // the disconnect. Optional; subscriptions still work without it.
+    onMissedRefetch,
   } = callbacks;
+
+  const requestRefetch = typeof onMissedRefetch === "function"
+    ? (table) => () => {
+        try { onMissedRefetch(table); } catch (e) {
+          console.warn(`[Realtime] onMissedRefetch(${table}) threw`, e);
+        }
+      }
+    : () => undefined;
 
   // ── Per-table postgres_changes channels (D-B02) ──────────────────────────
   const eventsCh = subscribeTableChanges(
     `events-${familyId}`, "events", familyId, "*",
-    onEventsChange
+    onEventsChange,
+    requestRefetch("events")
   );
 
   const academiesCh = subscribeTableChanges(
     `academies-${familyId}`, "academies", familyId, "*",
-    onAcademiesChange
+    onAcademiesChange,
+    requestRefetch("academies")
   );
 
   const memosCh = subscribeTableChanges(
     `memos-${familyId}`, "memos", familyId, "*",
-    onMemosChange
+    onMemosChange,
+    requestRefetch("memos")
   );
 
   const savedPlacesCh = subscribeTableChanges(
     `saved_places-${familyId}`, "saved_places", familyId, "*",
-    onSavedPlacesChange
+    onSavedPlacesChange,
+    requestRefetch("saved_places")
   );
 
   const familySubCh = subscribeTableChanges(
     `family_subscription-${familyId}`, "family_subscription", familyId, "*",
-    onFamilySubscriptionChange  // undefined handler is fine — events simply drop
+    onFamilySubscriptionChange,  // undefined handler is fine — events simply drop
+    requestRefetch("family_subscription")
   );
 
   // memo_replies: subscribe to "*" so the receiver also gets read_by UPDATEs
@@ -832,17 +924,20 @@ export function subscribeFamily(familyId, callbacks) {
     `memo_replies-${familyId}`, "memo_replies", familyId, "*",
     onMemoRepliesChange
       ? (eventType, newRow, oldRow) => onMemoRepliesChange(newRow, eventType, oldRow)
-      : null
+      : null,
+    requestRefetch("memo_replies")
   );
 
   const dailySuppliesCh = subscribeTableChanges(
     `daily_supplies-${familyId}`, "daily_supplies", familyId, "*",
-    onDailySuppliesChange
+    onDailySuppliesChange,
+    requestRefetch("daily_supplies")
   );
 
   const familyMembersCh = subscribeTableChanges(
     `family_members-${familyId}`, "family_members", familyId, "*",
-    onFamilyMembersChange
+    onFamilyMembersChange,
+    requestRefetch("family_members")
   );
 
   // child_locations: postgres_changes serves as a fallback for the broadcast
@@ -864,7 +959,8 @@ export function subscribeFamily(familyId, callbacks) {
             source: "realtime_db",
           });
         }
-      : null
+      : null,
+    requestRefetch("child_locations")
   );
 
   // ── Broadcast-only channel (D-B06) ───────────────────────────────────────
@@ -1063,6 +1159,23 @@ export async function markAlertRead(alertId) {
 
 // ── Multi-child event saving ─────────────────────────────────────────────────
 
+// saveEventWithChildren performs three sequential REST calls:
+//   1) upsert events row
+//   2) delete events_children for that event id
+//   3) insert new events_children links (skipped when familyAll)
+//
+// Supabase JS does not expose multi-statement transactions, so a partial
+// failure between steps 1-3 used to leave the event row visible with
+// is_family_event=false AND no child_ids — i.e. an "orphaned" schedule that
+// no child can see. We now apply client-side compensation: snapshot the
+// pre-write state, then on partial failure either revert the row to its
+// snapshot or hard-delete it when the snapshot did not exist.
+//
+// TODO(QA Agent04 F2 / fix-db follow-up): replace this 3-call dance with a
+// single SECURITY DEFINER RPC `save_event_with_children(...)` so the database
+// owns atomicity. This client-side helper is the safe interim — it bounds
+// the bug surface to network races where rollback itself fails, instead of
+// every partial network failure.
 export async function saveEventWithChildren(event, selection) {
   const { childIds = [], familyAll = false } = selection || {};
 
@@ -1077,6 +1190,55 @@ export async function saveEventWithChildren(event, selection) {
     is_family_event: !!familyAll,
   };
 
+  // Snapshot the prior state so we can revert on partial failure.
+  // We look up by id when present (edit path); the add path generates a
+  // fresh UUID client-side so no snapshot exists.
+  //
+  // Supabase JS does NOT throw on RLS/network errors — it returns
+  // { data: null, error } and silently lets the await complete. If we treat
+  // a failed snapshot read the same as "no prior row found", a later step
+  // failure would trigger the new-row rollback path and HARD-DELETE an
+  // existing event the caller actually owned. To avoid that data-loss
+  // window we track `snapshotFailed` and downgrade the rollback to a no-op
+  // when the snapshot itself was unreliable.
+  let priorEventRow = null;
+  let priorChildLinks = [];
+  let snapshotFailed = false;
+  if (eventRow.id) {
+    try {
+      const { data: priorEv, error: priorEvError } = await supabase
+        .from("events")
+        .select("*")
+        .eq("id", eventRow.id)
+        .maybeSingle();
+      if (priorEvError) {
+        snapshotFailed = true;
+        console.warn("[sync] saveEventWithChildren prior-event snapshot read failed", priorEvError);
+      } else if (priorEv) {
+        priorEventRow = priorEv;
+      }
+
+      const { data: priorLinks, error: priorLinksError } = await supabase
+        .from("events_children")
+        .select("child_id")
+        .eq("event_id", eventRow.id);
+      if (priorLinksError) {
+        snapshotFailed = true;
+        console.warn("[sync] saveEventWithChildren prior-links snapshot read failed", priorLinksError);
+      } else {
+        priorChildLinks = (priorLinks || []).map((row) => row.child_id);
+      }
+    } catch (snapErr) {
+      snapshotFailed = true;
+      console.warn("[sync] saveEventWithChildren snapshot failed", snapErr);
+    }
+  }
+  // isNewRow is true only when the snapshot SUCCEEDED and found nothing —
+  // i.e. we are confident this is a fresh insert. If the snapshot read
+  // itself failed we must not take the hard-delete rollback path.
+  const isNewRow = !snapshotFailed && !priorEventRow;
+
+  // Step 1: upsert events row.
   const { data: saved, error: eventError } = await supabase
     .from("events")
     .upsert(eventRow)
@@ -1084,12 +1246,51 @@ export async function saveEventWithChildren(event, selection) {
     .single();
   if (eventError) throw eventError;
 
-  await supabase.from("events_children").delete().eq("event_id", saved.id);
+  // Step 2: clear prior child links so we can rewrite the M:N join from
+  // scratch.
+  const { error: deleteError } = await supabase
+    .from("events_children")
+    .delete()
+    .eq("event_id", saved.id);
+  if (deleteError) {
+    // Roll back step 1.
+    try {
+      if (isNewRow) {
+        await supabase.from("events").delete().eq("id", saved.id);
+      } else if (priorEventRow) {
+        await supabase.from("events").upsert(priorEventRow);
+      }
+    } catch (rollbackErr) {
+      console.error("[sync] saveEventWithChildren rollback (step 2) failed", rollbackErr);
+    }
+    throw deleteError;
+  }
 
+  // Step 3: insert the new links. Skip when familyAll (the event is for
+  // every child and the join table stays empty for that row).
   if (!familyAll && childIds.length > 0) {
     const links = childIds.map((cid) => ({ event_id: saved.id, child_id: cid }));
     const { error: linkError } = await supabase.from("events_children").insert(links);
-    if (linkError) throw linkError;
+    if (linkError) {
+      // Roll back steps 1 and 2 so the user never sees an "orphaned" event
+      // that no child can read.
+      try {
+        if (isNewRow) {
+          await supabase.from("events").delete().eq("id", saved.id);
+        } else {
+          if (priorEventRow) {
+            await supabase.from("events").upsert(priorEventRow);
+          }
+          if (priorChildLinks.length > 0) {
+            const restoreLinks = priorChildLinks.map((cid) => ({ event_id: saved.id, child_id: cid }));
+            await supabase.from("events_children").insert(restoreLinks);
+          }
+        }
+      } catch (rollbackErr) {
+        console.error("[sync] saveEventWithChildren rollback (step 3) failed", rollbackErr);
+      }
+      throw linkError;
+    }
   }
 
   return saved;

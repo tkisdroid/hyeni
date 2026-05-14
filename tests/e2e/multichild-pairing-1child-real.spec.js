@@ -37,7 +37,7 @@ test.describe("multichild — 1-child mode UI (seeded family)", () => {
     await page.getByRole("button", { name: "연결하기", exact: true }).click();
 
     await expect(page.getByText("연결됐어요!")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("region", { name: "오늘은 뭐해?" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("region", { name: "아이 홈 요약" })).toBeVisible({ timeout: 20_000 });
 
     const childSession = await page.evaluate(() => {
       for (let i = 0; i < localStorage.length; i += 1) {

@@ -1,5 +1,5 @@
 import { EARLY_ADOPTER_BADGE, PRICING, TRIAL_INVITE } from "../../lib/paywallCopy.js";
-import { ParentMomDuo } from "../decoration/CartoonIllustrations.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false }) {
@@ -30,14 +30,14 @@ export function TrialInvitePrompt({ open, onStart, onDismiss, isChild = false })
               justifyContent: "center",
               width: 72,
               height: 64,
-              background: "var(--cartoon-bg-chip)",
-              borderRadius: "var(--cartoon-radius-icon)",
-              border: "1px solid var(--cartoon-line)",
-              overflow: "hidden",
+              background: "linear-gradient(180deg, var(--theme-accent-soft), var(--bg-card))",
+              borderRadius: 20,
+              border: "1px solid var(--theme-accent-line)",
+              overflow: "visible",
               flexShrink: 0,
             }}
           >
-            <ParentMomDuo size={72} ariaLabel="" />
+            <HyeniMascot variant="cheer" size={78} aria-label="혜니" />
           </span>
           <div className="cartoon-chip cartoon-chip--pink" style={{ fontSize: 12 }}>
             <ThreeDIcon name="sparkle" size={14} aria-label="" />

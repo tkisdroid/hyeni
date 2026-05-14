@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedFamilyWith2Children, loginAsExistingParent, getDbRows, selectChildOnHomeIfMulti } from "./_helpers.js";
+import { seedFamilyWith2Children, loginAsExistingParent, getDbRows, selectChildOnHomeIfMulti, openParentEventAdd } from "./_helpers.js";
 
 test.describe("multichild — single-child event creates 1 events_children row", () => {
   test.skip(
@@ -28,10 +28,7 @@ test.describe("multichild — single-child event creates 1 events_children row",
     await page.waitForTimeout(500);
 
     // Open event-add view from the current bottom navigation.
-    await page.getByRole("navigation", { name: "부모 메인 탭" })
-      .last()
-      .getByRole("button", { name: "일정등록" })
-      .click();
+    await openParentEventAdd(page);
     await page.waitForSelector("input[placeholder*='학원']", { timeout: 8000 });
     await page.fill("input[placeholder*='학원']", eventTitle);
     // ChildSelector renders <input type=checkbox aria-label=<child.name>>
