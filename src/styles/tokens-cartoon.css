@@ -331,18 +331,21 @@
   color: var(--cartoon-rose-text);
 }
 .cartoon-role-chip[aria-checked="true"] .cartoon-role-chip-frame {
-  background: var(--cartoon-bg-card);
+  background: transparent;
 }
 .cartoon-role-chip-frame {
   width: 44px;
   height: 44px;
   display: inline-flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  background: var(--cartoon-bg-cream);
+  background: transparent;
   border-radius: 50%;
   overflow: hidden;
   margin-bottom: 2px;
+}
+.cartoon-role-chip-frame img {
+  mix-blend-mode: multiply;
 }
 .cartoon-role-chip:disabled,
 .cartoon-role-chip[aria-disabled="true"] {

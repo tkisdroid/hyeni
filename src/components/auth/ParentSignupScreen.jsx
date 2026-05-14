@@ -124,10 +124,7 @@ export function ParentSignupScreen({ onBack }) {
             >
                 <div className="cartoon-topbar">
                     <button type="button" onClick={onBack} aria-label="뒤로" className="btn-icon-circle">←</button>
-                    <div style={{ display: "flex", justifyContent: "center", flex: 1 }}>
-                        <AppBrandLogo size={48} radius={14} shadow={false} />
-                    </div>
-                    <div style={{ width: 40 }} />
+                    <div style={{ flex: 1 }} />
                 </div>
 
                 <div style={{ textAlign: "center", marginBottom: "var(--space-6)", display: "flex", flexDirection: "column", alignItems: "center" }}>

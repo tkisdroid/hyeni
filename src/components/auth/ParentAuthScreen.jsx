@@ -16,6 +16,7 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
     const [message, setMessage] = useState("");
     const [login, setLogin] = useState({ loginId: "", password: "" });
     const [showIdPw, setShowIdPw] = useState(false);
+    const [showLogin, setShowLogin] = useState(false);
 
     const handleKakao = async () => {
         setBusy("kakao");
@@ -70,6 +71,10 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
         if (busy) return true;
         if (showIdPw) {
             setShowIdPw(false);
+            return true;
+        }
+        if (showLogin) {
+            setShowLogin(false);
             return true;
         }
         if (onBack) {
@@ -161,86 +166,152 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                 </div>
 
                 <div style={{ maxWidth: 400, width: "100%", margin: "24px auto 0", display: "flex", flexDirection: "column", gap: 12 }}>
-                    <ProviderButton
-                        onClick={handleKakao}
-                        busy={busy === "kakao"}
+                    <button
+                        type="button"
+                        onClick={onSignupClick}
                         disabled={!!busy}
-                        background="#FEE500"
-                        color="#191919"
-                        icon={
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M12 3C6.48 3 2 6.62 2 11.1c0 2.93 1.91 5.5 4.78 6.94l-1.22 4.46c-.11.4.34.72.7.5l5.32-3.5c.13.01.27.01.42.01 5.52 0 10-3.62 10-8.41C22 6.62 17.52 3 12 3z"/>
-                            </svg>
-                        }
-                        label="카카오로 계속하기"
-                    />
-                    <ProviderButton
-                        onClick={handleGoogle}
-                        busy={busy === "google"}
-                        disabled={!!busy}
-                        background="#FFFFFF"
-                        color="#2A1A20"
-                        icon={
-                            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                            </svg>
-                        }
-                        label="구글로 계속하기"
-                    />
+                        style={{
+                            width: "100%",
+                            height: 64,
+                            borderRadius: 999,
+                            border: "none",
+                            background: "linear-gradient(90deg, #FFA5C4 0%, #F779A8 100%)",
+                            color: "#FFFFFF",
+                            fontSize: 18,
+                            fontWeight: 800,
+                            fontFamily: "var(--font-sans)",
+                            cursor: busy ? "wait" : "pointer",
+                            opacity: busy ? 0.7 : 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            boxShadow: "0 8px 22px rgba(247, 121, 168, 0.28)",
+                        }}
+                    >
+                        가입하기
+                        <span aria-hidden="true" style={{ fontSize: 20 }}>›</span>
+                    </button>
 
-                    <p style={{ margin: "2px 4px 4px", fontSize: 12, color: "#7A6770" }}>카카오/구글 간편로그인은 학부모 가입 후 설정에서 연동할 수 있어요.</p>
-
-                    {!showIdPw ? (
+                    {!showLogin ? (
                         <button
                             type="button"
-                            onClick={() => setShowIdPw(true)}
-                            className="btn btn-secondary"
-                            style={{ width: "100%", minHeight: 56, justifyContent: "center", gap: 10, padding: "0 20px" }}
+                            onClick={() => setShowLogin(true)}
+                            style={{
+                                marginTop: 4,
+                                height: 44,
+                                borderRadius: 999,
+                                border: "none",
+                                background: "transparent",
+                                color: "#7A6770",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                fontFamily: "var(--font-sans)",
+                                cursor: "pointer",
+                            }}
                         >
-                            <ThreeDIcon name="shield" size={18} aria-label="" />
-                            <span>아이디 · 비밀번호로 로그인</span>
-                            <span style={{ color: "var(--fg-tertiary)", fontSize: 14 }}>▾</span>
+                            이미 계정이 있으세요? <strong style={{ color: "#C3325B" }}>로그인</strong>
                         </button>
                     ) : (
-                        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <input
-                                value={login.loginId}
-                                onChange={(event) => setLogin((prev) => ({ ...prev, loginId: event.target.value }))}
-                                autoComplete="username"
-                                placeholder="아이디"
-                                style={inputStyle}
-                            />
-                            <input
-                                type="password"
-                                value={login.password}
-                                onChange={(event) => setLogin((prev) => ({ ...prev, password: event.target.value }))}
-                                autoComplete="current-password"
-                                placeholder="비밀번호"
-                                style={inputStyle}
-                            />
-                            <button
-                                type="submit"
+                        <>
+                            <div style={{ height: 1, background: "#FFD6DD", margin: "8px 0" }} />
+                            <ProviderButton
+                                onClick={handleKakao}
+                                busy={busy === "kakao"}
                                 disabled={!!busy}
+                                background="#FEE500"
+                                color="#191919"
+                                icon={
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M12 3C6.48 3 2 6.62 2 11.1c0 2.93 1.91 5.5 4.78 6.94l-1.22 4.46c-.11.4.34.72.7.5l5.32-3.5c.13.01.27.01.42.01 5.52 0 10-3.62 10-8.41C22 6.62 17.52 3 12 3z"/>
+                                    </svg>
+                                }
+                                label="카카오로 로그인"
+                            />
+                            <ProviderButton
+                                onClick={handleGoogle}
+                                busy={busy === "google"}
+                                disabled={!!busy}
+                                background="#FFFFFF"
+                                color="#2A1A20"
+                                icon={
+                                    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                                    </svg>
+                                }
+                                label="구글로 로그인"
+                            />
+
+                            {!showIdPw ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowIdPw(true)}
+                                    className="btn btn-secondary"
+                                    style={{ width: "100%", minHeight: 56, justifyContent: "center", gap: 10, padding: "0 20px" }}
+                                >
+                                    <ThreeDIcon name="shield" size={18} aria-label="" />
+                                    <span>아이디 · 비밀번호로 로그인</span>
+                                    <span style={{ color: "var(--fg-tertiary)", fontSize: 14 }}>▾</span>
+                                </button>
+                            ) : (
+                                <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <input
+                                        value={login.loginId}
+                                        onChange={(event) => setLogin((prev) => ({ ...prev, loginId: event.target.value }))}
+                                        autoComplete="username"
+                                        placeholder="아이디"
+                                        style={inputStyle}
+                                    />
+                                    <input
+                                        type="password"
+                                        value={login.password}
+                                        onChange={(event) => setLogin((prev) => ({ ...prev, password: event.target.value }))}
+                                        autoComplete="current-password"
+                                        placeholder="비밀번호"
+                                        style={inputStyle}
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={!!busy}
+                                        style={{
+                                            height: 56,
+                                            borderRadius: 999,
+                                            border: "none",
+                                            background: "linear-gradient(90deg, #FFA5C4 0%, #F779A8 100%)",
+                                            color: "#FFFFFF",
+                                            fontSize: 16,
+                                            fontWeight: 700,
+                                            fontFamily: "var(--font-sans)",
+                                            cursor: busy ? "wait" : "pointer",
+                                            opacity: busy ? 0.7 : 1,
+                                            boxShadow: "0 6px 18px rgba(247, 121, 168, 0.28)",
+                                        }}
+                                    >
+                                        {busy === "login" ? "로그인 중..." : "로그인"}
+                                    </button>
+                                </form>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => { setShowLogin(false); setShowIdPw(false); }}
                                 style={{
-                                    height: 56,
-                                    borderRadius: 999,
+                                    height: 40,
+                                    background: "transparent",
                                     border: "none",
-                                    background: "linear-gradient(90deg, #FFA5C4 0%, #F779A8 100%)",
-                                    color: "#FFFFFF",
-                                    fontSize: 16,
-                                    fontWeight: 700,
+                                    color: "#7A6770",
+                                    fontSize: 13,
+                                    fontWeight: 600,
                                     fontFamily: "var(--font-sans)",
-                                    cursor: busy ? "wait" : "pointer",
-                                    opacity: busy ? 0.7 : 1,
-                                    boxShadow: "0 6px 18px rgba(247, 121, 168, 0.28)",
+                                    cursor: "pointer",
                                 }}
                             >
-                                {busy === "login" ? "로그인 중..." : "로그인"}
+                                ← 가입하기로 돌아가기
                             </button>
-                        </form>
+                        </>
                     )}
 
                     {message && (
@@ -261,71 +332,19 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
                     style={{
                         position: "relative",
                         marginTop: 16,
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.1fr)",
-                        gap: 12,
-                        alignItems: "end",
-                    }}
-                >
-                    <div style={{
-                        position: "relative",
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "flex-end",
                         minHeight: 180,
-                    }}>
-                        <div aria-hidden="true" style={{ position: "absolute", top: 0, left: 4 }}>
-                            <ThreeDIcon name="heart" size={28} />
-                        </div>
-                        <div aria-hidden="true" style={{ position: "absolute", top: 0, right: 8 }}>
-                            <ThreeDIcon name="calendar-check" size={28} />
-                        </div>
-                        <HyeniMascot variant="phone" size={170} aria-label="" />
+                    }}
+                >
+                    <div aria-hidden="true" style={{ position: "absolute", top: 0, left: "calc(50% - 100px)" }}>
+                        <ThreeDIcon name="heart" size={28} />
                     </div>
-
-                    <div
-                        style={{
-                            background: "rgba(255,255,255,0.78)",
-                            border: "1px solid #FFD6DD",
-                            borderRadius: 24,
-                            padding: 16,
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 10,
-                            boxShadow: "0 4px 14px rgba(247, 121, 168, 0.12)",
-                        }}
-                    >
-                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#2A1A20", letterSpacing: 0 }}>
-                            처음 오셨나요?
-                        </h3>
-                        <p style={{ margin: 0, fontSize: 12, fontWeight: 500, color: "#7A6770", lineHeight: 1.4 }}>
-                            혜니캘린더에 오신 것을<br />환영해요!
-                        </p>
-                        <button
-                            type="button"
-                            onClick={onSignupClick}
-                            style={{
-                                marginTop: 4,
-                                height: 44,
-                                borderRadius: 999,
-                                border: "none",
-                                background: "linear-gradient(90deg, #FFA5C4 0%, #F779A8 100%)",
-                                color: "#FFFFFF",
-                                fontSize: 14,
-                                fontWeight: 700,
-                                fontFamily: "var(--font-sans)",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 6,
-                                boxShadow: "0 4px 12px rgba(247, 121, 168, 0.22)",
-                            }}
-                        >
-                            가입하기
-                            <span aria-hidden="true" style={{ fontSize: 16 }}>›</span>
-                        </button>
+                    <div aria-hidden="true" style={{ position: "absolute", top: 0, right: "calc(50% - 100px)" }}>
+                        <ThreeDIcon name="calendar-check" size={28} />
                     </div>
+                    <HyeniMascot variant="phone" size={170} aria-label="" />
                 </div>
             </div>
         </div>
