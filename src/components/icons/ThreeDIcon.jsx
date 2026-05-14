@@ -97,6 +97,7 @@ const SOURCES = {
     "pencil-mint": pencilMintIcon,
     "parent-mom": parentMomIcon,
     "parent-dad": parentDadIcon,
+    "parent-guardian": shieldHeartIcon,
 };
 
 const FALLBACK_EMOJI = {
@@ -146,6 +147,7 @@ const FALLBACK_EMOJI = {
     "pencil-mint": "✏️",
     "parent-mom": "👩",
     "parent-dad": "👨",
+    "parent-guardian": "🛡️",
 };
 
 export function ThreeDIcon({

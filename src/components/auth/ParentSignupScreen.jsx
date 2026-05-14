@@ -11,16 +11,12 @@ import { rememberParentPairingIntent, clearParentPairingIntent } from "../../lib
 import { AppBrandLogo } from "./AppBrandLogo.jsx";
 import { BirthdatePicker } from "../birthdate/BirthdatePicker.jsx";
 import { HeartsBackground } from "../decoration/HeartsBackground.jsx";
-import {
-    ParentMom,
-    ParentDad,
-    ParentGuardian,
-} from "../decoration/CartoonIllustrations.jsx";
+import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
 const ROLE_OPTIONS = [
-    { value: "엄마", Illust: ParentMom },
-    { value: "아빠", Illust: ParentDad },
-    { value: "보호자", Illust: ParentGuardian },
+    { value: "엄마", icon: "parent-mom" },
+    { value: "아빠", icon: "parent-dad" },
+    { value: "보호자", icon: "parent-guardian" },
 ];
 
 export function ParentSignupScreen({ onBack }) {
@@ -149,7 +145,7 @@ export function ParentSignupScreen({ onBack }) {
                             overflow: "hidden",
                         }}
                     >
-                        <span style={{ display:"flex", gap:8 }}><span><AppBrandLogo size={40} radius={10} shadow={false} /></span><span style={{ marginTop: 8 }}><AppBrandLogo size={32} radius={9} shadow={false} /></span><span style={{ marginTop: 14 }}><AppBrandLogo size={28} radius={8} shadow={false} /></span></span>
+                        <AppBrandLogo size={80} radius={18} shadow={false} />
                     </span>
                     <h1 className="cartoon-title">학부모 가입</h1>
                     <p className="cartoon-subtitle">혜니캘린더에 처음 오셨군요</p>
@@ -229,7 +225,6 @@ export function ParentSignupScreen({ onBack }) {
                             <legend className="cartoon-label" style={{ paddingBottom: "var(--space-1)" }}>역할</legend>
                             <div role="radiogroup" aria-label="역할" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
                                 {ROLE_OPTIONS.map((opt) => {
-                                    const RoleIllust = opt.Illust;
                                     const selected = signup.gender === opt.value;
                                     return (
                                         <button
@@ -242,7 +237,7 @@ export function ParentSignupScreen({ onBack }) {
                                             className="cartoon-role-chip"
                                         >
                                             <span className="cartoon-role-chip-frame">
-                                                <RoleIllust size={36} ariaLabel="" />
+                                                <ThreeDIcon name={opt.icon} size={36} aria-label={opt.value} />
                                             </span>
                                             <span>{opt.value}</span>
                                         </button>
