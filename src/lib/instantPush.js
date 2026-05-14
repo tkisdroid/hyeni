@@ -17,9 +17,9 @@ export function createPushIdempotencyKey(preferredKey = "") {
 }
 
 export async function sendInstantPush({ action, familyId, senderUserId, title, message, idempotencyKey: preferredIdempotencyKey, ...extraData }) {
-    if (!familyId) return;
+    if (!familyId) return false;
     const url = PUSH_FUNCTION_URL;
-    if (!url) return;
+    if (!url) return false;
     const idempotencyKey = createPushIdempotencyKey(preferredIdempotencyKey);
     const payload = JSON.stringify({
         action, familyId, senderUserId, title, message,
@@ -47,15 +47,16 @@ export async function sendInstantPush({ action, familyId, senderUserId, title, m
 
     try {
         await attempt();
-        return;
+        return true;
     } catch (err) {
         // One retry, 800ms delay, same UUID — server dedup handles it.
         try {
             await new Promise((resolve) => setTimeout(resolve, 800));
             await attempt();
-            return;
+            return true;
         } catch (err2) {
             console.warn(`[Push] send ${idempotencyKey} failed: ${err2.message || err.message}`);
+            return false;
         }
     }
 }
