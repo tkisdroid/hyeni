@@ -357,3 +357,67 @@ export async function signInWithLoginId({ loginId, password }, client = supabase
 
   return data;
 }
+
+// ── OAuth → phone identity bridge helpers (2026-05-15) ──────────────────────
+// 사용: OAuth(카카오/구글)로 로그인한 사용자가 동일인의 기존 전화 가입 계정과
+// 연결해야 할 때. App.jsx 의 OAuthBridgeScreen 에서 사용한다.
+
+export async function findUserByPhone(phone, client = supabase) {
+  const phoneAuth = normalizePhoneForAuth(phone); // throws if invalid
+  const { data, error } = await client.rpc("find_user_by_phone", { p_phone: phoneAuth });
+  if (error) throw error;
+  return data || null;
+}
+
+export async function requestOAuthBridgeOtp(phone, client = supabase) {
+  const phoneAuth = normalizePhoneForAuth(phone);
+  // shouldCreateUser:false — 매칭이 안 되면 새 user 만들지 않고 명시적 실패.
+  // 신규 가입 분기는 OAuthBridgeScreen 이 별도 흐름으로 분기시킨다.
+  const { error } = await client.auth.signInWithOtp({
+    phone: phoneAuth,
+    options: { channel: "sms", shouldCreateUser: false },
+  });
+  if (error) throw error;
+}
+
+export async function verifyOAuthBridgeOtp(phone, token, client = supabase) {
+  const phoneAuth = normalizePhoneForAuth(phone);
+  const normalizedToken = String(token || "").replace(/\D/g, "");
+  if (!/^\d{6}$/.test(normalizedToken)) {
+    throw new Error("인증번호 6자리를 입력해 주세요");
+  }
+  const { data, error } = await client.auth.verifyOtp({
+    phone: phoneAuth,
+    token: normalizedToken,
+    type: "sms",
+  });
+  if (error) throw error;
+  if (!data?.user?.id) throw new Error("인증 후 사용자 정보를 확인하지 못했어요");
+  return { userId: data.user.id, session: data.session };
+}
+
+export async function mergeOAuthIntoPhoneUser({ oauthUserId, provider }, client = supabase) {
+  if (!oauthUserId) throw new Error("oauth_user_id 가 필요해요");
+  if (provider !== "kakao" && provider !== "google") {
+    throw new Error("지원하지 않는 provider 예요");
+  }
+  const { data, error } = await client.functions.invoke("merge-oauth-into-phone", {
+    body: { oauth_user_id: oauthUserId, provider },
+  });
+  if (error) throw error;
+  if (!data?.ok) {
+    const detail = data?.error || "unknown_error";
+    throw new Error(`OAuth 연결에 실패했어요 (${detail})`);
+  }
+  return data;
+}
+
+export async function markProviderLinked({ userId, provider, payload }, client = supabase) {
+  if (!userId || !provider) throw new Error("userId/provider required");
+  const { error } = await client.rpc("mark_linked_provider", {
+    p_user_id: userId,
+    p_provider: provider,
+    p_payload: payload || {},
+  });
+  if (error) throw error;
+}
