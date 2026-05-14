@@ -683,3 +683,22 @@ export function onAuthChange(callback) {
   });
   return subscription;
 }
+
+// ── OAuth → phone bridge predicate ──────────────────────────────────────────
+// OAuth-first 진입 사용자가 아직 phone user 와 연결되지 않은 상태인지 식별한다.
+// App.jsx 의 handleAuthUser 가 이 결과로 OAuthBridgeScreen 라우팅 여부 결정.
+//
+// True 조건: (1) provider 가 kakao/google, (2) auth.users.phone 비어 있음
+// (전화 식별 미보유), (3) linked_providers 마커 없음 (이미 bridge 끝난 적
+// 없음). 셋 다 참이어야 bridge 필요.
+export function getOAuthUserNeedsBridge(user) {
+  if (!user) return false;
+  const provider = user?.app_metadata?.provider
+    || user?.identities?.find?.((i) => i?.provider)?.provider
+    || "";
+  if (provider !== "kakao" && provider !== "google") return false;
+  if (user?.phone) return false; // 이미 전화 연결됨
+  const linked = user?.user_metadata?.linked_providers || {};
+  if (linked && Object.keys(linked).length > 0) return false;
+  return true;
+}

@@ -6,6 +6,7 @@ import {
   mergeOAuthIntoPhoneUser,
   markProviderLinked,
 } from "../src/lib/accountAuth.js";
+import { getOAuthUserNeedsBridge } from "../src/lib/auth.js";
 
 function makeClient(overrides = {}) {
   return {
@@ -92,5 +93,35 @@ describe("markProviderLinked", () => {
       p_provider: "kakao",
       p_payload: { providerId: "kakao-123" },
     });
+  });
+});
+
+describe("getOAuthUserNeedsBridge", () => {
+  function makeUser({ provider, hasPhone = false, linkedProviders = null } = {}) {
+    return {
+      id: "u1",
+      phone: hasPhone ? "01012345678" : null,
+      app_metadata: { provider },
+      user_metadata: linkedProviders ? { linked_providers: linkedProviders } : {},
+      identities: provider ? [{ provider }] : [],
+    };
+  }
+  it("returns true for fresh OAuth kakao user with no phone and no linked marker", () => {
+    expect(getOAuthUserNeedsBridge(makeUser({ provider: "kakao" }))).toBe(true);
+  });
+  it("returns true for google", () => {
+    expect(getOAuthUserNeedsBridge(makeUser({ provider: "google" }))).toBe(true);
+  });
+  it("returns false when phone is already attached (post-bridge)", () => {
+    expect(getOAuthUserNeedsBridge(makeUser({ provider: "kakao", hasPhone: true }))).toBe(false);
+  });
+  it("returns false when linked_providers marker present", () => {
+    expect(getOAuthUserNeedsBridge(makeUser({ provider: "kakao", linkedProviders: { kakao: { providerId: "x" } } }))).toBe(false);
+  });
+  it("returns false for phone-primary users", () => {
+    expect(getOAuthUserNeedsBridge(makeUser({ provider: "phone", hasPhone: true }))).toBe(false);
+  });
+  it("returns false for anonymous users", () => {
+    expect(getOAuthUserNeedsBridge({ id: "anon", app_metadata: {}, user_metadata: {}, identities: [] })).toBe(false);
   });
 });
