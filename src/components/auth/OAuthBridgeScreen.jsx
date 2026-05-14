@@ -215,7 +215,7 @@ export function OAuthBridgeScreen({ oauthUser, onLinked, onSignupNew }) {
         )}
 
         {error && (
-          <p className="text-sm mt-4" style={{ color: "var(--accent-warn, #b45309)" }}>{error}</p>
+          <p className="text-sm mt-4" style={{ color: "var(--status-cautionary-strong)" }}>{error}</p>
         )}
       </div>
     </div>
