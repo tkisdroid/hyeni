@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Sun, Sparkles, Home, CalendarPlus, MapPin, MessageCircle, Users } from "lucide-react";
-import { anonymousLogin, getSession, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, updateMyProfile, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser } from "./lib/auth.js";
+import { anonymousLogin, getSession, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, updateMyProfile, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser, getOAuthUserNeedsBridge } from "./lib/auth.js";
 import { getAuthProvider, syncAuthProfile } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
 import { dispatchBack } from "./lib/backHandler.js";
@@ -82,6 +82,7 @@ import { normalizePairCodeInput } from "./lib/pairCode.js";
 import { RoleSetupModal } from "./components/auth/RoleSetupModal.jsx";
 import { ParentAuthScreen } from "./components/auth/ParentAuthScreen.jsx";
 import { ParentSignupScreen } from "./components/auth/ParentSignupScreen.jsx";
+import { OAuthBridgeScreen } from "./components/auth/OAuthBridgeScreen.jsx";
 import { buildSelectedChildCommandPayload, filterEventMapForChild, resolveSelectedChildPosition } from "./lib/selectedChildIsolation.js";
 import { formatDeviceDuration } from "./lib/deviceFormat.js";
 import { PRICING } from "./lib/paywallCopy.js";
@@ -643,6 +644,7 @@ export default function KidsScheduler() {
     const [editFieldKind, setEditFieldKind] = useState(null); // "name" | "phone" | null
     const [editFieldBusy, setEditFieldBusy] = useState(false);
     const [showParentSetup, setShowParentSetup] = useState(false);
+    const [oauthBridge, setOauthBridge] = useState(null); // null | { user, provider }
     const [showCreateWizard, setShowCreateWizard] = useState(false);
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedbackDraft, setFeedbackDraft] = useState("");
@@ -1589,6 +1591,15 @@ export default function KidsScheduler() {
 
     // ── Shared auth handler (used by both init and onAuthChange) ────────────────
     const handleAuthUser = useCallback(async (user) => {
+        // OAuth-first 사용자 — phone 연결 전에는 정상 진입 차단.
+        if (getOAuthUserNeedsBridge(user)) {
+            const oauthProvider = user?.app_metadata?.provider
+              || user?.identities?.find?.((i) => i?.provider)?.provider
+              || "kakao";
+            setOauthBridge({ user, provider: oauthProvider });
+            return;
+        }
+        setOauthBridge(null);
         setAuthUser(user);
         const provider = getAuthProvider(user);
         const isKakao = provider === "kakao"
@@ -1625,7 +1636,7 @@ export default function KidsScheduler() {
             setMyRole("parent");
             setShowParentSetup(true); // Show "새 가족 만들기 / 기존 가족 합류" choice
         }
-    }, [setAuthUser, setFamilyInfo, setMyRole, setShowParentSetup]);
+    }, [setAuthUser, setFamilyInfo, setMyRole, setShowParentSetup, setOauthBridge]);
 
     // ── Auth: check session on mount ────────────────────────────────────────────
     const authInitDone = useRef(false);
@@ -5412,6 +5423,31 @@ export default function KidsScheduler() {
             )}
         </div>
     );
+
+    // OAuth-bridge gate — phone 연결 전 OAuth-only 사용자를 OAuthBridgeScreen 으로 라우팅.
+    if (oauthBridge) {
+        return (
+            <OAuthBridgeScreen
+                oauthUser={oauthBridge.user}
+                onLinked={async () => {
+                    // Edge Function 끝나면 client session 은 이미 phone user.
+                    // 새 session 으로 handleAuthUser 재실행.
+                    const session = await getSession();
+                    setOauthBridge(null);
+                    if (session?.user) {
+                        await handleAuthUser(session.user);
+                    }
+                }}
+                onSignupNew={async () => {
+                    // 신규 가입 분기 — 현재 OAuth user 그대로 ParentSetup 으로 진행.
+                    setOauthBridge(null);
+                    setAuthUser(oauthBridge.user);
+                    setMyRole("parent");
+                    setShowParentSetup(true);
+                }}
+            />
+        );
+    }
 
     // Phase 1 §3.1 — Splash + 세션 복원 로딩
     if (authLoading) return <SplashScreen AppBrandLogo={AppBrandLogo} />;
