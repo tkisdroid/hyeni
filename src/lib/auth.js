@@ -133,11 +133,15 @@ export async function kakaoLogin() {
   const native = isNative();
   const redirectTo = native ? NATIVE_OAUTH_REDIRECT_URL : window.location.origin;
 
+  // scope 정책: 검수 불필요 항목만 요청. name/phone_number는 비즈니스 앱
+  // 검수가 필요하지만, 가입 form 이름 입력 + 전화 OTP 인증으로 같은 정보를
+  // 이미 받고 있어 카카오에서의 수집은 중복. Console에서도 동일 3개 항목만
+  // 활성화 필요 (profile_nickname 필수, account_email/profile_image 선택).
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "kakao",
     options: {
       redirectTo,
-      scopes: "profile_nickname name phone_number",
+      scopes: "profile_nickname account_email profile_image",
       skipBrowserRedirect: native,
     },
   });
