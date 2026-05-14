@@ -86,6 +86,48 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ ok: false, error: "same_user" }, 400);
   }
 
-  // 3. (Task 5 에서 채움) — identity 이전 + oauth user 삭제
-  return jsonResponse({ ok: false, error: "not_implemented" }, 500);
+  // 3. Service-role admin client (separate instance — bypasses RLS, no JWT context)
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // 3a. OAuth user 존재 + 해당 provider identity 보유 확인
+  const { data: oauthUser, error: oauthError } = await admin.auth.admin.getUserById(oauthUserId);
+  if (oauthError || !oauthUser?.user) {
+    return jsonResponse({ ok: false, error: "oauth_user_not_found" }, 404);
+  }
+  const oauthIdentity = (oauthUser.user.identities || []).find((i) => i.provider === provider);
+  if (!oauthIdentity) {
+    return jsonResponse({ ok: false, error: "oauth_identity_missing" }, 409);
+  }
+
+  // 3b. Phone user 가 이미 같은 provider identity 를 가지고 있으면 중단
+  const { data: phoneUser, error: phoneUserError } = await admin.auth.admin.getUserById(phoneUserId);
+  if (phoneUserError || !phoneUser?.user) {
+    return jsonResponse({ ok: false, error: "phone_user_not_found" }, 404);
+  }
+  const conflictingIdentity = (phoneUser.user.identities || []).find((i) => i.provider === provider);
+  if (conflictingIdentity) {
+    return jsonResponse({ ok: false, error: "phone_user_already_linked" }, 409);
+  }
+
+  // 3c. auth.identities row 의 user_id 를 phone_user 로 이전
+  // SECURITY DEFINER RPC (transfer_oauth_identity) 가 보호된 auth schema 에 접근.
+  const { error: transferError } = await admin.rpc("transfer_oauth_identity", {
+    p_oauth_user: oauthUserId,
+    p_phone_user: phoneUserId,
+    p_provider: provider,
+  });
+  if (transferError) {
+    return jsonResponse({ ok: false, error: "transfer_failed", detail: transferError.message }, 500);
+  }
+
+  // 3d. OAuth-only user 삭제 (이미 identity 가 옮겨졌으므로 고아 row)
+  const { error: deleteError } = await admin.auth.admin.deleteUser(oauthUserId);
+  if (deleteError) {
+    // identity 는 이미 옮겨졌으므로 사용자 영향은 없음. 단, 고아 user row 가 남음.
+    console.error("[merge-oauth-into-phone] deleteUser failed:", deleteError.message);
+  }
+
+  return jsonResponse({ ok: true, linked: true, provider });
 });
