@@ -1,6 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +17,40 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // QA P1 (Agent 02 F-004): JWT verification before any OpenAI call to prevent
+    // anon abuse / cost burn. Requires Authorization: Bearer <user-jwt>.
+    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+    if (!authHeader.toLowerCase().startsWith("bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "auth_required" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "auth_required" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.error("[ai-voice-parse] missing env: SUPABASE_URL/SUPABASE_ANON_KEY");
+      return new Response(
+        JSON.stringify({ error: "server_misconfigured" }),
+        { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: userRes, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userRes?.user?.id) {
+      return new Response(
+        JSON.stringify({ error: "auth_required" }),
+        { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      );
+    }
+
     const { text, image, mode, academies, todayEvents, currentDate } = await req.json();
 
     // mode: "voice" (default) | "paste" (text/image paste for bulk extraction)

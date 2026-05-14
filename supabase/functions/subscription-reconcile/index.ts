@@ -6,12 +6,18 @@ function readConfig() {
   return {
     supabaseUrl: Deno.env.get("SUPABASE_URL") || "",
     supabaseServiceRoleKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+    supabaseAnonKey: Deno.env.get("SUPABASE_ANON_KEY") || "",
     qonversionApiKey: Deno.env.get("QONVERSION_API_KEY") || "",
     qonversionApiBaseUrl: Deno.env.get("QONVERSION_API_BASE_URL") || "https://api.qonversion.io",
     qonversionApiKeyHeader: Deno.env.get("QONVERSION_API_KEY_HEADER") || "Authorization",
     qonversionApiKeyPrefix: Deno.env.get("QONVERSION_API_KEY_PREFIX") || "Bearer",
     lookbackHours: Number(Deno.env.get("QONVERSION_RECONCILE_LOOKBACK_HOURS") || "24"),
     dryRun: Deno.env.get("QONVERSION_RECONCILE_DRY_RUN") === "1",
+    // Optional service-to-service shared secret for cron-style invocation.
+    // If set, requests bearing this token in Authorization header are accepted
+    // without a user JWT (cron / scheduled tasks). Otherwise a valid user JWT
+    // is required.
+    cronSecret: Deno.env.get("SUBSCRIPTION_RECONCILE_CRON_SECRET") || "",
   };
 }
 
@@ -98,6 +104,34 @@ Deno.serve(async (req) => {
   }
 
   const config = readConfig();
+
+  // QA P1 (Agent 02 F-003): require Authorization. Accepts either:
+  //   (a) a valid user JWT (verified against Supabase auth), OR
+  //   (b) the optional SUBSCRIPTION_RECONCILE_CRON_SECRET bearer for scheduled
+  //       cron invocation when no user is logged in.
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  if (!authHeader.toLowerCase().startsWith("bearer ")) {
+    return jsonResponse({ error: "auth_required" }, 401);
+  }
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    return jsonResponse({ error: "auth_required" }, 401);
+  }
+
+  const isCron = Boolean(config.cronSecret) && token === config.cronSecret;
+  if (!isCron) {
+    if (!config.supabaseUrl || !config.supabaseAnonKey) {
+      return jsonResponse({ error: "server_misconfigured" }, 500);
+    }
+    const userClient = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: userRes, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userRes?.user?.id) {
+      return jsonResponse({ error: "auth_required" }, 401);
+    }
+  }
+
   if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
     return jsonResponse({
       ok: true,
