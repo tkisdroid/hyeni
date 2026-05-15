@@ -37,7 +37,10 @@ describe("RoleSetupModal", () => {
         render(<RoleSetupModal onSelect={() => {}} />);
         fireEvent.click(screen.getByLabelText("부모로 시작"));
         fireEvent.click(screen.getByRole("button", { name: "다음" }));
-        expect(screen.getByText("아이디 · 비밀번호로 로그인")).toBeInTheDocument();
+        // a1974e7 design change: ParentAuthScreen default view 가 signup 으로 변경됐다.
+        // "아이디 · 비밀번호로 로그인" 은 secondary CTA 클릭 후에만 노출되므로
+        // signup view 의 stable secondary CTA 텍스트로 진입 확인한다.
+        expect(screen.getByText(/이미 계정이 있으세요/)).toBeInTheDocument();
     });
 
     it("loading=true → SplashScreen 분기", () => {
