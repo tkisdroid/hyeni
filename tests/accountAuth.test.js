@@ -139,6 +139,12 @@ describe("parent account auth helpers", () => {
   it("requests signup through Supabase phone/password auth with metadata", async () => {
     let signUpPayload = null;
     const fakeClient = {
+      rpc: async (name) => {
+        // checkLoginIdAvailability 가 requestPhoneSignupCode 내부에서 호출됨.
+        // 테스트는 ID 사용 가능한 상태를 시뮬레이션한다.
+        if (name === "is_login_id_available") return { data: true, error: null };
+        return { data: null, error: null };
+      },
       auth: {
         signUp: async (payload) => {
           signUpPayload = payload;
