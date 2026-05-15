@@ -6,21 +6,6 @@ import { getBackgroundLocationPlugin } from "./nativePlugins.js";
 
 const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY;
-// TODO(Agent05 L-001 / fix-db follow-up): VITE_KAKAO_REST_KEY ships in the
-// production JS bundle (visible in dist/assets/index-*.js) and that violates
-// our key-handling policy. The fix is to proxy Kakao REST calls through a
-// Supabase Edge Function (e.g. `kakao-proxy`) so the secret stays
-// server-side. Until that Edge Function exists this module continues to
-// pass the key to the native BackgroundLocation plugin (which forwards it
-// to Kakao reverse-geocoding from background ticks). Logged once at module
-// load so it surfaces during cold starts of debug builds.
-if (typeof console !== "undefined" && import.meta.env?.VITE_KAKAO_REST_KEY) {
-    console.warn(
-        "[deprecated] VITE_KAKAO_REST_KEY is exposed in the client bundle. " +
-        "Move Kakao REST calls behind a Supabase Edge Function proxy (Agent05 L-001)."
-    );
-}
-const KAKAO_REST_KEY = import.meta.env?.VITE_KAKAO_REST_KEY || "";
 
 // Native background location (Capacitor plugin)
 export async function startNativeLocationService(userId, familyId, accessToken, role) {
@@ -31,7 +16,6 @@ export async function startNativeLocationService(userId, familyId, accessToken, 
                 userId, familyId,
                 supabaseUrl: SUPABASE_URL,
                 supabaseKey: SUPABASE_KEY,
-                kakaoRestKey: KAKAO_REST_KEY,
                 accessToken: accessToken || "",
                 role: role || "child"
             });
@@ -52,7 +36,6 @@ export async function requestNativeCurrentLocation(userId, familyId, accessToken
                 userId, familyId,
                 supabaseUrl: SUPABASE_URL,
                 supabaseKey: SUPABASE_KEY,
-                kakaoRestKey: KAKAO_REST_KEY,
                 accessToken: accessToken || "",
                 role: role || "child"
             });

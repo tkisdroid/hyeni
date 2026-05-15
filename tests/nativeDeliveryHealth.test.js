@@ -89,11 +89,15 @@ describe("native delivery health contract", () => {
   });
 
   it("stores native child movement history as detailed walking-route points when available", () => {
-    expect(nativeLocationService).toContain("kakaoRestKey");
-    expect(locationService).toContain("kakaoRestKey");
+    // Walking-route lookups now go through the kakao-proxy Edge Function —
+    // the REST key must never appear in the client bundle or APK.
+    expect(nativeLocationService).not.toContain("kakaoRestKey");
+    expect(nativeLocationService).not.toContain("VITE_KAKAO_REST_KEY");
+    expect(locationService).not.toContain("KakaoAK ");
+    expect(locationService).not.toContain("apis-navi.kakaomobility.com");
     expect(locationService).toContain("fetchWalkingRoutePoints");
+    expect(locationService).toContain("/functions/v1/kakao-proxy/walking-directions");
     expect(locationService).toContain("uploadLocationHistoryRows");
     expect(locationService).toContain("interpolateRecordedAt");
-    expect(locationService).toContain("apis-navi.kakaomobility.com/affiliate/walking/v1/directions");
   });
 });

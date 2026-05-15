@@ -11,18 +11,21 @@ const APP_PACKAGE_NAME = "com.hyeni.calendar";
 const DEFAULT_ENTITLEMENT_ID = "premium";
 const GPB_MANAGE_URL = "https://play.google.com/store/account/subscriptions";
 const LEGACY_PREMIUM_TIERS = new Set(["premium", "subscription", "trial", "active", "grace"]);
-const QONVERSION_PROJECT_KEY = readEnv("VITE_QONVERSION_PROJECT_KEY");
-const QONVERSION_ENVIRONMENT = readEnv("VITE_QONVERSION_ENVIRONMENT");
-const QONVERSION_PROXY_URL = readEnv("VITE_QONVERSION_PROXY_URL");
+// Static accessors — using `import.meta.env?.[dynamicKey]` would force Vite
+// to inline the entire env object (including unrelated VITE_* secrets) into
+// the bundle. Reading each VITE_QONVERSION_* var by its literal name lets
+// Vite do dead-code elimination per-property.
+const QONVERSION_PROJECT_KEY = safeTrim(import.meta.env?.VITE_QONVERSION_PROJECT_KEY);
+const QONVERSION_ENVIRONMENT = safeTrim(import.meta.env?.VITE_QONVERSION_ENVIRONMENT);
+const QONVERSION_PROXY_URL = safeTrim(import.meta.env?.VITE_QONVERSION_PROXY_URL);
 const QONVERSION_ENTITLEMENT_ID =
-  readEnv("VITE_QONVERSION_ENTITLEMENT_ID") || DEFAULT_ENTITLEMENT_ID;
-const QONVERSION_KIDS_MODE = readEnv("VITE_QONVERSION_KIDS_MODE");
+  safeTrim(import.meta.env?.VITE_QONVERSION_ENTITLEMENT_ID) || DEFAULT_ENTITLEMENT_ID;
+const QONVERSION_KIDS_MODE = safeTrim(import.meta.env?.VITE_QONVERSION_KIDS_MODE);
 
 let sharedInstance = null;
 let initAttempted = false;
 
-function readEnv(key) {
-  const value = import.meta.env?.[key];
+function safeTrim(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 

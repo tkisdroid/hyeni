@@ -42,7 +42,6 @@ public class LocationPlugin extends Plugin {
         String familyId = call.getString("familyId");
         String supabaseUrl = call.getString("supabaseUrl");
         String supabaseKey = call.getString("supabaseKey");
-        String kakaoRestKey = call.getString("kakaoRestKey", "");
         String accessToken = call.getString("accessToken", "");
         String role = call.getString("role", "child");
 
@@ -51,11 +50,13 @@ public class LocationPlugin extends Plugin {
             return;
         }
 
-        // Save role to SharedPreferences for LocationService
+        // Save role to SharedPreferences for LocationService. Also drop any
+        // legacy "kakaoRestKey" left from older builds — keys now live only
+        // server-side in the kakao-proxy Edge Function.
         getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
             .edit()
             .putString("role", role)
-            .putString("kakaoRestKey", kakaoRestKey)
+            .remove("kakaoRestKey")
             .apply();
 
         // Check fine location permission first
@@ -75,7 +76,7 @@ public class LocationPlugin extends Plugin {
                 new String[]{ Manifest.permission.ACCESS_BACKGROUND_LOCATION }, 2001);
         }
 
-        launchService(userId, familyId, supabaseUrl, supabaseKey, accessToken, kakaoRestKey);
+        launchService(userId, familyId, supabaseUrl, supabaseKey, accessToken);
         call.resolve(new JSObject().put("status", "started"));
     }
 
@@ -85,7 +86,6 @@ public class LocationPlugin extends Plugin {
         String familyId = call.getString("familyId");
         String supabaseUrl = call.getString("supabaseUrl");
         String supabaseKey = call.getString("supabaseKey");
-        String kakaoRestKey = call.getString("kakaoRestKey", "");
         String accessToken = call.getString("accessToken", "");
         String role = call.getString("role", "child");
 
@@ -103,10 +103,10 @@ public class LocationPlugin extends Plugin {
         getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
             .edit()
             .putString("role", role)
-            .putString("kakaoRestKey", kakaoRestKey)
+            .remove("kakaoRestKey")
             .apply();
 
-        launchRefresh(userId, familyId, supabaseUrl, supabaseKey, accessToken, kakaoRestKey);
+        launchRefresh(userId, familyId, supabaseUrl, supabaseKey, accessToken);
         call.resolve(new JSObject().put("status", "refresh_requested"));
     }
 
@@ -118,7 +118,6 @@ public class LocationPlugin extends Plugin {
             String familyId = call.getString("familyId");
             String supabaseUrl = call.getString("supabaseUrl");
             String supabaseKey = call.getString("supabaseKey");
-            String kakaoRestKey = call.getString("kakaoRestKey", "");
             String accessToken = call.getString("accessToken", "");
 
             // Also request background location (Android 10+)
@@ -127,14 +126,14 @@ public class LocationPlugin extends Plugin {
                     new String[]{ Manifest.permission.ACCESS_BACKGROUND_LOCATION }, 2001);
             }
 
-            launchService(userId, familyId, supabaseUrl, supabaseKey, accessToken, kakaoRestKey);
+            launchService(userId, familyId, supabaseUrl, supabaseKey, accessToken);
             call.resolve(new JSObject().put("status", "started"));
         } else {
             call.reject("Location permission denied");
         }
     }
 
-    private void launchService(String userId, String familyId, String supabaseUrl, String supabaseKey, String accessToken, String kakaoRestKey) {
+    private void launchService(String userId, String familyId, String supabaseUrl, String supabaseKey, String accessToken) {
         String role = getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
             .getString("role", "child");
         Intent intent = new Intent(getContext(), LocationService.class);
@@ -143,7 +142,6 @@ public class LocationPlugin extends Plugin {
         intent.putExtra("supabaseUrl", supabaseUrl);
         intent.putExtra("supabaseKey", supabaseKey);
         intent.putExtra("accessToken", accessToken);
-        intent.putExtra("kakaoRestKey", kakaoRestKey);
         intent.putExtra("role", role);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -154,7 +152,7 @@ public class LocationPlugin extends Plugin {
         Log.i(TAG, "Location service launched");
     }
 
-    private void launchRefresh(String userId, String familyId, String supabaseUrl, String supabaseKey, String accessToken, String kakaoRestKey) {
+    private void launchRefresh(String userId, String familyId, String supabaseUrl, String supabaseKey, String accessToken) {
         String role = getContext().getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
             .getString("role", "child");
         Intent intent = new Intent(getContext(), LocationService.class);
@@ -164,7 +162,6 @@ public class LocationPlugin extends Plugin {
         intent.putExtra("supabaseUrl", supabaseUrl);
         intent.putExtra("supabaseKey", supabaseKey);
         intent.putExtra("accessToken", accessToken);
-        intent.putExtra("kakaoRestKey", kakaoRestKey);
         intent.putExtra("role", role);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

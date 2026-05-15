@@ -52,7 +52,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import okhttp3.MediaType;
-import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
 import okhttp3.Request;
@@ -154,7 +153,6 @@ public class LocationService extends Service {
     private String userId;
     private String familyId;
     private String accessToken;
-    private String kakaoRestKey;
 
     private static class RoutePoint {
         final double lat;
@@ -196,17 +194,19 @@ public class LocationService extends Service {
                 supabaseUrl = intent.getStringExtra("supabaseUrl");
                 supabaseKey = intent.getStringExtra("supabaseKey");
                 accessToken = intent.getStringExtra("accessToken");
-                kakaoRestKey = intent.getStringExtra("kakaoRestKey");
                 String role = intent.getStringExtra("role");
 
+                // Walking-route lookups go through the kakao-proxy Edge
+                // Function, so kakaoRestKey is no longer ingested. Strip any
+                // legacy value left from previous installs.
                 SharedPreferences.Editor editor = prefs.edit()
                     .putString("userId", userId)
                     .putString("familyId", familyId)
                     .putString("supabaseUrl", supabaseUrl)
                     .putString("supabaseKey", supabaseKey)
                     .putString("accessToken", accessToken)
-                    .putBoolean("serviceEnabled", true);
-                if (kakaoRestKey != null) editor.putString("kakaoRestKey", kakaoRestKey);
+                    .putBoolean("serviceEnabled", true)
+                    .remove("kakaoRestKey");
                 if (role != null) editor.putString("role", role);
                 editor.apply();
             }
@@ -228,9 +228,11 @@ public class LocationService extends Service {
             supabaseUrl = prefs.getString("supabaseUrl", null);
             supabaseKey = prefs.getString("supabaseKey", null);
             accessToken = prefs.getString("accessToken", null);
-            kakaoRestKey = prefs.getString("kakaoRestKey", null);
-        } else if (isBlank(kakaoRestKey)) {
-            kakaoRestKey = prefs.getString("kakaoRestKey", null);
+            // Drop legacy kakaoRestKey from older installs (best-effort
+            // cleanup; new installs never write it).
+            if (prefs.contains("kakaoRestKey")) {
+                prefs.edit().remove("kakaoRestKey").apply();
+            }
         }
 
         if (userId == null || familyId == null || supabaseUrl == null) {
@@ -862,24 +864,23 @@ public class LocationService extends Service {
 
     private List<RoutePoint> fetchWalkingRoutePoints(double startLat, double startLng, double endLat, double endLng) {
         List<RoutePoint> points = new ArrayList<>();
-        if (isBlank(kakaoRestKey)) return points;
+        // Walking-route lookups go through the kakao-proxy Edge Function.
+        // Needs a valid user JWT (accessToken). If none is available the
+        // upstream returns 401 and we fall back to an empty trail — same
+        // behaviour as the previous "blank key" early return.
+        if (isBlank(supabaseUrl) || isBlank(supabaseKey) || isBlank(accessToken)) return points;
         try {
-            HttpUrl baseUrl = HttpUrl.parse("https://apis-navi.kakaomobility.com/affiliate/walking/v1/directions");
-            if (baseUrl == null) return points;
-            HttpUrl url = baseUrl.newBuilder()
-                .addQueryParameter("origin", startLng + "," + startLat)
-                .addQueryParameter("destination", endLng + "," + endLat)
-                .addQueryParameter("waypoints", "")
-                .addQueryParameter("radius", "5000")
-                .addQueryParameter("priority", "MAIN_STREET")
-                .addQueryParameter("summary", "false")
-                .build();
+            String endpoint = supabaseUrl.replaceAll("/+$", "")
+                + "/functions/v1/kakao-proxy/walking-directions";
+            JSONObject body = new JSONObject()
+                .put("origin", new JSONObject().put("lat", startLat).put("lng", startLng))
+                .put("destination", new JSONObject().put("lat", endLat).put("lng", endLng));
             Response response = httpClient.newCall(new Request.Builder()
-                .url(url)
-                .header("accept", "application/json")
-                .header("service", "hyeni-calendar")
-                .header("Authorization", "KakaoAK " + kakaoRestKey)
-                .get()
+                .url(endpoint)
+                .header("apikey", supabaseKey)
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + accessToken)
+                .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
                 .build()).execute();
             if (!response.isSuccessful()) {
                 Log.w(TAG, "Walking route request failed: " + response.code());

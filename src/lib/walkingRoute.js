@@ -1,66 +1,51 @@
 // src/lib/walkingRoute.js
-// 도보 경로 fetcher — Kakao Mobility 우선, OSM/OSRM은 비활성화 (주석 참조).
+// 도보 경로 fetcher — Supabase Edge Function `kakao-proxy` 경유.
 // Extracted from App.jsx (Phase 5 #4 / B15 helpers).
 
 import { createHttpError, parseKakaoWalkingRoute, parseOsmFootRoute } from "./routeParsers.js";
 import { toRoutePosition } from "./trailMath.js";
-import { normalizeKakaoAppKey } from "./kakaoMap.js";
+import { supabase } from "./supabase.js";
 
 export const ROUTE_REQUEST_TIMEOUT_MS = 12_000;
 
-// TODO(Agent05 L-001 / fix-db follow-up): VITE_KAKAO_REST_KEY ships in the
-// production JS bundle. Move walking-directions calls behind a Supabase Edge
-// Function `kakao-proxy` so the REST secret stays server-side. The single
-// console.warn lives in nativeLocationService.js to avoid double-logging at
-// startup; this comment is a load-bearing reminder for the eventual
-// migration.
-const KAKAO_REST_KEY = normalizeKakaoAppKey(import.meta.env?.VITE_KAKAO_REST_KEY);
-const KAKAO_WALKING_DIRECTIONS_URL = "https://apis-navi.kakaomobility.com/affiliate/walking/v1/directions";
 const OSM_FOOT_DIRECTIONS_URL = "https://routing.openstreetmap.de/routed-foot/route/v1/foot";
 
-// Time-based latch: a single 401/403 from Kakao does not permanently
-// disable walking routes for the rest of the session. After KAKAO_WALKING_
-// COOLDOWN_MS we let the next caller probe the API again — recovers
-// automatically from transient quota glitches / brief deploys without
-// requiring a reload.
+// Time-based latch: a single 401/403 from Kakao (surfaced by the Edge
+// Function as 503 kakao_auth) does not permanently disable walking routes
+// for the rest of the session. After KAKAO_WALKING_COOLDOWN_MS we let the
+// next caller probe the API again — recovers automatically from transient
+// quota glitches / brief deploys without requiring a reload.
 const KAKAO_WALKING_COOLDOWN_MS = 5 * 60 * 1000;
 let kakaoWalkingDirectionsDisabledUntil = 0;
 
 async function fetchKakaoWalkingRoute(start, destination, signal) {
-    if (!KAKAO_REST_KEY || Date.now() < kakaoWalkingDirectionsDisabledUntil) {
+    if (Date.now() < kakaoWalkingDirectionsDisabledUntil) {
         throw new Error("Kakao walking route unavailable");
     }
 
-    const params = new URLSearchParams({
-        origin: `${start.lng},${start.lat}`,
-        destination: `${destination.lng},${destination.lat}`,
-        waypoints: "",
-        radius: "5000",
-        priority: "MAIN_STREET",
-        summary: "false",
-    });
-
-    const response = await fetch(`${KAKAO_WALKING_DIRECTIONS_URL}?${params.toString()}`, {
-        method: "GET",
-        headers: {
-            accept: "application/json",
-            service: "hyeni-calendar",
-            Authorization: `KakaoAK ${KAKAO_REST_KEY}`,
+    const { data, error } = await supabase.functions.invoke("kakao-proxy/walking-directions", {
+        body: {
+            origin: { lat: start.lat, lng: start.lng },
+            destination: { lat: destination.lat, lng: destination.lng },
         },
-        signal,
+        // supabase-js FunctionsResponse surfaces HTTP non-2xx as error with a
+        // .context.response — pass signal so callers can cancel via AbortController.
+        ...(signal ? { signal } : {}),
     });
 
-    if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
+    if (error) {
+        // FunctionsHttpError carries the upstream Response on error.context.
+        const status = error?.context?.response?.status ?? error?.status ?? 0;
+        if (status === 503 || status === 401 || status === 403) {
             kakaoWalkingDirectionsDisabledUntil = Date.now() + KAKAO_WALKING_COOLDOWN_MS;
         }
-        throw createHttpError(`Kakao walking route HTTP ${response.status}`, response.status);
+        throw createHttpError(`Kakao walking route HTTP ${status || "unknown"}`, status || 0);
     }
 
     // Successful probe — clear the latch so subsequent calls take the
     // happy path immediately.
     kakaoWalkingDirectionsDisabledUntil = 0;
-    return parseKakaoWalkingRoute(await response.json());
+    return parseKakaoWalkingRoute(data);
 }
 
 // eslint-disable-next-line no-unused-vars
