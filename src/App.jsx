@@ -42,7 +42,7 @@ import { identify as identifySubscriptionUser, purchase as purchaseSubscription 
 import { sendBroadcastWhenReady } from "./lib/realtime.js";
 import { getChildMemoQuickReplies, getMemoPreview } from "./lib/memoDisplay.js";
 import { isMemoForSelectedChild } from "./lib/memoRealtime.js";
-import { subscribeOnline, getQueueSize } from "./lib/offlineQueue.js";
+import { subscribeOnline } from "./lib/offlineQueue.js";
 import { LOCATION_TRAIL_GRADIENT_STOPS, buildLocationDaySummary } from "./lib/locationTrailDisplay.js";
 import {
     LOCATION_TRAIL_JITTER_M,
@@ -775,9 +775,7 @@ export default function KidsScheduler() {
     // 5-min cooldown active.
     const [syncDegraded, setSyncDegraded] = useState(null);
     // Agent11 P1-003: offline detection. Drives the offline banner.
-    // queuedMutations counts pending mutations waiting on reconnect (in-memory).
     const [isOffline, setIsOffline] = useState(typeof navigator !== "undefined" ? !navigator.onLine : false);
-    const [queuedMutations, setQueuedMutations] = useState(0);
 
     // ── Arrival tracking ───────────────────────────────────────────────────────
     const [arrivedSet, setArrivedSet] = useState(new Set());
@@ -2553,11 +2551,10 @@ export default function KidsScheduler() {
     // ── Offline detection (Agent11 P1-003) ─────────────────────────────────────
     // navigator.onLine is the cheapest reliable signal in both browser and
     // Capacitor WebView. We mirror it into React state so the banner re-renders
-    // and refresh queuedMutations after each flip / drain.
+    // on each flip.
     useEffect(() => {
         const unsub = subscribeOnline((online) => {
             setIsOffline(!online);
-            setQueuedMutations(getQueueSize());
         });
         return () => {
             try { unsub(); }
@@ -6011,9 +6008,7 @@ export default function KidsScheduler() {
                     animation: "slideDown 0.3s ease", whiteSpace: "nowrap",
                     overflow: "hidden", textOverflow: "ellipsis",
                 }}>
-                    {queuedMutations > 0
-                        ? `오프라인 — 저장하지 못한 변경 ${queuedMutations}건은 연결되면 자동으로 다시 보낼게요`
-                        : "오프라인 상태예요 — 연결이 돌아오면 다시 시도할게요"}
+                    오프라인 상태예요 — 연결이 돌아오면 다시 시도할게요
                 </div>
             )}
 
