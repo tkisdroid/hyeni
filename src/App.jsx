@@ -1663,6 +1663,13 @@ export default function KidsScheduler() {
     }, [familyInfo]);
     useEffect(() => { selectedChildUserIdRef.current = selectedChild?.user_id || null; }, [selectedChild?.user_id]);
 
+    // 캘린더에서 보고있는 날짜를 ref 로 추적. onLocationChange 콜백이 stale
+    // 클로저 없이 "현재 보고있는 날짜가 오늘인지" 판단할 수 있게 한다.
+    const calendarViewRef = useRef({ year: currentYear, month: currentMonth, day: selectedDate });
+    useEffect(() => {
+        calendarViewRef.current = { year: currentYear, month: currentMonth, day: selectedDate };
+    }, [currentYear, currentMonth, selectedDate]);
+
     useEffect(() => {
         const init = async () => {
             try {
@@ -1909,6 +1916,48 @@ export default function KidsScheduler() {
                             ? prev.map(item => item.user_id === childUserId ? { ...item, ...nextChild } : item)
                             : [...prev, nextChild];
                     });
+                }
+
+                // 부모 모드에서 새 좌표가 들어오면 화면에 표시중인 trail 도 즉시 append.
+                // ChildTrackerOverlay 의 today-trail (locationTrail) 과 캘린더 하단
+                // DailyTrailMap 의 selected-date trail (selectedDateLocationTrail) 두 곳
+                // 모두 30초 polling/refetch 에만 의존하던 것이 "이동경로가 실시간으로 안
+                // 갱신된다" 의 원인. point 객체는 fetchLocationHistoryForDate 가 반환하는
+                // row 와 같은 스키마 { user_id, lat, lng, recorded_at } 로 맞춘다.
+                if (
+                    myRoleRef.current === "parent"
+                    && childUserId
+                    && Number.isFinite(Number(payload?.lat))
+                    && Number.isFinite(Number(payload?.lng))
+                ) {
+                    const trailPoint = {
+                        user_id: childUserId,
+                        lat: Number(payload.lat),
+                        lng: Number(payload.lng),
+                        recorded_at: updatedAt,
+                    };
+                    const appendUnique = (prev) => {
+                        if (!Array.isArray(prev)) return [trailPoint];
+                        const last = prev[prev.length - 1];
+                        if (last && last.user_id === childUserId && last.recorded_at === updatedAt) return prev;
+                        return [...prev, trailPoint];
+                    };
+                    setLocationTrail(appendUnique);
+
+                    // selectedDateLocationTrail 은 캘린더에서 "현재 보고있는 날짜" 가
+                    // payload 의 recorded date 와 같고, 선택한 자녀와 일치할 때만 갱신.
+                    const recordedDate = new Date(updatedAt);
+                    if (!Number.isNaN(recordedDate.getTime())) {
+                        const view = calendarViewRef.current || {};
+                        if (
+                            (!selectedChildUserId || childUserId === selectedChildUserId)
+                            && recordedDate.getFullYear() === view.year
+                            && recordedDate.getMonth() === view.month
+                            && recordedDate.getDate() === view.day
+                        ) {
+                            setSelectedDateLocationTrail(appendUnique);
+                        }
+                    }
                 }
             },
             onLocationRefreshRequest: async (payload) => {
@@ -8268,13 +8317,25 @@ export default function KidsScheduler() {
                     }
                     setParentPhones(phones);
                     setShowPhoneSettings(false);
-                    showNotif("📞 연락처가 저장됐어요!");
-                    if (familyId) {
+                    if (!familyId) {
+                        showNotif("📞 연락처가 저장됐어요!");
+                        return;
+                    }
+                    try {
+                        await saveParentPhones(familyId, phones.mom, phones.dad);
+                        // DB 저장 후 familyInfo 캐시를 재조회해야 다른 화면(ChildCallCard 등)에서
+                        // stale 한 옛 번호가 보이지 않는다. EditFieldModal(이름/내 전화번호)과
+                        // 동일한 패턴.
                         try {
-                            await saveParentPhones(familyId, phones.mom, phones.dad);
-                        } catch (err) {
-                            console.error("[savePhones]", err);
+                            const fi = await getMyFamily(authUser?.id);
+                            if (fi) setFamilyInfo(fi);
+                        } catch (refetchErr) {
+                            console.warn("[savePhones] refresh familyInfo failed:", refetchErr);
                         }
+                        showNotif("📞 연락처가 저장됐어요!");
+                    } catch (err) {
+                        console.error("[savePhones]", err);
+                        showNotif("연락처 저장에 실패했어요. 다시 시도해 주세요.", "error");
                     }
                 }}
                 onClose={() => setShowPhoneSettings(false)}

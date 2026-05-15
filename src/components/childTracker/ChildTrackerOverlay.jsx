@@ -52,7 +52,14 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     const mapObj = useRef();
     const myMarkerRef = useRef();
     const childMarkersRef = useRef([]);
+    // trackerKey -> { overlay, signature } 캐시. 위치만 바뀌면 setPosition,
+    // 외형(active/photo/name/시각) 바뀌면 setContent. 매 렌더마다 마커를
+    // 통째로 재생성하던 이전 구현이 깜빡임을 만들었기 때문에 캐시 추가.
+    const childMarkersByKeyRef = useRef(new Map());
     const walkRadiusCircleRef = useRef(null);
+    // refreshRequestedAt 이후 처음 도착하는 selectedChild 위치로 자동 panTo.
+    // 같은 요청에 두 번 panTo 되지 않도록 마지막으로 처리한 timestamp 기록.
+    const lastAutoFocusRefreshRef = useRef(null);
     const trailPolyRef = useRef(null);
     const trailPolysRef = useRef([]);
     const trailTimeMarkersRef = useRef([]);
@@ -288,53 +295,121 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
         return () => window.clearTimeout(id);
     }, [bottomHeight, isPanelDragging]);
 
-    // Effect 2: 아이 현재위치 마커 (다중 아이 지원)
+    // Effect 2: 아이 현재위치 마커 (다중 아이 지원) — 캐시 기반 in-place 업데이트.
+    // 위치만 바뀌면 setPosition(), 외형(active/photo/시각) 바뀌면 setContent()만 호출하고
+    // overlay 자체는 재생성하지 않는다. 재생성하면 짧은 시간 동안 마커가 사라졌다 다시
+    // 그려져 깜빡임으로 보이기 때문.
     useEffect(() => {
         if (!mapObj.current) return;
-        // 기존 마커 제거
-        childMarkersRef.current.forEach(m => m.setMap(null));
-        childMarkersRef.current = [];
+        const cache = childMarkersByKeyRef.current;
+
         if (myMarkerRef.current) { myMarkerRef.current.setMap(null); myMarkerRef.current = null; }
-        if (walkRadiusCircleRef.current) { walkRadiusCircleRef.current.setMap(null); walkRadiusCircleRef.current = null; }
 
-        if (!childLocations.length) return;
+        if (!childLocations.length) {
+            cache.forEach(({ overlay }) => overlay.setMap(null));
+            cache.clear();
+            if (walkRadiusCircleRef.current) { walkRadiusCircleRef.current.setMap(null); walkRadiusCircleRef.current = null; }
+            return;
+        }
 
+        const seenKeys = new Set();
         childLocations.forEach((child, i) => {
             const color = CHILD_MARKER_COLORS[i % CHILD_MARKER_COLORS.length];
             const isActive = child.trackerKey === selectedChild?.trackerKey;
             const ll = new window.kakao.maps.LatLng(child.lat, child.lng);
             const updatedLabel = child.updatedAt ? (() => { const d = new Date(child.updatedAt); return `${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`; })() : "";
             const markerSize = isActive ? 34 : 28;
-            const overlay = new window.kakao.maps.CustomOverlay({
-                position: ll,
-                content: `<div style="display:flex;flex-direction:column;align-items:center">
-                    <div style="width:${markerSize}px;height:${markerSize}px;background:#fff;border:${isActive ? 5 : 4}px solid white;border-radius:50%;box-shadow:0 0 0 ${isActive ? 12 : 8}px ${color}33,0 3px 12px ${color}66;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">${childMarkerImageHtml(child)}</div>
-                    <div style="margin-top:4px;background:${color};color:white;padding:${isActive ? "5px 14px" : "4px 12px"};border-radius:10px;font-size:11px;font-weight:800;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap">${escHtml(child.name)}${updatedLabel ? ` · ${updatedLabel}` : ""}</div>
-                </div>`,
-                yAnchor: 1.8, xAnchor: 0.5, zIndex: isActive ? 20 : 10
-            });
-            overlay.setMap(mapObj.current);
-            childMarkersRef.current.push(overlay);
+            const content = `<div style="display:flex;flex-direction:column;align-items:center">
+                <div style="width:${markerSize}px;height:${markerSize}px;background:#fff;border:${isActive ? 5 : 4}px solid white;border-radius:50%;box-shadow:0 0 0 ${isActive ? 12 : 8}px ${color}33,0 3px 12px ${color}66;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">${childMarkerImageHtml(child)}</div>
+                <div style="margin-top:4px;background:${color};color:white;padding:${isActive ? "5px 14px" : "4px 12px"};border-radius:10px;font-size:11px;font-weight:800;font-family:'Pretendard Variable','Pretendard',system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.2);white-space:nowrap">${escHtml(child.name)}${updatedLabel ? ` · ${updatedLabel}` : ""}</div>
+            </div>`;
+            const zIndex = isActive ? 20 : 10;
+            // signature: 외형이 바뀌었는지 빠르게 비교하기 위한 키. 좌표는 제외.
+            const signature = `${isActive ? 1 : 0}|${color}|${child.name || ""}|${child.photo_url || ""}|${updatedLabel}`;
+            const key = child.trackerKey;
+            seenKeys.add(key);
+
+            const cached = cache.get(key);
+            if (cached) {
+                cached.overlay.setPosition(ll);
+                if (cached.signature !== signature) {
+                    cached.overlay.setContent(content);
+                    if (typeof cached.overlay.setZIndex === "function") cached.overlay.setZIndex(zIndex);
+                    cached.signature = signature;
+                }
+            } else {
+                const overlay = new window.kakao.maps.CustomOverlay({
+                    position: ll, content, yAnchor: 1.8, xAnchor: 0.5, zIndex,
+                });
+                overlay.setMap(mapObj.current);
+                cache.set(key, { overlay, signature });
+            }
         });
 
-        if (selectedChild && window.kakao.maps.Circle) {
-            walkRadiusCircleRef.current = new window.kakao.maps.Circle({
-                center: new window.kakao.maps.LatLng(selectedChild.lat, selectedChild.lng),
-                radius: CHILD_TRACKER_WALK_RADIUS_M,
-                strokeWeight: 2,
-                strokeColor: "#2563EB",
-                strokeOpacity: 0.72,
-                strokeStyle: "solid",
-                fillColor: "#3B82F6",
-                fillOpacity: 0.12,
-            });
-            walkRadiusCircleRef.current.setMap(mapObj.current);
+        // 사라진 자녀 마커 제거
+        cache.forEach((entry, key) => {
+            if (!seenKeys.has(key)) {
+                entry.overlay.setMap(null);
+                cache.delete(key);
+            }
+        });
+
+        if (selectedChild) {
+            const center = new window.kakao.maps.LatLng(selectedChild.lat, selectedChild.lng);
+            if (walkRadiusCircleRef.current) {
+                if (typeof walkRadiusCircleRef.current.setPosition === "function") {
+                    walkRadiusCircleRef.current.setPosition(center);
+                }
+            } else if (window.kakao.maps.Circle) {
+                walkRadiusCircleRef.current = new window.kakao.maps.Circle({
+                    center,
+                    radius: CHILD_TRACKER_WALK_RADIUS_M,
+                    strokeWeight: 2,
+                    strokeColor: "#2563EB",
+                    strokeOpacity: 0.72,
+                    strokeStyle: "solid",
+                    fillColor: "#3B82F6",
+                    fillOpacity: 0.12,
+                });
+                walkRadiusCircleRef.current.setMap(mapObj.current);
+            }
+        } else if (walkRadiusCircleRef.current) {
+            walkRadiusCircleRef.current.setMap(null);
+            walkRadiusCircleRef.current = null;
         }
 
         if (!initialFocusDoneRef.current && selectedChild) {
             focusChildLocation(selectedChild);
         }
     }, [childLocations, selectedChild, focusChildLocation]);
+
+    // unmount 시 캐시된 자녀 마커 정리
+    useEffect(() => {
+        const cache = childMarkersByKeyRef.current;
+        return () => {
+            cache.forEach(({ overlay }) => overlay.setMap(null));
+            cache.clear();
+        };
+    }, []);
+
+    // 새로고침(↻) 후 selectedChild 의 fresh 위치가 도착하면 한 번 panTo.
+    // refreshRequestedAt 이후 updatedAt 인 위치를 받으면 자동으로 그 위치로 지도 이동.
+    useEffect(() => {
+        if (!refreshRequestedAt || !mapObj.current || !selectedChild) return;
+        if (lastAutoFocusRefreshRef.current === refreshRequestedAt) return;
+        const updatedMs = selectedChild.updatedAt ? new Date(selectedChild.updatedAt).getTime() : 0;
+        if (!updatedMs || updatedMs < refreshRequestedAt) return;
+        lastAutoFocusRefreshRef.current = refreshRequestedAt;
+        focusChildLocation(selectedChild);
+    }, [refreshRequestedAt, selectedChild, focusChildLocation]);
+
+    // 새로고침 버튼 클릭 즉시 마지막 known 위치로 이동시켜 응답 대기 중에도 시각적 피드백 제공.
+    const handleRefreshClick = useCallback(() => {
+        if (selectedChild && mapObj.current) {
+            focusChildLocation(selectedChild);
+        }
+        onRefreshLocation?.();
+    }, [selectedChild, focusChildLocation, onRefreshLocation]);
 
     // Effect 3: 이동경로 + 예상경로 + 일정 마커 (locationTrail/events 변경 시 재드로우)
     useEffect(() => {
@@ -461,7 +536,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                 {onRefreshLocation && (
                     <button
                         type="button"
-                        onClick={onRefreshLocation}
+                        onClick={handleRefreshClick}
                         title="현재 위치 다시 확인"
                         aria-label="현재 위치 다시 확인"
                         style={{ width: 42, height: 42, borderRadius: 14, border: "none", background: "white", color: "var(--theme-accent-text)", fontSize: 18, fontWeight: 900, cursor: "pointer", fontFamily: FF, boxShadow: "var(--hyeni-theme-shadow-soft)", flexShrink: 0 }}
