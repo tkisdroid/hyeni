@@ -3189,7 +3189,8 @@ export default function KidsScheduler() {
         && !isParent
         && !!familyId
         && !!nativeNotifHealth
-        && childSafetySetupSteps.some(step => !step.ready);
+        // optional(선택) 권한은 미허용이어도 위저드를 다시 띄우지 않는다.
+        && childSafetySetupSteps.some(step => !step.ready && !step.optional);
     // When every step turns ready, clear the dismissal flag so a future
     // permission revoke (user disables mic in Settings, etc) re-opens the
     // wizard instead of staying silently dismissed forever.
@@ -3246,7 +3247,8 @@ export default function KidsScheduler() {
     // 각 단계 사이에 잠깐의 텀(1.5s)을 두어 health 갱신이 반영되도록 한다.
     const runAllChildSafetySteps = useCallback(async () => {
         for (const step of childSafetySetupSteps) {
-            if (step.ready) continue;
+            // optional(선택) 권한은 일괄 허용에서 제외 — 사용자가 개별로 켠다.
+            if (step.ready || step.optional) continue;
             await openChildSafetySetupStep(step);
             await new Promise(r => setTimeout(r, 1500));
         }

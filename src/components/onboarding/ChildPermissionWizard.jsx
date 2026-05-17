@@ -11,8 +11,10 @@ import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 const FF = "var(--font-sans)";
 
 export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDismiss }) {
-    const totalCount = steps.length;
-    const readyCount = steps.filter((s) => s.ready).length;
+    // 필수 권한만 진행률/완료 게이트에 반영. optional(선택) 항목은 목록엔 보이되 막지 않는다.
+    const requiredSteps = steps.filter((s) => !s.optional);
+    const totalCount = requiredSteps.length;
+    const readyCount = requiredSteps.filter((s) => s.ready).length;
     const allReady = totalCount > 0 && readyCount === totalCount;
     const progressPct = totalCount > 0 ? Math.round((readyCount / totalCount) * 100) : 0;
     const [running, setRunning] = useState(false);
@@ -204,7 +206,21 @@ export function ChildPermissionWizard({ steps = [], onAction, onAllowAll, onDism
                                     {ready ? "✓" : (step.emoji || idx + 1)}
                                 </span>
                                 <div className="perm-step-body">
-                                    <div className="perm-step-title">{step.title}</div>
+                                    <div className="perm-step-title">
+                                        {step.title}
+                                        {step.optional && (
+                                            <span style={{
+                                                marginLeft: 6,
+                                                fontSize: 10,
+                                                fontWeight: "var(--weight-bold)",
+                                                color: "var(--fg-tertiary)",
+                                                background: "var(--bg-muted)",
+                                                borderRadius: 999,
+                                                padding: "1px 7px",
+                                                verticalAlign: "middle",
+                                            }}>선택</span>
+                                        )}
+                                    </div>
                                     <div className="perm-step-desc">{step.description}</div>
                                     {!ready && (
                                         <div

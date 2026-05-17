@@ -243,6 +243,8 @@ export async function openNativeNotificationSettings(settingsTarget = "notificat
       const channelRequest = { channelId: REMOTE_LISTEN_CHANNEL_ID };
       if (request.channelId) channelRequest.channelId = request.channelId;
       await native.openNotificationChannelSettings(channelRequest);
+    } else if (target === "usageAccess" && native.openUsageAccessSettings) {
+      await native.openUsageAccessSettings();
     } else if (native.openSettings) {
       await native.openSettings();
     } else {

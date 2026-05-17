@@ -182,6 +182,7 @@ public class NotificationPlugin extends Plugin {
         result.put("sdkInt", Build.VERSION.SDK_INT);
         result.put("manufacturer", Build.MANUFACTURER);
         result.put("model", Build.MODEL);
+        result.put("usageAccessGranted", DeviceStatusReporter.isUsageAccessGranted(ctx));
         result.put("ready", notificationsEnabled
                 && postPermissionGranted
                 && batteryOptimizationsIgnored
@@ -298,6 +299,23 @@ public class NotificationPlugin extends Plugin {
         intent.setData(Uri.parse("package:" + ctx.getPackageName()));
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         ctx.startActivity(intent);
+        call.resolve();
+    }
+
+    @PluginMethod()
+    public void openUsageAccessSettings(PluginCall call) {
+        Context ctx = getContext();
+        try {
+            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            ctx.startActivity(intent);
+        } catch (Exception error) {
+            // Usage Access 화면이 없는 기기는 앱 상세 설정으로 폴백
+            Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            fallback.setData(Uri.parse("package:" + ctx.getPackageName()));
+            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            ctx.startActivity(fallback);
+        }
         call.resolve();
     }
 

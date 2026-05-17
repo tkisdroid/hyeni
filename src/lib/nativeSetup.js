@@ -86,6 +86,16 @@ export const CHILD_SAFETY_SETUP_STEPS = Object.freeze([
         actionLabel: "다시 시작",
         isReady: (health) => health?.locationServiceRunning === true,
     },
+    {
+        // 선택 항목 — 미허용이어도 다른 안전 기능과 무관하게 진행 가능.
+        id: "screenTime",
+        title: "화면 시간 측정",
+        description: "아이 기기가 하루 동안 켜져 있던 시간을 부모님이 확인할 수 있어요. 선택 항목이에요.",
+        target: "usageAccess",
+        actionLabel: "권한 열기",
+        optional: true,
+        isReady: (health) => health?.usageAccessGranted === true,
+    },
 ]);
 
 export function getChildSafetySetupSteps(health, bgLocationGranted) {

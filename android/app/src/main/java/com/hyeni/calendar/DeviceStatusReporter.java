@@ -3,6 +3,7 @@ package com.hyeni.calendar;
 import android.Manifest;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
+import android.app.AppOpsManager;
 import android.app.KeyguardManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -21,6 +22,7 @@ import android.net.NetworkCapabilities;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.PowerManager;
+import android.os.Process;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -149,7 +151,7 @@ final class DeviceStatusReporter {
         long now = System.currentTimeMillis();
         DeviceBattery battery = readBattery(context);
         UsageSnapshot usage = readUsageSnapshot(context);
-        ScreenOnTime screenOn = computeTodayScreenOnMs(context, usage.screenInteractive, usage.usagePermission);
+        ScreenOnTime screenOn = computeTodayScreenOnMs(context, usage.screenInteractive);
         NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -360,16 +362,36 @@ final class DeviceStatusReporter {
         return c.getTimeInMillis();
     }
 
+    /** Usage Access(PACKAGE_USAGE_STATS) 권한 부여 여부 — AppOpsManager 로 정확히 판정. */
+    static boolean isUsageAccessGranted(Context context) {
+        if (context == null) return false;
+        try {
+            AppOpsManager appOps = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
+            if (appOps == null) return false;
+            String pkg = context.getPackageName();
+            int uid = Process.myUid();
+            int mode;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mode = appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, uid, pkg);
+            } else {
+                mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, uid, pkg);
+            }
+            return mode == AppOpsManager.MODE_ALLOWED;
+        } catch (Exception error) {
+            return false;
+        }
+    }
+
     /**
      * 오늘(자정~현재) 기기 전체 화면 켜짐 시간을 계산한다.
      * SCREEN_INTERACTIVE 이벤트는 API 28+ 전용, Usage Access 권한이 필요하다.
      * 측정 불가 시 ms = -1, source 에 사유를 담는다.
      */
-    private static ScreenOnTime computeTodayScreenOnMs(Context context, boolean interactiveNow, String usagePermission) {
+    private static ScreenOnTime computeTodayScreenOnMs(Context context, boolean interactiveNow) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
             return new ScreenOnTime(-1L, "unavailable_api");
         }
-        if (!"granted".equals(usagePermission)) {
+        if (!isUsageAccessGranted(context)) {
             return new ScreenOnTime(-1L, "unavailable_permission");
         }
         UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
