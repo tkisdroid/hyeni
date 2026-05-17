@@ -30,9 +30,8 @@ const routeOverlaySource = readFileSync("src/components/route/RouteOverlay.jsx",
 const stickerBookModalSource = readFileSync("src/components/sticker/StickerBookModal.jsx", "utf8");
 const savedPlaceManagerSource = readFileSync("src/components/place-management/SavedPlaceManager.jsx", "utf8");
 const childCallCardSource = readFileSync("src/components/contact/ChildCallCard.jsx", "utf8");
-const phoneSettingsModalSource = readFileSync("src/components/dialogs/PhoneSettingsModal.jsx", "utf8");
 const feedbackModalSource = readFileSync("src/components/dialogs/FeedbackModal.jsx", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}\n${savedPlaceManagerSource}\n${childCallCardSource}\n${phoneSettingsModalSource}\n${feedbackModalSource}`;
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}\n${savedPlaceManagerSource}\n${childCallCardSource}\n${feedbackModalSource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -499,14 +498,12 @@ describe("Soft Brand visual system", () => {
     const routeSource = routeOverlaySource;
     // Phase 5 #4 / B13: DayTimetable moved to src/components/timetable/DayTimetable.jsx.
     const timetableSource = dayTimetableSource;
-    // Phase 5 #4 / B21: PhoneSettingsModal moved to src/components/dialogs/PhoneSettingsModal.jsx.
-    const phoneSource = phoneSettingsModalSource;
     // Phase 5 #4 / B21: FeedbackModal moved to src/components/dialogs/FeedbackModal.jsx.
     const feedbackSource = feedbackModalSource;
     // Phase 5 #4 / B20: ChildCallCard moved to src/components/contact/ChildCallCard.jsx.
     const childCallSource = childCallCardSource;
 
-    for (const source of [routeSource, timetableSource, phoneSource, feedbackSource, childCallSource]) {
+    for (const source of [routeSource, timetableSource, feedbackSource, childCallSource]) {
       expect(source).toContain("var(--theme-accent");
     }
     expect(routeSource).toContain("var(--hyeni-theme-gradient)");
@@ -523,7 +520,6 @@ describe("Soft Brand visual system", () => {
     expect(routeSource).not.toContain("linear-gradient(135deg, #EC4899, #F472B6)");
     expect(timetableSource).not.toContain("linear-gradient(to bottom, #E879A0");
     expect(timetableSource).not.toContain("#FFF0F7");
-    expect(phoneSource).not.toContain("linear-gradient(135deg,#E879A0,#BE185D)");
     expect(feedbackSource).not.toContain("#FBCFE8");
     expect(feedbackSource).not.toContain("linear-gradient(135deg,#E879A0,#BE185D)");
     expect(childCallSource).not.toContain("#BE185D");

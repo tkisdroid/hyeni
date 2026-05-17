@@ -365,14 +365,9 @@ export async function setupFamily(userId, parentName, options = {}) {
       return "";
     }
   })();
-  // Route the signing-up parent's phone to their gender's slot. "dad" → dad_phone,
-  // anything else (mom/empty/legacy) → mom_phone — keeps contact card consistent
-  // with the gender they picked at signup.
-  const phoneColumn = parentGender === "dad" ? "dad_phone" : "mom_phone";
-
   const { data: existing, error: existingError } = await supabase
     .from("families")
-    .select("id, pair_code, planned_child_count, mom_phone, dad_phone")
+    .select("id, pair_code, planned_child_count")
     .eq("parent_id", userId)
     .limit(1)
     .maybeSingle();
@@ -391,9 +386,6 @@ export async function setupFamily(userId, parentName, options = {}) {
     if (familyName) {
       updates.name = familyName;
     }
-    if (normalizedParentPhone && !existing[phoneColumn]) {
-      updates[phoneColumn] = normalizedParentPhone;
-    }
     if (Object.keys(updates).length > 0) {
       const { error: updateError } = await supabase.from("families")
         .update(updates)
@@ -408,7 +400,6 @@ export async function setupFamily(userId, parentName, options = {}) {
       parent_name: parentName || "부모",
       name: familyName,
     };
-    insertRow[phoneColumn] = normalizedParentPhone;
     const { data: created, error: createError } = await supabase
       .from("families")
       .insert(insertRow)
@@ -423,6 +414,33 @@ export async function setupFamily(userId, parentName, options = {}) {
     { onConflict: "family_id,user_id" }
   );
   if (memberError) throw memberError;
+
+  // Parent contact — canonical source is family_members.phone/gender.
+  // Fill only when still unset so a returning parent's edited number/label
+  // (changed via the settings screen) is never clobbered by a re-setup.
+  if (normalizedParentPhone || parentGender === "mom" || parentGender === "dad") {
+    const { data: parentRow } = await supabase
+      .from("family_members")
+      .select("phone, gender")
+      .eq("family_id", family.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const contactPatch = {};
+    if (normalizedParentPhone && !parentRow?.phone) {
+      contactPatch.phone = normalizedParentPhone;
+    }
+    if ((parentGender === "mom" || parentGender === "dad") && !parentRow?.gender) {
+      contactPatch.gender = parentGender;
+    }
+    if (Object.keys(contactPatch).length > 0) {
+      const { error: contactError } = await supabase
+        .from("family_members")
+        .update(contactPatch)
+        .eq("family_id", family.id)
+        .eq("user_id", userId);
+      if (contactError) throw contactError;
+    }
+  }
 
   for (let i = 0; i < children.length; i++) {
     const c = children[i];
@@ -500,7 +518,7 @@ export async function getMyFamily(userId) {
   if (!membership) {
     const { data: parentFamily, error: parentFamilyError } = await supabase
       .from("families")
-      .select("id, parent_id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
+      .select("id, parent_id, pair_code, parent_name, pair_code_expires_at")
       .eq("parent_id", userId)
       .limit(1)
       .maybeSingle();
@@ -532,7 +550,6 @@ export async function getMyFamily(userId) {
       myRole: "parent",
       myName: parentFamily.parent_name || "부모",
       members: enrichedMembers,
-      phones: { mom: parentFamily.mom_phone || "", dad: parentFamily.dad_phone || "" },
       pairCodeExpiresAt: parentFamily.pair_code_expires_at ? new Date(parentFamily.pair_code_expires_at) : null,
       primaryParentId: parentFamily.parent_id,
       isPrimaryParent: parentFamily.parent_id === userId,
@@ -542,7 +559,7 @@ export async function getMyFamily(userId) {
 
   const { data: family, error: familyError } = await supabase
     .from("families")
-    .select("id, parent_id, pair_code, parent_name, mom_phone, dad_phone, pair_code_expires_at")
+    .select("id, parent_id, pair_code, parent_name, pair_code_expires_at")
     .eq("id", membership.family_id)
     .single();
   if (familyError) console.warn("[getMyFamily] family query failed:", familyError);
@@ -577,7 +594,6 @@ export async function getMyFamily(userId) {
     myRole: membership.role,
     myName: membership.name,
     members: enrichedMembers,
-    phones: { mom: family?.mom_phone || "", dad: family?.dad_phone || "" },
     pairCodeExpiresAt: family?.pair_code_expires_at ? new Date(family.pair_code_expires_at) : null,
     primaryParentId: inferredPrimaryParentId,
     isPrimaryParent,
@@ -625,15 +641,6 @@ export async function regeneratePairCode(familyId) {
   };
 }
 
-// ── Parent phone numbers ─────────────────────────────────────────────────────
-export async function saveParentPhones(familyId, momPhone, dadPhone) {
-  const { error } = await supabase
-    .from("families")
-    .update({ mom_phone: momPhone || "", dad_phone: dadPhone || "" })
-    .eq("id", familyId);
-  if (error) throw error;
-}
-
 // 본인 프로필(이름/전화번호/캐릭터) 업데이트 — family_members + auth metadata 동시 반영.
 // fields: { name?: string, phone?: string, emoji?: string }
 export async function updateMyProfile(familyId, userId, fields) {
@@ -653,16 +660,6 @@ export async function updateMyProfile(familyId, userId, fields) {
     const { error: authErr } = await supabase.auth.updateUser({ data: { name: fields.name.trim() } });
     if (authErr) console.warn("[updateMyProfile] auth metadata update failed:", authErr);
   }
-}
-
-export async function getParentPhones(familyId) {
-  const { data, error } = await supabase
-    .from("families")
-    .select("mom_phone, dad_phone")
-    .eq("id", familyId)
-    .single();
-  if (error) return { mom: "", dad: "" };
-  return { mom: data.mom_phone || "", dad: data.dad_phone || "" };
 }
 
 // ── Unpair (parent removes child, or child leaves) ──────────────────────────

@@ -486,7 +486,6 @@ const formatScheduleDuration = (minutes) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // DangerZoneManager moved to ./components/dangerZone/DangerZoneManager.jsx — imported at top.
 
-// PhoneSettingsModal moved to ./components/dialogs/PhoneSettingsModal.jsx — imported at top.
 
 // SavedPlaceManager moved to ./components/place-management/SavedPlaceManager.jsx — imported at top.
 
