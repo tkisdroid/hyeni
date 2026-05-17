@@ -1,6 +1,6 @@
 # 구현 계획: 아이 모드 설정 — 변경 요청 모델
 
-> 작성: 2026-05-18 · 상태: 승인됨 · 결정: 전부 요청 전용(이름만 직접 변경) / 푸시 + 알림센터 기록(승인·자동적용 없음)
+> 작성: 2026-05-18 · 상태: 완료 (2026-05-18, 커밋 7e520e9~65cffce) · 결정: 전부 요청 전용(이름만 직접 변경) / 푸시 + 알림센터 기록(승인·자동적용 없음)
 
 ## 목표
 
@@ -31,23 +31,25 @@
 
 → Phase 1에서 조건부 마이그레이션 단계 **삭제**. 라이브러리 + 테스트만 진행.
 
-### Phase 1 — DB 마이그레이션(조건부) + 요청 전송 라이브러리 (커밋 1)
-- (조건부) `supabase/migrations/<ts>_alert_type_child_setting_request.sql` + down — CHECK enum이거나 자녀 INSERT 권한 부재 시.
+### Phase 1 — 요청 전송 라이브러리 ✅ 완료 (커밋 7e520e9)
+
+- 조건부 마이그레이션 단계는 Phase 0 검증 결과 **불필요로 삭제**.
 - 신규 `src/lib/childSettingRequest.js` — `SETTING_REQUEST_META`(메뉴별 카피), `sendChildSettingRequest()`, `checkRequestCooldown()`/`markRequestSent()`(메뉴별 60초).
-- 신규 단위 테스트 `src/lib/__tests__/childSettingRequest.test.js`.
-- 의존: Phase 0.
+- 신규 단위 테스트 `tests/childSettingRequest.test.js` (13건). ⚠️ 편차: 계획의 `src/lib/__tests__/` 경로는 vitest `include`(`tests/**`) 미수집 → `tests/`로 배치.
 
-### Phase 2 — 자녀 설정 화면 권한 모델 재설계 (커밋 2)
+### Phase 2 — 자녀 설정 화면 권한 모델 재설계 ✅ 완료 (커밋 b6b05ce)
+
 - 신규 `src/components/childMode/ChildRequestConfirmSheet.jsx` — 메뉴별 요청 확인 시트(토큰 전용 스타일).
-- `ChildSettingsScreen.jsx` 재설계 — 테마/캐릭터/소리/마스코트 직접 컨트롤 제거 → "변경 요청" Row, 이름 Row 편집 가능화. props: `onRequestChange(menuKey)`, `onEditName` 추가.
-- `App.jsx:7878-7903` 배선 교체 — `handleChildSettingRequest` + 시트 state + `EditFieldModal` 자녀 진입.
-- 죽은 코드 정리 — `handleChildEmojiChange`, 자녀 `childShowMascot` 직접 토글 경로 (grep 후 제거).
-- 의존: Phase 1.
+- `ChildSettingsScreen.jsx` 재설계 — 테마/캐릭터/소리/마스코트 직접 컨트롤 제거 → "변경 요청" Row, 이름 Row 편집 가능화. props: `onRequestChange(menuKey)`, `onEditName`.
+- `App.jsx` 배선 교체 — `handleChildSettingRequest`/`handleConfirmSettingRequest` + 시트 state + `EditFieldModal` 자녀 진입 + back-handler.
+- 죽은 코드 정리 — `handleChildEmojiChange` 제거, `childShowMascot` 직접 토글 경로 제거(state·ChildHero 사용처는 보존).
+- 컴포넌트 테스트 `ChildSettingsScreen.test.jsx`(재작성)·`ChildRequestConfirmSheet.test.jsx`(신규) 29건. ⚠️ 편차: 게이트(각 Phase 후 vitest 통과) 정합성을 위해 ChildSettingsScreen 테스트 재작성을 Phase 3→Phase 2 커밋으로 이동.
 
-### Phase 3 — 부모 알림센터 표시 + 컴포넌트 테스트 (커밋 3)
-- `AlertCenterPopup.jsx` `TYPE_META`에 `child_setting_request` 추가. `AlertPanel` 상세 화면도 확인.
-- 컴포넌트 테스트 `ChildSettingsScreen.test.jsx` — 콜백 호출·직접 컨트롤 부재·시트 동작.
-- 의존: Phase 1, 2.
+### Phase 3 — 부모 알림센터 표시 ✅ 완료 (커밋 65cffce)
+
+- `AlertCenterPopup.jsx` `TYPE_META`에 `child_setting_request` 추가("요청" 라벨).
+- `AlertPanel`(활동 알림 상세) — `severity` 기반 렌더라 변경 불필요(확인 완료).
+- 컴포넌트 테스트 `AlertCenterPopup.test.jsx` 2건.
 
 ## 의존성 그래프
 
