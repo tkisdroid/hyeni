@@ -1378,6 +1378,25 @@ async function fetchFcmTokensForUser(
   return (data ?? []) as { id: string; fcm_token: string }[];
 }
 
+// Collect a family's parent contact numbers from family_members, ordered
+// 엄마 → 아빠 → (gender 미상). Blank phones are dropped. Returns a plain
+// string[] so the friend_family_phones payload shape stays a JSON array —
+// phone canonical source is now family_members.phone, not families.*_phone.
+function collectParentPhones(
+  rows: Array<{ phone?: unknown; gender?: unknown; name?: unknown }> | null | undefined,
+): string[] {
+  const order = (g: unknown) => (g === "mom" ? 0 : g === "dad" ? 1 : 2);
+  return (rows ?? [])
+    .map((r) => ({
+      phone: typeof r.phone === "string" ? r.phone.trim() : "",
+      gender: r.gender,
+      name: typeof r.name === "string" ? r.name : "",
+    }))
+    .filter((r) => r.phone !== "")
+    .sort((a, b) => order(a.gender) - order(b.gender) || a.name.localeCompare(b.name))
+    .map((r) => r.phone);
+}
+
 async function handlePlaydateStarted(
   supabase: ReturnType<typeof createClient>,
   body: Record<string, unknown>,
@@ -1406,10 +1425,12 @@ async function handlePlaydateStarted(
     return jsonResponse({ error: "forbidden" }, 403);
   }
 
-  const [placeRes, familyARes, familyBRes, childARes, childBRes, tierARes, tierBRes] = await Promise.all([
+  const [placeRes, familyARes, familyBRes, parentsARes, parentsBRes, childARes, childBRes, tierARes, tierBRes] = await Promise.all([
     supabase.from("public_places").select("name").eq("id", session.public_place_id).maybeSingle(),
-    supabase.from("families").select("mom_phone, dad_phone, parent_id").eq("id", session.family_a_id).maybeSingle(),
-    supabase.from("families").select("mom_phone, dad_phone, parent_id").eq("id", session.family_b_id).maybeSingle(),
+    supabase.from("families").select("parent_id").eq("id", session.family_a_id).maybeSingle(),
+    supabase.from("families").select("parent_id").eq("id", session.family_b_id).maybeSingle(),
+    supabase.from("family_members").select("phone, gender, name").eq("family_id", session.family_a_id).eq("role", "parent"),
+    supabase.from("family_members").select("phone, gender, name").eq("family_id", session.family_b_id).eq("role", "parent"),
     supabase.from("family_members").select("name").eq("user_id", session.child_a_id).maybeSingle(),
     supabase.from("family_members").select("name").eq("user_id", session.child_b_id).maybeSingle(),
     supabase.rpc("family_subscription_effective_tier", { p_family_id: session.family_a_id }),
@@ -1419,8 +1440,9 @@ async function handlePlaydateStarted(
   const placeName = placeRes.data?.name ?? "안전장소";
   const childAName = childARes.data?.name ?? "아이";
   const childBName = childBRes.data?.name ?? "친구";
-  const familyAPhones = [familyARes.data?.mom_phone, familyARes.data?.dad_phone].filter(Boolean) as string[];
-  const familyBPhones = [familyBRes.data?.mom_phone, familyBRes.data?.dad_phone].filter(Boolean) as string[];
+  // 친구 가족 부모 연락처 — phone canonical source는 family_members.phone.
+  const familyAPhones = collectParentPhones(parentsARes.data);
+  const familyBPhones = collectParentPhones(parentsBRes.data);
   const tierA = (tierARes.data as string | null) ?? "free";
   const tierB = (tierBRes.data as string | null) ?? "free";
 
