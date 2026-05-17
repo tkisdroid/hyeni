@@ -1,6 +1,6 @@
 # 구현 계획: 아이 기기 전체 화면켜짐 시간 표시
 
-> 작성: 2026-05-18 · 상태: Phase 1·2 완료 (커밋 26af748, f1c133b) · 결정: 기기 전체 화면켜짐 시간(모든 앱) · Usage Access 권한 사용
+> 작성: 2026-05-18 · 상태: 완료 (Phase 1·2·3 — 커밋 26af748, f1c133b, f3ad9c5) · 결정: 기기 전체 화면켜짐 시간(모든 앱) · Usage Access 권한 사용
 
 ## 목표
 
@@ -34,12 +34,12 @@
 - `ChildPermissionWizard.jsx` — `optional` 항목은 진행률·완료 게이트에서 제외, 목록엔 "선택" 배지로 표시. `App.jsx` `childSafetySetupBlocked`·일괄허용에서 optional 제외.
 - 테스트: `nativeSetupSteps.test.js`(3), `ChildPermissionWizard.test.jsx`(4).
 
-### Phase 3 — 부모 표시 + 폴백
+### Phase 3 — 부모 표시 + 폴백 ✅ 완료 (커밋 f3ad9c5)
 
-- device status 매핑 — `deviceScreenOnMs` 우선, 없으면 `screenOnMs` 폴백 헬퍼 추가.
-- `ChildDeviceCard.jsx`, `TodayMultiChildView.jsx`, `ChildDetailScreen.jsx`, `App.jsx` 의 `primaryDeviceScreenLabel`/`primaryDeviceSafetyLabel` — 새 헬퍼 사용.
-- 권한 미허용 시 라벨 "화면 시간 (앱 사용)" 또는 "측정하려면 권한 필요" 표기.
-- 컴포넌트/유닛 테스트.
+- `src/lib/screenTime.js` — `resolveChildScreenTime`(deviceScreenOnMs/usage-stats 우선, screenOnMs 폴백) + `screenTimeScopeSuffix`.
+- `ChildDeviceCard`·`TodayMultiChildView`·`ChildDetailScreen`·`App.jsx` `primaryDevice*` 4개 표시 지점을 리졸버로 전환.
+- 앱 폴백 시 라벨에 "(앱 사용)" 명시.
+- 테스트: `screenTime.test.js`(8), `ChildDeviceCard.test.jsx`(2).
 
 ## 의존성 그래프
 
