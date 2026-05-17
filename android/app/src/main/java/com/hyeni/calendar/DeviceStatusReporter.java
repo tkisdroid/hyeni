@@ -31,6 +31,8 @@ import org.json.JSONObject;
 
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -45,6 +47,11 @@ final class DeviceStatusReporter {
     private static final String TAG = "DeviceStatusReporter";
     private static final String PREFS_NAME = "hyeni_location_prefs";
     private static final String REMOTE_LISTEN_CHANNEL_ID = "hyeni_remote_listen_v2";
+
+    // UsageEvents.Event.SCREEN_INTERACTIVE / SCREEN_NON_INTERACTIVE (API 28+).
+    // 상수로 직접 명시해 API < 28 컴파일과 순수 함수 단위 테스트(Android 클래스 비의존)를 모두 가능하게 한다.
+    static final int EVENT_SCREEN_INTERACTIVE = 15;
+    static final int EVENT_SCREEN_NON_INTERACTIVE = 16;
 
     private DeviceStatusReporter() {}
 
@@ -142,6 +149,7 @@ final class DeviceStatusReporter {
         long now = System.currentTimeMillis();
         DeviceBattery battery = readBattery(context);
         UsageSnapshot usage = readUsageSnapshot(context);
+        ScreenOnTime screenOn = computeTodayScreenOnMs(context, usage.screenInteractive, usage.usagePermission);
         NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -202,6 +210,8 @@ final class DeviceStatusReporter {
                 ? "혜니캘린더 (앱 외 사용기록은 OS 권한 필요)"
                 : usage.recentAppPackage)
             .put("usagePermission", usage.usagePermission)
+            .put("deviceScreenOnMs", screenOn.ms >= 0L ? screenOn.ms : JSONObject.NULL)
+            .put("deviceScreenOnSource", screenOn.source)
             .put("source", "native-fcm")
             .put("recordAudio", recordAudioGranted)
             .put("postNotif", postPermissionGranted && notificationsEnabled)
@@ -298,6 +308,103 @@ final class DeviceStatusReporter {
         return new UsageSnapshot(interactive, recentApp, usagePermission);
     }
 
+    /**
+     * 화면 ON/OFF 이벤트 목록으로 [windowStart, windowEnd] 구간의 총 화면 켜짐 시간(ms)을 계산한다.
+     * eventTimestamps/eventTypes 는 시간 오름차순. EVENT_SCREEN_INTERACTIVE/NON_INTERACTIVE
+     * 외의 type 은 무시한다. windowStart/End 밖의 이벤트는 구간 경계로 clamp 한다.
+     * 순수 함수 — Android 클래스에 의존하지 않아 로컬 단위 테스트가 가능하다.
+     */
+    static long sumScreenOnMs(long[] eventTimestamps, int[] eventTypes,
+                              long windowStart, long windowEnd, boolean interactiveNow) {
+        if (windowEnd <= windowStart) return 0L;
+        long total = 0L;
+        long onSince = -1L;
+        boolean sawScreenEvent = false;
+        int count = (eventTimestamps == null || eventTypes == null)
+            ? 0
+            : Math.min(eventTimestamps.length, eventTypes.length);
+        for (int i = 0; i < count; i++) {
+            int type = eventTypes[i];
+            if (type != EVENT_SCREEN_INTERACTIVE && type != EVENT_SCREEN_NON_INTERACTIVE) continue;
+            long ts = eventTimestamps[i];
+            if (ts < windowStart) ts = windowStart;
+            if (ts > windowEnd) ts = windowEnd;
+            sawScreenEvent = true;
+            if (type == EVENT_SCREEN_INTERACTIVE) {
+                if (onSince < 0L) onSince = ts;
+            } else {
+                // 첫 이벤트가 OFF 면 windowStart 부터 켜져 있던 것으로 본다.
+                long from = (onSince >= 0L) ? onSince : windowStart;
+                if (ts > from) total += ts - from;
+                onSince = -1L;
+            }
+        }
+        if (onSince >= 0L) {
+            // 마지막까지 화면이 켜진 상태 → 구간 끝까지 카운트
+            total += windowEnd - onSince;
+        } else if (!sawScreenEvent && interactiveNow) {
+            // 구간 내 화면 토글 이벤트가 전혀 없는데 지금 켜져 있음 → 종일 켜짐
+            total += windowEnd - windowStart;
+        }
+        if (total < 0L) total = 0L;
+        if (total > windowEnd - windowStart) total = windowEnd - windowStart;
+        return total;
+    }
+
+    private static long startOfTodayMillis() {
+        Calendar c = Calendar.getInstance();
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
+        c.set(Calendar.SECOND, 0);
+        c.set(Calendar.MILLISECOND, 0);
+        return c.getTimeInMillis();
+    }
+
+    /**
+     * 오늘(자정~현재) 기기 전체 화면 켜짐 시간을 계산한다.
+     * SCREEN_INTERACTIVE 이벤트는 API 28+ 전용, Usage Access 권한이 필요하다.
+     * 측정 불가 시 ms = -1, source 에 사유를 담는다.
+     */
+    private static ScreenOnTime computeTodayScreenOnMs(Context context, boolean interactiveNow, String usagePermission) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            return new ScreenOnTime(-1L, "unavailable_api");
+        }
+        if (!"granted".equals(usagePermission)) {
+            return new ScreenOnTime(-1L, "unavailable_permission");
+        }
+        UsageStatsManager usm = (UsageStatsManager) context.getSystemService(Context.USAGE_STATS_SERVICE);
+        if (usm == null) {
+            return new ScreenOnTime(-1L, "unavailable");
+        }
+        long end = System.currentTimeMillis();
+        long start = startOfTodayMillis();
+        ArrayList<long[]> rows = new ArrayList<>();
+        try {
+            UsageEvents events = usm.queryEvents(start, end);
+            if (events != null) {
+                UsageEvents.Event event = new UsageEvents.Event();
+                while (events.hasNextEvent()) {
+                    events.getNextEvent(event);
+                    int type = event.getEventType();
+                    if (type == EVENT_SCREEN_INTERACTIVE || type == EVENT_SCREEN_NON_INTERACTIVE) {
+                        rows.add(new long[]{ event.getTimeStamp(), type });
+                    }
+                }
+            }
+        } catch (Exception error) {
+            Log.w(TAG, "screen-on usage query failed", error);
+            return new ScreenOnTime(-1L, "unavailable");
+        }
+        long[] timestamps = new long[rows.size()];
+        int[] types = new int[rows.size()];
+        for (int i = 0; i < rows.size(); i++) {
+            timestamps[i] = rows.get(i)[0];
+            types[i] = (int) rows.get(i)[1];
+        }
+        long total = sumScreenOnMs(timestamps, types, start, end, interactiveNow);
+        return new ScreenOnTime(total, "usage-stats");
+    }
+
     private static boolean isChannelEnabled(@Nullable NotificationManager nm, String channelId) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || nm == null) {
             return true;
@@ -388,6 +495,16 @@ final class DeviceStatusReporter {
             this.screenInteractive = screenInteractive;
             this.recentAppPackage = recentAppPackage;
             this.usagePermission = usagePermission;
+        }
+    }
+
+    private static final class ScreenOnTime {
+        final long ms;       // -1 이면 측정 불가
+        final String source; // "usage-stats" | "unavailable" | "unavailable_api" | "unavailable_permission"
+
+        ScreenOnTime(long ms, String source) {
+            this.ms = ms;
+            this.source = source;
         }
     }
 
