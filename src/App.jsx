@@ -1341,6 +1341,34 @@ export default function KidsScheduler() {
         return deferEffectStateUpdate(() => setParentPhones(contacts));
     }, [familyInfo]);
 
+    // ── Realtime: re-derive parent contacts when a family member changes ──────
+    // 부모가 phone/gender 를 편집하면 다른 기기(자녀 ChildCallCard 포함)에 즉시
+    // 반영되도록 family_members 를 family_id 단위로 구독한다. 변경 시 getMyFamily
+    // 재조회 → familyInfo 갱신 → 위 selectParentContacts 파생 effect 가 재실행된다.
+    // 친구놀이 상대 가족 phone 은 RLS상 직접 구독 불가 → 친구놀이 컴포넌트의
+    // fetchActiveSession RPC 재조회로 한정(설계 합의).
+    useEffect(() => {
+        if (!familyId) return undefined;
+        const channel = supabase
+            .channel(`family-members-contacts-${familyId}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "family_members",
+                    filter: `family_id=eq.${familyId}`,
+                },
+                () => {
+                    getMyFamily(authUser?.id)
+                        .then((fi) => { if (fi) setFamilyInfo(fi); })
+                        .catch((err) => console.warn("[parent-contacts-realtime] refresh failed:", err?.message || err));
+                },
+            )
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [familyId, authUser?.id]);
+
     const handleNativeAuthCallback = useCallback(async (url) => {
         if (!url || !url.startsWith("hyenicalendar://auth-callback")) {
             return false;
