@@ -16,6 +16,7 @@ const TYPE_META = {
     danger_exit:    { label: "이탈",   color: "rose",     icon: "pin-heart" },
     memo_emotional: { label: "리포트", color: "lavender", icon: "chat-heart" },
     safe:           { label: "안전",   color: "mint",     icon: "safety-mascot" },
+    child_setting_request: { label: "요청", color: "lavender", icon: "chat-heart" },
 };
 
 const TAG_PALETTES = {
