@@ -14,7 +14,7 @@ describe("remote listen waiting feedback", () => {
     expect(app).toContain("waiting_for_child_notification");
     expect(app).toContain("failed");
     expect(app).toContain("연결까지 시간이 오래 걸리고 있어요");
-    expect(app).toContain("아이 기기 응답 대기 중");
+    expect(app).toContain("아이 응답 기다리는 중");
     expect(app).toContain("clearRemoteAudioWaitingHint");
   });
 });

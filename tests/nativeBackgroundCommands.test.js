@@ -59,7 +59,7 @@ describe("native background command contracts", () => {
     expect(app).toContain("stopActivePlayback");
     expect(app).toContain('if (startInFlightRef.current || (status !== "idle" && status !== "failed")) return;');
     expect(app).toContain("waiting_for_child_notification");
-    expect(app).toContain("연결 요청 전송 중");
+    expect(app).toContain("아이에게 신호 보내는 중");
     expect(app).toContain('const showRemoteListenDiagnostics = status !== "listening" && remoteListenDiagnostics.length > 0;');
     expect(app).toContain("requestId: options.requestId");
     expect(app).toContain('sequence === "" ? fallbackSource : "seq"');

@@ -9,6 +9,7 @@ import { generateUUID } from "../../lib/auth.js";
 import { sendBroadcastWhenReady } from "../../lib/realtime.js";
 import { sendInstantPush } from "../../lib/instantPush.js";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 import {
     summarizeRemoteListenHealth,
     resolveChildRemoteListenHealth,
@@ -21,6 +22,71 @@ import {
     REMOTE_AUDIO_WAITING_HELP_MS,
 } from "../../lib/remoteAudio.js";
 import { DESIGN, FF, makeCardStyle, modalBackdropStyle } from "../../lib/styleHelpers.js";
+
+// 대기 상태 micro-interaction 용 keyframes — 컴포넌트 scope <style> 로 주입.
+// prefers-reduced-motion 사용자는 애니메이션을 끈다.
+const AMBIENT_KEYFRAMES = `
+@keyframes hyeni-ambient-ripple {
+  0% { transform: scale(0.5); opacity: 0.5; }
+  70% { opacity: 0.1; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+@keyframes hyeni-ambient-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes hyeni-ambient-dot {
+  0%, 70%, 100% { opacity: 0.2; }
+  35% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hyeni-ambient-anim { animation: none !important; }
+}
+`;
+
+// 대기 중 hero — 혜니 마스코트(전화) + 신호가 퍼지는 소나 ripple + 부드러운 bob.
+function AmbientWaitingVisual() {
+    return (
+        <div style={{ position: "relative", width: 148, height: 148, margin: "0 auto 14px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {[0, 1, 2].map((i) => (
+                <span
+                    key={i}
+                    aria-hidden="true"
+                    className="hyeni-ambient-anim"
+                    style={{
+                        position: "absolute",
+                        width: 132,
+                        height: 132,
+                        borderRadius: "50%",
+                        border: "2.5px solid var(--theme-accent)",
+                        animation: "hyeni-ambient-ripple 2.6s ease-out infinite",
+                        animationDelay: `${i * 0.85}s`,
+                    }}
+                />
+            ))}
+            <div className="hyeni-ambient-anim" style={{ position: "relative", animation: "hyeni-ambient-bob 2.8s ease-in-out infinite" }}>
+                <HyeniMascot variant="phone" size={94} aria-label="혜니가 아이에게 연결하고 있어요" />
+            </div>
+        </div>
+    );
+}
+
+// 제목 뒤에 순차적으로 깜빡이는 점 3개 — "지금 진행 중" 느낌.
+function WaitingDots() {
+    return (
+        <span aria-hidden="true" style={{ display: "inline-flex" }}>
+            {[0, 1, 2].map((i) => (
+                <span
+                    key={i}
+                    className="hyeni-ambient-anim"
+                    style={{ animation: "hyeni-ambient-dot 1.4s ease-in-out infinite", animationDelay: `${i * 0.22}s` }}
+                >
+                    .
+                </span>
+            ))}
+        </span>
+    );
+}
 
 export function AmbientAudioRecorder({ channelRef, familyId: recFamilyId, senderUserId, onClose, pairedChildren = [], targetChildUserId = null, childDeviceStatusMap = {} }) {
     const [status, setStatus] = useState("idle"); // idle, pushing, auto_waking_child, waiting_for_child_notification, listening, failed
@@ -413,9 +479,9 @@ export function AmbientAudioRecorder({ channelRef, familyId: recFamilyId, sender
     const showRemoteListenDiagnostics = status !== "listening" && remoteListenDiagnostics.length > 0;
     const statusCopy = {
         idle: { icon: "🎤", title: "주변 소리 듣기", description: "프리미엄 회원은 아이 기기의 마이크를 1분간 원격으로 켜서 주변 소리를 들을 수 있어요", hint: "" },
-        pushing: { icon: "📡", title: "연결 요청 전송 중", description: "아이 기기에 FCM 요청을 보내고 있어요", hint: "잠시만 기다려 주세요." },
-        auto_waking_child: { icon: "📲", title: "아이 기기 자동 연결 시도 중", description: "전체화면 연결 화면을 자동으로 띄우고 있어요", hint: "기기 상태에 따라 몇 초 걸릴 수 있어요." },
-        waiting_for_child_notification: { icon: "🔔", title: "아이 기기 응답 대기 중", description: "아이 기기에 알림이 도착했어요. 화면을 깨우면 즉시 연결됩니다", hint: "1분 이상 응답이 없으면 잠금화면 알림이나 배터리 제한 설정을 확인해 주세요." },
+        pushing: { icon: "📡", title: "아이에게 신호 보내는 중", description: "아이 기기에 연결 신호를 보내고 있어요", hint: "잠시만 기다려 주세요." },
+        auto_waking_child: { icon: "📲", title: "아이 기기 깨우는 중", description: "아이 기기에서 연결 화면을 띄우고 있어요", hint: "기기 상태에 따라 몇 초 걸릴 수 있어요." },
+        waiting_for_child_notification: { icon: "🔔", title: "아이 응답 기다리는 중", description: "아이 기기에 알림이 도착했어요. 화면을 깨우면 바로 연결돼요", hint: "1분 이상 응답이 없으면 잠금화면 알림이나 배터리 제한 설정을 확인해 주세요." },
         listening: { icon: <ThreeDIcon name="broadcast" size={48} aria-label="" />, title: "아이 주변 소리 듣는 중...", description: `${duration}초 수신 중`, hint: "" },
         failed: { icon: <ThreeDIcon name="warning" size={48} aria-label="" />, title: "연결 요청 실패", description: "네트워크 또는 권한 상태를 확인한 뒤 다시 시도해 주세요", hint: "" },
     }[status] || { icon: <ThreeDIcon name="broadcast" size={48} aria-label="" />, title: "주변 소리 듣기", description: "", hint: "" };
@@ -424,9 +490,15 @@ export function AmbientAudioRecorder({ channelRef, familyId: recFamilyId, sender
         <div style={{ position: "fixed", inset: 0, ...modalBackdropStyle, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, fontFamily: FF }}
             onClick={e => { if (e.target === e.currentTarget && status === "idle") onClose(); }}>
             <div style={makeCardStyle({ padding: "24px 20px", width: "90%", maxWidth: 360, textAlign: "center" })}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>{statusCopy.icon}</div>
+                <style>{AMBIENT_KEYFRAMES}</style>
+                {isConnecting ? (
+                    <AmbientWaitingVisual />
+                ) : (
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>{statusCopy.icon}</div>
+                )}
                 <div style={{ fontSize: 18, fontWeight: 900, color: "var(--fg-primary)", marginBottom: 8 }}>
                     {statusCopy.title}
+                    {isConnecting && <WaitingDots />}
                 </div>
                 <div style={{ fontSize: 13, color: "var(--fg-secondary)", marginBottom: 16 }}>
                     {statusCopy.description}
