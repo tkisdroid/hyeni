@@ -1,6 +1,6 @@
 # 구현 계획: 아이 기기 전체 화면켜짐 시간 표시
 
-> 작성: 2026-05-18 · 상태: 승인 대기 · 결정: 기기 전체 화면켜짐 시간(모든 앱) · Usage Access 권한 사용
+> 작성: 2026-05-18 · 상태: Phase 1 완료 (커밋 26af748) · 결정: 기기 전체 화면켜짐 시간(모든 앱) · Usage Access 권한 사용
 
 ## 목표
 
@@ -18,15 +18,13 @@
 
 ## Phase 구성 (각 = 1 커밋)
 
-### Phase 1 — 네이티브 측정
+### Phase 1 — 네이티브 측정 ✅ 완료 (커밋 26af748)
 
-- `android/app/src/main/AndroidManifest.xml` — `PACKAGE_USAGE_STATS` 권한 선언 (`tools:ignore="ProtectedPermissions"`).
-- `DeviceStatusReporter.java` — `computeTodayScreenOnMs(context)` 추가:
-  - 자정(로컬) ~ now 구간 `queryEvents`.
-  - `SCREEN_INTERACTIVE` → `SCREEN_NON_INTERACTIVE` 구간 합산.
-  - edge case: 자정 이전부터 화면 켜진 상태(첫 이벤트가 NON_INTERACTIVE → 자정부터 카운트), 현재 화면 켜진 상태(dangling INTERACTIVE → now 까지), 이벤트 0건 + 현재 interactive(종일 켜짐 → now − 자정).
-  - `usagePermission == "granted"` 일 때만 계산. payload 에 `deviceScreenOnMs`, `deviceScreenOnSource` 추가.
-- 검증: 기기에서 native publish payload 로그 확인.
+- `AndroidManifest.xml` — `PACKAGE_USAGE_STATS` 권한 + `xmlns:tools` 선언.
+- `DeviceStatusReporter.java`:
+  - `sumScreenOnMs(...)` — 순수 함수. SCREEN_INTERACTIVE↔NON_INTERACTIVE 구간 합산, 자정 이전 켜짐(첫 이벤트 OFF → 자정부터)·현재 켜짐(dangling ON → now)·이벤트 0건+interactive(종일) edge handling, window clamp.
+  - `computeTodayScreenOnMs(...)` — 자정~now `queryEvents`, SDK 28+ / `usagePermission=="granted"` 가드. payload 에 `deviceScreenOnMs`(측정불가 시 null) + `deviceScreenOnSource` 추가.
+- 테스트: `DeviceStatusReporterTest.java` JUnit 9건 (`gradlew testDebugUnitTest` 통과).
 
 ### Phase 2 — Usage Access 권한 플로우
 
