@@ -75,6 +75,8 @@ import {
     makeInputStyle,
 } from "./lib/styleHelpers.js";
 import { AppConfirmDialog } from "./components/dialogs/AppConfirmDialog.jsx";
+import { AppConfirmHost } from "./components/dialogs/AppConfirmHost.jsx";
+import { setAppToastHandler } from "./lib/appToast.js";
 import { AlertBanner } from "./components/banners/AlertBanner.jsx";
 import { EmergencyBanner } from "./components/banners/EmergencyBanner.jsx";
 import { AppBrandLogo } from "./components/auth/AppBrandLogo.jsx";
@@ -2626,6 +2628,8 @@ export default function KidsScheduler() {
         if (notifTimer.current) clearTimeout(notifTimer.current);
         notifTimer.current = setTimeout(() => setNotification(null), 3500);
     }, []);
+    // 깊은 컴포넌트의 native alert() 를 디자인된 토스트로 라우팅 — appToast → showNotif.
+    useEffect(() => setAppToastHandler(showNotif), [showNotif]);
     // 자녀 설정 변경 요청 — "변경 요청" 탭 시 쿨다운 검사 후 확인 시트를 연다.
     const handleChildSettingRequest = useCallback((menuKey) => {
         const { allowed, remainingSec } = checkRequestCooldown(menuKey);
@@ -8428,6 +8432,9 @@ export default function KidsScheduler() {
                 onCancel={closeConfirmDialog}
                 onConfirm={handleConfirmDialogConfirm}
             />
+
+            {/* 전역 appConfirm() 요청 host — 깊은 컴포넌트의 native confirm 대체 */}
+            <AppConfirmHost />
 
             {/* ── Phase 5 RL-02: child-side persistent listening indicator ── */}
             {listeningSession && !isParent && (
