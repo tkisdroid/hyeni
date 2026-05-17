@@ -150,3 +150,32 @@ describe("ChildPairInput QR scanner", () => {
     expect(screen.getByText("연결됐어요!")).toBeVisible();
   });
 });
+
+describe("ChildPairInput — 입력 완료 버튼", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("코드가 비어 있으면 입력 완료 버튼이 비활성이고 진행 카운터를 보여준다", () => {
+    render(<ChildPairInput userId="child-user" onPaired={vi.fn()} />);
+    const btn = screen.getByRole("button", { name: "입력 완료" });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveTextContent("0/8");
+  });
+
+  it("미완성(<8자리)이면 입력한 자릿수를 카운터로 표시한다", () => {
+    render(<ChildPairInput userId="child-user" onPaired={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("페어링 코드 8자리"), { target: { value: "ABC" } });
+    const btn = screen.getByRole("button", { name: "입력 완료" });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveTextContent("3/8");
+  });
+
+  it("8자리를 모두 입력하면 버튼이 활성화되고 라벨이 '입력 완료'로 바뀐다", () => {
+    render(<ChildPairInput userId="child-user" onPaired={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("페어링 코드 8자리"), { target: { value: "ABCD1234" } });
+    const btn = screen.getByRole("button", { name: "입력 완료" });
+    expect(btn).toBeEnabled();
+    expect(btn).toHaveTextContent("입력 완료");
+  });
+});

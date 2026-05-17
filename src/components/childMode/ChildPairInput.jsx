@@ -380,6 +380,25 @@ export function ChildPairInput({ userId, onPaired }) {
                     >
                         <CodeInput code={code} onChange={setCode} onSubmit={() => { void handleJoin(); }} />
 
+                        {/* 8자리가 모두 입력되면 자동 활성화되는 입력 완료 버튼 */}
+                        <button
+                            type="button"
+                            onClick={() => { if (!busy && code.length === 8) void handleJoin(); }}
+                            disabled={busy || code.length !== 8}
+                            className="btn btn-primary"
+                            style={{ width: "100%", marginTop: 14 }}
+                            aria-label="입력 완료"
+                        >
+                            {busy
+                                ? "연결 중..."
+                                : code.length === 8
+                                    ? "입력 완료"
+                                    : `코드 입력 ${code.length}/8`}
+                            {!busy && code.length === 8 && (
+                                <span aria-hidden="true" style={{ fontWeight: 600, fontSize: 18 }}>›</span>
+                            )}
+                        </button>
+
                         <div style={{ height: 1, background: "var(--theme-accent-line)", margin: "16px 4px 12px", opacity: 0.7 }} />
 
                         <button
@@ -477,19 +496,7 @@ export function ChildPairInput({ userId, onPaired }) {
                         연결되면 <span style={{ color: "var(--theme-accent-text, #C3325B)" }}>내 일정과 알림</span>을 바로 볼 수 있어!
                     </p>
 
-                    <button
-                        type="button"
-                        onClick={() => { void handleJoin(); }}
-                        disabled={busy}
-                        className="btn btn-primary"
-                        style={{ marginTop: 16, width: "100%" }}
-                        aria-label="연결하기"
-                    >
-                        {busy ? "연결 중..." : "연결하기"}
-                        {!busy && <span aria-hidden="true" style={{ fontWeight: 600, fontSize: 18 }}>›</span>}
-                    </button>
-
-                    <p style={{ marginTop: 12, textAlign: "center", fontSize: 12, fontWeight: 500, color: "#A892A0" }}>
+                    <p style={{ marginTop: 16, textAlign: "center", fontSize: 12, fontWeight: 500, color: "#A892A0" }}>
                         <span aria-hidden="true" style={{ color: "#F779A8", marginRight: 6 }}>♥</span>
                         소중한 우리 가족을 위한 캘린더
                         <span aria-hidden="true" style={{ color: "#F779A8", marginLeft: 6 }}>♥</span>
