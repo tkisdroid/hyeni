@@ -22,6 +22,7 @@ import { EventSheet } from "./components/multichild/EventModal/EventSheet.jsx";
 import { ChildDetailScreen } from "./components/multichild/ChildDetail/ChildDetailScreen.jsx";
 import { ChildHero } from "./components/childMode/ChildHero.jsx";
 import { ChildSettingsScreen } from "./components/childMode/ChildSettingsScreen.jsx";
+import { ChildRequestConfirmSheet } from "./components/childMode/ChildRequestConfirmSheet.jsx";
 import { ChildAIChatScreen } from "./components/childMode/ChildAIChatScreen.jsx";
 import { loadChatSettings, saveChatSettings } from "./lib/aiChat.js";
 import { SendStickerSheet } from "./components/childMode/SendStickerSheet.jsx";
@@ -115,6 +116,7 @@ import { DailyTrailMap } from "./components/childTracker/DailyTrailMap.jsx";
 import { MemoSection } from "./components/memo/MemoSection.jsx";
 import { PairingModal } from "./components/pairing/PairingModal.jsx";
 import { sendInstantPush } from "./lib/instantPush.js";
+import { sendChildSettingRequest, checkRequestCooldown, markRequestSent } from "./lib/childSettingRequest.js";
 import { AiScheduleModal } from "./components/aiSchedule/AiScheduleModal.jsx";
 import { AmbientAudioRecorder } from "./components/audio/AmbientAudioRecorder.jsx";
 import { DayTimetable } from "./components/timetable/DayTimetable.jsx";
@@ -687,12 +689,16 @@ export default function KidsScheduler() {
     // Phase 4 — 부모 운영 화면 통합 진입점
     const [showParentSettings, setShowParentSettings] = useState(false);
     const [showPlaceManager, setShowPlaceManager] = useState(false);
-    const [childShowMascot, setChildShowMascot] = useState(() => {
+    // 자녀 마스코트 표시 — 자녀 직접 토글 제거(변경 요청 모델). 값은 ChildHero 가 읽기만 한다.
+    const [childShowMascot] = useState(() => {
         if (typeof window === "undefined") return true;
         const stored = window.localStorage.getItem("hyeni-child-show-mascot");
         return stored === null ? true : stored !== "false";
     });
     const [childSendingSticker, setChildSendingSticker] = useState(false);
+    // 자녀 설정 변경 요청 — 확인 시트 대상 메뉴(null = 닫힘) + 전송 중 플래그
+    const [settingRequestMenu, setSettingRequestMenu] = useState(null);
+    const [settingRequestBusy, setSettingRequestBusy] = useState(false);
     useEffect(() => {
         if (typeof window === "undefined") return;
         window.localStorage.setItem("hyeni-child-show-mascot", String(childShowMascot));
@@ -2620,29 +2626,38 @@ export default function KidsScheduler() {
         if (notifTimer.current) clearTimeout(notifTimer.current);
         notifTimer.current = setTimeout(() => setNotification(null), 3500);
     }, []);
-    const handleChildEmojiChange = useCallback(async (nextEmoji) => {
-        if (!nextEmoji || !familyId || !authUserId) return;
-        const currentEmoji = myFamilyMember?.emoji || "🐰";
-        if (nextEmoji === currentEmoji) return;
-        const previousFamilyInfo = familyInfo;
-        setFamilyInfo(prev => {
-            if (!prev) return prev;
-            return {
-                ...prev,
-                members: (prev.members || []).map(member => (
-                    member.user_id === authUserId ? { ...member, emoji: nextEmoji } : member
-                )),
-            };
-        });
-        try {
-            await updateMyProfile(familyId, authUserId, { emoji: nextEmoji });
-            showNotif("캐릭터를 바꿨어요");
-        } catch (error) {
-            console.error("[child emoji update]", error);
-            setFamilyInfo(previousFamilyInfo);
-            showNotif("캐릭터 변경에 실패했어요. 잠시 후 다시 시도해 주세요.", "error");
+    // 자녀 설정 변경 요청 — "변경 요청" 탭 시 쿨다운 검사 후 확인 시트를 연다.
+    const handleChildSettingRequest = useCallback((menuKey) => {
+        const { allowed, remainingSec } = checkRequestCooldown(menuKey);
+        if (!allowed) {
+            showNotif(`방금 요청했어. ${remainingSec}초 뒤에 다시 보낼 수 있어.`);
+            return;
         }
-    }, [authUserId, familyId, familyInfo, myFamilyMember?.emoji, setFamilyInfo, showNotif]);
+        setSettingRequestMenu(menuKey);
+    }, [showNotif]);
+
+    // 확인 시트 "요청 보내기" — 부모 푸시 + parent_alerts 기록. RPC 실패 시 자녀에게 반말 에러.
+    const handleConfirmSettingRequest = useCallback(async () => {
+        const menuKey = settingRequestMenu;
+        if (!menuKey || settingRequestBusy) return;
+        setSettingRequestBusy(true);
+        try {
+            await sendChildSettingRequest({
+                menuKey,
+                familyId,
+                senderUserId: authUserId,
+                childName: authUser?.user_metadata?.name || myFamilyMember?.name || "",
+            });
+            markRequestSent(menuKey);
+            setSettingRequestMenu(null);
+            showNotif("부모님께 요청을 보냈어!");
+        } catch (error) {
+            console.error("[child setting request]", error);
+            showNotif("요청을 못 보냈어. 잠시 후 다시 해줘.", "error");
+        } finally {
+            setSettingRequestBusy(false);
+        }
+    }, [settingRequestMenu, settingRequestBusy, familyId, authUserId, authUser, myFamilyMember, showNotif]);
 
     // AI 친구 대화 설정 — 가족 ID 가 생기면 한 번 로드. 부모/자녀 모두 캐시 필요(부모 설정 화면 + 자녀 진입 카드).
     useEffect(() => {
@@ -3082,6 +3097,7 @@ export default function KidsScheduler() {
             voicePreview, activeView, showAlertPanel,
             showParentSettings, showPlaceManager,
             editFieldKind,
+            settingRequestMenu,
             showAlertCenter,
         };
     });
@@ -3104,6 +3120,7 @@ export default function KidsScheduler() {
                     if (s.showSavedPlaceMgr)   { setShowSavedPlaceMgr(false);   return; }
                     if (s.showAlertPanel)      { setShowAlertPanel(false);      return; }
                     if (s.showAlertCenter)     { setShowAlertCenter(false);     return; }
+                    if (s.settingRequestMenu)  { setSettingRequestMenu(null);     return; }
                     if (s.editFieldKind)       { setEditFieldKind(null);         return; }
                     if (s.showPlaceManager)    { setShowPlaceManager(false);     return; }
                     if (s.showParentSettings)  { setShowParentSettings(false);   return; }
@@ -7875,23 +7892,14 @@ export default function KidsScheduler() {
                 );
             })()}
 
-            {/* ── Phase 3 자녀 설정 화면 ── */}
+            {/* ── 자녀 설정 화면 — 변경 요청 모델 (Phase 2) ── */}
             {!isParent && showChildSettings && (
                 <ChildSettingsScreen
                     onBack={() => setShowChildSettings(false)}
-                    currentTheme={(typeof document !== "undefined"
-                        ? (document.documentElement.style.getPropertyValue("--theme-accent") || "#F779A8").trim().toUpperCase()
-                        : "#F779A8")}
-                    onChangeTheme={(color) => applyThemeColor(color)}
-                    soundEnabled={true}
-                    onChangeSound={() => showNotif("알림 소리는 부모님이 잠궜어")}
-                    showMascot={childShowMascot}
-                    onChangeShowMascot={setChildShowMascot}
-                    currentEmoji={myFamilyMember?.emoji || "🐰"}
-                    onChangeEmoji={handleChildEmojiChange}
                     childName={authUser?.user_metadata?.name || familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.name || ""}
                     parentNames={(familyInfo?.members || []).filter((m) => m.role === "parent").map((m) => m.name).join(", ")}
-                    onRequestParentChange={() => showNotif("부모님께 변경 요청을 보냈어요")}
+                    onEditName={() => setEditFieldKind("name")}
+                    onRequestChange={handleChildSettingRequest}
                     onLogout={async () => {
                         if (!window.confirm("정말 로그아웃할까?")) return;
                         try { await logout(); } catch (e) { console.error(e); }
@@ -7901,6 +7909,15 @@ export default function KidsScheduler() {
                     }}
                 />
             )}
+
+            {/* ── 자녀 설정 변경 요청 확인 시트 (Phase 2) ── */}
+            <ChildRequestConfirmSheet
+                open={!isParent && Boolean(settingRequestMenu)}
+                menuKey={settingRequestMenu}
+                busy={settingRequestBusy}
+                onConfirm={handleConfirmSettingRequest}
+                onClose={() => { if (!settingRequestBusy) setSettingRequestMenu(null); }}
+            />
 
             {/* ── 자녀 모드 — AI 친구 대화 화면 ── */}
             {!isParent && showChildAIChat && (
