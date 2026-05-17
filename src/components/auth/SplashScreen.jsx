@@ -9,7 +9,20 @@ import { useEffect, useState } from "react";
 import { HyeniMascot } from "./HyeniMascot.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
-export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) {
+// 재로그인 사용자용 자동 진행 인디케이터의 점 애니메이션 — 컴포넌트 scope.
+const SPLASH_KEYFRAMES = `
+@keyframes hyeni-splash-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-5px); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hyeni-splash-dot { animation: none !important; opacity: 0.8; }
+}
+`;
+
+// returning=true (이전 로그인 기록 있음) 이면 "시작하기" 버튼 대신 자동 진행
+// 인디케이터를 보여준다 — 탭 없이 authLoading 완료 시 자동으로 넘어간다.
+export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000, returning = false }) {
     const [exiting, setExiting] = useState(false);
 
     const finish = () => {
@@ -136,16 +149,46 @@ export function SplashScreen({ AppBrandLogo, onTimeout, maxDurationMs = 6000 }) 
                 <FeaturePill icon="bell" title="중요 일정" subtitle="알림" />
             </div>
 
-            <button
-                type="button"
-                onClick={finish}
-                className="btn btn-primary"
-                style={{ marginTop: 16, width: "100%", flex: "0 0 auto" }}
-                aria-label="시작하기"
-            >
-                시작하기
-                <span aria-hidden="true" style={{ fontWeight: 600, fontSize: 18 }}>›</span>
-            </button>
+            {returning ? (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    aria-label="자동으로 들어가는 중"
+                    style={{ marginTop: 16, minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flex: "0 0 auto" }}
+                >
+                    <style>{SPLASH_KEYFRAMES}</style>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--theme-accent-text, #C3325B)" }}>
+                        들어가는 중
+                    </span>
+                    <span aria-hidden="true" style={{ display: "inline-flex", gap: 4 }}>
+                        {[0, 1, 2].map((i) => (
+                            <span
+                                key={i}
+                                className="hyeni-splash-dot"
+                                style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: "50%",
+                                    background: "var(--theme-accent, #F779A8)",
+                                    animation: "hyeni-splash-bounce 1s ease-in-out infinite",
+                                    animationDelay: `${i * 0.15}s`,
+                                }}
+                            />
+                        ))}
+                    </span>
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={finish}
+                    className="btn btn-primary"
+                    style={{ marginTop: 16, width: "100%", flex: "0 0 auto" }}
+                    aria-label="시작하기"
+                >
+                    시작하기
+                    <span aria-hidden="true" style={{ fontWeight: 600, fontSize: 18 }}>›</span>
+                </button>
+            )}
 
             <p
                 style={{

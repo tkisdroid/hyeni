@@ -5519,7 +5519,15 @@ export default function KidsScheduler() {
     }
 
     // Phase 1 §3.1 — Splash + 세션 복원 로딩
-    if (authLoading) return <SplashScreen AppBrandLogo={AppBrandLogo} />;
+    // 이전 로그인 기록(hyeni-last-role)이 있으면 환영 스플래시를 자동 진행 모드로
+    // 띄운다 — "시작하기" 탭 없이 세션 복원이 끝나면 바로 다음 화면으로 넘어간다.
+    if (authLoading) {
+        const hasLoginRecord = (() => {
+            try { return !!window.localStorage.getItem("hyeni-last-role"); }
+            catch { return false; }
+        })();
+        return <SplashScreen AppBrandLogo={AppBrandLogo} returning={hasLoginRecord} />;
+    }
 
     // Auth guard: if role exists but no session, force re-login
     if (!myRole || (!authUser && !authLoading)) return <RoleSetupModal onSelect={r => { if (r === "child") setShowChildEntry(true); }} />;
