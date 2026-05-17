@@ -1,6 +1,6 @@
 # 구현 계획: 아이 기기 전체 화면켜짐 시간 표시
 
-> 작성: 2026-05-18 · 상태: Phase 1 완료 (커밋 26af748) · 결정: 기기 전체 화면켜짐 시간(모든 앱) · Usage Access 권한 사용
+> 작성: 2026-05-18 · 상태: Phase 1·2 완료 (커밋 26af748, f1c133b) · 결정: 기기 전체 화면켜짐 시간(모든 앱) · Usage Access 권한 사용
 
 ## 목표
 
@@ -26,12 +26,13 @@
   - `computeTodayScreenOnMs(...)` — 자정~now `queryEvents`, SDK 28+ / `usagePermission=="granted"` 가드. payload 에 `deviceScreenOnMs`(측정불가 시 null) + `deviceScreenOnSource` 추가.
 - 테스트: `DeviceStatusReporterTest.java` JUnit 9건 (`gradlew testDebugUnitTest` 통과).
 
-### Phase 2 — Usage Access 권한 플로우
+### Phase 2 — Usage Access 권한 플로우 ✅ 완료 (커밋 f1c133b)
 
-- 네이티브 권한 체크 — `AppOpsManager.checkOpNoThrow(OPSTR_GET_USAGE_STATS)` 로 granted 여부 판정.
-- 네이티브 settings opener — `Settings.ACTION_USAGE_ACCESS_SETTINGS` 인텐트 (`NotificationPlugin` 에 method 추가 또는 신규).
-- `ChildPermissionWizard.jsx` — "화면 시간 측정" 선택 권한 항목 추가. 사용 이유 명시(안전 — 과사용 확인), 미허용 시에도 진행 가능.
-- 검증: 권한 토글 + 설정 진입 동작.
+- `DeviceStatusReporter.isUsageAccessGranted` — `AppOpsManager` OPSTR_GET_USAGE_STATS 판정. `computeTodayScreenOnMs` 게이트를 heuristic → AppOps 판정으로 교체.
+- `NotificationPlugin.openUsageAccessSettings` — `ACTION_USAGE_ACCESS_SETTINGS` 인텐트(폴백 포함). `getDeliveryHealth` 에 `usageAccessGranted` 추가.
+- `nativeSetup.js` — `screenTime` 선택 권한 항목(`optional:true`, `target:"usageAccess"`). `pushNotifications.js` `openNativeNotificationSettings` 에 `usageAccess` 분기.
+- `ChildPermissionWizard.jsx` — `optional` 항목은 진행률·완료 게이트에서 제외, 목록엔 "선택" 배지로 표시. `App.jsx` `childSafetySetupBlocked`·일괄허용에서 optional 제외.
+- 테스트: `nativeSetupSteps.test.js`(3), `ChildPermissionWizard.test.jsx`(4).
 
 ### Phase 3 — 부모 표시 + 폴백
 
