@@ -4,10 +4,13 @@ import ActivePlaydateCard from '../src/components/friendPlaydate/ActivePlaydateC
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
 });
 
 vi.mock('../src/lib/friendPlaydate.js', () => ({ endPlaydate: vi.fn() }));
+vi.mock('../src/lib/appConfirm.js', () => ({ appConfirm: vi.fn() }));
 import { endPlaydate } from '../src/lib/friendPlaydate.js';
+import { appConfirm } from '../src/lib/appConfirm.js';
 
 describe('ActivePlaydateCard', () => {
   const session = {
@@ -41,17 +44,25 @@ describe('ActivePlaydateCard', () => {
     expect(links).toHaveLength(1);
   });
 
-  it('정지 버튼 → endPlaydate(parent_end) + onEnd', async () => {
+  it('정지 버튼 → 확인 다이얼로그 → endPlaydate(parent_end) + onEnd', async () => {
     endPlaydate.mockResolvedValueOnce(undefined);
+    appConfirm.mockResolvedValueOnce(true);
     const onEnd = vi.fn();
-    // MEDIUM-4 fix: vi.spyOn은 vi.restoreAllMocks 시 자동 복원 → 다른 spec leak 방지
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<ActivePlaydateCard session={session} onEnd={onEnd} />);
     fireEvent.click(screen.getByRole('button', { name: /정지/ }));
     await waitFor(() => {
       expect(endPlaydate).toHaveBeenCalledWith('sess-1', 'parent_end');
       expect(onEnd).toHaveBeenCalled();
     });
-    vi.restoreAllMocks();
+  });
+
+  it('확인 다이얼로그에서 취소하면 endPlaydate 를 호출하지 않는다', async () => {
+    appConfirm.mockResolvedValueOnce(false);
+    const onEnd = vi.fn();
+    render(<ActivePlaydateCard session={session} onEnd={onEnd} />);
+    fireEvent.click(screen.getByRole('button', { name: /정지/ }));
+    await waitFor(() => expect(appConfirm).toHaveBeenCalled());
+    expect(endPlaydate).not.toHaveBeenCalled();
+    expect(onEnd).not.toHaveBeenCalled();
   });
 });

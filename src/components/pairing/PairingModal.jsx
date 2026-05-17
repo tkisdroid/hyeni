@@ -11,6 +11,7 @@ import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.j
 import { summarizeRemoteListenHealth, resolveChildRemoteListenHealth } from "../../lib/remoteListenHealth.js";
 import { supabase } from "../../lib/supabase.js";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+import { appToast } from "../../lib/appToast.js";
 import { HyeniMascot } from "../auth/HyeniMascot.jsx";
 import { useNowMs } from "../../lib/useNowMs.js";
 
@@ -238,9 +239,7 @@ export function PairingModal({ myRole, pairCode, pairedMembers, familyId: _famil
             await onPhotoChange?.(child.id, path);
         } catch (err) {
             console.error("[PairingModal photo upload]", err);
-            if (typeof window !== "undefined") {
-                window.alert("사진 업로드 실패: " + (err?.message || err));
-            }
+            appToast("사진 업로드에 실패했어요. 잠시 후 다시 시도해 주세요.");
         } finally {
             setPhotoUploadingId(null);
         }

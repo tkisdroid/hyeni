@@ -1,6 +1,7 @@
 // src/components/friendPlaydate/ActivePlaydateChildView.jsx
 import { useState } from 'react';
 import { endPlaydate } from '../../lib/friendPlaydate.js';
+import { appToast } from '../../lib/appToast.js';
 
 function formatTime(iso) {
   if (!iso) return '';
@@ -20,7 +21,7 @@ export default function ActivePlaydateChildView({ session, onEnd }) {
       onEnd?.();
     } catch (e) {
       console.error('[ActivePlaydateChildView]', e);
-      alert('종료에 실패했어요. 다시 시도해줘');
+      appToast('종료에 실패했어요. 다시 해줘');
     } finally {
       setBusy(false);
     }

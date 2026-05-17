@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { setSavedPlacePlaydateSafe, upsertPublicPlace } from '../../lib/friendPlaydate.js';
+import { appToast } from '../../lib/appToast.js';
 
 export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
   const [busyId, setBusyId] = useState(null);
@@ -34,7 +35,7 @@ export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
   const handleToggle = async (place) => {
     if (busyId) return;
     if (!place.is_playdate_safe && !isPlaydateEligible(place)) {
-      alert('카카오 장소 검색으로 등록된 곳만 친구 만남 장소로 지정할 수 있어요');
+      appToast('카카오 장소 검색으로 등록된 곳만 친구 만남 장소로 지정할 수 있어요');
       return;
     }
     setBusyId(place.id);
@@ -53,7 +54,7 @@ export default function PlaydateSafePlaceList({ places, onUpdate, onAdd }) {
       onUpdate?.();
     } catch (e) {
       console.error('[PlaydateSafePlaceList]', e);
-      alert('변경에 실패했습니다');
+      appToast('변경에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setBusyId(null);
     }

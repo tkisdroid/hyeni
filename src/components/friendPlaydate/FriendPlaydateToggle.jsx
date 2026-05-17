@@ -1,6 +1,7 @@
 // src/components/friendPlaydate/FriendPlaydateToggle.jsx
 import { useState } from 'react';
 import { setFamilyPlaydateEnabled } from '../../lib/friendPlaydate.js';
+import { appToast } from '../../lib/appToast.js';
 
 export default function FriendPlaydateToggle({ familyId, enabled, onChange, compact = false }) {
   const [busy, setBusy] = useState(false);
@@ -25,7 +26,7 @@ export default function FriendPlaydateToggle({ familyId, enabled, onChange, comp
       onChange?.(next);
     } catch (e) {
       console.error('[FriendPlaydateToggle]', e);
-      alert('토글 변경에 실패했습니다');
+      appToast('변경에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setBusy(false);
     }

@@ -9,6 +9,7 @@ import {
   subscribeActiveSession,
 } from "../../lib/friendPlaydate.js";
 import { deferEffectStateUpdate } from "../../lib/deferEffectStateUpdate.js";
+import { appToast } from "../../lib/appToast.js";
 
 export default function FriendPlaydateChildPanel({ familyId, currentUserId }) {
   const [phase, setPhase] = useState("idle");
@@ -57,7 +58,7 @@ export default function FriendPlaydateChildPanel({ familyId, currentUserId }) {
       setPhase("discover");
     } catch (e) {
       console.error("[FriendPlaydateChildPanel.discover]", e);
-      alert("친구를 찾는 데 실패했어요. 다시 해줘");
+      appToast("친구를 찾는 데 실패했어요. 다시 해줘");
     }
   };
 
@@ -76,7 +77,7 @@ export default function FriendPlaydateChildPanel({ familyId, currentUserId }) {
       await reload();
     } catch (e) {
       console.error("[FriendPlaydateChildPanel.start]", e);
-      alert("시작에 실패했어요. 다시 시도해줘");
+      appToast("시작에 실패했어요. 다시 해줘");
       setPhase("idle");
     }
   };

@@ -8,6 +8,8 @@ import {
   endPlaydate,
 } from "../../lib/friendPlaydate.js";
 import { withParticle } from "../../lib/koreanParticle.js";
+import { appConfirm } from "../../lib/appConfirm.js";
+import { appToast } from "../../lib/appToast.js";
 
 function formatPhoneTel(p) {
   return `tel:${p.replace(/[^\d+]/g, "")}`;
@@ -40,14 +42,20 @@ export default function ActivePlaydateBanner({ familyId, isParent }) {
 
   const handleStop = async () => {
     if (busy) return;
-    if (!confirm(`${withParticle(friendChild, "과", "와")}의 친구 만남을 정지하시겠어요?`)) return;
+    const ok = await appConfirm({
+      title: "친구 만남 정지",
+      message: `${withParticle(friendChild, "과", "와")}의 친구 만남을 정지할까요?`,
+      confirmLabel: "정지",
+      tone: "danger",
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await endPlaydate(session.id, "parent_end");
       setSession(null);
     } catch (e) {
       console.error("[ActivePlaydateBanner.stop]", e);
-      alert("정지에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      appToast("정지에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       setBusy(false);
     }
