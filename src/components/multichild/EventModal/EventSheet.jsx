@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBackHandler } from "../../../lib/backHandler.js";
+import { appConfirm } from "../../../lib/appConfirm.js";
 
 export function EventSheet({
     open,
@@ -46,8 +47,14 @@ export function EventSheet({
         return true;
     });
 
-    const requestClose = useCallback(() => {
-        if (isDirty && !window.confirm("변경사항이 있어요. 정말 닫을까요?")) return;
+    const requestClose = useCallback(async () => {
+        if (isDirty && !(await appConfirm({
+            title: "변경사항이 있어요",
+            message: "저장하지 않고 닫을까요?",
+            confirmLabel: "닫기",
+            cancelLabel: "계속 편집",
+            tone: "danger",
+        }))) return;
         setIsClosing(true);
         window.setTimeout(() => {
             setIsClosing(false);

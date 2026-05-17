@@ -13,6 +13,7 @@ import DangerCard from "./DangerCard.jsx";
 import SavedPlacesSection from "./SavedPlacesSection.jsx";
 import { AnimalIcon } from "../icons/AnimalIcon.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
+import { appConfirm } from "../../lib/appConfirm.js";
 
 function StatTile({ icon, label, count, accent }) {
     return (
@@ -205,7 +206,13 @@ export function AcademyManager({
     };
     const removeDangerPlace = async (zone) => {
         if (!canEditDangerZones() || !zone?.id) return;
-        if (typeof window !== "undefined" && window.confirm && !window.confirm(`"${zone.name}" 조심할 곳을 삭제할까요?`)) return;
+        const ok = await appConfirm({
+            title: "조심할 곳 삭제",
+            message: `"${zone.name}" 조심할 곳을 삭제할까요?`,
+            confirmLabel: "삭제",
+            tone: "danger",
+        });
+        if (!ok) return;
         try {
             await onDangerZoneDelete?.(zone.id);
             setDangerList(prev => prev.filter(item => item.id !== zone.id));

@@ -7,6 +7,7 @@ import { FF, modalBackdropStyle, makeSheetStyle } from "../../lib/styleHelpers.j
 import { useReverseGeocodedLabel } from "../../lib/reverseGeocode.js";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 import { HyeniMascot } from "../auth/HyeniMascot.jsx";
+import { appConfirm } from "../../lib/appConfirm.js";
 
 export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd, onDelete, onClose }) {
     const [showAdd, setShowAdd] = useState(false);
@@ -100,7 +101,15 @@ export function DangerZoneManager({ zones, familyId: _familyId, mapReady, onAdd,
                             <div style={{ fontWeight: 800, fontSize: 14, color: "var(--fg-primary)" }}>{z.name}</div>
                             <div style={{ fontSize: 11, color: "var(--fg-secondary)", marginTop: 2 }}>반경 {z.radius_m}m</div>
                         </div>
-                        <button onClick={() => { if (window.confirm(`"${z.name}" 위험지역을 삭제할까요?`)) onDelete(z.id); }}
+                        <button onClick={async () => {
+                                const ok = await appConfirm({
+                                    title: "위험지역 삭제",
+                                    message: `"${z.name}" 위험지역을 삭제할까요?`,
+                                    confirmLabel: "삭제",
+                                    tone: "danger",
+                                });
+                                if (ok) onDelete(z.id);
+                            }}
                             style={{ padding: "6px 10px", borderRadius: 10, background: "var(--status-negative-subtle)", color: "var(--status-negative)", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: FF }}>삭제</button>
                     </div>
                 ))}
