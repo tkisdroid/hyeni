@@ -520,7 +520,7 @@ export async function getMyFamily(userId) {
 
     const { data: members } = await supabase
       .from("family_members")
-      .select("id, user_id, role, name, emoji, child_order, color_hex, birthdate, photo_url, device_label, device_health")
+      .select("id, user_id, role, name, phone, emoji, child_order, color_hex, birthdate, photo_url, device_label, device_health")
       .eq("family_id", parentFamily.id);
 
     const enrichedMembers = await enrichMembersWithSignedPhotos(members || []);
@@ -559,7 +559,7 @@ export async function getMyFamily(userId) {
 
   const { data: members } = await supabase
     .from("family_members")
-    .select("id, user_id, role, name, emoji, child_order, color_hex, birthdate, photo_url, device_label, device_health")
+    .select("id, user_id, role, name, phone, emoji, child_order, color_hex, birthdate, photo_url, device_label, device_health")
     .eq("family_id", membership.family_id);
 
   const enrichedMembers = await enrichMembersWithSignedPhotos(members || []);
