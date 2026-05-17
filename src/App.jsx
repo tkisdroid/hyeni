@@ -6388,7 +6388,12 @@ export default function KidsScheduler() {
                             <div className="hyeni-top-header-mode-rail">
                                 <button
                                     type="button"
-                                    onClick={() => { if (window.confirm("역할을 다시 선택할까요?")) { setMyRole(null); setFamilyInfo(null); } }}
+                                    onClick={() => openConfirmDialog({
+                                        title: "역할을 다시 선택할까요?",
+                                        message: "부모·자녀 역할 선택 화면으로 돌아가요.",
+                                        confirmLabel: "다시 선택",
+                                        onConfirm: () => { setMyRole(null); setFamilyInfo(null); },
+                                    })}
                                     style={{
                                         fontSize: 9.5,
                                         fontWeight: 800,
@@ -7900,13 +7905,18 @@ export default function KidsScheduler() {
                     parentNames={(familyInfo?.members || []).filter((m) => m.role === "parent").map((m) => m.name).join(", ")}
                     onEditName={() => setEditFieldKind("name")}
                     onRequestChange={handleChildSettingRequest}
-                    onLogout={async () => {
-                        if (!window.confirm("정말 로그아웃할까?")) return;
-                        try { await logout(); } catch (e) { console.error(e); }
-                        if (typeof window !== "undefined") window.localStorage.removeItem("hyeni-last-role");
-                        setFamilyInfo(null);
-                        setMyRole(null);
-                    }}
+                    onLogout={() => openConfirmDialog({
+                        title: "로그아웃 할까?",
+                        message: "지금 기기에서 로그아웃돼. 다음에 다시 로그인하면 가족 정보가 돌아와.",
+                        confirmLabel: "로그아웃",
+                        tone: "danger",
+                        onConfirm: async () => {
+                            try { await logout(); } catch (e) { console.error(e); }
+                            if (typeof window !== "undefined") window.localStorage.removeItem("hyeni-last-role");
+                            setFamilyInfo(null);
+                            setMyRole(null);
+                        },
+                    })}
                 />
             )}
 
@@ -7989,25 +7999,29 @@ export default function KidsScheduler() {
                     onChangeNotifMinutes={(mins) => updateGlobalNotif({ minutesBefore: mins })}
                     subscriptionPlanLabel={entitlement?.tier === "premium" ? "프리미엄" : "무료"}
                     appVersion={typeof window !== "undefined" && window.__APP_VERSION__ ? String(window.__APP_VERSION__) : ""}
-                    onLogout={async () => {
-                        if (!window.confirm("로그아웃 할까요?")) return;
-                        try { await logout(); } catch (e) { console.error(e); }
-                        if (typeof window !== "undefined") window.localStorage.removeItem("hyeni-last-role");
-                        setFamilyInfo(null);
-                        setMyRole(null);
-                        setShowParentSettings(false);
-                    }}
-                    onCancelSubscription={() => {
-                        // popup blocker 회피: 사용자 클릭 컨텍스트에서 즉시 새 탭 열고, confirm 후 닫기
-                        const win = window.open("about:blank", "_blank");
-                        if (!window.confirm("구독을 해지할까요?\n해지 후에도 다음 결제일까지는 사용할 수 있어요")) {
-                            if (win) win.close();
-                            return;
-                        }
-                        if (win) {
-                            win.location.href = "https://play.google.com/store/account/subscriptions";
-                        }
-                    }}
+                    onLogout={() => openConfirmDialog({
+                        title: "로그아웃 하시겠어요?",
+                        message: "현재 기기에서 계정이 로그아웃돼요. 다음에 다시 로그인하면 가족 정보가 복구돼요.",
+                        confirmLabel: "로그아웃",
+                        tone: "danger",
+                        onConfirm: async () => {
+                            try { await logout(); } catch (e) { console.error(e); }
+                            if (typeof window !== "undefined") window.localStorage.removeItem("hyeni-last-role");
+                            setFamilyInfo(null);
+                            setMyRole(null);
+                            setShowParentSettings(false);
+                        },
+                    })}
+                    onCancelSubscription={() => openConfirmDialog({
+                        title: "구독을 해지할까요?",
+                        message: "해지 후에도 다음 결제일까지는 그대로 사용할 수 있어요.",
+                        confirmLabel: "구독 해지",
+                        tone: "danger",
+                        // 다이얼로그 "구독 해지" 클릭(사용자 제스처) 안에서 새 탭을 열어 팝업 차단을 회피.
+                        onConfirm: () => {
+                            window.open("https://play.google.com/store/account/subscriptions", "_blank");
+                        },
+                    })}
                     onDeleteAccount={() => {
                         // 실제 deleteUser RPC는 Phase 5에서 추가 — 현재는 안내만
                         showNotif("계정 삭제는 준비 중이에요. 고객센터로 문의해주세요");
