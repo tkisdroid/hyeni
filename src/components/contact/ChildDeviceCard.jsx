@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { formatDeviceDuration } from "../../lib/deviceFormat.js";
 import { useNowMs } from "../../lib/useNowMs.js";
+import { resolveChildScreenTime, screenTimeScopeSuffix } from "../../lib/screenTime.js";
 
 export function ChildDeviceCard({ child, status }) {
     const [expanded, setExpanded] = useState(false);
@@ -17,7 +18,8 @@ export function ChildDeviceCard({ child, status }) {
     const minutesAgo = updatedAt
         ? Math.max(0, Math.round((nowMs - new Date(updatedAt).getTime()) / 60000))
         : null;
-    const screenLabel = formatDeviceDuration(Number(status?.screenOnMs || 0));
+    const { ms: screenMs, scope: screenScope } = resolveChildScreenTime(status);
+    const screenLabel = formatDeviceDuration(screenMs);
     const recentApp = status?.recentApp || "사용기록 권한 필요";
     return (
         <button type="button" onClick={() => setExpanded(prev => !prev)} style={{
@@ -43,7 +45,7 @@ export function ChildDeviceCard({ child, status }) {
                     <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>🔋 {battery == null ? "—" : `${battery}%`}</div>
                 </div>
                 <div style={{ background: "transparent", borderRadius: 10, padding: "6px 8px", minWidth: 0 }}>
-                    <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 시간</div>
+                    <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 시간{screenTimeScopeSuffix(screenScope)}</div>
                     <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}>⏱️ {screenLabel}</div>
                 </div>
             </div>

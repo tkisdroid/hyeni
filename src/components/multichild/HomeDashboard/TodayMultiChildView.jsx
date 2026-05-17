@@ -11,6 +11,7 @@
 import { useMemo } from "react";
 import { ChildAvatar } from "./ChildAvatar.jsx";
 import { formatDeviceDuration } from "../../../lib/deviceFormat.js";
+import { resolveChildScreenTime, screenTimeScopeSuffix } from "../../../lib/screenTime.js";
 
 const FF = "var(--font-sans)";
 
@@ -71,7 +72,8 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
           const battery = Number.isFinite(Number(status?.batteryLevel))
             ? `${Math.max(0, Math.min(100, Number(status.batteryLevel)))}%`
             : "확인 중";
-          const screenLabel = formatDeviceDuration(Number(status?.screenOnMs || 0));
+          const { ms: screenMs, scope: screenScope } = resolveChildScreenTime(status);
+          const screenLabel = formatDeviceDuration(screenMs);
           return (
             <button
               key={child.id}
@@ -104,7 +106,7 @@ export function TodayMultiChildView({ children, todayEvents, childDeviceStatusMa
                   <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2 }}>🔋 {battery}</div>
                 </div>
                 <div style={{ background: "var(--cartoon-bg-chip)", borderRadius: "var(--radius-md)", padding: "8px 10px" }}>
-                  <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: "var(--weight-bold)" }}>화면 시간</div>
+                  <div style={{ fontSize: 10.5, color: "var(--fg-secondary)", fontWeight: "var(--weight-bold)" }}>화면 시간{screenTimeScopeSuffix(screenScope)}</div>
                   <div style={{ fontSize: 13, color: "var(--fg-primary)", fontWeight: "var(--weight-bold)", marginTop: 2 }}>⏱️ {screenLabel}</div>
                 </div>
               </div>

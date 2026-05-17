@@ -7,6 +7,7 @@ import { HomeBigStat } from "../HomeDashboard/HomeBigStat.jsx";
 import { useBackHandler } from "../../../lib/backHandler.js";
 import { ThreeDIcon } from "../../icons/ThreeDIcon.jsx";
 import { HyeniMascot } from "../../auth/HyeniMascot.jsx";
+import { resolveChildScreenTime, screenTimeScopeSuffix } from "../../../lib/screenTime.js";
 
 const DOT_COLORS = {
     green: "var(--status-positive)",
@@ -31,9 +32,7 @@ function deriveStatusLabel(safetyDots, deviceStatus) {
     return { tone: "positive", text: "오늘 정상" };
 }
 
-function formatScreenLabel(deviceStatus) {
-    if (!deviceStatus) return null;
-    const ms = Number(deviceStatus.screenOnMs);
+function formatScreenLabel(ms) {
     if (!Number.isFinite(ms) || ms <= 0) return null;
     const minutes = Math.round(ms / 60000);
     if (minutes < 60) return `${minutes}분`;
@@ -69,7 +68,8 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
         const ids = Array.isArray(e?.child_ids) ? e.child_ids : [];
         return ids.includes(child.id) || ids.includes(child.user_id);
     });
-    const screenLabel = formatScreenLabel(deviceStatus) || "0분";
+    const { ms: screenMs, scope: screenScope } = resolveChildScreenTime(deviceStatus);
+    const screenLabel = formatScreenLabel(screenMs) || "0분";
     const childColor = child.color_hex || "var(--theme-accent)";
 
     return (
@@ -218,7 +218,7 @@ export function ChildDetailScreen({ child, events = [], deviceStatus, locationLa
                     <div className="card">
                         <MetricRow label="배터리" value={deviceStatus?.battery_pct != null ? `${deviceStatus.battery_pct}%` : "—"} meta={deviceStatus?.battery_updated_minutes_ago != null ? formatLastSeen(deviceStatus.battery_updated_minutes_ago) : null} />
                         <MetricRow label="위치" value={locationLabel || "확인 불가"} meta={deviceStatus?.last_seen_minutes_ago != null ? `${formatLastSeen(deviceStatus.last_seen_minutes_ago)} 갱신` : null} />
-                        <MetricRow label="화면" value={screenLabel} meta="오늘" />
+                        <MetricRow label={`화면${screenTimeScopeSuffix(screenScope)}`} value={screenLabel} meta="오늘" />
                     </div>
                 </section>
             </div>

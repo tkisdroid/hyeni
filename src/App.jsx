@@ -119,6 +119,7 @@ import { MemoSection } from "./components/memo/MemoSection.jsx";
 import { PairingModal } from "./components/pairing/PairingModal.jsx";
 import { sendInstantPush } from "./lib/instantPush.js";
 import { sendChildSettingRequest, checkRequestCooldown, markRequestSent } from "./lib/childSettingRequest.js";
+import { resolveChildScreenTime, screenTimeScopeSuffix } from "./lib/screenTime.js";
 import { AiScheduleModal } from "./components/aiSchedule/AiScheduleModal.jsx";
 import { AmbientAudioRecorder } from "./components/audio/AmbientAudioRecorder.jsx";
 import { DayTimetable } from "./components/timetable/DayTimetable.jsx";
@@ -4728,9 +4729,10 @@ export default function KidsScheduler() {
         }
         return "확인 중";
     })();
+    // 기기 전체 화면켜짐 시간(native) 우선, 없으면 앱 사용 시간 폴백.
+    const primaryDeviceScreen = resolveChildScreenTime(primaryChildDeviceStatus);
     const primaryDeviceScreenLabel = (() => {
-        const ms = Number(primaryChildDeviceStatus?.screenOnMs || 0);
-        if (ms > 0) return formatDeviceDuration(ms);
+        if (primaryDeviceScreen.ms > 0) return formatDeviceDuration(primaryDeviceScreen.ms);
         // 아직 자녀의 publish 가 도착하지 않은 상태 — 0초로 굳어 보이지 않게.
         return primaryChildDeviceStatus ? "0분" : "측정 중";
     })();
@@ -4739,7 +4741,7 @@ export default function KidsScheduler() {
         : "곧 업데이트돼요";
     const primaryDeviceSafetyLabel = (() => {
         const battery = Number(primaryChildDeviceStatus?.batteryLevel);
-        const screenMs = Number(primaryChildDeviceStatus?.screenOnMs || 0);
+        const screenMs = primaryDeviceScreen.ms;
         if (Number.isFinite(battery) && battery <= 15) return "주의 필요";
         if (screenMs >= 3 * 60 * 60 * 1000) return "장시간 사용";
         return "양호";
@@ -7058,7 +7060,7 @@ export default function KidsScheduler() {
                                     <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 16, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}><ThreeDIcon name="battery" size={16} aria-label="" /> {primaryDeviceBatteryLabel}</div>
                                 </div>
                                 <div style={{ background: "transparent", borderRadius: 12, padding: "9px 10px" }}>
-                                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 시간</div>
+                                    <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 700 }}>화면 시간{primaryChildDeviceStatus ? screenTimeScopeSuffix(primaryDeviceScreen.scope) : ""}</div>
                                     <div style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 15, color: "var(--fg-primary)", fontWeight: 900, marginTop: 2 }}><ThreeDIcon name="clock" size={14} aria-label="" /> {primaryDeviceScreenLabel}</div>
                                 </div>
                                 {deviceStatusExpanded && (
