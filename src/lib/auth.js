@@ -520,7 +520,7 @@ export async function getMyFamily(userId) {
 
     const { data: members } = await supabase
       .from("family_members")
-      .select("id, user_id, role, name, phone, emoji, child_order, color_hex, birthdate, photo_url, device_label, device_health")
+      .select("id, user_id, role, name, phone, gender, emoji, child_order, color_hex, birthdate, photo_url, device_label, device_health")
       .eq("family_id", parentFamily.id);
 
     const enrichedMembers = await enrichMembersWithSignedPhotos(members || []);
@@ -582,6 +582,32 @@ export async function getMyFamily(userId) {
     primaryParentId: inferredPrimaryParentId,
     isPrimaryParent,
     isCoParent,
+  };
+}
+
+// ── Derive child-facing parent contacts from family_members ─────────────────
+// Pure function. Splits parent members into mom/dad slots by their gender
+// label and collects gender-less parents (Kakao/OAuth signups, co-guardians)
+// into `others`. Members without a phone are dropped.
+//
+// Returns: { mom: string, dad: string, others: Array<{ name, phone }> }
+//   mom/dad — phone string of the first matching parent, "" when none.
+//   others  — gender-less parents that have a phone, in member order.
+export function selectParentContacts(members) {
+  const parents = (Array.isArray(members) ? members : [])
+    .filter((m) => m?.role === "parent");
+  const phoneOf = (m) => (typeof m?.phone === "string" ? m.phone.trim() : "");
+  const firstWithGender = (g) =>
+    parents.find((m) => m?.gender === g && phoneOf(m).length > 0);
+  const mom = firstWithGender("mom");
+  const dad = firstWithGender("dad");
+  const others = parents
+    .filter((m) => m?.gender !== "mom" && m?.gender !== "dad" && phoneOf(m).length > 0)
+    .map((m) => ({ name: m?.name || "부모님", phone: phoneOf(m) }));
+  return {
+    mom: mom ? phoneOf(mom) : "",
+    dad: dad ? phoneOf(dad) : "",
+    others,
   };
 }
 

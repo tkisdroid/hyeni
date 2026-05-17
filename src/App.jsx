@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Sun, Sparkles, Home, CalendarPlus, MapPin, MessageCircle, Users } from "lucide-react";
-import { anonymousLogin, getSession, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, saveParentPhones, updateMyProfile, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser, getOAuthUserNeedsBridge } from "./lib/auth.js";
+import { anonymousLogin, getSession, joinFamilyAsParent, getMyFamily, unpairChild, regeneratePairCode, selectParentContacts, updateMyProfile, onAuthChange, logout, generateUUID, getParentNameFromUser, getParentPhoneFromUser, getParentGenderFromUser, getOAuthUserNeedsBridge } from "./lib/auth.js";
 import { getAuthProvider, syncAuthProfile } from "./lib/accountAuth.js";
 import { deriveParentCapabilities } from "./lib/parentCapabilities.js";
 import { dispatchBack } from "./lib/backHandler.js";
@@ -127,7 +127,6 @@ import { ParentMemoPage } from "./components/memo/ParentMemoPage.jsx";
 import { ParentFamilyView } from "./components/parent/ParentFamilyView.jsx";
 import { ChildCallCard } from "./components/contact/ChildCallCard.jsx";
 import { ChildDeviceCard } from "./components/contact/ChildDeviceCard.jsx";
-import { PhoneSettingsModal } from "./components/dialogs/PhoneSettingsModal.jsx";
 import { EditFieldModal } from "./components/dialogs/EditFieldModal.jsx";
 import { AlertCenterPopup } from "./components/alerts/AlertCenterPopup.jsx";
 import { UrgentAlertOverlay } from "./components/alerts/UrgentAlertOverlay.jsx";
@@ -639,8 +638,7 @@ export default function KidsScheduler() {
     const [memoReplies, setMemoReplies] = useState([]);
     const [memoThreadReplies, setMemoThreadReplies] = useState([]);
     const [memoReadBy, setMemoReadBy] = useState([]);
-    const [parentPhones, setParentPhones] = useState({ mom: "", dad: "" });
-    const [showPhoneSettings, setShowPhoneSettings] = useState(false);
+    const [parentPhones, setParentPhones] = useState({ mom: "", dad: "", others: [] });
     const [editFieldKind, setEditFieldKind] = useState(null); // "name" | "phone" | null
     const [editFieldBusy, setEditFieldBusy] = useState(false);
     const [showParentSetup, setShowParentSetup] = useState(false);
@@ -1335,35 +1333,13 @@ export default function KidsScheduler() {
     }, []);
 
 
-    // ── Sync parent phones from familyInfo ─────────────────────────────────────
+    // ── Derive child-facing parent contacts from family members ───────────────
+    // phone canonical source는 family_members.phone. gender 라벨로 엄마/아빠
+    // 슬롯을 채우고, gender 미상 부모(Kakao/OAuth 가입자, 공동 보호자)는 others 로.
     useEffect(() => {
-        if (!familyInfo?.phones) return;
-        // Legacy data: pre-fix, every signing-up parent's phone landed in mom_phone
-        // regardless of gender. If the current user is the primary parent and chose
-        // "아빠" at signup, swap the slots once so the contact card matches identity.
-        const gender = getParentGenderFromUser(authUser);
-        const isPrimary = authUser?.id && familyInfo?.primaryParentId === authUser.id;
-        if (
-            isPrimary &&
-            gender === "dad" &&
-            familyInfo.phones.mom &&
-            !familyInfo.phones.dad &&
-            familyInfo.familyId
-        ) {
-            const swapped = { mom: "", dad: familyInfo.phones.mom };
-            const cancelPhoneUpdate = deferEffectStateUpdate(() => setParentPhones(swapped));
-            saveParentPhones(familyInfo.familyId, swapped.mom, swapped.dad)
-                .then(() => {
-                    setFamilyInfo((prev) => prev ? { ...prev, phones: swapped } : prev);
-                })
-                .catch((err) => {
-                    console.warn("[parent-phone-migration] swap failed:", err?.message || err);
-                    setParentPhones(familyInfo.phones);
-                });
-            return cancelPhoneUpdate;
-        }
-        return deferEffectStateUpdate(() => setParentPhones(familyInfo.phones));
-    }, [familyInfo, authUser]);
+        const contacts = selectParentContacts(familyInfo?.members);
+        return deferEffectStateUpdate(() => setParentPhones(contacts));
+    }, [familyInfo]);
 
     const handleNativeAuthCallback = useCallback(async (url) => {
         if (!url || !url.startsWith("hyenicalendar://auth-callback")) {
@@ -3075,7 +3051,7 @@ export default function KidsScheduler() {
         backStateRef.current = {
             routeEvent, showChildTracker, showMapPicker, showAddModal,
             showChildMemoPage,
-            showAcademyMgr, showSavedPlaceMgr, showPhoneSettings, showFeedbackModal, showParentSetup, showMicPermissionHelp, editingLocForEvent,
+            showAcademyMgr, showSavedPlaceMgr, showFeedbackModal, showParentSetup, showMicPermissionHelp, editingLocForEvent,
             voicePreview, activeView, showAlertPanel,
             showParentSettings, showPlaceManager,
             editFieldKind,
@@ -3102,7 +3078,6 @@ export default function KidsScheduler() {
                     if (s.showAlertPanel)      { setShowAlertPanel(false);      return; }
                     if (s.showAlertCenter)     { setShowAlertCenter(false);     return; }
                     if (s.editFieldKind)       { setEditFieldKind(null);         return; }
-                    if (s.showPhoneSettings)   { setShowPhoneSettings(false);   return; }
                     if (s.showPlaceManager)    { setShowPlaceManager(false);     return; }
                     if (s.showParentSettings)  { setShowParentSettings(false);   return; }
                     if (s.showMicPermissionHelp) { setShowMicPermissionHelp(false); return; }
@@ -5315,7 +5290,7 @@ export default function KidsScheduler() {
                         label: "연락처",
                         ariaLabel: "📞 연락처",
                         palette: quickThemePalette,
-                        onClick: () => setShowPhoneSettings(true),
+                        onClick: () => setEditFieldKind("phone"),
                     }}
                 />
             )}
@@ -7956,12 +7931,12 @@ export default function KidsScheduler() {
                     parentEmail={authUser?.email || ""}
                     parentPhone={(familyInfo?.members?.find((m) => m.user_id === authUser?.id)?.phone) || ""}
                     childCount={(pairedChildren || []).length}
-                    onEditAccount={() => setShowPhoneSettings(true)}
+                    onEditAccount={() => setEditFieldKind("phone")}
                     onEditName={() => setEditFieldKind("name")}
                     onEditPhone={() => setEditFieldKind("phone")}
                     onAddChild={() => { setShowParentSettings(false); setActiveView(PARENT_VIEWS.FAMILY); }}
                     onManageChildren={() => { setShowParentSettings(false); setActiveView(PARENT_VIEWS.FAMILY); }}
-                    onOpenPhoneSettings={() => setShowPhoneSettings(true)}
+                    onOpenPhoneSettings={() => setEditFieldKind("phone")}
                     onOpenPlaceManager={() => { setShowParentSettings(false); setShowPlaceManager(true); }}
                     onOpenSubscription={() => { setShowParentSettings(false); setShowSubscriptionSettings(true); }}
                     notifyEvents={!!globalNotif.parentEnabled}
@@ -8298,48 +8273,13 @@ export default function KidsScheduler() {
                         childName={childName}
                         batteryWarning={batteryWarning}
                         onShowLocation={() => { acknowledge(); setShowChildTracker(true); }}
-                        onCall={() => { acknowledge(); if (parentPhones?.mom) window.location.href = `tel:${parentPhones.mom}`; }}
+                        onCall={() => { acknowledge(); const tel = parentPhones?.mom || parentPhones?.dad || parentPhones?.others?.[0]?.phone || ""; if (tel) window.location.href = `tel:${tel}`; }}
                         onPushForce={() => { acknowledge(); showNotif("강제 알림 기능은 곧 지원될 예정이에요."); }}
                         onAcknowledge={acknowledge}
                         onClose={acknowledge}
                     />
                 );
             })()}
-
-            {/* ── Phone Settings Modal (학부모 전용) ── */}
-            {showPhoneSettings && <PhoneSettingsModal
-                phones={parentPhones}
-                onSave={async (phones) => {
-                    if (!parentCapabilities.canEditParentPhones) {
-                        showNotif("보조 보호자는 연락처를 바꿀 수 없어요.", "error");
-                        setShowPhoneSettings(false);
-                        return;
-                    }
-                    setParentPhones(phones);
-                    setShowPhoneSettings(false);
-                    if (!familyId) {
-                        showNotif("📞 연락처가 저장됐어요!");
-                        return;
-                    }
-                    try {
-                        await saveParentPhones(familyId, phones.mom, phones.dad);
-                        // DB 저장 후 familyInfo 캐시를 재조회해야 다른 화면(ChildCallCard 등)에서
-                        // stale 한 옛 번호가 보이지 않는다. EditFieldModal(이름/내 전화번호)과
-                        // 동일한 패턴.
-                        try {
-                            const fi = await getMyFamily(authUser?.id);
-                            if (fi) setFamilyInfo(fi);
-                        } catch (refetchErr) {
-                            console.warn("[savePhones] refresh familyInfo failed:", refetchErr);
-                        }
-                        showNotif("📞 연락처가 저장됐어요!");
-                    } catch (err) {
-                        console.error("[savePhones]", err);
-                        showNotif("연락처 저장에 실패했어요. 다시 시도해 주세요.", "error");
-                    }
-                }}
-                onClose={() => setShowPhoneSettings(false)}
-            />}
 
             <FeedbackModal
                 open={showFeedbackModal}

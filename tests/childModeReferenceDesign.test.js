@@ -19,6 +19,10 @@ describe("child mode reference design", () => {
   test("phone card follows the simple reference row style", () => {
     expect(childCallCard).toContain("child-call-card");
     expect(childCallCard).toContain("child-call-card__targets");
-    expect(childCallCard).toContain("엄마 · 아빠");
+    // mom/dad slots keep their labels; the meta line is now derived from
+    // the rendered targets so gender-less guardians can join the list.
+    expect(childCallCard).toContain('label: "엄마"');
+    expect(childCallCard).toContain('label: "아빠"');
+    expect(childCallCard).toContain('.join(" · ")');
   });
 });
