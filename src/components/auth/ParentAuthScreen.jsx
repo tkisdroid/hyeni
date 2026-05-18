@@ -10,6 +10,42 @@ import { rememberParentPairingIntent, clearParentPairingIntent } from "../../lib
 import { HyeniMascot } from "./HyeniMascot.jsx";
 import { ThreeDIcon } from "../icons/ThreeDIcon.jsx";
 
+// 로그인 요청이 무응답일 때 무한 "로그인 중..." 을 막는 제한 시간 (ms)
+const LOGIN_TIMEOUT_MS = 15000;
+
+// promise 가 제한 시간 안에 끝나지 않으면 timeout 오류로 reject 한다.
+// (서버가 응답하지 않아도 사용자가 갇히지 않도록.)
+function withTimeout(promise, ms) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+            const err = new Error("login-timeout");
+            err.code = "timeout";
+            reject(err);
+        }, ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+// 로그인 실패 원인을 사용자용 안내 문구로 변환.
+// 네트워크/서버 문제와 자격증명 오류를 구분해 — 백엔드 장애를
+// "비밀번호가 틀렸다" 고 잘못 안내하는 silent failure 를 막는다.
+function describeLoginError(err) {
+    const raw = `${err?.code || ""} ${err?.name || ""} ${err?.message || ""}`.toLowerCase();
+    const isNetworkIssue = err?.code === "timeout"
+        || raw.includes("failed to fetch")
+        || raw.includes("networkerror")
+        || raw.includes("network request failed")
+        || raw.includes("fetch")
+        || raw.includes("503")
+        || raw.includes("522")
+        || raw.includes("timeout");
+    if (isNetworkIssue) {
+        return "서버에 연결하지 못했어요. 인터넷 상태를 확인하고 잠시 후 다시 시도해 주세요.";
+    }
+    return "ID 또는 비밀번호를 확인해 주세요.";
+}
+
 export function ParentAuthScreen({ onBack, onSignupClick }) {
     const [busy, setBusy] = useState("");
     const [error, setError] = useState("");
@@ -57,12 +93,12 @@ export function ParentAuthScreen({ onBack, onSignupClick }) {
         setMessage("");
         rememberParentPairingIntent();
         try {
-            await signInWithLoginId(login);
+            await withTimeout(signInWithLoginId(login), LOGIN_TIMEOUT_MS);
             setMessage("로그인됐어요. 가족 정보를 불러오는 중이에요.");
         } catch (err) {
             clearParentPairingIntent();
             console.error("[parent login]", err);
-            setError("ID 또는 비밀번호를 확인해 주세요");
+            setError(describeLoginError(err));
             setBusy("");
         }
     };
