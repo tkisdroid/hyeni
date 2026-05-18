@@ -81,6 +81,7 @@ import { setAppToastHandler } from "./lib/appToast.js";
 import { AlertBanner } from "./components/banners/AlertBanner.jsx";
 import { EmergencyBanner } from "./components/banners/EmergencyBanner.jsx";
 import { AppBrandLogo } from "./components/auth/AppBrandLogo.jsx";
+import { HeaderCharacter } from "./components/header/HeaderCharacter.jsx";
 import { ParentSetupScreen } from "./components/auth/ParentSetupScreen.jsx";
 import { normalizePairCodeInput } from "./lib/pairCode.js";
 import { RoleSetupModal } from "./components/auth/RoleSetupModal.jsx";
@@ -6339,15 +6340,14 @@ export default function KidsScheduler() {
                 <div className="hyeni-top-header-brand">
                     <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
                         {isParent ? (
-                            <AppBrandLogo
+                            <HeaderCharacter
                                 size={36}
-                                radius={12}
-                                shadow={false}
+                                aria-label="혜니캘린더 로고"
                                 mood={["statusScheduled", "statusBusy"].includes(appLogoMood) ? "diary" : appLogoMood === "statusDanger" ? "sad" : "static"}
                             />
                         ) : (
                             <span className="child-header-avatar">
-                                <HyeniMascot variant="static" size={42} aria-label="혜니" />
+                                <HeaderCharacter mood="static" size={42} aria-label="혜니" />
                             </span>
                         )}
                     </div>
