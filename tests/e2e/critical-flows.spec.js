@@ -162,7 +162,12 @@ async function installCriticalMocks(page, options = {}) {
               role: "authenticated",
               email: `${role}@example.com`,
               app_metadata: { provider: role === "parent" ? "kakao" : "anonymous" },
-              user_metadata: {},
+              // 부모는 OAuth→phone bridge 를 이미 끝낸 카카오 계정으로 모킹한다.
+              // linked_providers 마커가 없으면 getOAuthUserNeedsBridge 가 true 가 되어
+              // OAuthBridgeScreen 으로 라우팅되고 부모 대시보드 진입이 막힌다.
+              user_metadata: role === "parent"
+                ? { linked_providers: { kakao: { linkedAt: new Date().toISOString() } } }
+                : {},
               identities: [{ provider: role === "parent" ? "kakao" : "anonymous" }],
             },
           }),

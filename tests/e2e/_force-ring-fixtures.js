@@ -51,7 +51,10 @@ export async function installForceRingParentMocks(page, options = {}) {
             role: "authenticated",
             email: "parent@example.com",
             app_metadata: { provider: "kakao" },
-            user_metadata: {},
+            // OAuth→phone bridge 를 이미 끝낸 카카오 부모로 모킹. linked_providers
+            // 마커가 없으면 getOAuthUserNeedsBridge 가 true 가 되어 부모 대시보드
+            // 대신 OAuthBridgeScreen 이 뜬다.
+            user_metadata: { linked_providers: { kakao: { linkedAt: new Date().toISOString() } } },
             identities: [{ provider: "kakao" }],
           },
         }),

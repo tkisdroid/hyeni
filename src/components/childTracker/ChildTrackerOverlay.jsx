@@ -51,7 +51,6 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     const mapRef = useRef();
     const mapObj = useRef();
     const myMarkerRef = useRef();
-    const childMarkersRef = useRef([]);
     // trackerKey -> { overlay, signature } 캐시. 위치만 바뀌면 setPosition,
     // 외형(active/photo/name/시각) 바뀌면 setContent. 매 렌더마다 마커를
     // 통째로 재생성하던 이전 구현이 깜빡임을 만들었기 때문에 캐시 추가.

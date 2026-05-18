@@ -105,7 +105,7 @@ export function OAuthBridgeScreen({ oauthUser, onLinked, onSignupNew }) {
     } finally {
       setBusy(false);
     }
-  }, [oauthUser?.id, provider, matchedUserId, onLinked]);
+  }, [oauthUser, provider, matchedUserId, onLinked]);
 
   const handleCancel = useCallback(async () => {
     try { await logout(); } catch { /* logout 실패해도 진행 */ }

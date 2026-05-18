@@ -99,7 +99,6 @@ test.describe('Friend Playdate — toggle flow', () => {
       },
     });
     await installParentFamilyRoutes(page);
-    page.on('dialog', (dialog) => dialog.accept());
 
     await page.goto('/');
     await dismissEmergencyBannerIfPresent(page);
@@ -115,6 +114,11 @@ test.describe('Friend Playdate — toggle flow', () => {
     await expect(panel.getByRole('link', { name: /010-3333-4444/ })).toHaveAttribute('href', 'tel:01033334444');
 
     await panel.getByRole('button', { name: /정지 - 친구 만남 종료/ }).click();
+    // 정지 확인은 네이티브 confirm 이 아니라 커스텀 AppConfirmDialog 로 받는다.
+    await page
+      .getByRole('dialog', { name: '친구 만남 정지' })
+      .getByRole('button', { name: '정지', exact: true })
+      .click();
     await expect.poll(() => state.sessionPatchCalled, { timeout: 10_000 }).toBe(true);
     await expect.poll(() => state.pushNotifyCalls.some((call) => call.action === 'playdate_ended'), { timeout: 10_000 }).toBe(true);
   });
