@@ -2176,12 +2176,12 @@ a:focus-visible {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 28px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--theme-accent-soft);
-  color: var(--theme-accent-text);
-  box-shadow: inset 0 0 0 1px var(--theme-accent-line);
+  width: auto;
+  height: 20px;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
+  box-shadow: none;
   font-size: 18px;
   line-height: 1;
 }
@@ -2198,15 +2198,16 @@ a:focus-visible {
 }
 
 .hyeni-v5-tabbar button.active {
-  background: var(--hyeni-theme-gradient);
-  color: white;
-  box-shadow: var(--hyeni-theme-shadow-soft);
+  border: 1px solid var(--theme-accent-line);
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+  box-shadow: none;
 }
 
 .hyeni-v5-tabbar button.active .tabbar-icon {
-  background: color-mix(in srgb, #fff 18%, transparent);
-  color: #fff;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 34%, transparent);
+  background: transparent;
+  color: currentColor;
+  box-shadow: none;
 }
 
 .hyeni-v5-maplist-with-tabbar {
@@ -3804,35 +3805,49 @@ a:focus-visible {
   padding: 6px;
   border: 1px solid var(--hyeni-product-border);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 12px 34px rgba(20, 18, 23, 0.11);
 }
 
 .hyeni-v5-tabbar button {
+  border: 1px solid transparent;
   min-height: 46px;
   border-radius: 12px;
   color: var(--fg-tertiary);
   font-weight: 750;
 }
 
-.hyeni-v5-tabbar button .tabbar-icon {
-  width: 28px;
-  height: 24px;
-  border-radius: 999px;
+.hyeni-v5-tabbar button.active {
+  border: 1px solid var(--theme-accent-line);
   background: var(--theme-accent-soft);
   color: var(--theme-accent-text);
-  box-shadow: inset 0 0 0 1px var(--theme-accent-line);
+  box-shadow: none;
+}
+
+.hyeni-v5-tabbar button .tabbar-icon {
+  width: auto;
+  height: 20px;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
+  box-shadow: none;
   font-size: 17px;
 }
 
 .hyeni-v5-tabbar button.active .tabbar-icon {
-  background: color-mix(in srgb, #fff 18%, transparent);
-  color: #fff;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 34%, transparent);
+  background: transparent;
+  color: currentColor;
+  box-shadow: none;
 }
 
 .hyeni-v5-tabbar button .tabbar-label {
   color: inherit;
+}
+
+.hyeni-manager-bottom-nav .hyeni-v5-tabbar {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 section[aria-label="아이 기기 사용 지표"] {

@@ -623,14 +623,15 @@ body .event-sheet-header .sheet-save {
    ────────────────────────────────────────────────────────────────── */
 body .hyeni-v5-tabbar {
   border: 1px solid var(--cartoon-line);
-  border-radius: var(--cartoon-radius-card);
-  background: var(--cartoon-bg-card);
-  box-shadow: var(--cartoon-shadow-card);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 34px rgba(20, 18, 23, 0.11);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
 body .hyeni-v5-tabbar button {
-  border-radius: var(--cartoon-radius-button);
+  border: 1px solid transparent;
+  border-radius: 12px;
   color: var(--fg-tertiary);
   font-weight: 700;
   font-family: var(--font-sans);
@@ -649,6 +650,12 @@ body .hyeni-v5-tabbar button .tabbar-icon {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: auto;
+  height: 20px;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
+  box-shadow: none;
   line-height: 1;
 }
 body .hyeni-v5-tabbar button .tabbar-label {
@@ -661,9 +668,10 @@ body .hyeni-v5-tabbar button .tabbar-label {
   letter-spacing: 0;
 }
 body .hyeni-v5-tabbar button.active {
-  background: var(--hyeni-theme-gradient);
-  color: #fff;
-  box-shadow: var(--hyeni-theme-shadow-soft);
+  border: 1px solid var(--theme-accent-line);
+  background: var(--theme-accent-soft);
+  color: var(--theme-accent-text);
+  box-shadow: none;
 }
 body .hyeni-v5-tabbar button:active { transform: scale(0.96); }
 

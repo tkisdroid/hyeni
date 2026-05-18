@@ -63,22 +63,33 @@ describe("parent selected theme color coverage", () => {
     expect(memoPreviewSource).not.toContain("#F779A8");
   });
 
-  test("bottom tab icon chrome follows selected theme tokens", () => {
-    const tabbarIconCss = sliceBetween(
-      appCss,
-      ".hyeni-v5-tabbar button .tabbar-icon {",
-      ".hyeni-v5-tabbar button .tabbar-label",
-    );
-    const cartoonTabbarCss = sliceBetween(
+  test("bottom tab bar uses one calm surface without nested color backgrounds", () => {
+    const productTabbarStart = appCss.lastIndexOf("\n.hyeni-v5-tabbar {\n  width:");
+    expect(productTabbarStart).toBeGreaterThanOrEqual(0);
+    const productTabbarEnd = appCss.indexOf('section[aria-label="아이 기기 사용 지표"]', productTabbarStart);
+    expect(productTabbarEnd).toBeGreaterThan(productTabbarStart);
+    const productTabbarCss = appCss.slice(productTabbarStart, productTabbarEnd);
+    const cartoonActiveCss = sliceBetween(
       cartoonCss,
       "body .hyeni-v5-tabbar button.active {",
       "body .hyeni-v5-tabbar button:active",
     );
 
-    expect(tabbarIconCss).toContain("background: var(--theme-accent-soft)");
-    expect(tabbarIconCss).toContain("color: var(--theme-accent-text)");
-    expect(tabbarIconCss).toContain("var(--theme-accent-line)");
-    expect(cartoonTabbarCss).toContain("background: var(--hyeni-theme-gradient)");
-    expect(cartoonTabbarCss).not.toContain("var(--cartoon-rose-gradient)");
+    expect(productTabbarCss).toContain("background: rgba(255, 255, 255, 0.94)");
+    expect(productTabbarCss).toContain("background: transparent");
+    expect(productTabbarCss).toContain("color: currentColor");
+    expect(productTabbarCss).toContain("box-shadow: none");
+    expect(productTabbarCss).toContain("background: var(--theme-accent-soft)");
+    expect(productTabbarCss).toContain("border: 1px solid var(--theme-accent-line)");
+    expect(productTabbarCss).toContain(".hyeni-manager-bottom-nav .hyeni-v5-tabbar");
+    expect(productTabbarCss).toContain("border-color: transparent");
+    expect(productTabbarCss).not.toContain("background: var(--hyeni-theme-gradient)");
+    expect(productTabbarCss).not.toContain("color-mix(in srgb, #fff 18%");
+    expect(productTabbarCss).not.toContain("color-mix(in srgb, #fff 34%");
+
+    expect(cartoonActiveCss).toContain("background: var(--theme-accent-soft)");
+    expect(cartoonActiveCss).toContain("color: var(--theme-accent-text)");
+    expect(cartoonActiveCss).not.toContain("var(--hyeni-theme-gradient)");
+    expect(cartoonActiveCss).not.toContain("var(--cartoon-rose-gradient)");
   });
 });
