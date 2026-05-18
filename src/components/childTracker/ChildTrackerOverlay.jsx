@@ -36,13 +36,14 @@ import { useNowMs } from "../../lib/useNowMs.js";
 const CHILD_TRACKER_ZOOM_LEVEL = 2;
 const CHILD_TRACKER_WALK_RADIUS_M = 30;
 const CHILD_TRACKER_DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
-const CHILD_TRACKER_MAP_MIN_HEIGHT = "50dvh";
+const CHILD_TRACKER_MAP_BASIS = "50dvh";
+const CHILD_TRACKER_MAP_MIN_HEIGHT = "clamp(220px, 30dvh, 300px)";
 const CHILD_TRACKER_DEFAULT_PANEL_RATIO = 0.34;
 const CHILD_TRACKER_DEFAULT_PANEL_MIN_PX = 180;
 const CHILD_TRACKER_DEFAULT_PANEL_MAX_PX = 300;
 const CHILD_TRACKER_DEFAULT_PANEL_HEIGHT = "clamp(180px, 34dvh, 300px)";
 const CHILD_TRACKER_PANEL_COLLAPSED_PX = 110;
-const CHILD_TRACKER_PANEL_EXPANDED_RATIO = 0.62;
+const CHILD_TRACKER_PANEL_EXPANDED_RATIO = 0.56;
 
 function getChildTrackerViewportHeight() {
     return typeof window !== "undefined" ? window.innerHeight : 800;
@@ -111,7 +112,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     const movePanelDrag = useCallback((clientY) => {
         const state = panelDragRef.current;
         if (!state) return;
-        const delta = state.startY - clientY; // up = bigger panel, down = smaller panel (bigger map)
+        const delta = state.startY - clientY; // up = bigger details panel (smaller map), down = bigger map
         const next = state.startHeight + delta;
         const max = getChildTrackerPanelMaxPx();
         setBottomHeight(Math.max(CHILD_TRACKER_PANEL_COLLAPSED_PX, Math.min(max, next)));
@@ -581,7 +582,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
             </div>
 
             {/* Map */}
-            <div style={{ flex: "1 1 50dvh", margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "var(--hyeni-theme-shadow-soft)", position: "relative", minHeight: CHILD_TRACKER_MAP_MIN_HEIGHT, border: "2px solid var(--theme-accent-line)" }}>
+            <div style={{ flex: `1 1 ${CHILD_TRACKER_MAP_BASIS}`, margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "var(--hyeni-theme-shadow-soft)", position: "relative", minHeight: CHILD_TRACKER_MAP_MIN_HEIGHT, border: "2px solid var(--theme-accent-line)" }}>
                 {!mapReady && (
                     <FallbackMapCanvas
                         center={center}
@@ -631,7 +632,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                 )}
             </div>
 
-            {/* Bottom info — resizable: drag handle to expand the map */}
+            {/* Bottom info — resizable: drag handle expands details or gives space back to the map */}
             <div
                 style={{
                     flexShrink: 0,
@@ -641,13 +642,14 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                     display: "flex",
                     flexDirection: "column",
                     transition: isPanelDragging ? "none" : "height 0.22s ease-out",
+                    overflow: "hidden",
                     background: "transparent",
                 }}
             >
                 <div
                     role="separator"
                     aria-orientation="horizontal"
-                    aria-label="패널 크기 조절 (위로 드래그하면 확대, 아래로 드래그하면 지도가 커집니다)"
+                    aria-label="패널 크기 조절 (위로 드래그하면 지도는 줄고 상세가 넓어지며, 아래로 드래그하면 지도가 커집니다)"
                     onTouchStart={(e) => { startPanelDrag(e.touches[0].clientY); }}
                     onTouchMove={(e) => { e.preventDefault(); movePanelDrag(e.touches[0].clientY); }}
                     onTouchEnd={endPanelDrag}
@@ -657,7 +659,17 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                 >
                     <div style={{ width: 44, height: 5, background: "#D1D5DB", borderRadius: 999, margin: "0 auto" }} />
                 </div>
-            <div style={{ padding: "4px 16px 16px", flex: 1, overflowY: "auto", minHeight: 0 }}>
+            <div
+                data-testid="hyeni-child-tracker-details-scroll"
+                style={{
+                    padding: "4px 16px calc(16px + env(safe-area-inset-bottom, 0px))",
+                    flex: 1,
+                    overflowY: "auto",
+                    WebkitOverflowScrolling: "touch",
+                    overscrollBehavior: "contain",
+                    minHeight: 0,
+                }}
+            >
                 {/* 클릭한 장소 상세 */}
                 {selectedEvent && (
                     <div style={{ background: "white", borderRadius: 16, padding: "12px 14px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>

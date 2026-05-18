@@ -9,10 +9,12 @@ const appSource = readFileSync("src/App.jsx", "utf8");
 
 describe("ChildTrackerOverlay layout", () => {
   it("keeps the live tracker map near half of the screen by default", () => {
-    expect(childTrackerOverlaySource).toContain('const CHILD_TRACKER_MAP_MIN_HEIGHT = "50dvh";');
+    expect(childTrackerOverlaySource).toContain('const CHILD_TRACKER_MAP_BASIS = "50dvh";');
+    expect(childTrackerOverlaySource).toContain('const CHILD_TRACKER_MAP_MIN_HEIGHT = "clamp(220px, 30dvh, 300px)";');
     expect(childTrackerOverlaySource).toContain('const CHILD_TRACKER_DEFAULT_PANEL_HEIGHT = "clamp(180px, 34dvh, 300px)";');
     expect(childTrackerOverlaySource).toContain("height: bottomHeight != null ? bottomHeight : CHILD_TRACKER_DEFAULT_PANEL_HEIGHT");
     expect(childTrackerOverlaySource).toContain("minHeight: CHILD_TRACKER_MAP_MIN_HEIGHT");
+    expect(childTrackerOverlaySource).toContain("flex: `1 1 ${CHILD_TRACKER_MAP_BASIS}`");
     expect(childTrackerOverlaySource).not.toContain('height: bottomHeight != null ? bottomHeight : "auto"');
   });
 
@@ -46,9 +48,44 @@ describe("ChildTrackerOverlay layout", () => {
     const detailsPanelStyle = detailsPanel?.getAttribute("style") || "";
 
     expect(mapPanelStyle).toContain("flex: 1 1 50dvh");
-    expect(mapPanelStyle).toContain("min-height: 50dvh");
+    expect(childTrackerOverlaySource).toContain('minHeight: CHILD_TRACKER_MAP_MIN_HEIGHT');
     expect(detailsPanelStyle).toContain("min-height: 110px");
-    expect(detailsPanelStyle).toContain("max-height: 62vh");
+    expect(detailsPanelStyle).toContain("max-height: 56vh");
+  });
+
+  it("keeps the lower tracker details scrollable while the map is resized", () => {
+    render(React.createElement(ChildTrackerOverlay, {
+      childPos: { lat: 37.5665, lng: 126.9780, updatedAt: new Date().toISOString() },
+      allChildPositions: [{
+        user_id: "child-1",
+        name: "혜니",
+        lat: 37.5665,
+        lng: 126.9780,
+        updatedAt: new Date().toISOString(),
+      }],
+      pairedChildren: [{ user_id: "child-1", name: "혜니" }],
+      events: {},
+      mapReady: false,
+      arrivedSet: new Set(),
+      onClose: () => {},
+      locationTrail: [{
+        user_id: "child-1",
+        lat: 37.5665,
+        lng: 126.9780,
+        recorded_at: new Date().toISOString(),
+      }],
+    }));
+
+    const fallbackMap = screen.getByTestId("hyeni-fallback-map");
+    const detailsPanel = fallbackMap.parentElement?.nextElementSibling;
+    const detailsScroll = screen.getByTestId("hyeni-child-tracker-details-scroll");
+    const detailsPanelStyle = detailsPanel?.getAttribute("style") || "";
+    const detailsScrollStyle = detailsScroll.getAttribute("style") || "";
+
+    expect(detailsPanelStyle).toContain("overflow: hidden");
+    expect(detailsScrollStyle).toContain("overflow-y: auto");
+    expect(childTrackerOverlaySource).toContain('WebkitOverflowScrolling: "touch"');
+    expect(detailsScrollStyle).toContain("overscroll-behavior: contain");
   });
 
   it("opens the tracker from a child status card with that child selected", () => {
