@@ -6782,11 +6782,11 @@ export default function KidsScheduler() {
                         alignSelf: "flex-start",
                         padding: "4px 10px",
                         borderRadius: 999,
-                        background: "rgba(255,255,255,0.85)",
-                        border: "1px solid rgba(49,196,141,0.18)",
+                        background: "var(--theme-accent-soft)",
+                        border: "1px solid var(--theme-accent-line)",
                         fontSize: 10.5,
                         fontWeight: 800,
-                        color: "var(--brand-mint-text, #087653)",
+                        color: "var(--theme-accent-text)",
                         letterSpacing: 0,
                       }}>
                         {dateLabel}
@@ -6801,7 +6801,7 @@ export default function KidsScheduler() {
                         wordBreak: "keep-all",
                       }}>
                         {childName},{" "}
-                        <span style={{ color: "var(--brand-mint-text, #087653)" }}>{moodLine}</span>
+                        <span style={{ color: "var(--theme-accent-text)" }}>{moodLine}</span>
                       </h2>
                       <button
                         type="button"

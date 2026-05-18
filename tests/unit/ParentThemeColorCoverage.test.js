@@ -14,6 +14,23 @@ function sliceBetween(source, startMarker, endMarker) {
 }
 
 describe("parent selected theme color coverage", () => {
+  test("parent today hero date and mood copy use selected theme tokens", () => {
+    const heroSource = sliceBetween(
+      appSource,
+      'className="hyeni-parent-today-hero"',
+      "오늘 일정 보기",
+    );
+
+    expect(heroSource).toContain("dateLabel");
+    expect(heroSource).toContain("moodLine");
+    expect(heroSource).toContain('background: "var(--theme-accent-soft)"');
+    expect(heroSource).toContain('border: "1px solid var(--theme-accent-line)"');
+    expect(heroSource).toContain('color: "var(--theme-accent-text)"');
+    expect(heroSource).not.toContain("brand-mint");
+    expect(heroSource).not.toContain("rgba(49,196,141");
+    expect(heroSource).not.toContain("#087653");
+  });
+
   test("safety indicators and detail actions use selected theme tokens", () => {
     const safetySource = sliceBetween(
       appSource,
