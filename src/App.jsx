@@ -6963,14 +6963,14 @@ export default function KidsScheduler() {
                             }}
                         >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: 0 }}>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--theme-accent-text)", letterSpacing: 0 }}>
                                     <ThreeDIcon name="safety-mascot" size={28} aria-label="" />
                                     아이 기기 안전 지표
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "none", background: "transparent", color: "var(--brand-mint-text, #087653)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "1px solid var(--theme-accent-line)", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     {deviceStatusRefreshPending ? "요청 중" : "지금 갱신"}
                                 </button>
@@ -7000,14 +7000,14 @@ export default function KidsScheduler() {
                             }}
                         >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
-                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--brand-mint-text, #087653)", letterSpacing: 0, minWidth: 0 }}>
+                                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, color: "var(--theme-accent-text)", letterSpacing: 0, minWidth: 0 }}>
                                     <ThreeDIcon name="safety-mascot" size={28} aria-label="" />
                                     <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>안전 지표</span>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => setDeviceStatusExpanded(prev => !prev)}
-                                    style={{ border: "none", background: "transparent", color: "var(--brand-mint-text, #087653)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "1px solid var(--theme-accent-line)", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     {deviceStatusExpanded ? "접기" : "상세"}
                                 </button>
@@ -7047,13 +7047,13 @@ export default function KidsScheduler() {
                             </div>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, gap: 8 }}>
                                 <div style={{ fontSize: 11, color: "var(--fg-secondary)", fontWeight: 600 }}>
-                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "var(--brand-mint-text, #087653)" : "#9A6500", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
+                                    마지막 업데이트: {primaryDeviceUpdatedLabel} · 상태: <span style={{ color: primaryDeviceSafetyLabel === "양호" ? "var(--theme-accent-text)" : "var(--status-cautionary-strong)", fontWeight: 800 }}>{primaryDeviceSafetyLabel}</span>
                                     {deviceStatusRefreshPending && <span> · 요청 중</span>}
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleParentDeviceRefreshClick}
-                                    style={{ border: "none", background: "transparent", color: "var(--brand-mint-text, #087653)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
+                                    style={{ border: "1px solid var(--theme-accent-line)", background: "var(--theme-accent-soft)", color: "var(--theme-accent-text)", borderRadius: 999, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", fontFamily: FF, flexShrink: 0 }}
                                 >
                                     {deviceStatusRefreshPending ? "요청 중" : "지금 갱신"}
                                 </button>
@@ -7085,9 +7085,9 @@ export default function KidsScheduler() {
                             <ThreeDIcon name="chat-heart" size={42} aria-label="" />
                         </span>
                         <span className="hyeni-v5-memo-body" style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-                            <span className="hyeni-v5-memo-label" style={{ fontSize: 12, fontWeight: 800, color: "var(--brand-rose-text, #B83262)", letterSpacing: 0 }}>오늘의 메모</span>
-                            <span className="hyeni-v5-memo-text" style={{ fontSize: 14, fontWeight: 700, color: "#202024", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{memoPreviewText}</span>
-                            {memoPreviewMeta && <span className="hyeni-v5-memo-meta" style={{ fontSize: 11, fontWeight: 600, color: "#9A9AA0" }}>{memoPreviewMeta}</span>}
+                            <span className="hyeni-v5-memo-label" style={{ fontSize: 12, fontWeight: 800, color: "var(--theme-accent-text)", letterSpacing: 0 }}>오늘의 메모</span>
+                            <span className="hyeni-v5-memo-text" style={{ fontSize: 14, fontWeight: 700, color: "var(--fg-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{memoPreviewText}</span>
+                            {memoPreviewMeta && <span className="hyeni-v5-memo-meta" style={{ fontSize: 11, fontWeight: 600, color: "var(--fg-secondary)" }}>{memoPreviewMeta}</span>}
                         </span>
                         <span
                             className="hyeni-v5-memo-count"
@@ -7099,7 +7099,7 @@ export default function KidsScheduler() {
                                 height: 28,
                                 padding: "0 8px",
                                 borderRadius: 999,
-                                background: "var(--brand-rose, #F779A8)",
+                                background: "var(--theme-accent)",
                                 color: "#FFFFFF",
                                 fontSize: 12,
                                 fontWeight: 800,

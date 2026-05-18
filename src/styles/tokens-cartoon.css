@@ -661,9 +661,9 @@ body .hyeni-v5-tabbar button .tabbar-label {
   letter-spacing: 0;
 }
 body .hyeni-v5-tabbar button.active {
-  background: var(--cartoon-rose-gradient);
-  color: var(--cartoon-pill-rose-text);
-  box-shadow: var(--cartoon-shadow-pill);
+  background: var(--hyeni-theme-gradient);
+  color: #fff;
+  box-shadow: var(--hyeni-theme-shadow-soft);
 }
 body .hyeni-v5-tabbar button:active { transform: scale(0.96); }
 
