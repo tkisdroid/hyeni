@@ -4451,6 +4451,10 @@ export default function KidsScheduler() {
 
     // CSS helpers
     const contentMaxWidth = isParent ? 720 : 460;
+    // 부모 홈 상단 섹션(헤더·자녀 전환·hero) 정렬 기준.
+    // 아래 본문 .hyeni-v5-parent-main (max-width 680px + padding-inline 14px
+    // → 콘텐츠 폭 652px)과 가로 폭을 통일한다.
+    const parentSectionMaxWidth = 680;
     const inputSt = makeInputStyle();
     const labelSt = { fontSize: 12, fontWeight: 800, color: DESIGN.colors.muted, marginBottom: 6, display: "block" };
     const cardSt = makeCardStyle({ width: "100%", maxWidth: contentMaxWidth, padding: 20, marginBottom: 14 });
@@ -6325,9 +6329,9 @@ export default function KidsScheduler() {
             <div
                 className={`hyeni-top-header ${isParent ? "hyeni-top-header--parent-compact" : "hyeni-top-header--child"}`}
                 style={{
-                    // 부모 헤더 카드 폭을 아래 hero(maxWidth 720 + 좌우 16px inset, line ~6750)와
-                    // 동일하게 맞춘다. 32 = 좌우 16px inset 합. 자녀 헤더는 기존 그대로.
-                    maxWidth: isParent ? contentMaxWidth - 32 : contentMaxWidth,
+                    // 부모 헤더 카드 폭을 본문 .hyeni-v5-parent-main 콘텐츠 폭(652px)과
+                    // 통일. 28 = 좌우 14px padding 합. 자녀 헤더는 기존 그대로.
+                    maxWidth: isParent ? parentSectionMaxWidth - 28 : contentMaxWidth,
                     borderRadius: isParent ? 16 : 0,
                     boxShadow: "none",
                 }}
@@ -6486,12 +6490,13 @@ export default function KidsScheduler() {
                 aria-label="자녀 빠른 전환"
                 style={{
                   width: "100%",
-                  maxWidth: contentMaxWidth,
+                  // 본문 .hyeni-v5-parent-main 과 동일한 max-width 680 + 좌우 14px
+                  // padding → 콘텐츠 폭 652px 로 통일 (box-sizing: border-box)
+                  maxWidth: parentSectionMaxWidth,
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  // 좌우 16px inset 으로 아래 hero 카드 폭과 정렬 (box-sizing: border-box)
-                  padding: "0 var(--space-4)",
+                  padding: "0 14px",
                   marginBottom: 10,
                   fontFamily: FF,
                   boxSizing: "border-box",
@@ -6751,7 +6756,7 @@ export default function KidsScheduler() {
                   : `오늘 ${todayEventCount}개의 일정이 있어요`;
               const dateLabel = `${currentMonth + 1}월 ${selectedDate}일 ${DAYS_KO[(new Date(currentYear, currentMonth, selectedDate)).getDay()]}요일`;
               return (
-                <div style={{ width: "100%", maxWidth: contentMaxWidth, padding: "0 16px", boxSizing: "border-box" }}>
+                <div style={{ width: "100%", maxWidth: parentSectionMaxWidth, padding: "0 14px", boxSizing: "border-box" }}>
                   <section
                     className="hyeni-parent-today-hero"
                     aria-label={`${childName} 오늘 요약`}
