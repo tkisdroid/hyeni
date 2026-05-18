@@ -224,8 +224,7 @@
 }
 
 .hyeni-app-shell .perm-step[data-ready="true"] .perm-step-icon,
-.hyeni-app-shell .child-hero-mascot,
-.hyeni-app-shell .hyeni-top-header-brand > div:first-child {
+.hyeni-app-shell .child-hero-mascot {
   animation: hyeni-micro-pop 420ms var(--hyeni-ease-pop) backwards;
 }
 
@@ -294,8 +293,7 @@
   .hyeni-app-shell .hyeni-child-settings-row,
   .hyeni-app-shell .child-hero,
   .hyeni-app-shell .hyeni-top-header,
-  .hyeni-app-shell .child-hero-mascot,
-  .hyeni-app-shell .hyeni-top-header-brand > div:first-child {
+  .hyeni-app-shell .child-hero-mascot {
     animation: none !important;
   }
   .hyeni-app-shell .hyeni-micro-tap,

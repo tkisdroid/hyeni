@@ -4453,8 +4453,8 @@ export default function KidsScheduler() {
     // CSS helpers
     const contentMaxWidth = isParent ? 720 : 460;
     // 부모 홈 상단 섹션(헤더·자녀 전환·hero) 정렬 기준.
-    // 아래 본문 .hyeni-v5-parent-main (max-width 680px + padding-inline 14px
-    // → 콘텐츠 폭 652px)과 가로 폭을 통일한다.
+    // 아래 본문 .hyeni-v5-parent-main (680px frame + 14px inset)과
+    // 실제 보이는 카드 폭(652px)을 통일한다.
     const parentSectionMaxWidth = 680;
     const inputSt = makeInputStyle();
     const labelSt = { fontSize: 12, fontWeight: 800, color: DESIGN.colors.muted, marginBottom: 6, display: "block" };
@@ -5987,8 +5987,6 @@ export default function KidsScheduler() {
             <style>{`
         *,*::before,*::after{box-sizing:border-box}
         html,body,#root{margin:0;padding:0;width:100%;min-height:100vh}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-        @keyframes bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-16px)}70%{transform:translateY(-8px)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
         @keyframes slideDown{from{transform:translateX(-50%) translateY(-20px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
         @keyframes slideDownFull{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -6330,15 +6328,19 @@ export default function KidsScheduler() {
             <div
                 className={`hyeni-top-header ${isParent ? "hyeni-top-header--parent-compact" : "hyeni-top-header--child"}`}
                 style={{
-                    // 부모 헤더 카드 폭을 본문 .hyeni-v5-parent-main 콘텐츠 폭(652px)과
-                    // 통일. 28 = 좌우 14px padding 합. 자녀 헤더는 기존 그대로.
+                    // 부모 헤더 카드의 보이는 폭을 아래 카드들과 같은 652px로 맞춘다.
+                    width: isParent ? "calc(100% - 28px)" : "100%",
                     maxWidth: isParent ? parentSectionMaxWidth - 28 : contentMaxWidth,
                     borderRadius: isParent ? 16 : 0,
                     boxShadow: "none",
                 }}
             >
                 <div className="hyeni-top-header-brand">
-                    <div style={{ animation: bounce ? "bounce 0.4s ease" : "float 3s ease-in-out infinite", cursor: "pointer", flexShrink: 0 }} onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}>
+                    <div
+                        data-hyeni-logo-state={bounce ? "active" : "idle"}
+                        style={{ cursor: "pointer", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", alignSelf: "center", lineHeight: 0 }}
+                        onClick={() => { setBounce(true); setTimeout(() => setBounce(false), 800); showNotif("안녕! 나는 혜니야 💗"); }}
+                    >
                         {isParent ? (
                             <HeaderCharacter
                                 size={36}

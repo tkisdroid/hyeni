@@ -18,7 +18,7 @@ export function HomeTab({
   onTapMap,
 }) {
   return (
-    <div style={{ padding: "8px 16px 24px", display: "flex", flexDirection: "column", gap: 14, minHeight: "100%" }}>
+    <div style={{ padding: "8px 0 24px", display: "flex", flexDirection: "column", gap: 14, minHeight: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 2px 12px" }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <h1 style={{
