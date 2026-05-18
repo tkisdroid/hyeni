@@ -607,7 +607,7 @@ a:focus-visible {
 }
 
 .hyeni-v5-kid-loc.is-live {
-  color: var(--hyeni-success);
+  color: var(--theme-accent-text);
   font-weight: 650;
 }
 
