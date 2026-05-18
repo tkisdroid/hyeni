@@ -6325,7 +6325,9 @@ export default function KidsScheduler() {
             <div
                 className={`hyeni-top-header ${isParent ? "hyeni-top-header--parent-compact" : "hyeni-top-header--child"}`}
                 style={{
-                    maxWidth: contentMaxWidth,
+                    // 부모 헤더 카드 폭을 아래 hero(maxWidth 720 + 좌우 16px inset, line ~6750)와
+                    // 동일하게 맞춘다. 32 = 좌우 16px inset 합. 자녀 헤더는 기존 그대로.
+                    maxWidth: isParent ? contentMaxWidth - 32 : contentMaxWidth,
                     borderRadius: isParent ? 16 : 0,
                     boxShadow: "none",
                 }}
@@ -6488,9 +6490,11 @@ export default function KidsScheduler() {
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  padding: "0 4px",
+                  // 좌우 16px inset 으로 아래 hero 카드 폭과 정렬 (box-sizing: border-box)
+                  padding: "0 var(--space-4)",
                   marginBottom: 10,
                   fontFamily: FF,
+                  boxSizing: "border-box",
                 }}
               >
                 <div
