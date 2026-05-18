@@ -1094,7 +1094,7 @@ test.describe("critical Hyeni flows", () => {
     await expect(page.getByRole("button", { name: /37\.56990,\s*126\.98220/ })).toBeVisible({ timeout: 18_000 });
   });
 
-  test("parent child tracker shows dwell duration instead of same-place time range", async ({ page }) => {
+  test("parent child tracker shows dwell duration with same-place time range", async ({ page }) => {
     const selectedDay = currentDateParts();
     const at = (hour, minute) => new Date(selectedDay.year, selectedDay.month, selectedDay.day, hour, minute).toISOString();
     await installCriticalMocks(page, {
@@ -1116,7 +1116,7 @@ test.describe("critical Hyeni flows", () => {
 
     await expect(page.getByText("오래 머문 곳")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole("button", { name: /11분 머무름/ })).toBeVisible();
-    await expect(page.getByText(/08:23.*08:34|오전 08:23.*오전 08:34/)).toHaveCount(0);
+    await expect(page.getByText(/08:23.*08:34|오전 08:23.*오전 08:34/)).toBeVisible();
   });
 
   test("parent main calendar empty date tap opens schedule add sheet and saves to that date", async ({ page }) => {

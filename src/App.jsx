@@ -6918,7 +6918,10 @@ export default function KidsScheduler() {
                                 <button
                                     key={child.user_id || child.id || index}
                                     type="button"
-                                    onClick={() => setShowChildTracker(true)}
+                                    onClick={() => {
+                                        if (child.id) setSelectedChildId(child.id);
+                                        setShowChildTracker(true);
+                                    }}
                                     className="hyeni-v5-kid-card"
                                     style={{ cursor: "pointer", fontFamily: FF }}
                                     aria-label={`${child.name || "아이"} 오늘 일정 · ${nextLabel} · ${childLocationLabel}`}

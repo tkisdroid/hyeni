@@ -399,7 +399,7 @@ export function buildTrailDwellPlaces(points) {
                     pointCount: cluster.length,
                     label: `${formatTrailDuration(durationMs)} 머무름`,
                     timeLabel: `${formatTrailDuration(durationMs)} 머무름`,
-                    timeRangeLabel: `${formatTrailClock(startMs)}-${formatTrailClock(endMs)}`,
+                    timeRangeLabel: `${formatTrailClock(startMs)}~${formatTrailClock(endMs)}`,
                 });
             }
         }

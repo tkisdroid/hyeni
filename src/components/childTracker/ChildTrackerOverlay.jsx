@@ -36,6 +36,28 @@ import { useNowMs } from "../../lib/useNowMs.js";
 const CHILD_TRACKER_ZOOM_LEVEL = 2;
 const CHILD_TRACKER_WALK_RADIUS_M = 30;
 const CHILD_TRACKER_DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 };
+const CHILD_TRACKER_MAP_MIN_HEIGHT = "50dvh";
+const CHILD_TRACKER_DEFAULT_PANEL_RATIO = 0.34;
+const CHILD_TRACKER_DEFAULT_PANEL_MIN_PX = 180;
+const CHILD_TRACKER_DEFAULT_PANEL_MAX_PX = 300;
+const CHILD_TRACKER_DEFAULT_PANEL_HEIGHT = "clamp(180px, 34dvh, 300px)";
+const CHILD_TRACKER_PANEL_COLLAPSED_PX = 110;
+const CHILD_TRACKER_PANEL_EXPANDED_RATIO = 0.62;
+
+function getChildTrackerViewportHeight() {
+    return typeof window !== "undefined" ? window.innerHeight : 800;
+}
+
+function getChildTrackerDefaultPanelPx() {
+    return Math.max(
+        CHILD_TRACKER_DEFAULT_PANEL_MIN_PX,
+        Math.min(CHILD_TRACKER_DEFAULT_PANEL_MAX_PX, Math.round(getChildTrackerViewportHeight() * CHILD_TRACKER_DEFAULT_PANEL_RATIO))
+    );
+}
+
+function getChildTrackerPanelMaxPx() {
+    return Math.round(getChildTrackerViewportHeight() * CHILD_TRACKER_PANEL_EXPANDED_RATIO);
+}
 
 function childMarkerImageHtml(child) {
     const photoUrl = typeof child?.photo_url === "string" && child.photo_url.trim() ? child.photo_url : "";
@@ -70,13 +92,10 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     const [selectedChildId, setSelectedChildId] = useState(selectedChildUserId || null);
     const [selectedTrailSegmentKey, setSelectedTrailSegmentKey] = useState("");
     const [dwellLocationLabels, setDwellLocationLabels] = useState({});
-    // Resizable bottom panel — drag handle to expand the map upward
-    const [bottomHeight, setBottomHeight] = useState(null); // null = natural auto-height
+    // Resizable bottom panel — drag handle to expand/collapse the details panel.
+    const [bottomHeight, setBottomHeight] = useState(null); // null = default compact height
     const [isPanelDragging, setIsPanelDragging] = useState(false);
     const panelDragRef = useRef(null);
-    const PANEL_COLLAPSED_PX = 110;
-    const PANEL_EXPANDED_RATIO = 0.62;
-    const getPanelMaxPx = () => Math.round((typeof window !== "undefined" ? window.innerHeight : 800) * PANEL_EXPANDED_RATIO);
     const nowMs = useNowMs(60_000);
 
     useEffect(() => {
@@ -85,8 +104,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     }, [selectedChildUserId]);
 
     const startPanelDrag = useCallback((clientY) => {
-        const max = getPanelMaxPx();
-        const current = bottomHeight ?? max;
+        const current = bottomHeight ?? getChildTrackerDefaultPanelPx();
         panelDragRef.current = { startY: clientY, startHeight: current };
         setIsPanelDragging(true);
     }, [bottomHeight]);
@@ -95,8 +113,8 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
         if (!state) return;
         const delta = state.startY - clientY; // up = bigger panel, down = smaller panel (bigger map)
         const next = state.startHeight + delta;
-        const max = getPanelMaxPx();
-        setBottomHeight(Math.max(PANEL_COLLAPSED_PX, Math.min(max, next)));
+        const max = getChildTrackerPanelMaxPx();
+        setBottomHeight(Math.max(CHILD_TRACKER_PANEL_COLLAPSED_PX, Math.min(max, next)));
     }, []);
     const endPanelDrag = useCallback(() => {
         const state = panelDragRef.current;
@@ -104,19 +122,23 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
         setIsPanelDragging(false);
         if (!state) return;
         setBottomHeight((h) => {
-            const max = getPanelMaxPx();
-            const current = h ?? max;
-            const mid = (PANEL_COLLAPSED_PX + max) / 2;
-            return current <= mid ? PANEL_COLLAPSED_PX : max;
+            const max = getChildTrackerPanelMaxPx();
+            const current = h ?? getChildTrackerDefaultPanelPx();
+            const mid = (CHILD_TRACKER_PANEL_COLLAPSED_PX + max) / 2;
+            return current <= mid ? CHILD_TRACKER_PANEL_COLLAPSED_PX : max;
         });
     }, []);
 
     const childLocations = useMemo(() => {
-        const fallbackMember = pairedChildren?.[0];
+        const selectedUserId = selectedChildUserId || null;
+        const selectedMember = selectedUserId
+            ? pairedChildren?.find(member => member?.user_id === selectedUserId)
+            : null;
+        const fallbackMember = selectedMember || pairedChildren?.[0];
         const source = allChildPositions.length > 0
             ? allChildPositions
             : (childPos ? [{
-                user_id: fallbackMember?.user_id || "default",
+                user_id: fallbackMember?.user_id || selectedUserId || "default",
                 name: fallbackMember?.name || "우리 아이",
                 emoji: fallbackMember?.emoji || "🐰",
                 photo_url: fallbackMember?.photo_url || null,
@@ -125,20 +147,22 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                 updatedAt: childPos.updatedAt,
             }] : []);
         return source
+            .filter(child => !selectedUserId || (child?.user_id || child?.userId) === selectedUserId)
             .filter(child => Number.isFinite(Number(child?.lat)) && Number.isFinite(Number(child?.lng)))
             .map((child, i) => {
-                const photoFromMember = pairedChildren?.find(m => m.user_id && m.user_id === child.user_id)?.photo_url;
+                const member = pairedChildren?.find(m => m.user_id && m.user_id === child.user_id) || selectedMember;
+                const photoFromMember = member?.photo_url;
                 return {
                     ...child,
                     lat: Number(child.lat),
                     lng: Number(child.lng),
-                    name: child.name || "우리 아이",
-                    emoji: child.emoji || "🐰",
+                    name: child.name || member?.name || "우리 아이",
+                    emoji: child.emoji || member?.emoji || "🐰",
                     photo_url: child.photo_url || photoFromMember || null,
-                    trackerKey: child.user_id || child.id || `child-${i}`,
+                    trackerKey: child.user_id || child.userId || child.id || `child-${i}`,
                 };
             });
-    }, [allChildPositions, childPos, pairedChildren]);
+    }, [allChildPositions, childPos, pairedChildren, selectedChildUserId]);
 
     const selectedChild = childLocations.find(child => child.trackerKey === selectedChildId) || childLocations[0] || null;
     const center = selectedChild || CHILD_TRACKER_DEFAULT_CENTER;
@@ -527,7 +551,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
     const distLabel = (m) => m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: DESIGN.gradients.map, display: "flex", flexDirection: "column", fontFamily: FF }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, height: "100dvh", overflow: "hidden", background: DESIGN.gradients.map, display: "flex", flexDirection: "column", fontFamily: FF }}>
             {/* Header */}
             <div style={{ padding: "16px 20px", paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                 <button onClick={onClose} style={{ background: "white", border: "none", borderRadius: 14, padding: "10px 16px", cursor: "pointer", fontWeight: 800, fontSize: 14, fontFamily: FF, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>← 돌아가기</button>
@@ -557,7 +581,7 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
             </div>
 
             {/* Map */}
-            <div style={{ flex: 1, margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "var(--hyeni-theme-shadow-soft)", position: "relative", minHeight: 0, border: "2px solid var(--theme-accent-line)" }}>
+            <div style={{ flex: "1 1 50dvh", margin: "0 16px", borderRadius: 24, overflow: "hidden", boxShadow: "var(--hyeni-theme-shadow-soft)", position: "relative", minHeight: CHILD_TRACKER_MAP_MIN_HEIGHT, border: "2px solid var(--theme-accent-line)" }}>
                 {!mapReady && (
                     <FallbackMapCanvas
                         center={center}
@@ -611,8 +635,9 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
             <div
                 style={{
                     flexShrink: 0,
-                    height: bottomHeight != null ? bottomHeight : "auto",
-                    maxHeight: `${Math.round(PANEL_EXPANDED_RATIO * 100)}vh`,
+                    height: bottomHeight != null ? bottomHeight : CHILD_TRACKER_DEFAULT_PANEL_HEIGHT,
+                    minHeight: CHILD_TRACKER_PANEL_COLLAPSED_PX,
+                    maxHeight: `${Math.round(CHILD_TRACKER_PANEL_EXPANDED_RATIO * 100)}vh`,
                     display: "flex",
                     flexDirection: "column",
                     transition: isPanelDragging ? "none" : "height 0.22s ease-out",
@@ -741,7 +766,9 @@ export function ChildTrackerOverlay({ childPos, allChildPositions = [], pairedCh
                                                         {place.addressLabel && (
                                                             <span style={{ display: "block", fontSize: 10, color: "#78350F", fontWeight: 800, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📍 {place.addressLabel}</span>
                                                         )}
-                                                        <span style={{ display: "block", fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, marginTop: 1 }}>{place.timeLabel || `${formatTrailDuration(place.durationMs)} 머무름`}</span>
+                                                        <span style={{ display: "block", fontSize: 10, color: "var(--status-cautionary-strong)", fontWeight: 700, marginTop: 1 }}>
+                                                            {place.timeRangeLabel ? `${place.timeRangeLabel} · ` : ""}{place.timeLabel || `${formatTrailDuration(place.durationMs)} 머무름`}
+                                                        </span>
                                                     </span>
                                                 </button>
                                             ))}
