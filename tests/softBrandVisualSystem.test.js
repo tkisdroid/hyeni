@@ -31,7 +31,8 @@ const stickerBookModalSource = readFileSync("src/components/sticker/StickerBookM
 const savedPlaceManagerSource = readFileSync("src/components/place-management/SavedPlaceManager.jsx", "utf8");
 const childCallCardSource = readFileSync("src/components/contact/ChildCallCard.jsx", "utf8");
 const feedbackModalSource = readFileSync("src/components/dialogs/FeedbackModal.jsx", "utf8");
-const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}\n${savedPlaceManagerSource}\n${childCallCardSource}\n${feedbackModalSource}`;
+const parentScheduleCardSource = readFileSync("src/components/multichild/ParentScheduleCard.jsx", "utf8");
+const appSource = `${appJsxSource}\n${styleHelpersSource}\n${markerColorsSource}\n${fallbackMapCanvasSource}\n${mapZoomControlsSource}\n${mapPickerSource}\n${academyManagerSource}\n${scheduleCategoriesSource}\n${locationMapViewSource}\n${htmlEscapeSource}\n${childTrackerOverlaySource}\n${memoSectionSource}\n${pairingModalSource}\n${remoteListenHealthSource}\n${aiScheduleModalSource}\n${ambientAudioRecorderSource}\n${remoteAudioSource}\n${dangerZoneManagerSource}\n${routeOverlaySource}\n${stickerBookModalSource}\n${savedPlaceManagerSource}\n${childCallCardSource}\n${feedbackModalSource}\n${parentScheduleCardSource}`;
 const mainSource = readFileSync("src/main.jsx", "utf8");
 const indexHtmlSource = readFileSync("index.html", "utf8");
 const manifestSource = readFileSync("public/manifest.json", "utf8");
@@ -337,8 +338,8 @@ describe("Soft Brand visual system", () => {
     const headerStart = appSource.indexOf("{/* ── Header Row 1");
     const headerEnd = appSource.indexOf("{/* Phase 5 KKUK-01", headerStart);
     const headerSource = appSource.slice(headerStart, headerEnd);
-    const dashboardEventStart = appSource.indexOf("className={`hyeni-v5-event-card");
-    const dashboardEventSource = appSource.slice(dashboardEventStart, dashboardEventStart + 700);
+    // 일정 카드 마크업은 ParentScheduleCard.jsx 로 분리됨 — 해당 컴포넌트 소스를 검사.
+    const dashboardEventSource = parentScheduleCardSource;
 
     for (const source of [toastSource, headerSource, dashboardEventSource]) {
       expect(source).toContain("var(--theme-accent");

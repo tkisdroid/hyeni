@@ -19,6 +19,7 @@ import { CategoryIcon } from "./components/icons/CategoryIcon.jsx";
 import { useChildren } from "./lib/childrenContext.js";
 import { ChildSelector } from "./components/multichild/EventModal/ChildSelector.jsx";
 import { EventSheet } from "./components/multichild/EventModal/EventSheet.jsx";
+import { ParentScheduleCard } from "./components/multichild/ParentScheduleCard.jsx";
 import { ChildDetailScreen } from "./components/multichild/ChildDetail/ChildDetailScreen.jsx";
 import { ChildHero } from "./components/childMode/ChildHero.jsx";
 import { ChildSettingsScreen } from "./components/childMode/ChildSettingsScreen.jsx";
@@ -5024,74 +5025,20 @@ export default function KidsScheduler() {
                     : null;
         const whoLabel = selectedChild?.name || pairedChildren[0]?.name || "아이";
         return (
-            <div
+            <ParentScheduleCard
                 key={event.id}
-                id={getDashboardEventElementId(event.id)}
-                role="button"
-                tabIndex={0}
-                onClick={() => openEditEventModal(event)}
-                onKeyDown={(keyboardEvent) => {
-                    if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                        keyboardEvent.preventDefault();
-                        openEditEventModal(event);
-                    }
-                }}
-                className={`hyeni-v5-event-card${status.current ? " is-current" : ""}${status.past ? " is-past" : ""}`}
-                style={{ "--event-color": event.color || "var(--theme-accent)", "--event-bg": event.bg || "var(--theme-accent-soft)", fontFamily: FF, cursor: "pointer" }}
-                aria-label={`${event.title} 편집`}
-            >
-                <div className="hyeni-v5-event-icon">{event.emoji || "📌"}</div>
-                <div className="hyeni-v5-event-body">
-                    <div className="hyeni-v5-event-title">
-                        <span className="hyeni-v5-event-title-text">{event.title}</span>
-                        <span className="hyeni-v5-event-who">{whoLabel}</span>
-                    </div>
-                    <div className="hyeni-v5-event-meta">
-                        <span className="hyeni-v5-event-time">{formatDashboardTime(event)}</span>
-                        <span className="hyeni-v5-event-location">
-                            {event.location?.address ? ` · ${event.location.address}` : " · 장소 미지정"}
-                        </span>
-                    </div>
-                    <div className="hyeni-v5-event-chips">
-                        {distanceLabel && <span className="hyeni-v5-chip distance" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={12} strokeWidth={1.75} />{distanceLabel}</span>}
-                        {event.memo && <span className="hyeni-v5-chip memo">📝 메모</span>}
-                        <span className="hyeni-v5-chip" style={{ background: "var(--status-cautionary-subtle)", color: "var(--status-cautionary-strong)", border: "1px solid #FED7AA" }}>✏️ 수정</span>
-                    </div>
-                </div>
-                <div className="hyeni-v5-event-tag" style={statusStyle || undefined}>{status.label}</div>
-                {event.location && (
-                    <button
-                        type="button"
-                        aria-label={`${event.title} 경로 보기`}
-                        title="경로 보기"
-                        onClick={(clickEvent) => {
-                            clickEvent.stopPropagation();
-                            setRouteEvent(event);
-                        }}
-                        style={{
-                            position: "absolute", top: 8, right: 38,
-                            width: 28, height: 28, borderRadius: "50%",
-                            border: "1px solid var(--bg-subtle)", background: "var(--bg-subtle)",
-                            color: "#1D4ED8", fontSize: 13, cursor: "pointer",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            zIndex: 1,
-                        }}
-                    >
-                        🗺️
-                    </button>
-                )}
-                <button
-                    type="button"
-                    className="hyeni-v5-event-delete"
-                    aria-label={`${event.title} 일정 삭제`}
-                    onClick={(clickEvent) => {
-                        clickEvent.stopPropagation();
-                        handleDeleteEvent(event.id);
-                    }}
-                >
-                    ×
-                </button>
-            </div>
+                event={event}
+                elementId={getDashboardEventElementId(event.id)}
+                status={status}
+                statusStyle={statusStyle}
+                distanceLabel={distanceLabel}
+                whoLabel={whoLabel}
+                timeLabel={formatDashboardTime(event)}
+                fontFamily={FF}
+                onEdit={() => openEditEventModal(event)}
+                onDelete={() => handleDeleteEvent(event.id)}
+                onRoute={event.location ? () => setRouteEvent(event) : undefined}
+            />
         );
     };
     const memoPreview = getMemoPreview({

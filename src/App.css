@@ -1027,6 +1027,63 @@ a:focus-visible {
   cursor: pointer;
 }
 
+/* ── 일정 카드 스와이프 → 수정/삭제 버튼 노출 ───────────────────── */
+.hyeni-sched-swipe {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.hyeni-v1-home-event-list .hyeni-sched-swipe {
+  border-radius: 20px;
+}
+
+.hyeni-v5-timeline-list .hyeni-sched-swipe {
+  border-radius: 16px;
+}
+
+.hyeni-sched-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-1);
+}
+
+.hyeni-sched-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 64px;
+  border: 0;
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hyeni-sched-action.is-edit {
+  background: var(--status-cautionary-subtle);
+  color: var(--status-cautionary-strong);
+}
+
+.hyeni-sched-action.is-delete {
+  background: var(--status-negative-subtle);
+  color: var(--status-negative-strong);
+}
+
+.hyeni-sched-surface {
+  position: relative;
+  z-index: 1;
+  will-change: transform;
+}
+
 .hyeni-v5-event-card::before {
   content: "";
   position: absolute;
@@ -1111,10 +1168,6 @@ a:focus-visible {
   font-size: 11px;
   font-weight: 700;
   box-shadow: none;
-}
-
-.hyeni-v1-home-event-list .hyeni-v5-event-delete {
-  display: none;
 }
 
 .hyeni-v5-event-card.is-current {
@@ -1228,19 +1281,6 @@ a:focus-visible {
   font-size: 10px;
   font-weight: 900;
   white-space: nowrap;
-}
-
-.hyeni-v5-event-delete {
-  flex: none;
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 999px;
-  background: #f9fafb;
-  color: #cbd5e1;
-  font-size: 12px;
-  font-weight: 900;
-  cursor: pointer;
 }
 
 .hyeni-v5-empty {
