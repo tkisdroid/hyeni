@@ -256,6 +256,7 @@ public class LocationPlugin extends Plugin {
             .getString("fcmToken", null);
 
         if (cached != null && !cached.isEmpty()) {
+            NativePushTokenSync.sync(getContext(), cached);
             call.resolve(new JSObject().put("token", cached));
             return;
         }
@@ -268,6 +269,7 @@ public class LocationPlugin extends Plugin {
                     .edit()
                     .putString("fcmToken", token)
                     .apply();
+                NativePushTokenSync.sync(getContext(), token);
                 call.resolve(new JSObject().put("token", token));
             })
             .addOnFailureListener(e -> {
@@ -302,7 +304,30 @@ public class LocationPlugin extends Plugin {
             .apply();
 
         Log.i(TAG, "Push context saved for user=" + userId + ", family=" + familyId);
+        syncCachedFcmToken();
         call.resolve(new JSObject().put("status", "saved"));
+    }
+
+    private void syncCachedFcmToken() {
+        String cached = getContext()
+            .getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
+            .getString("fcmToken", null);
+
+        if (cached != null && !cached.isEmpty()) {
+            NativePushTokenSync.sync(getContext(), cached);
+            return;
+        }
+
+        FirebaseMessaging.getInstance().getToken()
+            .addOnSuccessListener(token -> {
+                getContext()
+                    .getSharedPreferences("hyeni_location_prefs", android.content.Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("fcmToken", token)
+                    .apply();
+                NativePushTokenSync.sync(getContext(), token);
+            })
+            .addOnFailureListener(e -> Log.w(TAG, "FCM token sync deferred: " + e.getMessage()));
     }
 
     @PluginMethod

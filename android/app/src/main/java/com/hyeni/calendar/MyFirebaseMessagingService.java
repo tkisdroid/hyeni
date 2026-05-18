@@ -24,21 +24,11 @@ import androidx.core.content.ContextCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
-import org.json.JSONObject;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 
 /**
  * Handles FCM push messages delivered by Google's push infrastructure.
@@ -74,7 +64,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         Log.i(TAG, "FCM token refreshed");
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         prefs.edit().putString("fcmToken", token).apply();
-        syncTokenToSupabase(token);
+        NativePushTokenSync.sync(this, token);
     }
 
     @Override
@@ -774,72 +764,4 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         nm.createNotificationChannel(channel);
     }
 
-    private void syncTokenToSupabase(String token) {
-        new Thread(() -> {
-            try {
-                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-                String userId = prefs.getString("userId", null);
-                String familyId = prefs.getString("familyId", null);
-                String supabaseUrl = prefs.getString("supabaseUrl", null);
-                String supabaseKey = prefs.getString("supabaseKey", null);
-                String accessToken = prefs.getString("accessToken", null);
-
-                if (userId == null || familyId == null || supabaseUrl == null || supabaseKey == null) {
-                    Log.w(TAG, "FCM token sync skipped: push context not ready yet");
-                    return;
-                }
-
-                JSONObject body = new JSONObject();
-                body.put("user_id", userId);
-                body.put("family_id", familyId);
-                body.put("fcm_token", token);
-                SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
-                iso.setTimeZone(TimeZone.getTimeZone("UTC"));
-                body.put("updated_at", iso.format(new Date()));
-
-                String bearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
-                Request req = new Request.Builder()
-                    .url(supabaseUrl + "/rest/v1/fcm_tokens?on_conflict=user_id,fcm_token")
-                    .header("apikey", supabaseKey)
-                    .header("Authorization", "Bearer " + bearer)
-                    .header("Content-Type", "application/json")
-                    .header("Prefer", "resolution=merge-duplicates,return=minimal")
-                    .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
-                    .build();
-
-                Response response = HTTP_CLIENT.newCall(req).execute();
-                int code = response.code();
-                if (response.isSuccessful()) {
-                    Log.i(TAG, "FCM token synced to Supabase");
-                    response.close();
-                } else {
-                    String errBody = response.body() != null ? response.body().string() : "";
-                    response.close();
-                    Log.w(TAG, "FCM token sync failed: " + code + " / " + errBody);
-
-                    // JWT 만료 시 anon key로 재시도
-                    if (code == 401 || code == 403) {
-                        Log.i(TAG, "Retrying FCM token sync with apikey");
-                        Request retryReq = new Request.Builder()
-                            .url(supabaseUrl + "/rest/v1/fcm_tokens?on_conflict=user_id,fcm_token")
-                            .header("apikey", supabaseKey)
-                            .header("Authorization", "Bearer " + supabaseKey)
-                            .header("Content-Type", "application/json")
-                            .header("Prefer", "resolution=merge-duplicates,return=minimal")
-                            .post(RequestBody.create(body.toString(), MediaType.get("application/json")))
-                            .build();
-                        Response retryResp = HTTP_CLIENT.newCall(retryReq).execute();
-                        if (retryResp.isSuccessful()) {
-                            Log.i(TAG, "FCM token synced with apikey fallback");
-                        } else {
-                            Log.e(TAG, "FCM token sync retry failed: " + retryResp.code());
-                        }
-                        retryResp.close();
-                    }
-                }
-            } catch (Exception err) {
-                Log.e(TAG, "FCM token sync error", err);
-            }
-        }).start();
-    }
 }

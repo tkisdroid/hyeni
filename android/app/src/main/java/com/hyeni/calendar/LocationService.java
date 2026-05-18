@@ -241,6 +241,9 @@ public class LocationService extends Service {
             return START_NOT_STICKY;
         }
 
+        String cachedFcmToken = prefs.getString("fcmToken", "");
+        NativePushTokenSync.sync(this, cachedFcmToken);
+
         // 위치 권한 체크 — 없으면 서비스 시작하지 않음 (SDK 34+ FGS 크래시 방지)
         if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -997,6 +1000,8 @@ public class LocationService extends Service {
             try {
                 JSONObject body = new JSONObject();
                 body.put("p_family_id", familyId);
+                body.put("p_user_id", userId);
+                body.put("p_role", getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("role", ""));
 
                 String bearer = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
                 Response response = executePendingNotificationsRequest(body, bearer);
@@ -1112,7 +1117,7 @@ public class LocationService extends Service {
     }
 
     private Response executePendingNotificationsRequest(JSONObject body, String bearerToken) throws Exception {
-        String url = supabaseUrl + "/rest/v1/rpc/get_pending_notifications";
+        String url = supabaseUrl + "/rest/v1/rpc/get_pending_notifications_for_device";
         String token = !isBlank(bearerToken) ? bearerToken : supabaseKey;
         Request req = new Request.Builder()
             .url(url)

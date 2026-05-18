@@ -25,6 +25,10 @@ const locationService = readFileSync(
   "android/app/src/main/java/com/hyeni/calendar/LocationService.java",
   "utf8",
 );
+const locationPlugin = readFileSync(
+  "android/app/src/main/java/com/hyeni/calendar/LocationPlugin.java",
+  "utf8",
+);
 const ambientService = readFileSync(
   "android/app/src/main/java/com/hyeni/calendar/AmbientListenService.java",
   "utf8",
@@ -33,6 +37,10 @@ const manifest = readFileSync("android/app/src/main/AndroidManifest.xml", "utf8"
 const remoteListenActivityPath = "android/app/src/main/java/com/hyeni/calendar/RemoteListenActivity.java";
 const remoteListenActivity = existsSync(remoteListenActivityPath)
   ? readFileSync(remoteListenActivityPath, "utf8")
+  : "";
+const nativeLocationRecoveryMigrationPath = "supabase/migrations/20260519000000_native_location_refresh_recovery.sql";
+const nativeLocationRecoveryMigration = existsSync(nativeLocationRecoveryMigrationPath)
+  ? readFileSync(nativeLocationRecoveryMigrationPath, "utf8")
   : "";
 
 describe("native background command contracts", () => {
@@ -179,9 +187,26 @@ describe("native background command contracts", () => {
 
   it("keeps native command polling alive when the stored access token is stale", () => {
     expect(locationService).toContain("Pending notification auth failed");
+    expect(locationService).toContain("/rest/v1/rpc/get_pending_notifications_for_device");
     expect(locationService).toContain("retrying with apikey fallback");
     expect(locationService).toContain('"Authorization", "Bearer " + supabaseKey');
     expect(locationService).toContain("Pending notification poll fallback failed");
+  });
+
+  it("re-registers native FCM tokens after child push context becomes available", () => {
+    expect(fcmService).toContain("NativePushTokenSync.sync(this, token)");
+    expect(locationPlugin).toContain("NativePushTokenSync.sync(getContext(), token)");
+    expect(locationPlugin).toContain("syncCachedFcmToken()");
+    expect(locationService).toContain("NativePushTokenSync.sync(this, cachedFcmToken)");
+  });
+
+  it("ships the Supabase recovery contract for native location refresh fallback", () => {
+    expect(nativeLocationRecoveryMigration).toContain("CREATE OR REPLACE FUNCTION public.upsert_fcm_token");
+    expect(nativeLocationRecoveryMigration).toContain("CREATE OR REPLACE FUNCTION public.get_pending_notifications_for_device");
+    expect(nativeLocationRecoveryMigration).toContain("GRANT EXECUTE ON FUNCTION public.upsert_fcm_token");
+    expect(nativeLocationRecoveryMigration).toContain("GRANT EXECUTE ON FUNCTION public.get_pending_notifications_for_device");
+    expect(nativeLocationRecoveryMigration).toContain("GRANT EXECUTE ON FUNCTION public.get_pending_notifications");
+    expect(nativeLocationRecoveryMigration).toContain("GRANT EXECUTE ON FUNCTION public.mark_notifications_delivered");
   });
 
   it("does not require VAPID secrets before queuing native pending fallback", () => {
